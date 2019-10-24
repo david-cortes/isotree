@@ -123,7 +123,7 @@ Rcpp::LogicalVector check_null_ptr_model(SEXP ptr_model)
 double* set_R_nan_as_C_nan(double *x, size_t n, std::vector<double> &v, int nthreads)
 {
     v.assign(x, x + n);
-    #pragma omp parallel for schedule(static) num_threads(nthreads) shared(x, n)
+    #pragma omp parallel for schedule(static) num_threads(nthreads) shared(x, v, n)
     for (size_t_for i = 0; i < n; i++)
         if (isnan(v[i]))
             v[i] = NAN;
