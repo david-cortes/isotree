@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+.directory
+MANIFEST
+
+
+# dist files
+dist/
+*.zip
+*.tar.gz
+
+build/
+	*.*
+
+# compiled code
+*.so
+*.o
+*.lib
+*.obj
+*.dynlib
+*.pyd
+*.dll
+
+
+isotree.egg-info/
+	*
+
+build/
+	*

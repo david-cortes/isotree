@@ -1,0 +1,22 @@
+Package: isotree
+Type: Package
+Title: Isolation-Based Outlier Detection
+Version: 0.1
+Date: 2019-10-26
+Author: David Cortes
+Maintainer: David Cortes <david.cortes.rivera@gmail.com>
+URL: https://github.com/david-cortes/isotree
+BugReports: https://github.com/david-cortes/isotree/issues
+Description: Fast implementation of isolation forest (Liu, F.T., Ting, K.M, and Zhou, Z.H., 2008, <doi:10.1109/ICDM.2008.17>),
+	extended isolation forest (Hariri, S., Kind, M.C., Brunner, R.J., 2018, <arXiv:1811.02141>),
+	and SCiForest (Liu, F.T., Ting, K.M, and Zhou, Z.H., 2010, <doi:10.1007/978-3-642-15883-4_18>),
+	for isolation-based outlier detection, clustered outlier detection, and distance
+	approximation, based on random or guided decision tree splitting. Provides simple
+	heuristics for fitting the model to categorical columns and handling missing data, and
+	offers options for varying between random and guided splits and using different splitting
+	criteria based on Quinlan, R. (2014, ISBN:1-55860-238-0).
+License: BSD_2_clause + file LICENSE
+Imports: Rcpp (>= 1.0.1)
+Suggests: Matrix, SparseM
+LinkingTo: Rcpp, Rcereal
+RoxygenNote: 6.1.1
