@@ -10,7 +10,7 @@ Note that this is a black-box model that will not produce explanations or import
 
 # Highlights
 
-There's already many available implementations of isolation forests for both Python and R (such as the one from the original paper's authors' or the one in SciKit-Learn), but as of 2019 all of them are lacking some important functionality and/or offer sub-optimal speed. This particular implementation offers the following:
+There's already many available implementations of isolation forests for both Python and R (such as [the one from the original paper's authors'](https://sourceforge.net/projects/iforest/) or [the one in SciKit-Learn](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html)), but as of 2019 all of them are lacking some important functionality and/or offer sub-optimal speed. This particular implementation offers the following:
 
 * Implements the extended model (with splitting hyperplanes) and split-criterion model (with non-random splits).
 * Can use a mixture of random and non-random splits, and can split by weighted/pooled gain (in addition to simple average).
