@@ -6,7 +6,7 @@
 \usage{
 isolation.forest(df, sample_weights = NULL, column_weights = NULL,
   sample_size = NROW(df), ntrees = 500, ndim = min(3, NCOL(df)),
-  ntry = 3, max_depth = ceiling(log2(NROW(df))),
+  ntry = 3, max_depth = ceiling(log2(sample_size)),
   prob_pick_avg_gain = 0, prob_pick_pooled_gain = ifelse(ndim > 1,
   0.25, 0), prob_split_avg_gain = 0, prob_split_pooled_gain = 0,
   missing_action = ifelse(ndim > 1, "impute", "divide"),
@@ -221,7 +221,7 @@ iso <- isolation.forest(X, ntrees = 10, nthreads = 1)
 ### Check which row has the highest outlier score
 pred <- predict(iso, X)
 cat("Point with highest outlier score: ",
-	X[which.max(pred), ], "\\n")
+    X[which.max(pred), ], "\\n")
 
 
 
@@ -248,27 +248,27 @@ pts = seq(-3, 3, .1)
 space_d <- expand.grid(x = pts, y = pts)
 Z <- predict(iso_ext, space_d)
 image(pts, pts, matrix(Z, nrow = length(pts)),
-	  col = rev(heat.colors(50)),
-	  main = "Extended Isolation Forest",
-	  xlab = "", ylab = "")
+      col = rev(heat.colors(50)),
+      main = "Extended Isolation Forest",
+      xlab = "", ylab = "")
 par(new = TRUE)
 plot(X, type = "p", xlim = c(-3, 3), ylim = c(-3, 3),
-	 col = "#0000801A",
-	 axes = FALSE, main = "",
-	 xlab = "", ylab = "")
+     col = "#0000801A",
+     axes = FALSE, main = "",
+     xlab = "", ylab = "")
 
 ### Single-variable model
 iso_simple = isolation.forest(X, ndim=1, ntrees=100, nthreads=1)
 Z2 <- predict(iso_simple, space_d)
 image(pts, pts, matrix(Z2, nrow = length(pts)),
-	  col = rev(heat.colors(50)),
-	  main = "Single-variable Isolation Forest\\n(notice ghost regions)",
-	  xlab = "", ylab = "")
+      col = rev(heat.colors(50)),
+      main = "Single-variable Isolation Forest\\n(notice ghost regions)",
+      xlab = "", ylab = "")
 par(new = TRUE)
 plot(X, type = "p", xlim = c(-3, 3), ylim = c(-3, 3),
-	 col = "#0000801A",
-	 axes = FALSE, main = "",
-	 xlab = "", ylab = "")
+     col = "#0000801A",
+     axes = FALSE, main = "",
+     xlab = "", ylab = "")
 
 
 

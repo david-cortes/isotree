@@ -282,7 +282,7 @@
 #' @export
 isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                              sample_size = NROW(df), ntrees = 500, ndim = min(3, NCOL(df)),
-                             ntry = 3, max_depth = ceiling(log2(NROW(df))),
+                             ntry = 3, max_depth = ceiling(log2(sample_size)),
                              prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = ifelse(ndim > 1, 0.25, 0),
                              prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
                              missing_action = ifelse(ndim > 1, "impute", "divide"),
