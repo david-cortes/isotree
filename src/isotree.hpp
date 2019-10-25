@@ -146,7 +146,7 @@
 
 
 /* Types used through the package */
-typedef enum  NewCategAction {Weighted, Smallest, Random}  NewCategAction; /* Weighted is only for non-extended model */
+typedef enum  NewCategAction {Weighted, Smallest, Random}  NewCategAction; /* Weighted means Impute in the extended model */
 typedef enum  MissingAction  {Divide,   Impute,   Fail}    MissingAction;  /* Divide is only for non-extended model */
 typedef enum  ColType        {Numeric,  Categorical}       ColType;
 typedef enum  CategSplit     {SubSet,   SingleCateg}       CategSplit;
@@ -544,7 +544,7 @@ void traverse_hplane(std::vector<IsoHPlane>  &hplane,
 double extract_spC(PredictionData &prediction_data, size_t row, size_t col_num);
 double extract_spR(PredictionData &prediction_data, sparse_ix *row_st, sparse_ix *row_end, size_t col_num);
 
-/* sim.cpp */
+/* dist.cpp */
 void calc_similarity(double numeric_data[], int categ_data[],
                      double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
