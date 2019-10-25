@@ -58,7 +58,7 @@ class build_ext_subclass( build_ext ):
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.1',
+    version = '0.1.1',
     description = 'Isolation-Based Outlier Detection',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',

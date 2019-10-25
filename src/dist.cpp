@@ -517,16 +517,22 @@ void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
         {
             for (WorkerForSimilarity &w : *worker_memory)
                 if (w.tmat_sep.size())
-                    for (size_t ix = 0; ix < ncomb; ix++)
+                {
+                    #pragma omp parallel for schedule(static) num_threads(nthreads) shared(ncomb, tmat, w, worker_memory)
+                    for (size_t_for ix = 0; ix < ncomb; ix++)
                         tmat[ix] += w.tmat_sep[ix];
+                }
         }
 
         else
         {
             for (WorkerMemory &w : *worker_memory_m)
                 if (w.tmat_sep.size())
-                    for (size_t ix = 0; ix < ncomb; ix++)
+                {
+                    #pragma omp parallel for schedule(static) num_threads(nthreads) shared(ncomb, tmat, w, worker_memory_m)
+                    for (size_t_for ix = 0; ix < ncomb; ix++)
                         tmat[ix] += w.tmat_sep[ix];
+                }
         }
     }
     
