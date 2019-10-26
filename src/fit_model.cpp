@@ -374,7 +374,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
             {
                 if (w.row_depths.size())
                 {
-                	#pragma omp parallel for schedule(static) num_threads(nthreads) shared(input_data, output_depths, w, worker_memory)
+                    #pragma omp parallel for schedule(static) num_threads(nthreads) shared(input_data, output_depths, w, worker_memory)
                     for (size_t_for row = 0; row < input_data.nrows; row++)
                         output_depths[row] += w.row_depths[row];
                 }
