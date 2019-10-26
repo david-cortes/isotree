@@ -8,6 +8,8 @@ Isolation Forest is an algorithm originally developed for outlier detection that
 
 Note that this is a black-box model that will not produce explanations or importances - for a different take on explainable outlier detection see [OutlierTree](https://www.github.com/david-cortes/outliertree).
 
+![image](image/density_regions.png "density regions")
+
 # Highlights
 
 There's already many available implementations of isolation forests for both Python and R (such as [the one from the original paper's authors'](https://sourceforge.net/projects/iforest/) or [the one in SciKit-Learn](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html)), but as of 2019 all of them are lacking some important functionality and/or offer sub-optimal speed. This particular implementation offers the following:
