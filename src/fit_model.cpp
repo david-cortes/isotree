@@ -617,12 +617,12 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     /* set expected tree size and add root node */
     if (tree_root != NULL)
     {
-        tree_root->reserve(pow2(model_params.max_depth));
+        tree_root->reserve(2 * model_params.max_depth);
         tree_root->emplace_back();
     }
     else
     {
-        hplane_root->reserve(pow2(model_params.max_depth));
+        hplane_root->reserve(2 * model_params.max_depth);
         hplane_root->emplace_back();
     }
 

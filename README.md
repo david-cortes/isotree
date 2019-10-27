@@ -17,6 +17,7 @@ There's already many available implementations of isolation forests for both Pyt
 * Implements the extended model (with splitting hyperplanes) and split-criterion model (with non-random splits).
 * Can use a mixture of random and non-random splits, and can split by weighted/pooled gain (in addition to simple average).
 * Can produce approximated pairwise distances between observations according to how many steps it takes on average to separate them down the tree (paper on this to come soon).
+* To come soon: imputing missing values.
 * Can handle missing values (but performance with them is not so good).
 * Can handle categorical variables (one-hot/dummy encoding does not produce the same result).
 * Can work with sparse matrices.
