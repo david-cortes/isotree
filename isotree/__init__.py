@@ -68,7 +68,8 @@ class IsolationForest:
         one branch. When splits are not made according to any of 'prob_pick_avg_gain', 'prob_pick_pooled_gain', 'prob_split_avg_gain',
         'prob_split_pooled_gain', both the column and the split point are decided at random. Default setting for [1], [2], [3] is
         zero, and default for [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5].
-        Note that, if passing value 1 (100%) and using the single-variable model, every single tree will have the exact same splits.
+        Note that, if passing value 1 (100%) with no sub-sampling and using the single-variable model, every single tree will have
+        the exact same splits.
     prob_pick_pooled_gain : float(0, 1)
         Probability of making each split in the single-variable model by choosing a column and split point in that
         same column as both the column and split point that gives the largest pooled gain (as used in decision tree
@@ -80,8 +81,8 @@ class IsolationForest:
         criterion. Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
         groups when they are smaller. When splits are not made according to any of 'prob_pick_avg_gain',
         'prob_pick_pooled_gain', 'prob_split_avg_gain', 'prob_split_pooled_gain', both the column and the split point
-        are decided at random. Note that, if passing value 1 (100%) and using the single-variable model, every single tree will have
-        the exact same splits.
+        are decided at random. Note that, if passing value 1 (100%) with no sub-sampling and using the single-variable model,
+        every single tree will have the exact same splits.
     prob_split_avg_gain : float(0, 1)
         Probability of making each split by selecting a column at random and determining the split point as
         that which gives the highest averaged gain. Not supported for the extended model as the splits are on
@@ -230,8 +231,9 @@ class IsolationForest:
             prob_split_avg_gain    /= s
             prob_split_pooled_gain /= s
 
-        if (ndim == 1) and ((prob_pick_avg_gain >= 1) or (prob_pick_pooled_gain >= 1)):
-            msg  = "Passed parameters for deterministic single-variable splits. "
+        if (ndim == 1) and (sample_size is None) and ((prob_pick_avg_gain >= 1) or (prob_pick_pooled_gain >= 1)):
+            msg  = "Passed parameters for deterministic single-variable splits"
+            msg += " with no sub-sampling. "
             msg += "Every tree fitted will end up doing exactly the same splits. "
             msg += "It's recommended to set 'prob_pick_avg_gain' < 1, 'prob_pick_pooled_gain' < 1, "
             msg += "or to use the extended model (ndim > 1)."
