@@ -204,7 +204,7 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
         return;
     }
 
-    else
+    else if (curr_tree > 0)
     {
         if (!workspace.weights_arr.size())
             increase_comb_counter(workspace.ix_arr.data(), workspace.st, workspace.end,
@@ -385,7 +385,7 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
         return;
     }
 
-    else
+    else if (curr_tree > 0)
     {
         increase_comb_counter(workspace.ix_arr.data(), workspace.st, workspace.end,
                               prediction_data.nrows, workspace.tmat_sep.data(), -1);
@@ -576,7 +576,7 @@ void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
         
         #pragma omp parallel for schedule(static) num_threads(nthreads) shared(ncomb, tmat, ntrees_dbl, div_trees)
         for (size_t_for ix = 0; ix < ncomb; ix++)
-            tmat[ix] = exp2( - (tmat[ix] - ntrees_dbl) / div_trees); /* from each tree should get (-1) */
+            tmat[ix] = exp2( - tmat[ix] / div_trees); /* from each tree should get (-1) */
     }
     
     else

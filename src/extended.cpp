@@ -425,7 +425,7 @@ void split_hplane_recursive(std::vector<IsoHPlane> &hplanes,
     hplanes.back().score = -1;
 
     /* add another round of separation depth for distance */
-    if (model_params.calc_dist)
+    if (model_params.calc_dist && curr_depth > 0)
         add_separation_step(workspace, input_data, (double)(-1));
 
     /* simplify vectors according to what ends up used */

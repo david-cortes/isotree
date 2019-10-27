@@ -554,7 +554,7 @@ void split_itree_recursive(std::vector<IsoTree>  &trees,
     follow_branches:
     {
         /* add another round of separation depth for distance */
-        if (model_params.calc_dist)
+        if (model_params.calc_dist && curr_depth > 0)
             add_separation_step(workspace, input_data, (double)(-1));
         
         size_t tree_from = trees.size() - 1;
