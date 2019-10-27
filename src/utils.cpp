@@ -227,7 +227,7 @@ double expected_separation_depth(long double n)
     return s_l + diff * s_u;
 }
 
-#define ix_comb(i, j, n, ncomb) (  (ncomb) - (((n) - (i)) * ((n) - (i) - 1)) / 2 + (j) - (i) - 1  )
+#define ix_comb(i, j, n, ncomb) (  ((ncomb)  + ((j) - (i))) - 1 - (((n) - (i)) * ((n) - (i) - 1)) / 2  )
 void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n, double counter[], double exp_remainder)
 {
     size_t i, j;

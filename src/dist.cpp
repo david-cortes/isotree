@@ -316,9 +316,9 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
             if (end_NA > workspace.st)
             {
                 weights_arr.assign(workspace.weights_arr.begin(),
-                                   workspace.weights_arr.begin() + (end_NA - 1));
+                                   workspace.weights_arr.begin() + end_NA);
                 ix_arr.assign(workspace.ix_arr.begin(),
-                              workspace.ix_arr.begin() + (end_NA - 1));
+                              workspace.ix_arr.begin() + end_NA);
             }
 
             if (end_NA > workspace.st)
@@ -340,10 +340,10 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
                 if (weights_arr.size())
                 {
                     std::copy(weights_arr.begin(),
-                              weights_arr.begin() + (end_NA - 1),
+                              weights_arr.end(),
                               workspace.weights_arr.begin());
                     std::copy(ix_arr.begin(),
-                              ix_arr.begin() + (end_NA - 1),
+                              ix_arr.end(),
                               workspace.ix_arr.begin());
                     weights_arr.clear();
                     weights_arr.shrink_to_fit();

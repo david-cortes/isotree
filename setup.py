@@ -32,9 +32,8 @@ class build_ext_subclass( build_ext ):
                 # e.extra_compile_args = ['-O2', '-march=native', '-std=c++11']
 
                 ### for testing (run with `LD_PRELOAD=libasan.so python script.py`)
-                # extra_compile_args=["-std=c++11", "-fsanitize=address", "-static-libasan", "-ggdb"],
-                # extra_link_args = ["-fsanitize=address", "-static-libasan"]
-                # e.define_macros += [("TEST_MODE_DEFINE", None)]
+                # e.extra_compile_args = ["-std=c++11", "-fsanitize=address", "-static-libasan", "-ggdb"]
+                # e.extra_link_args = ["-fsanitize=address", "-static-libasan"]
 
         ## Note: apple will by default alias 'gcc' to 'clang', and will ship its own "special"
         ## 'clang' which has no OMP support and nowadays will purposefully fail to compile when passed
