@@ -64,8 +64,10 @@
 #' split point in the chosen linear combination of variables will be decided by this averaged gain criterion. Compared to
 #' a pooled average, this tends to result in more cases in which a single observation or very few of them are put into
 #' one branch. When splits are not made according to any of `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_split_avg_gain`,
-#' `prob_split_pooled_gain`, both the column and the split point are decided at random. Default setting for references [1], [2], [3] is
-#' zero, and default for reference  [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5].
+#' `prob_split_pooled_gain`, both the column and the split point are decided at random. Default setting for 
+#' references [1], [2], [3] is zero, and default for reference [4] is 1. This is the randomization parameter
+#' that can be passed to the author's original code in [5]. Note that, if passing value = 1 and using the
+#' single-variable model, every single tree will have the exact same splits.
 #' @param prob_pick_pooled_gain Probability of making each split in the single-variable model by choosing a column and split point in that
 #' same column as both the column and split point that gives the largest pooled gain (as used in decision tree
 #' classifiers such as C4.5 in reference [7]) across all available columns and possible splits in each column. Note
@@ -76,7 +78,8 @@
 #' criterion. Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
 #' groups when they are smaller. When splits are not made according to any of `prob_pick_avg_gain`,
 #' `prob_pick_pooled_gain`, `prob_split_avg_gain`, `prob_split_pooled_gain`, both the column and the split point
-#' are decided at random.
+#' are decided at random. Note that, if passing value = 1 and using the single-variable model, every single tree will
+#' have the exact same splits.
 #' @param prob_split_avg_gain Probability of making each split by selecting a column at random and determining the split point as
 #' that which gives the highest averaged gain. Not supported for the extended model as the splits are on
 #' linear combinations of variables. See the documentation for parameter `prob_pick_avg_gain` for more details.
@@ -333,6 +336,13 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
         prob_pick_pooled_gain   <- as.numeric(prob_pick_pooled_gain)  /  s
         prob_split_avg_gain     <- as.numeric(prob_split_avg_gain)    /  s
         prob_split_pooled_gain  <- as.numeric(prob_split_pooled_gain) /  s
+    }
+
+    if ((ndim == 1) && (prob_pick_avg_gain >= 1 || prob_pick_pooled_gain >= 1)) {
+        warning(paste0("Passed parameters for deterministic single-variable splits. ",
+                       "Every tree fitted will end up doing exactly the same splits. ",
+                       "It's recommended to set 'prob_pick_avg_gain' < 1, 'prob_pick_pooled_gain' < 1, ",
+                       "or to use the extended model (ndim > 1)."))
     }
     
     if (ndim == 1) {
