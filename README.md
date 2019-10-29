@@ -1,6 +1,6 @@
 # IsoTree
 
-Implementation of Isolation Forest (a.k.a. iForest), Extended Isolation Forest, and SCiForest (a.k.a. Split-Criterion iForest) for outlier/anomaly detection. Written in C++ with interfaces for Python and R.
+Fast and multi-threaded implementation of Isolation Forest (a.k.a. iForest), Extended Isolation Forest, and SCiForest (a.k.a. Split-Criterion iForest) for outlier/anomaly detection, with additions for distance/similarity calculation between observations and handling of categorical and missing data. Written in C++ with interfaces for Python and R.
 
 # Description
 
@@ -10,14 +10,17 @@ Note that this is a black-box model that will not produce explanations or import
 
 ![image](image/density_regions.png "density regions")
 
+# Distance / similarity calculations
+
+General idea was extended to produce distance (alternatively, similarity) between observations according to how many random splits it takes to separate them - idea is described in [Distance approximation using Isolation Forests](https://arxiv.org/abs/1910.12362).
+
 # Highlights
 
 There's already many available implementations of isolation forests for both Python and R (such as [the one from the original paper's authors'](https://sourceforge.net/projects/iforest/) or [the one in SciKit-Learn](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html)), but as of 2019 all of them are lacking some important functionality and/or offer sub-optimal speed. This particular implementation offers the following:
 
 * Implements the extended model (with splitting hyperplanes) and split-criterion model (with non-random splits).
 * Can use a mixture of random and non-random splits, and can split by weighted/pooled gain (in addition to simple average).
-* Can produce approximated pairwise distances between observations according to how many steps it takes on average to separate them down the tree (paper on this to come soon).
-* To come soon: imputing missing values.
+* Can produce approximated pairwise distances between observations according to how many steps it takes on average to separate them down the tree.
 * Can handle missing values (but performance with them is not so good).
 * Can handle categorical variables (one-hot/dummy encoding does not produce the same result).
 * Can work with sparse matrices.
@@ -117,3 +120,4 @@ cat("Point with highest outlier score: ",
 * https://sourceforge.net/projects/iforest/
 * https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 * Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
+* Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
