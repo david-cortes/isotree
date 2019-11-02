@@ -495,7 +495,7 @@ class IsolationForest:
 
         Returns
         -------
-        output : array(n_samples,), or dict("dist"array(n_samples * (n_samples - 1) / 2,) or array(n_samples, n_samples)
+        output : array(n_samples,), or dict
             Requested outputs about isolation depth (outlierness), pairwise separation depth (distance), and/or
             imputed missing values. If passing either 'output_distance' or 'output_imputed', will return a dictionary
             with keys "pred" (array(n_samples,)), "dist" (array(n_samples * (n_samples - 1) / 2,) or array(n_samples, n_samples)),
