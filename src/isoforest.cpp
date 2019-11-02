@@ -20,6 +20,7 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
+*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019, David Cortes
@@ -43,13 +44,25 @@
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-void split_itree_recursive(std::vector<IsoTree>  &trees,
-                           WorkerMemory          &workspace,
-                           InputData             &input_data,
-                           ModelParams           &model_params,
-                           size_t                curr_depth)
+void split_itree_recursive(std::vector<IsoTree>     &trees,
+                           WorkerMemory             &workspace,
+                           InputData                &input_data,
+                           ModelParams              &model_params,
+                           std::vector<ImputeNode> *impute_nodes,
+                           size_t                   curr_depth)
 {
     long double sum_weight = -HUGE_VAL;
+
+    /* calculate imputation statistics if desired */
+    if (impute_nodes != NULL)
+    {
+        if (input_data.Xc != NULL)
+            std::sort(workspace.ix_arr.begin() + workspace.st,
+                      workspace.ix_arr.begin() + workspace.end + 1);
+        build_impute_node(impute_nodes->back(), workspace,
+                          input_data, model_params,
+                          *impute_nodes, curr_depth);
+    }
 
     /* check for potential isolated leafs */
     if (workspace.end == workspace.st || curr_depth >= model_params.max_depth)
@@ -67,7 +80,7 @@ void split_itree_recursive(std::vector<IsoTree>  &trees,
         goto terminal_statistics;
 
     /* for sparse matrices, need to sort the indices */
-    if (input_data.Xc != NULL)
+    if (input_data.Xc != NULL && impute_nodes == NULL)
         std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
 
     /* pick column to split according to criteria */
@@ -635,10 +648,12 @@ void split_itree_recursive(std::vector<IsoTree>  &trees,
         /* left branch */
         trees.back().tree_left = trees.size();
         trees.emplace_back();
+        if (impute_nodes != NULL) impute_nodes->emplace_back(tree_from);
         split_itree_recursive(trees,
                               workspace,
                               input_data,
                               model_params,
+                              impute_nodes,
                               curr_depth + 1);
 
 
@@ -683,10 +698,12 @@ void split_itree_recursive(std::vector<IsoTree>  &trees,
 
         trees[tree_from].tree_right = trees.size();
         trees.emplace_back();
+        if (impute_nodes != NULL) impute_nodes->emplace_back(tree_from);
         split_itree_recursive(trees,
                               workspace,
                               input_data,
                               model_params,
+                              impute_nodes,
                               curr_depth + 1);
     }
     return;
@@ -723,6 +740,10 @@ void split_itree_recursive(std::vector<IsoTree>  &trees,
         if (workspace.row_depths.size())
             for (size_t row = workspace.st; row <= workspace.end; row++)
                 workspace.row_depths[workspace.ix_arr[row]] += trees.back().score;
+
+        /* add imputations from node if requested */
+        if (model_params.impute_at_fit)
+            add_from_impute_node(impute_nodes->back(), workspace, input_data);
     }
 
 }

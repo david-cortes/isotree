@@ -21,6 +21,7 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
+*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019, David Cortes
@@ -162,6 +163,7 @@ void predict_iforest(double numeric_data[], int categ_data[],
                     output_depths[row] += traverse_itree(tree,
                                                          *model_outputs,
                                                          prediction_data,
+                                                         NULL, NULL, 0,
                                                          (size_t) row,
                                                          (tree_num == NULL)? NULL : tree_num + nrows * (&tree - &(model_outputs->trees[0])),
                                                          (size_t) 0);
@@ -206,6 +208,7 @@ void predict_iforest(double numeric_data[], int categ_data[],
                                     *model_outputs_ext,
                                     prediction_data,
                                     output_depths[row],
+                                    NULL, NULL,
                                     (tree_num == NULL)? NULL : tree_num + nrows * (&hplane - &(model_outputs_ext->hplanes[0])),
                                     (size_t) row);
                 }
@@ -362,12 +365,15 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
 }
 
 
-double traverse_itree(std::vector<IsoTree>  &tree,
-                      IsoForest             &model_outputs,
-                      PredictionData        &prediction_data,
-                      size_t                row,
-                      sparse_ix *restrict   tree_num,
-                      size_t                curr_lev)
+double traverse_itree(std::vector<IsoTree>     &tree,
+                      IsoForest                &model_outputs,
+                      PredictionData           &prediction_data,
+                      std::vector<ImputeNode> *impute_nodes,     /* only when imputing missing */
+                      ImputedData             *imputed_data,     /* only when imputing missing */
+                      double                   curr_weight,      /* only when imputing missing */
+                      size_t                   row,
+                      sparse_ix *restrict      tree_num,
+                      size_t                   curr_lev)
 {
     double xval;
     double range_penalty = 0;
@@ -385,6 +391,9 @@ double traverse_itree(std::vector<IsoTree>  &tree,
         {
             if (tree_num != NULL)
                 tree_num[row] = curr_lev;
+            if (imputed_data != NULL)
+                add_from_impute_node((*impute_nodes)[curr_lev], *imputed_data);
+
             return tree[curr_lev].score + range_penalty;
         }
 
@@ -411,9 +420,11 @@ double traverse_itree(std::vector<IsoTree>  &tree,
                                 return
                                     tree[curr_lev].pct_tree_left
                                         * traverse_itree(tree, model_outputs, prediction_data,
+                                                         impute_nodes, imputed_data, curr_weight * tree[curr_lev].pct_tree_left,
                                                          row, NULL, tree[curr_lev].tree_left)
                                     + (1 - tree[curr_lev].pct_tree_left)
                                         * traverse_itree(tree, model_outputs, prediction_data,
+                                                         impute_nodes, imputed_data, curr_weight * (1 - tree[curr_lev].pct_tree_left),
                                                          row, NULL, tree[curr_lev].tree_right)
                                     + range_penalty;
                             }
@@ -453,9 +464,11 @@ double traverse_itree(std::vector<IsoTree>  &tree,
                                 return
                                     tree[curr_lev].pct_tree_left
                                         * traverse_itree(tree, model_outputs, prediction_data,
+                                                         impute_nodes, imputed_data, curr_weight * tree[curr_lev].pct_tree_left,
                                                          row, NULL, tree[curr_lev].tree_left)
                                     + (1 - tree[curr_lev].pct_tree_left)
                                         * traverse_itree(tree, model_outputs, prediction_data,
+                                                         impute_nodes, imputed_data, curr_weight * (1 - tree[curr_lev].pct_tree_left),
                                                          row, NULL, tree[curr_lev].tree_right)
                                     + range_penalty;
                             }
@@ -518,9 +531,11 @@ double traverse_itree(std::vector<IsoTree>  &tree,
                                                 return
                                                     tree[curr_lev].pct_tree_left
                                                         * traverse_itree(tree, model_outputs, prediction_data,
+                                                                         impute_nodes, imputed_data, curr_weight * tree[curr_lev].pct_tree_left,
                                                                          row, NULL, tree[curr_lev].tree_left)
                                                     + (1 - tree[curr_lev].pct_tree_left)
                                                         * traverse_itree(tree, model_outputs, prediction_data,
+                                                                         impute_nodes, imputed_data, curr_weight * (1 - tree[curr_lev].pct_tree_left),
                                                                          row, NULL, tree[curr_lev].tree_right)
                                                     + range_penalty;
                                             }
@@ -578,9 +593,11 @@ double traverse_itree(std::vector<IsoTree>  &tree,
                                                 return
                                                     tree[curr_lev].pct_tree_left
                                                         * traverse_itree(tree, model_outputs, prediction_data,
+                                                                         impute_nodes, imputed_data, curr_weight * tree[curr_lev].pct_tree_left,
                                                                          row, NULL, tree[curr_lev].tree_left)
                                                     + (1 - tree[curr_lev].pct_tree_left)
                                                         * traverse_itree(tree, model_outputs, prediction_data,
+                                                                         impute_nodes, imputed_data, curr_weight * (1 - tree[curr_lev].pct_tree_left),
                                                                          row, NULL, tree[curr_lev].tree_right)
                                                     + range_penalty;
                                             }
@@ -640,18 +657,20 @@ void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
 
         output_depth += (hval < hplane[curr_lev].range_low) ||
                         (hval > hplane[curr_lev].range_high);
-        curr_lev       = (hval <= hplane[curr_lev].split_point)?
+        curr_lev      = (hval <= hplane[curr_lev].split_point)?
                          hplane[curr_lev].hplane_left : hplane[curr_lev].hplane_right;
     }
 }
 
 /* this is the full version that works with potentially missing values, sparse matrices, and categoricals */
-void traverse_hplane(std::vector<IsoHPlane>  &hplane,
-                     ExtIsoForest            &model_outputs,
-                     PredictionData          &prediction_data,
-                     double                  &output_depth,
-                     sparse_ix *restrict     tree_num,
-                     size_t                  row)
+void traverse_hplane(std::vector<IsoHPlane>   &hplane,
+                     ExtIsoForest             &model_outputs,
+                     PredictionData           &prediction_data,
+                     double                   &output_depth,
+                     std::vector<ImputeNode> *impute_nodes,     /* only when imputing missing */
+                     ImputedData             *imputed_data,     /* only when imputing missing */
+                     sparse_ix *restrict      tree_num,
+                     size_t                   row)
 {
     size_t  curr_lev = 0;
     double  xval;
@@ -674,6 +693,10 @@ void traverse_hplane(std::vector<IsoHPlane>  &hplane,
             output_depth += hplane[curr_lev].score;
             if (tree_num != NULL)
                 tree_num[row] = curr_lev;
+            if (imputed_data != NULL)
+            {
+                add_from_impute_node((*impute_nodes)[curr_lev], *imputed_data);
+            }
             return;
         }
 

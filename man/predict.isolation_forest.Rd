@@ -10,9 +10,8 @@
 \arguments{
 \item{object}{An Isolation Forest object as returned by `isolation.forest`.}
 
-\item{newdata}{A data.frame, matrix, or sparse matrix (from package `Matrix` or `SparseM`, CSC format,
-or optionally CSR format if predicting outlierness).
-for which to predict outlierness or distance.}
+\item{newdata}{A data.frame, matrix, or sparse matrix (from package `Matrix` or `SparseM`, CSC format for distance and outlierness,
+or CSR format for outlierness and imputations) for which to predict outlierness, distance, or imputations of missing values.}
 
 \item{type}{Type of prediction to output. Options are `"score"` for the standardized outlier score (where
 values closer to 1 indicate more outlierness, while values closer to 0.5 indicate average outlierness,
@@ -22,23 +21,13 @@ standardized in the same way as outlierness, values closer to zero indicate near
 closer to one further away points, and closer to 0.5 average distance), `"avg_sep"` for the non-standardize
 average separation depth between points, `"tree_num` for the terminal node number for each tree (in this last
 case, will return a list containing both the outlier score and the terminal node numbers, under entries
-`score` and `tree_num`, respectively).}
+`score` and `tree_num`, respectively), `"impute"` for imputation of missing values in `newdata`.}
 
 \item{square_mat}{When passing `type` = `"dist` or `"avg_sep"`, whether to return a full square matrix or
 just the upper-triangular part, in which the entry for pair 1 <= i < j <= n is located at position
 p(i, j) = ((i - 1) * (n - i/2) + j - i).}
 
 \item{...}{Not used.}
-}
-\value{
-If passing `return_outliers` = `TRUE`, will return a list of lists with the outliers and their
-information (each row is an entry in the first list, with the same names as the rows in the input data
-frame), which can be printed into a human-readable format after-the-fact through functions
-`print` and `summary` (they do the same thing).
-Otherwise, will not return anything, but will print the outliers if any are detected.
-Note that, while the object that is returned will display a short summary of only some observations
-when printing it in the console, it actually contains information for all rows, and can be subsetted
-to obtain information specific to one row.
 }
 \description{
 Predict method for Isolation Forest
@@ -59,5 +48,5 @@ terminal node numbers will generate index mappings on the fly for all tree nodes
 1 row, so it's only recommended for batch predictions.
 }
 \seealso{
-\link{isolation.forest}
+\link{isolation.forest} \link{unpack.isolation.forest}
 }

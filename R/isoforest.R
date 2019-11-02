@@ -76,7 +76,8 @@
 #' variables, will use shannon entropy instead (like in reference [7]). For the extended model, this parameter indicates the probability
 #' that the split point in the chosen linear combination of variables will be decided by this pooled gain
 #' criterion. Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
-#' groups when they are smaller. When splits are not made according to any of `prob_pick_avg_gain`,
+#' groups when they are smaller Recommended to pass higher values when used for imputation of missing values. When splits
+#' are not made according to any of `prob_pick_avg_gain`,
 #' `prob_pick_pooled_gain`, `prob_split_avg_gain`, `prob_split_pooled_gain`, both the column and the split point
 #' are decided at random. Note that, if passing value = 1 with no sub-sampling and using the single-variable model,
 #' every single tree will have the exact same splits.
@@ -135,7 +136,7 @@
 #' @param coefs For the extended model, whether to sample random coefficients according to a normal distribution `~ N(0, 1)`
 #' (as proposed in reference [3]) or according to a uniform distribution `~ Unif(-1, +1)` as proposed in reference [4].
 #' Ignored for the single-variable model.
-#' @param assume_full_distr When calculating pairwise distances, whether to assume that the fitted model represents
+#' @param assume_full_distr When calculating pairwise distances (see reference [8]), whether to assume that the fitted model represents
 #' a full population distribution (will use a standardizing criterion assuming infinite sample as in reference [6],
 #' and the results of the similarity between two points at prediction time will not depend on the
 #' prescence of any third point that is similar to them, but will differ more compared to the pairwise
@@ -144,6 +145,23 @@
 #' will make the distances between two points potentially vary according to other newly introduced points.
 #' This will not be assumed when the distances are calculated as the model is being fit (see documentation
 #' for parameter `output_dist`).
+#' @param build_imputer Whether to construct missing-value imputers so that later this same model could be used to impute
+#' missing values of new (or the same) observations. Be aware that this will significantly increase the memory
+#' requirements and serialized object sizes. Note that this is not related to 'missing_action' as missing values
+#' inside the model are treated differently and follow their own imputation or division strategy.
+#' @param output_imputations Whether to output imputed missing values for `df`. Passing `TRUE` here will force
+#' `build_imputer` to `TRUE`. Note that, for sparse matrix inputs, even though the output will be sparse, it will
+#' generate a dense representation of each row with missing values.
+#' @param depth_imp How to weight observations according to their depth when used for imputing missing values. Passing
+#' `"higher"` will weigh observations higher the further down the tree (away from the root node) the
+#' terminal node is, while `"lower"` will do the opposite, and `"same"` will not modify the weights according
+#' to node depth in the tree. Implemented for testing purposes and not recommended to change
+#' from the default. Ignored when passing `build_imputer` = `FALSE`.
+#' @param weigh_imp_rows How to weight node sizes when used for imputing missing values. Passing `"inverse"` will weigh
+#' a node inversely proportional to the number of observations that end up there, while `"proportional"`
+#' will weight them heavier the more observations there are, and `"flat"` will weigh all nodes the same
+#' in this regard regardless of how many observations end up there. Implemented for testing purposes
+#' and not recommended to change from the default. Ignored when passing `build_imputer` = `FALSE`.
 #' @param output_score Whether to output outlierness scores for the input data, which will be calculated as
 #' the model is being fit and it's thus faster. Cannot be done when using sub-samples of the data for each tree
 #' (in such case will later need to call the `predict` function on the same data).
@@ -157,10 +175,10 @@
 #' @param nthreads Number of parallel threads to use. If passing a negative number, will use
 #' the maximum number of available threads in the system. Note that, the more threads,
 #' the more memory will be allocated, even if the thread does not end up being used.
-#' @return If passing `output_score` = `FALSE` and `output_dist` = `FALSE` (the defaults), will output
-#' an `isolation_forest` object from which `predict` method can then be called on new data. If passing
-#' `TRUE` to either of the former options, will output a list with entries `model`, `scores`, `dist`.
-#' @seealso \link{predict.isolation_forest},  \link{add_isolation_tree}
+#' @return If passing `output_score` = `FALSE`, `output_dist` = `FALSE`, and `output_imputations` = `FALSE` (the defaults),
+#' will output an `isolation_forest` object from which `predict` method can then be called on new data. If passing
+#' `TRUE` to any of the former options, will output a list with entries `model`, `scores`, `dist`, `imputed`.
+#' @seealso \link{predict.isolation_forest},  \link{add_isolation_tree} \link{unpack.isolation.forest}
 #' @references \itemize{
 #' \item Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "Isolation forest." 2008 Eighth IEEE International Conference on Data Mining. IEEE, 2008.
 #' \item Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "Isolation-based anomaly detection." ACM Transactions on Knowledge Discovery from Data (TKDD) 6.1 (2012): 3.
@@ -168,7 +186,8 @@
 #' \item Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "On detecting clustered anomalies using SCiForest." Joint European Conference on Machine Learning and Knowledge Discovery in Databases. Springer, Berlin, Heidelberg, 2010.
 #' \item https://sourceforge.net/projects/iforest/
 #' \item https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
-#' \item Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
+#' \item Quinlan, J. Ross. "C4. 5: programs for machine learning." Elsevier, 2014.
+#' \item Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 #' }
 #' @examples
 #' ### Example 1: detect an obvious outlier
@@ -193,15 +212,16 @@
 #' 
 #' 
 #' ### Example 2: plotting outlier regions
-#' ### This example shows predicted outlier score in a small grid,
-#' ### with a model fit to a bi-modal distribution. As can be seen,
-#' ### the extended model is able to detect high outlierness outside
-#' ### of both regions, without having false ghost regions of
-#' ### low-outlierness in regions where there isn't any data
+#' ### This example shows predicted outlier score in a small
+#' ### grid, with a model fit to a bi-modal distribution. As can
+#' ### be seen, the extended model is able to detect high
+#' ### outlierness outside of both regions, without having false
+#' ### ghost regions of low-outlierness in regions where there
+#' ### isn't any data
 #' library(isotree)
 #' par(mfrow = c(1, 2))
 #' 
-#' ### Randomly-generated data coming from different distributions
+#' ### Randomly-generated data from different distributions
 #' set.seed(1)
 #' group1 <- data.frame(x = rnorm(1000, -1, .4),
 #'     y = rnorm(1000, -1, .2))
@@ -229,7 +249,8 @@
 #' Z2 <- predict(iso_simple, space_d)
 #' image(pts, pts, matrix(Z2, nrow = length(pts)),
 #'       col = rev(heat.colors(50)),
-#'       main = "Single-variable Isolation Forest\n(notice ghost regions)",
+#'       main = paste0("Single-variable Isolation Forest",
+#'              "\n(notice ghost regions)"),
 #'       xlab = "", ylab = "")
 #' par(new = TRUE)
 #' plot(X, type = "p", xlim = c(-3, 3), ylim = c(-3, 3),
@@ -260,10 +281,47 @@
 #' ### Check that it correlates with euclidean distance
 #' D_euc <- dist(X, method = "euclidean")
 #' 
-#' cat(sprintf("Correlation between euclidean and estimated distance: %f\n",
+#' cat(sprintf("Correlation with euclidean distance: %f\n",
 #'     cor(D_euc, D_iso)))
-#' ### (Note that euclidean distance will never take any correlations between
-#' ###  variables into account, which the isolation forest model can do)
+#' ### (Note that euclidean distance will never take
+#' ###  any correlations between variables into account,
+#' ###  which the isolation forest model can do)
+#' 
+#' 
+#' \dontrun{
+#' ### Example 4: imputing missing values
+#' ### (requires package MASS)
+#' library(isotree)
+#' 
+#' ### Generate random data, set some values as NA
+#' set.seed(1)
+#' S <- matrix(rnorm(5 * 5), nrow = 5)
+#' S <- t(S) %*% S
+#' mu <- rnorm(5)
+#' X <- MASS::mvrnorm(1000, mu, S)
+#' X_na <- X
+#' values_NA <- matrix(runif(1000 * 5) < .15, nrow = 1000)
+#' X_na[values_NA] = NA
+#' 
+#' ### Impute missing values with model
+#' iso <- isolation.forest(X_na,
+#'     build_imputer = TRUE,
+#'     prob_pick_pooled_gain = 1,
+#'     ntry = 10)
+#' X_imputed <- predict(iso, X_na, type = "impute")
+#' cat(sprintf("MSE for imputed values w/model: %f\n",
+#'     mean((X[values_NA] - X_imputed[values_NA])^2)))
+#'     
+#' ### Compare against simple mean imputation
+#' X_means <- apply(X, 2, mean)
+#' X_imp_mean <- X_na
+#' for (cl in 1:5)
+#'     X_imp_mean[values_NA[,cl], cl] <- X_means[cl]
+#' cat(sprintf("MSE for imputed values w/means: %f\n",
+#'     mean((X[values_NA] - X_imp_mean[values_NA])^2)))
+#' }
+#' 
+#' 
 #' 
 #' \dontrun{
 #' #### A more interesting example
@@ -271,15 +329,19 @@
 #' 
 #' ### Compare outliers returned by these different methods,
 #' ### and see why some of the outliers returned by the
-#' ### isolation forest model are outliers
+#' ### isolation forest could be flagged as outliers
 #' library(outliertree)
 #' data("hypothyroid")
 #' 
-#' m_iso <- isolation.forest(hypothyroid)
-#' pred_iso <- predict(m_iso, hypothyroid)
-#' m_ot <- outlier.tree(hypothyroid, z_outlier=6, pct_outliers=0.02, outliers_print=20)
+#' iso <- isolation.forest(hypothyroid)
+#' pred_iso <- predict(iso, hypothyroid)
+#' otree <- outlier.tree(hypothyroid,
+#'     z_outlier = 6,
+#'     pct_outliers = 0.02,
+#'     outliers_print = 20)
 #' 
-#' ### Now compare against the top outliers from isolation forest
+#' ### Now compare against the top
+#' ### outliers from isolation forest
 #' head(hypothyroid[order(-pred_iso), ], 20)
 #' }
 #' @export
@@ -294,6 +356,8 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                              weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
                              penalize_range = TRUE, weigh_by_kurtosis = FALSE,
                              coefs = "normal", assume_full_distr = TRUE,
+                             build_imputer = FALSE, output_imputations = FALSE,
+                             depth_imp = "higher", weigh_imp_rows = "inverse",
                              output_score = FALSE, output_dist = FALSE, square_dist = FALSE,
                              random_seed = 1, nthreads = parallel::detectCores()) {
     ### validate inputs
@@ -304,15 +368,19 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
     check.pos.int(max_depth,    "max_depth")
     check.pos.int(random_seed,  "random_seed")
     
-    allowed_missing_action    <- c("divide",       "impute",   "fail")
-    allowed_new_categ_action  <- c("weighted",     "smallest", "random", "impute")
-    allowed_categ_split_type  <- c("single_categ", "subset")
-    allowed_coefs             <- c("normal",       "uniform")
+    allowed_missing_action    <-  c("divide",       "impute",   "fail")
+    allowed_new_categ_action  <-  c("weighted",     "smallest", "random", "impute")
+    allowed_categ_split_type  <-  c("single_categ", "subset")
+    allowed_coefs             <-  c("normal",       "uniform")
+    allowed_depth_imp         <-  c("lower",        "higher",   "same")
+    allowed_weigh_imp_rows    <-  c("inverse",      "prop",     "flat")
     
     check.str.option(missing_action,    "missing_action",    allowed_missing_action)
     check.str.option(new_categ_action,  "new_categ_action",  allowed_new_categ_action)
     check.str.option(categ_split_type,  "categ_split_type",  allowed_categ_split_type)
     check.str.option(coefs,             "coefs",             allowed_coefs)
+    check.str.option(depth_imp,         "depth_imp",         allowed_depth_imp)
+    check.str.option(weigh_imp_rows,    "weigh_imp_rows",    allowed_weigh_imp_rows)
     
     check.is.prob(prob_pick_avg_gain,      "prob_pick_avg_gain")
     check.is.prob(prob_pick_pooled_gain,   "prob_pick_pooled_gain")
@@ -328,6 +396,8 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
     check.is.bool(output_score,             "output_score")
     check.is.bool(output_dist,              "output_dist")
     check.is.bool(square_dist,              "square_dist")
+    check.is.bool(build_imputer,            "build_imputer")
+    check.is.bool(output_imputations,       "output_imputations")
     
     s <- prob_pick_avg_gain + prob_pick_pooled_gain + prob_split_avg_gain + prob_split_pooled_gain
     if (s > 1) {
@@ -382,6 +452,16 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
     if (output_dist & !is.null(sample_weights))
         stop("Sample weights not supported when calculating distances while the model is being fit.")
     
+    if (output_imputations) build_imputer <- TRUE
+    
+    if (build_imputer && missing_action == "fail")
+        stop("Cannot impute missing values when passing 'missing_action' = 'fail'.")
+    
+    if (output_imputations && NROW(intersect(class(df), c("dgCMatrix", "matrix.csc"))))
+        warning(paste0("Imputing missing values from CSC matrix on-the-fly can be very slow, ",
+                       "it's recommended if possible to fit the model first and then pass the ",
+                       "same matrix as CSR to 'predict'."))
+    
     ### cast all parameters
     if (!is.null(sample_weights)) {
         sample_weights <- as.numeric(sample_weights)
@@ -429,7 +509,10 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                              prob_pick_avg_gain, prob_split_avg_gain,
                              prob_pick_pooled_gain,  prob_split_pooled_gain,
                              categ_split_type, new_categ_action,
-                             missing_action, all_perm, random_seed, nthreads)
+                             missing_action, all_perm,
+                             build_imputer, output_imputations,
+                             depth_imp, weigh_imp_rows,
+                             random_seed, nthreads)
     
     ### pack the outputs
     this <- list(
@@ -447,7 +530,9 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
             sample_with_replacement = sample_with_replacement,
             penalize_range = penalize_range,
             weigh_by_kurtosis = weigh_by_kurtosis,
-            coefs = coefs, assume_full_distr = assume_full_distr
+            coefs = coefs, assume_full_distr = assume_full_distr,
+            build_imputer = build_imputer,
+            depth_imp = depth_imp, weigh_imp_rows = weigh_imp_rows
         ),
         metadata  = list(
             nrows      =  pdata$nrows,
@@ -459,16 +544,22 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
             ),
         random_seed  =  random_seed,
         nthreads     =  nthreads,
-        cpp_obj      =  list(ptr = cpp_outputs$model_ptr, serialized = cpp_outputs$serialized_obj)
+        cpp_obj      =  list(
+            ptr         =  cpp_outputs$model_ptr,
+            serialized  =  cpp_outputs$serialized_obj,
+            imp_ptr     =  cpp_outputs$imputer_ptr,
+            imp_ser     =  cpp_outputs$imputer_ser
+        )
     )
     
     class(this) <- "isolation_forest"
-    if (!output_score && !output_dist) {
+    if (!output_score && !output_dist && !output_imputations) {
         return(this)
     } else {
-        outp <- list(model   =  this,
-                     scores  =  NULL,
-                     dist    =  NULL)
+        outp <- list(model    =  this,
+                     scores   =  NULL,
+                     dist     =  NULL,
+                     imputed  =  NULL)
         if (output_score) outp$scores <- cpp_outputs$depths
         if (output_dist) {
             if (square_dist) {
@@ -477,15 +568,19 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                 outp$dist  <-  cpp_outputs$tmat
             }
         }
+        if (output_imputations) {
+            outp$imputed   <-  reconstruct.from.imp(cpp_outputs$imputed_num,
+                                                    cpp_outputs$imputed_cat,
+                                                    df, this)
+        }
         return(outp)
     }
 }
 
 #' @title Predict method for Isolation Forest
 #' @param object An Isolation Forest object as returned by `isolation.forest`.
-#' @param newdata A data.frame, matrix, or sparse matrix (from package `Matrix` or `SparseM`, CSC format,
-#' or optionally CSR format if predicting outlierness).
-#' for which to predict outlierness or distance.
+#' @param newdata A data.frame, matrix, or sparse matrix (from package `Matrix` or `SparseM`, CSC format for distance and outlierness,
+#' or CSR format for outlierness and imputations) for which to predict outlierness, distance, or imputations of missing values.
 #' @param type Type of prediction to output. Options are `"score"` for the standardized outlier score (where
 #' values closer to 1 indicate more outlierness, while values closer to 0.5 indicate average outlierness,
 #' and close to 0 more averageness (harder to isolate)), `"avg_depth"` for  the non-standardize average
@@ -494,19 +589,11 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
 #' closer to one further away points, and closer to 0.5 average distance), `"avg_sep"` for the non-standardize
 #' average separation depth between points, `"tree_num` for the terminal node number for each tree (in this last
 #' case, will return a list containing both the outlier score and the terminal node numbers, under entries
-#' `score` and `tree_num`, respectively).
+#' `score` and `tree_num`, respectively), `"impute"` for imputation of missing values in `newdata`.
 #' @param square_mat When passing `type` = `"dist` or `"avg_sep"`, whether to return a full square matrix or
 #' just the upper-triangular part, in which the entry for pair 1 <= i < j <= n is located at position
 #' p(i, j) = ((i - 1) * (n - i/2) + j - i).
 #' @param ... Not used.
-#' @return If passing `return_outliers` = `TRUE`, will return a list of lists with the outliers and their
-#' information (each row is an entry in the first list, with the same names as the rows in the input data
-#' frame), which can be printed into a human-readable format after-the-fact through functions
-#' `print` and `summary` (they do the same thing).
-#' Otherwise, will not return anything, but will print the outliers if any are detected.
-#' Note that, while the object that is returned will display a short summary of only some observations
-#' when printing it in the console, it actually contains information for all rows, and can be subsetted
-#' to obtain information specific to one row.
 #' @details The more threads that are set for the model, the higher the memory requirement will be as each
 #' thread will allocate an array with one entry per row (ourlierness) or combination (distance).
 #' 
@@ -520,19 +607,27 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
 #' In order to save memory when fitting and serializing models, the functionality for outputing
 #' terminal node numbers will generate index mappings on the fly for all tree nodes, even if passing only
 #' 1 row, so it's only recommended for batch predictions.
-#' @seealso \link{isolation.forest}
+#' @seealso \link{isolation.forest} \link{unpack.isolation.forest}
 #' @export
 predict.isolation_forest <- function(object, newdata, type = "score", square_mat = FALSE, ...) {
     if (check_null_ptr_model(object$cpp_obj$ptr)) {
+        obj_new <- object$cpp_obj
         if (object$params$ndim == 1)
             ptr_new <- deserialize_IsoForest(object$cpp_obj$serialized)
         else
             ptr_new <- deserialize_ExtIsoForest(object$cpp_obj$serialized)
-        eval.parent(substitute(object$cpp_obj$ptr <- ptr_new))
-        object$cpp_obj$ptr <- ptr_new
+        obj_new$ptr <- ptr_new
+        
+        if (object$params$build_imputer) {
+            imp_new <- deserialize_Imputer(object$cpp_obj$imp_ser)
+            obj_new$imp_ptr <- imp_new
+        }
+        
+        eval.parent(substitute(object$cpp_obj <- obj_new))
+        object$cpp_obj <- obj_new
     }
     
-    allowed_type <- c("score", "avg_path", "dist", "avg_sep", "tree_num")
+    allowed_type <- c("score", "avg_path", "dist", "avg_sep", "tree_num", "impute")
     check.str.option(type, "type", allowed_type)
     check.is.bool(square_mat)
     if (!NROW(newdata)) stop("'newdata' must be a data.frame, matrix, or sparse matrix.")
@@ -546,8 +641,10 @@ predict.isolation_forest <- function(object, newdata, type = "score", square_mat
                         "if 'missing_action' != 'divide'."))
         }
     }
+    if (type %in% "impute" && (is.null(object$params$build_imputer) || !(object$params$build_imputer)))
+        stop("Cannot impute missing values with model that was built with 'build_imputer' =  'FALSE'.")
     
-    pdata <- process.data.new(newdata, object$metadata, type %in% c("score", "avg_path"))
+    pdata <- process.data.new(newdata, object$metadata, type %in% c("score", "avg_path"), type != "impute")
     
     square_mat   <-  as.logical(square_mat)
     score_array  <-  get.empty.vector()
@@ -574,7 +671,7 @@ predict.isolation_forest <- function(object, newdata, type = "score", square_mat
             return(list(score = score_array, tree_num = matrix(tree_num + 1, nrow = pdata$nrows, ncol = object$params$ntrees)))
         else
             return(score_array)
-    } else {
+    } else if (type != "impute") {
         dist_iso(object$cpp_obj$ptr, dist_tmat, dist_dmat, object$params$ndim > 1,
                  pdata$X_num, pdata$X_cat,
                  pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
@@ -584,6 +681,14 @@ predict.isolation_forest <- function(object, newdata, type = "score", square_mat
             return(matrix(dist_dmat, nrow = pdata$nrows, ncol = pdata$nrows))
         else
             return(dist_tmat)
+    } else {
+        imp <- impute_iso(object$cpp_obj$ptr, object$cpp_obj$imp_ptr, object$params$ndim > 1,
+                          pdata$X_num, pdata$X_cat,
+                          pdata$Xr, pdata$Xr_ind, pdata$Xr_indptr,
+                          pdata$nrows, object$nthreads)
+        return(reconstruct.from.imp(imp$X_num,
+                                    imp$X_cat,
+                                    newdata, object))
     }
 }
 
@@ -599,19 +704,27 @@ predict.isolation_forest <- function(object, newdata, type = "score", square_mat
 #' @export
 print.isolation_forest <- function(x, ...) {
     if (check_null_ptr_model(x$cpp_obj$ptr)) {
+        obj_new <- x$cpp_obj
         if (x$params$ndim == 1)
             ptr_new <- deserialize_IsoForest(x$cpp_obj$serialized)
         else
             ptr_new <- deserialize_ExtIsoForest(x$cpp_obj$serialized)
-        eval.parent(substitute(x$cpp_obj$ptr <- ptr_new))
-        x$cpp_obj$ptr <- ptr_new
+        obj_new$ptr <- ptr_new
+        
+        if (x$params$build_imputer) {
+            imp_new <- deserialize_Imputer(x$cpp_obj$imp_ser)
+            obj_new$imp_ptr <- imp_new
+        }
+        
+        eval.parent(substitute(x$cpp_obj <- obj_new))
+        x$cpp_obj <- obj_new
     }
     
     if (x$params$ndim > 1) cat("Extended ")
     cat("Isolation Forest model")
     if (
         (x$params$prob_pick_avg_gain + x$params$prob_pick_pooled_gain) > 0 ||
-        (x$params$x$ndim == 1 & (x$params$prob_split_avg_gain + x$params$prob_split_pooled_gain) > 0)
+        (x$params$ndim == 1 & (x$params$prob_split_avg_gain + x$params$prob_split_pooled_gain) > 0)
     ) {
         cat(" (using guided splits)")
     }
@@ -647,7 +760,7 @@ summary.isolation_forest <- function(object, ...) {
 #' point twice). If not `NULL`, model must have been built with `weights_as_sample_prob` = `FALSE`.
 #' @param column_weights Sampling weights for each column in `df`. Ignored when picking columns by deterministic criterion.
 #' If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
-#' @seealso \link{isolation.forest}
+#' @seealso \link{isolation.forest} \link{unpack.isolation.forest}
 #' @export
 add_isolation_tree <- function(model, df, sample_weights = NULL, column_weights = NULL) {
     
@@ -659,12 +772,20 @@ add_isolation_tree <- function(model, df, sample_weights = NULL, column_weights 
         stop("Cannot pass column weights when weighting columns by kurtosis.")
     
     if (check_null_ptr_model(model$cpp_obj$ptr)) {
+        obj_new <- model$cpp_obj
         if (model$params$ndim == 1)
             ptr_new <- deserialize_IsoForest(model$cpp_obj$serialized)
         else
             ptr_new <- deserialize_ExtIsoForest(model$cpp_obj$serialized)
-        eval.parent(substitute(model$cpp_obj$ptr <- ptr_new))
-        model$cpp_obj$ptr <- ptr_new
+        obj_new$ptr <- ptr_new
+        
+        if (model$params$build_imputer) {
+            imp_new <- deserialize_Imputer(model$cpp_obj$imp_ser)
+            obj_new$imp_ptr <- imp_new
+        }
+        
+        ## eval.parent(substitute(model$cpp_obj <- obj_new)) ## this is done after adding the tree
+        model$cpp_obj <- obj_new
     }
     
     
@@ -690,19 +811,94 @@ add_isolation_tree <- function(model, df, sample_weights = NULL, column_weights 
     
     pdata <- process.data.new(df, model$metadata, FALSE)
     
-    fit_tree(model$cpp_obj$ptr, 
-             pdata$X_num, pdata$X_cat, unname(ncat),
-             pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
-             sample_weights, column_weights,
-             pdata$nrows, model$metadata$ncols_num, model$metadata$ncols_cat,
-             model$params$ndim, model$params$ntry, model$params$coefs, model$params$max_depth,
-             FALSE, model$params$penalize_range,
-             model$params$weigh_by_kurtosis,
-             model$params$prob_pick_avg_gain, model$params$prob_split_avg_gain,
-             model$params$prob_pick_pooled_gain,  model$params$prob_split_pooled_gain,
-             model$params$categ_split_type, model$params$new_categ_action,
-             model$params$missing_action, model$params$all_perm, model$random_seed)
+    model_new <- model
+    model_new$cpp_obj$serialized <- fit_tree(model$cpp_obj$ptr, 
+                                             pdata$X_num, pdata$X_cat, unname(ncat),
+                                             pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
+                                             sample_weights, column_weights,
+                                             pdata$nrows, model$metadata$ncols_num, model$metadata$ncols_cat,
+                                             model$params$ndim, model$params$ntry, model$params$coefs, model$params$max_depth,
+                                             FALSE, model$params$penalize_range,
+                                             model$params$weigh_by_kurtosis,
+                                             model$params$prob_pick_avg_gain, model$params$prob_split_avg_gain,
+                                             model$params$prob_pick_pooled_gain,  model$params$prob_split_pooled_gain,
+                                             model$params$categ_split_type, model$params$new_categ_action,
+                                             model$params$missing_action, model$params$build_imputer, model$cpp_obj$imp_ptr,
+                                             model$params$depth_imp, model$params$weigh_imp_rows,
+                                             model$params$all_perm, model$random_seed)
     
-    eval.parent(substitute(model$params$ntrees <- model$params$ntrees + 1))
+    model_new$params$ntrees <- model_new$params$ntrees + 1
+    eval.parent(substitute(model <- model_new))
+    return(invisible(NULL))
+}
+
+#' @title Unpack isolation forest model after de-serializing
+#' @description  After persisting an isolation forest model object through `saveRDS`, `save`, or restarting a session, the
+#' underlying C++ objects that constitute the isolation forest model and which live only on the C++ heap memory are not saved along,
+#' thus not restored after loading a saved model through `readRDS` or `load`.
+#' 
+#' The model object however keeps serialized versions of the C++ objects as raw bytes, from which the C++ objects can be
+#' reconstructed, and are done so automatically after calling `predict`, `print`, `summary`, or `add_isolation_tree` on the
+#' freshly-loaded object from `readRDS` or `load`.
+#' 
+#' But due to R's environments system (as opposed to other systems such as Python which can use pass-by-reference), they will
+#' only be re-constructed in the environment that is calling `predict`, `print`, etc. and not in higher-up environments
+#' (i.e. if you call `predict` on the object from inside different functions, each function will have to reconstruct the
+#' C++ objects independently and they will only live within the function that called `predict`).
+#' 
+#' This function serves as an environment-level unpacker that will reconstruct the C++ object in the environment in which
+#' it is called (i.e. if you need to call `predict` from inside multiple functions, use this function before passing the
+#' freshly-loaded model object to those other functions, and then they will not need to reconstruct the C++ objects anymore),
+#' in the same way as `predict` or `print`, but without producing any outputs or messages.
+#' @param model An Isolation Forest object as returned by `isolation.forest`, which has been just loaded from a disk
+#' file through `readRDS`, `load`, or a session restart.
+#' @examples \dontrun{
+#' library(isotree)
+#' set.seed(1)
+#' X <- matrix(rnorm(100), nrow = 20)
+#' iso <- isolation.forest(X)
+#' saveRDS(iso, "iso.Rds")
+#' iso2 <- readRDS("iso.Rds")
+#' 
+#' ### will de-serialize inside, but object is short-lived
+#' wrap_predict <- function(model, data) {
+#'     pred <- predict(model, data)
+#'     cat("pointer inside function is this: ")
+#'     print(model$cpp_obj$ptr)
+#'     return(pred)
+#' }
+#' temp <- wrap_predict(iso2, X)
+#' cat("pointer outside function is this: \n")
+#' print(iso2$cpp_obj$ptr) ### pointer to the C++ object
+#' 
+#' ### now unpack the C++ object beforehand
+#' unpack.isolation.forest(iso2)
+#' print("after unpacking beforehand")
+#' temp <- wrap_predict(iso2, X)
+#' cat("pointer outside function is this: \n")
+#' print(iso2$cpp_obj$ptr)
+#' }
+#' @export
+unpack.isolation.forest <- function(model)  {
+    if (!("isolation_forest" %in% class(model)))
+        stop("'model' must be an isolation forest model object as output by function 'isolation.forest'.")
+    
+    if (check_null_ptr_model(model$cpp_obj$ptr)) {
+        obj_new <- model$cpp_obj
+        if (model$params$ndim == 1)
+            ptr_new <- deserialize_IsoForest(model$cpp_obj$serialized)
+        else
+            ptr_new <- deserialize_ExtIsoForest(model$cpp_obj$serialized)
+        obj_new$ptr <- ptr_new
+        
+        if (model$params$build_imputer) {
+            imp_new <- deserialize_Imputer(model$cpp_obj$imp_ser)
+            obj_new$imp_ptr <- imp_new
+        }
+        
+        eval.parent(substitute(model$cpp_obj <- obj_new))
+        model$cpp_obj <- obj_new
+    }
+    
     return(invisible(NULL))
 }

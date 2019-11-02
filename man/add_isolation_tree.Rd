@@ -25,5 +25,5 @@ Adds a single tree fit to the full (non-subsampled) data passed here. Must
 have the same columns as previously-fitted data.
 }
 \seealso{
-\link{isolation.forest}
+\link{isolation.forest} \link{unpack.isolation.forest}
 }

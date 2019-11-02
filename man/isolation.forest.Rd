@@ -14,7 +14,9 @@ isolation.forest(df, sample_weights = NULL, column_weights = NULL,
   categ_split_type = "subset", all_perm = FALSE,
   weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
   penalize_range = TRUE, weigh_by_kurtosis = FALSE, coefs = "normal",
-  assume_full_distr = TRUE, output_score = FALSE,
+  assume_full_distr = TRUE, build_imputer = FALSE,
+  output_imputations = FALSE, depth_imp = "higher",
+  weigh_imp_rows = "inverse", output_score = FALSE,
   output_dist = FALSE, square_dist = FALSE, random_seed = 1,
   nthreads = parallel::detectCores())
 }
@@ -86,7 +88,8 @@ will potentially make the model fitting much slower, but has no impact on predic
 variables, will use shannon entropy instead (like in reference [7]). For the extended model, this parameter indicates the probability
 that the split point in the chosen linear combination of variables will be decided by this pooled gain
 criterion. Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
-groups when they are smaller. When splits are not made according to any of `prob_pick_avg_gain`,
+groups when they are smaller Recommended to pass higher values when used for imputation of missing values. When splits
+are not made according to any of `prob_pick_avg_gain`,
 `prob_pick_pooled_gain`, `prob_split_avg_gain`, `prob_split_pooled_gain`, both the column and the split point
 are decided at random. Note that, if passing value = 1 with no sub-sampling and using the single-variable model,
 every single tree will have the exact same splits.}
@@ -157,7 +160,7 @@ assigning to each category a random number `~ Unif(0, 1)`.}
 (as proposed in reference [3]) or according to a uniform distribution `~ Unif(-1, +1)` as proposed in reference [4].
 Ignored for the single-variable model.}
 
-\item{assume_full_distr}{When calculating pairwise distances, whether to assume that the fitted model represents
+\item{assume_full_distr}{When calculating pairwise distances (see reference [8]), whether to assume that the fitted model represents
 a full population distribution (will use a standardizing criterion assuming infinite sample as in reference [6],
 and the results of the similarity between two points at prediction time will not depend on the
 prescence of any third point that is similar to them, but will differ more compared to the pairwise
@@ -166,6 +169,27 @@ as if the new observations at prediction time were added to the sample to which 
 will make the distances between two points potentially vary according to other newly introduced points.
 This will not be assumed when the distances are calculated as the model is being fit (see documentation
 for parameter `output_dist`).}
+
+\item{build_imputer}{Whether to construct missing-value imputers so that later this same model could be used to impute
+missing values of new (or the same) observations. Be aware that this will significantly increase the memory
+requirements and serialized object sizes. Note that this is not related to 'missing_action' as missing values
+inside the model are treated differently and follow their own imputation or division strategy.}
+
+\item{output_imputations}{Whether to output imputed missing values for `df`. Passing `TRUE` here will force
+`build_imputer` to `TRUE`. Note that, for sparse matrix inputs, even though the output will be sparse, it will
+generate a dense representation of each row with missing values.}
+
+\item{depth_imp}{How to weight observations according to their depth when used for imputing missing values. Passing
+`"higher"` will weigh observations higher the further down the tree (away from the root node) the
+terminal node is, while `"lower"` will do the opposite, and `"same"` will not modify the weights according
+to node depth in the tree. Implemented for testing purposes and not recommended to change
+from the default. Ignored when passing `build_imputer` = `FALSE`.}
+
+\item{weigh_imp_rows}{How to weight node sizes when used for imputing missing values. Passing `"inverse"` will weigh
+a node inversely proportional to the number of observations that end up there, while `"proportional"`
+will weight them heavier the more observations there are, and `"flat"` will weigh all nodes the same
+in this regard regardless of how many observations end up there. Implemented for testing purposes
+and not recommended to change from the default. Ignored when passing `build_imputer` = `FALSE`.}
 
 \item{output_score}{Whether to output outlierness scores for the input data, which will be calculated as
 the model is being fit and it's thus faster. Cannot be done when using sub-samples of the data for each tree
@@ -186,9 +210,9 @@ the maximum number of available threads in the system. Note that, the more threa
 the more memory will be allocated, even if the thread does not end up being used.}
 }
 \value{
-If passing `output_score` = `FALSE` and `output_dist` = `FALSE` (the defaults), will output
-an `isolation_forest` object from which `predict` method can then be called on new data. If passing
-`TRUE` to either of the former options, will output a list with entries `model`, `scores`, `dist`.
+If passing `output_score` = `FALSE`, `output_dist` = `FALSE`, and `output_imputations` = `FALSE` (the defaults),
+will output an `isolation_forest` object from which `predict` method can then be called on new data. If passing
+`TRUE` to any of the former options, will output a list with entries `model`, `scores`, `dist`, `imputed`.
 }
 \description{
 Isolation Forest is an algorithm originally developed for outlier detection that consists in splitting
@@ -229,15 +253,16 @@ cat("Point with highest outlier score: ",
 
 
 ### Example 2: plotting outlier regions
-### This example shows predicted outlier score in a small grid,
-### with a model fit to a bi-modal distribution. As can be seen,
-### the extended model is able to detect high outlierness outside
-### of both regions, without having false ghost regions of
-### low-outlierness in regions where there isn't any data
+### This example shows predicted outlier score in a small
+### grid, with a model fit to a bi-modal distribution. As can
+### be seen, the extended model is able to detect high
+### outlierness outside of both regions, without having false
+### ghost regions of low-outlierness in regions where there
+### isn't any data
 library(isotree)
 par(mfrow = c(1, 2))
 
-### Randomly-generated data coming from different distributions
+### Randomly-generated data from different distributions
 set.seed(1)
 group1 <- data.frame(x = rnorm(1000, -1, .4),
     y = rnorm(1000, -1, .2))
@@ -265,7 +290,8 @@ iso_simple = isolation.forest(X, ndim=1, ntrees=100, nthreads=1)
 Z2 <- predict(iso_simple, space_d)
 image(pts, pts, matrix(Z2, nrow = length(pts)),
       col = rev(heat.colors(50)),
-      main = "Single-variable Isolation Forest\\n(notice ghost regions)",
+      main = paste0("Single-variable Isolation Forest",
+             "\\n(notice ghost regions)"),
       xlab = "", ylab = "")
 par(new = TRUE)
 plot(X, type = "p", xlim = c(-3, 3), ylim = c(-3, 3),
@@ -296,10 +322,47 @@ D_iso <- predict(iso, X, type = "dist")
 ### Check that it correlates with euclidean distance
 D_euc <- dist(X, method = "euclidean")
 
-cat(sprintf("Correlation between euclidean and estimated distance: \%f\\n",
+cat(sprintf("Correlation with euclidean distance: \%f\\n",
     cor(D_euc, D_iso)))
-### (Note that euclidean distance will never take any correlations between
-###  variables into account, which the isolation forest model can do)
+### (Note that euclidean distance will never take
+###  any correlations between variables into account,
+###  which the isolation forest model can do)
+
+
+\dontrun{
+### Example 4: imputing missing values
+### (requires package MASS)
+library(isotree)
+
+### Generate random data, set some values as NA
+set.seed(1)
+S <- matrix(rnorm(5 * 5), nrow = 5)
+S <- t(S) \%*\% S
+mu <- rnorm(5)
+X <- MASS::mvrnorm(1000, mu, S)
+X_na <- X
+values_NA <- matrix(runif(1000 * 5) < .15, nrow = 1000)
+X_na[values_NA] = NA
+
+### Impute missing values with model
+iso <- isolation.forest(X_na,
+    build_imputer = TRUE,
+    prob_pick_pooled_gain = 1,
+    ntry = 10)
+X_imputed <- predict(iso, X_na, type = "impute")
+cat(sprintf("MSE for imputed values w/model: \%f\\n",
+    mean((X[values_NA] - X_imputed[values_NA])^2)))
+    
+### Compare against simple mean imputation
+X_means <- apply(X, 2, mean)
+X_imp_mean <- X_na
+for (cl in 1:5)
+    X_imp_mean[values_NA[,cl], cl] <- X_means[cl]
+cat(sprintf("MSE for imputed values w/means: \%f\\n",
+    mean((X[values_NA] - X_imp_mean[values_NA])^2)))
+}
+
+
 
 \dontrun{
 #### A more interesting example
@@ -307,15 +370,19 @@ cat(sprintf("Correlation between euclidean and estimated distance: \%f\\n",
 
 ### Compare outliers returned by these different methods,
 ### and see why some of the outliers returned by the
-### isolation forest model are outliers
+### isolation forest could be flagged as outliers
 library(outliertree)
 data("hypothyroid")
 
-m_iso <- isolation.forest(hypothyroid)
-pred_iso <- predict(m_iso, hypothyroid)
-m_ot <- outlier.tree(hypothyroid, z_outlier=6, pct_outliers=0.02, outliers_print=20)
+iso <- isolation.forest(hypothyroid)
+pred_iso <- predict(iso, hypothyroid)
+otree <- outlier.tree(hypothyroid,
+    z_outlier = 6,
+    pct_outliers = 0.02,
+    outliers_print = 20)
 
-### Now compare against the top outliers from isolation forest
+### Now compare against the top
+### outliers from isolation forest
 head(hypothyroid[order(-pred_iso), ], 20)
 }
 }
@@ -327,9 +394,10 @@ head(hypothyroid[order(-pred_iso), ], 20)
 \item Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "On detecting clustered anomalies using SCiForest." Joint European Conference on Machine Learning and Knowledge Discovery in Databases. Springer, Berlin, Heidelberg, 2010.
 \item https://sourceforge.net/projects/iforest/
 \item https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
-\item Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
+\item Quinlan, J. Ross. "C4. 5: programs for machine learning." Elsevier, 2014.
+\item Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 }
 }
 \seealso{
-\link{predict.isolation_forest},  \link{add_isolation_tree}
+\link{predict.isolation_forest},  \link{add_isolation_tree} \link{unpack.isolation.forest}
 }

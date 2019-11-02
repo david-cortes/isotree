@@ -1,5 +1,5 @@
 import numpy as np, pandas as pd
-from scipy.sparse import csc_matrix, issparse, isspmatrix_csc, isspmatrix_csr
+from scipy.sparse import csc_matrix, csr_matrix, issparse, isspmatrix_csc, isspmatrix_csr
 import warnings
 import multiprocessing
 import ctypes
@@ -79,7 +79,8 @@ class IsolationForest:
         variables, will use shannon entropy instead (like in [7]). For the extended model, this parameter indicates the probability
         that the split point in the chosen linear combination of variables will be decided by this pooled gain
         criterion. Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
-        groups when they are smaller. When splits are not made according to any of 'prob_pick_avg_gain',
+        groups when they are smaller. Recommended to pass higher values when used for imputation of missing values. When splits
+        are not made according to any of 'prob_pick_avg_gain',
         'prob_pick_pooled_gain', 'prob_split_avg_gain', 'prob_split_pooled_gain', both the column and the split point
         are decided at random. Note that, if passing value 1 (100%) with no sub-sampling and using the single-variable model,
         every single tree will have the exact same splits.
@@ -98,7 +99,7 @@ class IsolationForest:
         branch with the most observations in the single-variable model, or fill in missing values with the median
         of each column of the sample from which the split was made in the extended model (recommended), c) "fail" which will assume
         there are no missing values and will trigger undefined behavior if it encounters any, d) "auto", which will use "divide" for
-        the single-variable model and "impute" for the extended model. In the extended model, infinite alues will be treated as
+        the single-variable model and "impute" for the extended model. In the extended model, infinite values will be treated as
         missing. Note that passing "fail" might crash the Python process if there turn out to be
         missing values, but will otherwise produce faster fitting and prediction times along with decreased model object sizes.
         Models from [1], [2], [3], [4] correspond to "fail" here.
@@ -152,7 +153,7 @@ class IsolationForest:
         (as proposed in [3]) or according to a uniform distribution ~ Unif(-1, +1) as proposed in [4]. Ignored for the
         single-variable model.
     assume_full_distr : bool
-        When calculating pairwise distances, whether to assume that the fitted model represents
+        When calculating pairwise distances (see [8]), whether to assume that the fitted model represents
         a full population distribution (will use a standardizing criterion assuming infinite sample,
         and the results of the similarity between two points at prediction time will not depend on the
         prescence of any third point that is similar to them, but will differ more compared to the pairwise
@@ -161,6 +162,23 @@ class IsolationForest:
         will make the distances between two points potentially vary according to other newly introduced points.
         This will not be assumed when the distances are calculated as the model is being fit (see documentation
         for method 'fit_transform').
+    build_imputer : bool
+        Whether to construct missing-value imputers so that later this same model could be used to impute
+        missing values of new (or the same) observations. Be aware that this will significantly increase the memory
+        requirements and serialized object sizes. Note that this is not related to 'missing_action' as missing
+        values inside the model are treated differently and follow their own imputation or division strategy.
+    depth_imp : str, one of "higher", "lower", "same"
+        How to weight observations according to their depth when used for imputing missing values. Passing
+        "higher" will weigh observations higher the further down the tree (away from the root node) the
+        terminal node is, while "lower" will do the opposite, and "same" will not modify the weights according
+        to node depth in the tree. Implemented for testing purposes and not recommended to change
+        from the default. Ignored when passing 'build_imputer' = 'False'.
+    weigh_imp_rows : str, one of "inverse", "prop", "flat"
+        How to weight node sizes when used for imputing missing values. Passing "inverse" will weigh
+        a node inversely proportional to the number of observations that end up there, while "proportional"
+        will weight them heavier the more observations there are, and "flat" will weigh all nodes the same
+        in this regard regardless of how many observations end up there. Implemented for testing purposes
+        and not recommended to change from the default. Ignored when passing 'build_imputer' = 'False'.
     random_seed : int
         Seed that will be used to generate random numbers used by the model.
     nthreads : int
@@ -188,6 +206,7 @@ class IsolationForest:
     [5] https://sourceforge.net/projects/iforest/
     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
+    [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
     """
     def __init__(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3, max_depth = "auto",
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.25,
@@ -197,6 +216,7 @@ class IsolationForest:
                  weights_as_sample_prob = True, sample_with_replacement = False,
                  penalize_range = True, weigh_by_kurtosis = False,
                  coefs = "normal", assume_full_distr = True,
+                 build_imputer = False, depth_imp = "higher", weigh_imp_rows = "inverse",
                  random_seed = 1, nthreads = -1):
         if sample_size is not None:
             assert sample_size > 0
@@ -218,6 +238,8 @@ class IsolationForest:
         assert new_categ_action  in ["weighted",      "smallest", "random", "impute", "auto"]
         assert categ_split_type  in ["single_categ",  "subset"]
         assert coefs             in ["normal",        "uniform"]
+        assert depth_imp         in ["lower",         "higher",   "same"]
+        assert weigh_imp_rows    in ["inverse",       "prop",     "flat"]
 
         assert prob_pick_avg_gain     >= 0
         assert prob_pick_pooled_gain  >= 0
@@ -250,6 +272,9 @@ class IsolationForest:
                 new_categ_action = "weighted"
             else:
                 new_categ_action = "impute"
+
+        if (build_imputer) and (missing_action == "fail"):
+            raise ValueError("Cannot impute missing values when passing 'missing_action' = 'fail'.")
 
         if ndim == 1:
             if new_categ_action == "impute":
@@ -286,6 +311,8 @@ class IsolationForest:
         self.new_categ_action        =  new_categ_action
         self.categ_split_type        =  categ_split_type
         self.coefs                   =  coefs
+        self.depth_imp               =  depth_imp
+        self.weigh_imp_rows          =  weigh_imp_rows
         self.random_seed             =  random_seed
         self.nthreads                =  nthreads
 
@@ -295,6 +322,7 @@ class IsolationForest:
         self.penalize_range          =  bool(penalize_range)
         self.weigh_by_kurtosis       =  bool(weigh_by_kurtosis)
         self.assume_full_distr       =  bool(assume_full_distr)
+        self.build_imputer           =  bool(build_imputer)
 
         self.cols_numeric_  =  np.array([])
         self.cols_categ_    =  np.array([])
@@ -330,7 +358,10 @@ class IsolationForest:
     def _get_model_obj(self):
         return self._cpp_obj.get_cpp_obj(self._is_extended_)
 
-    def fit(self, X, sample_weights = None, column_weights = None):
+    def _get_imputer_obj(self):
+        return self._cpp_obj.get_imputer()
+
+    def fit(self, X, y = None, sample_weights = None, column_weights = None):
         """
         Fit isolation forest model to data
 
@@ -341,6 +372,8 @@ class IsolationForest:
             If passing a DataFrame, will assume that columns are categorical if their dtype is 'object', 'Categorical', or 'bool',
             and will assume they are numerical if their dtype is a subtype of NumPy's 'number' or 'datetime64'.
             Other dtypes are not supported.
+        y : None
+            Not used. Kept as argument for compatibility with SciKit-learn pipelining.
         sample_weights : None or array(n_samples,)
             Sample observation weights for each row of 'X', with higher weights indicating either higher sampling
             probability (i.e. the observation has a larger effect on the fitted model, if using sub-samples), or
@@ -401,13 +434,18 @@ class IsolationForest:
                                 self.categ_split_type,
                                 self.new_categ_action,
                                 self.missing_action,
-                                ctypes.c_bool(self.all_perm).value,
+                                ctypes.c_bool(self.build_imputer).value,
+                                self.depth_imp,
+                                self.weigh_imp_rows,
+                                ctypes.c_bool(self.build_imputer).value,
+                                ctypes.c_bool(False).value,
                                 ctypes.c_uint64(self.random_seed).value,
                                 ctypes.c_int(self.nthreads).value)
         self.is_fitted_ = True
         return self
 
-    def fit_transform(self, X, column_weights = None, output_outlierness = "score", output_distance = None, square_mat = False):
+    def fit_and_predict(self, X, column_weights = None, output_outlierness = "score",
+                        output_distance = None, square_mat = False, output_imputed = False):
         """
         Fit the model in-place and produce isolation or separation depths along the way
         
@@ -451,14 +489,17 @@ class IsolationForest:
             Whether to produce a full square matrix with the distances. If passing 'False', will output
             only the upper triangular part as a 1-d array in which entry 0 <= i < j < n is located at
             position p(i,j) = (i * (n - (i+1)/2) + j - i - 1). Ignored when passing 'output_distance' = 'None'.
+        output_imputed : bool
+            Whether to output the data with imputed missing values. Model object must have been initialized
+            with 'build_imputer' = 'True'.
 
         Returns
         -------
-        output : array(n_samples,), and/or array(n_samples * (n_samples - 1) / 2,) or array(n_samples, n_samples)
-            Requested outputs about isolation depth (outlierness) and/or pairwise separation depth (distance).
-            If passing only one of 'output_outlierness' or 'output_distance', will output 1 array according to
-            the parameters, whereas if passing both, will output a tuple with the first element being the result
-            from 'output_outlierness', and the second element being the result of 'output_distance'.
+        output : array(n_samples,), or dict("dist"array(n_samples * (n_samples - 1) / 2,) or array(n_samples, n_samples)
+            Requested outputs about isolation depth (outlierness), pairwise separation depth (distance), and/or
+            imputed missing values. If passing either 'output_distance' or 'output_imputed', will return a dictionary
+            with keys "pred" (array(n_samples,)), "dist" (array(n_samples * (n_samples - 1) / 2,) or array(n_samples, n_samples)),
+            "imputed" (array-like(n_samples, n_columns)), according to whether each output type is present.
         """
         if self.sample_size is not None:
             raise ValueError("Cannot use 'fit_transform' when the sample size is limited.")
@@ -476,7 +517,23 @@ class IsolationForest:
         if output_distance is not None:
             assert output_distance in ["dist", "avg_sep"]
 
+        if output_imputed:
+            if self.missing_action == "fail":
+                raise ValueError("Cannot impute missing values when using 'missing_action' = 'fail'.")
+            if not self.build_imputer:
+                msg  = "Trying to impute missing values from object "
+                msg += "that was initialized with 'build_imputer' = 'False' "
+                msg += "- will force 'build_imputer' to 'True'."
+                warnings.warn(msg)
+                self.build_imputer = True
+
         X_num, X_cat, ncat, sample_weights, column_weights, nrows = self._process_data(X, None, column_weights)
+
+        if (output_imputed) and (issparse(X_num)):
+            msg  = "Imputing missing values from CSC matrix on-the-fly can be very slow, "
+            msg += "it's recommended if possible to fit the model first and then pass the "
+            msg += "same matrix as CSR to 'transform'."
+            warnings.warn(msg)
 
         if self.max_depth == "auto":
             max_depth = 0
@@ -487,53 +544,56 @@ class IsolationForest:
             max_depth = self.max_depth
             limit_depth = False
 
-        depths, tmat, dmat = self._cpp_obj.fit_model(X_num, X_cat, ncat, None, column_weights,
-                                                     ctypes.c_size_t(nrows).value,
-                                                     ctypes.c_size_t(self._ncols_numeric).value,
-                                                     ctypes.c_size_t(self._ncols_categ).value,
-                                                     ctypes.c_size_t(self.ndim).value,
-                                                     ctypes.c_size_t(self.ntry).value,
-                                                     self.coefs,
-                                                     ctypes.c_bool(self.sample_with_replacement).value,
-                                                     ctypes.c_bool(self.weights_as_sample_prob).value,
-                                                     ctypes.c_size_t(nrows).value,
-                                                     ctypes.c_size_t(self.ntrees).value,
-                                                     ctypes.c_size_t(max_depth).value,
-                                                     ctypes.c_bool(limit_depth).value,
-                                                     ctypes.c_bool(self.penalize_range).value,
-                                                     ctypes.c_bool(output_distance is not None).value,
-                                                     ctypes.c_bool(output_distance == "dist").value,
-                                                     ctypes.c_bool(square_mat).value,
-                                                     ctypes.c_bool(output_outlierness is not None).value,
-                                                     ctypes.c_bool(output_outlierness == "score").value,
-                                                     ctypes.c_bool(self.weigh_by_kurtosis).value,
-                                                     ctypes.c_double(self.prob_pick_avg_gain).value,
-                                                     ctypes.c_double(self.prob_split_avg_gain).value,
-                                                     ctypes.c_double(self.prob_pick_pooled_gain).value,
-                                                     ctypes.c_double(self.prob_split_pooled_gain).value,
-                                                     self.categ_split_type,
-                                                     self.new_categ_action,
-                                                     self.missing_action,
-                                                     ctypes.c_bool(self.all_perm).value,
-                                                     ctypes.c_uint64(self.random_seed).value,
-                                                     ctypes.c_int(self.nthreads).value)
+        depths, tmat, dmat, X_num, X_cat = self._cpp_obj.fit_model(X_num, X_cat, ncat, None, column_weights,
+                                                                   ctypes.c_size_t(nrows).value,
+                                                                   ctypes.c_size_t(self._ncols_numeric).value,
+                                                                   ctypes.c_size_t(self._ncols_categ).value,
+                                                                   ctypes.c_size_t(self.ndim).value,
+                                                                   ctypes.c_size_t(self.ntry).value,
+                                                                   self.coefs,
+                                                                   ctypes.c_bool(self.sample_with_replacement).value,
+                                                                   ctypes.c_bool(self.weights_as_sample_prob).value,
+                                                                   ctypes.c_size_t(nrows).value,
+                                                                   ctypes.c_size_t(self.ntrees).value,
+                                                                   ctypes.c_size_t(max_depth).value,
+                                                                   ctypes.c_bool(limit_depth).value,
+                                                                   ctypes.c_bool(self.penalize_range).value,
+                                                                   ctypes.c_bool(output_distance is not None).value,
+                                                                   ctypes.c_bool(output_distance == "dist").value,
+                                                                   ctypes.c_bool(square_mat).value,
+                                                                   ctypes.c_bool(output_outlierness is not None).value,
+                                                                   ctypes.c_bool(output_outlierness == "score").value,
+                                                                   ctypes.c_bool(self.weigh_by_kurtosis).value,
+                                                                   ctypes.c_double(self.prob_pick_avg_gain).value,
+                                                                   ctypes.c_double(self.prob_split_avg_gain).value,
+                                                                   ctypes.c_double(self.prob_pick_pooled_gain).value,
+                                                                   ctypes.c_double(self.prob_split_pooled_gain).value,
+                                                                   self.categ_split_type,
+                                                                   self.new_categ_action,
+                                                                   self.missing_action,
+                                                                   ctypes.c_bool(self.build_imputer).value,
+                                                                   self.depth_imp,
+                                                                   self.weigh_imp_rows,
+                                                                   ctypes.c_bool(output_imputed).value,
+                                                                   ctypes.c_bool(self.all_perm).value,
+                                                                   ctypes.c_uint64(self.random_seed).value,
+                                                                   ctypes.c_int(self.nthreads).value)
         self.is_fitted_ = True
 
-        if (output_outlierness is not None) and (output_distance is not None):
-            if square_mat:
-                return depths, dmat
-            else:
-                return depths, tmat
-        elif (output_distance is not None):
-            if square_mat:
-                return dmat
-            else:
-                return tmat
-        else:
+        if (not output_distance) and (not output_imputed):
             return depths
+        else:
+            outp = {"pred" : depths}
+            if output_distance:
+                if square_mat:
+                    outp["dist"] = dmat
+                else:
+                    outp["dist"] = tmat
+            if output_imputed:
+                outp["imputed"] = self._rearrange_imputed(X, X_num, X_cat)
+            return outp
 
     def _process_data(self, X, sample_weights, column_weights):
-        ## TODO: must reorder column weights if the columns are split
         if X.__class__.__name__ == "DataFrame":
             ### https://stackoverflow.com/questions/25039626/how-do-i-find-numeric-columns-in-pandas
             X_num = X.select_dtypes(include = [np.number, np.datetime64]).to_numpy()
@@ -639,7 +699,7 @@ class IsolationForest:
 
         return X_num, X_cat, ncat, sample_weights, column_weights, nrows
 
-    def _process_data_new(self, X, allow_csr = True):
+    def _process_data_new(self, X, allow_csr = True, allow_csc = True):
         if X.__class__.__name__ == "DataFrame":
             if (self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]) > 0:
                 missing_cols = np.setdiff1d(np.array(X.columns.values), np.r_[self.cols_numeric_, self.cols_categ_])
@@ -685,6 +745,9 @@ class IsolationForest:
                 if isspmatrix_csr(X) and not allow_csr:
                     warnings.warn("Cannot predict from CSR sparse matrix, will convert to CSC.")
                     X = csc_matrix(X)
+                elif isspmatrix_csc(X) and not allow_csc:
+                    warnings.warn("Method supports sparse matrices only in CSR format, will convert sparse format.")
+                    X = csr_matrix(X)
                 elif (not isspmatrix_csc(X)) and (not isspmatrix_csr(X)):
                     msg  = "Sparse matrix inputs only supported as CSC"
                     if allow_csr:
@@ -705,6 +768,31 @@ class IsolationForest:
             nrows = X_num.shape[0]
 
         return X_num, X_cat, nrows
+
+    def _rearrange_imputed(self, orig, X_num, X_cat):
+        if orig.__class__.__name__ == "DataFrame":
+            if X_num is not None:
+                df_num = pd.DataFrame(X_num, columns = self.cols_numeric_)
+            if X_cat is not None:
+                df_cat = pd.DataFrame(X_cat, columns = self.cols_categ_)
+                for cl in range(self.cols_categ_.shape[0]):
+                    df_cat[self.cols_categ_[cl]] = pd.Categorical.from_codes(df_cat[self.cols_categ_[cl]], self._cat_mapping[cl])
+            if (X_num is not None) and (X_cat is None):
+                return df_num
+            elif (X_num is None) and (X_cat is not None):
+                return df_cat
+            else:
+                df = pd.concat([df_num, df_cat], axis = 1)
+                df = df[orig.columns.values]
+                return df
+
+        else:
+            if issparse(orig):
+                outp = orig.copy()
+                outp.data[:] = X_num.data
+                return outp
+            else:
+                return X_num
 
     def predict(self, X, output = "score"):
         """
@@ -831,6 +919,78 @@ class IsolationForest:
         else:
             return tmat
 
+    def transform(self, X):
+        """
+        Impute missing values in the data using isolation forest model
+
+        Note
+        ----
+        In order to use this functionality, the model must have been built with imputation capabilities ('build_inputer' = 'True').
+
+        Note
+        ----
+        This function is not related to 'fit_transform', and the name was chosen so that it could be used in SciKit-Learn pipelines
+        that require a 'transform' method. Be aware however that the model object is not 100% SciKit-Learn compatible.
+
+        Parameters
+        ----------
+        X : array or array-like (n_samples, n_features)
+            Data for which missing values should be imputed. Can pass a NumPy array, Pandas DataFrame, or SciPy sparse CSR matrix.
+            If passing a DataFrame, will assume that columns are categorical if their dtype is 'object', 'Categorical', or 'bool',
+            and will assume they are numerical if their dtype is a subtype of NumPy's 'number' or 'datetime64'.
+            Other dtypes are not supported.
+
+        Returns
+        -------
+        X_imputed : array or array-like (n_samples, n_features)
+            Object of the same type and dimensions as 'X', but with missing values already imputed. Categorical
+            columns will be output as pandas's 'Categorical' regardless of their dtype in 'X'.
+        """
+        assert self.is_fitted_
+        if not self.build_imputer:
+            raise ValueError("Cannot impute missing values with model that was built with 'build_imputer' =  'False'.")
+        if self.missing_action == "fail":
+            raise ValueError("Cannot impute missing values when using 'missing_action' = 'fail'.")
+
+        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = True, allow_csc = False)
+        X_num, X_cat = self._cpp_obj.impute(X_num, X_cat,
+                                            ctypes.c_bool(self._is_extended_).value,
+                                            ctypes.c_size_t(nrows).value,
+                                            ctypes.c_int(self.nthreads).value)
+        return self._rearrange_imputed(X, X_num, X_cat)
+
+    def fit_transform(self, X, y = None, column_weights = None):
+        """
+        SciKit-Learn pipeline-compatible version of 'fit_and_predict'
+
+        Will fit the model and output imputed missing values. Intended to be used as part of SciKit-learn
+        pipelining. Note that this is just a wrapper over 'fit_and_predict' with parameter 'output_imputed' = 'True'.
+        See the documentation of 'fit_and_predict' for details.
+
+        Parameters
+        ----------
+        X : array or array-like (n_samples, n_features)
+            Data to which to fit the model and whose missing values need to be imputed. Can pass a NumPy array, Pandas DataFrame,
+            or SciPy sparse CSC matrix.
+            If passing a DataFrame, will assume that columns are categorical if their dtype is 'object', 'Categorical', or 'bool',
+            and will assume they are numerical if their dtype is a subtype of NumPy's 'number' or 'datetime64'.
+            Other dtypes are not supported.
+        y : None
+            Not used.
+        column_weights : None or array(n_features,)
+            Sampling weights for each column in 'X'. Ignored when picking columns by deterministic criterion.
+            If passing None, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+            Note that, if passing a DataFrame with both numeric and categorical columns, the column names must
+            not be repeated, otherwise the column weights passed here will not end up matching.
+
+        Returns
+        -------
+        imputed : array-like(n_samples, n_columns)
+            Input data 'X' with missing values imputed according to the model.
+        """
+        outp = self.fit_and_predict(X = X, column_weights = column_weights, output_imputed = True)
+        return outp["imputed"]
+
     def partial_fit(self, X, sample_weights = None, column_weights = None):
         """
         Add additional (single) tree to isolation forest model
@@ -903,6 +1063,9 @@ class IsolationForest:
                                self.categ_split_type,
                                self.new_categ_action,
                                self.missing_action,
+                               ctypes.c_bool(self.build_imputer).value,
+                               self.depth_imp,
+                               self.weigh_imp_rows,
                                ctypes.c_bool(self.all_perm).value,
                                ctypes.c_int(self.nthreads).value)
         self.ntrees += 1

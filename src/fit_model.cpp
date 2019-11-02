@@ -20,6 +20,7 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
+*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019, David Cortes
@@ -197,9 +198,9 @@
 *       variables, will use shannon entropy instead (like in [7]). For the extended model, this parameter indicates the probability
 *       that the split point in the chosen linear combination of variables will be decided by this pooled gain
 *       criterion. Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
-*       groups when they are smaller. When splits are not made according to any of 'prob_pick_by_gain_avg',
-*       'prob_pick_by_gain_pl', 'prob_split_by_gain_avg', 'prob_split_by_gain_pl', both the column and the split point
-*       are decided at random.
+*       groups when they are smaller Recommended to pass higher values when used for imputation of missing values. When splits
+*       are not made according to any of 'prob_pick_by_gain_avg', 'prob_pick_by_gain_pl', 'prob_split_by_gain_avg', 'prob_split_by_gain_pl',
+*       both the column and the split point are decided at random.
 * - prob_split_by_gain_pl
 *       Probability of making each split by selecting a column at random and determining the split point as
 *       that which gives the highest pooled gain. Not supported for the extended model as the splits are on
@@ -236,6 +237,27 @@
 *       best split is always to put the second most-frequent category in a separate branch, so not evaluating all
 *       permutations (passing 'false') will make it possible to select other splits that respect the sorted frequency order.
 *       Ignored when not using categorical variables or not doing splits by pooled gain.
+* - imputer (out)
+*       Pointer to already-allocated imputer object, which can be used to produce missing value imputations
+*       in new data. Pass NULL if no missing value imputations are required. Note that this is not related to
+*       'missing_action' as missing values inside the model are treated differently and follow their own imputation
+*       or division strategy.
+* - depth_imp
+*       How to weight observations according to their depth when used for imputing missing values. Passing
+*       "Higher" will weigh observations higher the further down the tree (away from the root node) the
+*       terminal node is, while "lower" will do the opposite, and "Sane" will not modify the weights according
+*       to node depth in the tree. Implemented for testing purposes and not recommended to change
+*       from the default. Ignored when not passing 'impute_nodes'.
+* - weigh_imp_rows
+*       How to weight node sizes when used for imputing missing values. Passing "Inverse" will weigh
+*       a node inversely proportional to the number of observations that end up there, while "Proportional"
+*       will weight them heavier the more observations there are, and "Flat" will weigh all nodes the same
+*       in this regard regardless of how many observations end up there. Implemented for testing purposes
+*       and not recommended to change from the default. Ignored when not passing 'impute_nodes'.
+* - impute_at_fit
+*       Whether to impute missing values in the input data as the model is being built. If passing 'true',
+*       then 'sample_size' must be equal to 'nrows'. Values in the arrays passed to 'numeric_data',
+*       'categ_data', and 'Xc', will get overwritten with the imputations produced.
 * - random_seed
 *       Seed that will be used to generate random numbers used by the model.
 * - nthreads
@@ -260,6 +282,7 @@
 * [5] https://sourceforge.net/projects/iforest/
 * [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 * [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
+* [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 */
 int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 double numeric_data[],  size_t ncols_numeric,
@@ -271,11 +294,13 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 bool   limit_depth, bool penalize_range,
                 bool   standardize_dist, double tmat[],
                 double output_depths[], bool standardize_depth,
-                double col_weights[],   bool weigh_by_kurt,
+                double col_weights[], bool weigh_by_kurt,
                 double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                 double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                 CategSplit cat_split_type, NewCategAction new_cat_action, MissingAction missing_action,
-                bool   all_perm, uint64_t random_seed, int nthreads)
+                bool   all_perm, Imputer *imputer,
+                UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
+                uint64_t random_seed, int nthreads)
 {
     /* calculate maximum number of categories to use later */
     int max_categ = 0;
@@ -292,7 +317,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 nrows, ncols_numeric + ncols_categ, sample_weights,
                                 weight_as_sample, col_weights,
                                 Xc, Xc_ind, Xc_indptr,
-                                0, 0, std::vector<double>()};
+                                0, 0, std::vector<double>(),
+                                std::vector<char>(), 0};
     ModelParams model_params = {with_replacement, sample_size, ntrees,
                                 limit_depth? log2ceil(sample_size) : max_depth? max_depth : (sample_size - 1),
                                 penalize_range, random_seed, weigh_by_kurt,
@@ -300,7 +326,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 prob_pick_by_gain_pl,  (model_outputs == NULL)? 0 : prob_split_by_gain_pl,
                                 cat_split_type, new_cat_action, missing_action, all_perm,
                                 (model_outputs != NULL)? 0 : ndim, (model_outputs != NULL)? 0 : ntry,
-                                coef_type, calc_dist, (bool)(output_depths != NULL)};
+                                coef_type, calc_dist, (bool)(output_depths != NULL), impute_at_fit,
+                                depth_imp, weigh_imp_rows};
 
     /* if using weights as sampling probability, build a binary tree for faster sampling */
     if (input_data.weight_as_sample && input_data.sample_weights != NULL)
@@ -308,6 +335,12 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         build_btree_sampler(input_data.btree_weights_init, input_data.sample_weights,
                             input_data.nrows, input_data.log2_n, input_data.btree_offset);
     }
+
+    /* if imputing missing values on-the-fly, need to determine which are missing */
+    std::vector<ImputedData> impute_vec;
+    std::unordered_map<size_t, ImputedData> impute_map;
+    if (model_params.impute_at_fit)
+        check_for_missing(input_data, impute_vec, impute_map, nthreads);
 
     /* store model data */
     if (model_outputs != NULL)
@@ -332,6 +365,9 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         model_outputs_ext->orig_sample_size = input_data.nrows;
     }
 
+    if (imputer != NULL)
+        initialize_imputer(*imputer, input_data, ntrees, nthreads);
+
     /* initialize thread-private memory */
     #ifdef _OPENMP
         std::vector<WorkerMemory> worker_memory(nthreads);
@@ -343,17 +379,41 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     #pragma omp parallel for num_threads(nthreads) schedule(dynamic) shared(model_outputs, model_outputs_ext, worker_memory, input_data, model_params)
     for (size_t_for tree = 0; tree < ntrees; tree++)
     {
+        if (
+            model_params.impute_at_fit &&
+            input_data.n_missing &&
+            !worker_memory[omp_get_thread_num()].impute_vec.size() &&
+            !worker_memory[omp_get_thread_num()].impute_map.size()
+            )
+        {
+            #ifdef _OPENMP
+            if (nthreads > 1)
+            {
+                worker_memory[omp_get_thread_num()].impute_vec = impute_vec;
+                worker_memory[omp_get_thread_num()].impute_map = impute_map;
+            }
+
+            else
+            #endif
+            {
+                worker_memory[0].impute_vec = std::move(impute_vec);
+                worker_memory[0].impute_map = std::move(impute_map);
+            }
+        }
+
         fit_itree((model_outputs != NULL)? &model_outputs->trees[tree] : NULL,
                   (model_outputs_ext != NULL)? &model_outputs_ext->hplanes[tree] : NULL,
                   worker_memory[omp_get_thread_num()],
                   input_data,
                   model_params,
+                  (imputer != NULL)? &(imputer->imputer_tree[tree]) : NULL,
                   tree);
 
         if ((model_outputs != NULL))
             model_outputs->trees[tree].shrink_to_fit();
         else
             model_outputs_ext->hplanes[tree].shrink_to_fit();
+
     }
 
     /* if calculating similarity/distance, now need to reduce and average */
@@ -400,6 +460,26 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
             for (size_t_for row = 0; row < nrows; row++)
                 output_depths[row] /= ntrees_dbl;
         }
+    }
+
+    /* if imputing missing values, now need to reduce and write final values */
+    if (model_params.impute_at_fit)
+    {
+        #ifdef _OPENMP
+        if (nthreads > 1)
+        {
+            for (WorkerMemory &w : worker_memory)
+                combine_tree_imputations(w, impute_vec, impute_map, input_data.has_missing, nthreads);
+        }
+
+        else
+        #endif
+        {
+            impute_vec = std::move(worker_memory[0].impute_vec);
+            impute_map = std::move(worker_memory[0].impute_map);
+        }
+
+        apply_imputation_results(impute_vec, impute_map, *imputer, input_data, nthreads);
     }
 
     return EXIT_SUCCESS;
@@ -513,9 +593,19 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - missing_action
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Cannot be changed from
 *       what was originally passed to 'fit_iforest'.
+* - depth_imp
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Cannot be changed from
+*       what was originally passed to 'fit_iforest'.
+* - weigh_imp_rows
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Cannot be changed from
+*       what was originally passed to 'fit_iforest'.
 * - all_perm
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
+* - impute_nodes
+*       Pointer to already-allocated imputation nodes for the tree that will be built. Note that the number of
+*       entries in the imputation object must match the number of fitted trees when it is used.  Pass
+*       NULL if no imputation node is required.
 * - random_seed
 *       Seed that will be used to generate random numbers used by the model.
 */
@@ -530,7 +620,9 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
              double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
              CategSplit cat_split_type, NewCategAction new_cat_action, MissingAction missing_action,
-             bool   all_perm, uint64_t random_seed)
+             UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
+             bool   all_perm, std::vector<ImputeNode> *impute_nodes,
+             uint64_t random_seed)
 {
     int max_categ = 0;
     for (size_t col = 0; col < ncols_categ; col++)
@@ -540,7 +632,8 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 nrows, ncols_numeric + ncols_categ, sample_weights,
                                 false, col_weights,
                                 Xc, Xc_ind, Xc_indptr,
-                                0, 0, std::vector<double>()};
+                                0, 0, std::vector<double>(),
+                                std::vector<char>(), 0};
     ModelParams model_params = {false, nrows, (size_t)1,
                                 max_depth? max_depth : (nrows - 1),
                                 penalize_range, random_seed, weigh_by_kurt,
@@ -548,7 +641,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 prob_pick_by_gain_pl,  (model_outputs == NULL)? 0 : prob_split_by_gain_pl,
                                 cat_split_type, new_cat_action, missing_action, all_perm,
                                 (model_outputs != NULL)? 0 : ndim, (model_outputs != NULL)? 0 : ntry,
-                                coef_type, false, false};
+                                coef_type, false, false, false, depth_imp, weigh_imp_rows};
 
     std::unique_ptr<WorkerMemory> workspace = std::unique_ptr<WorkerMemory>(new WorkerMemory);
 
@@ -570,6 +663,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
               *workspace,
               input_data,
               model_params,
+              impute_nodes,
               last_tree);
 
     if ((model_outputs != NULL))
@@ -582,10 +676,11 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 
 void fit_itree(std::vector<IsoTree>    *tree_root,
                std::vector<IsoHPlane>  *hplane_root,
-               WorkerMemory            &workspace,
-               InputData               &input_data,
-               ModelParams             &model_params,
-               size_t                  tree_num)
+               WorkerMemory             &workspace,
+               InputData                &input_data,
+               ModelParams              &model_params,
+               std::vector<ImputeNode> *impute_nodes,
+               size_t                   tree_num)
 {
     /* initialize array for depths if called for */
     if (!workspace.ix_arr.size() && model_params.calc_depth)
@@ -617,13 +712,18 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     /* set expected tree size and add root node */
     if (tree_root != NULL)
     {
-        tree_root->reserve(2 * model_params.max_depth);
+        tree_root->reserve(std::min(2 * model_params.sample_size, pow2(model_params.max_depth)));
         tree_root->emplace_back();
     }
     else
     {
-        hplane_root->reserve(2 * model_params.max_depth);
+        hplane_root->reserve(std::min(2 * model_params.sample_size, pow2(model_params.max_depth)));
         hplane_root->emplace_back();
+    }
+    if (impute_nodes != NULL)
+    {
+        impute_nodes->reserve(std::min(2 * model_params.sample_size, pow2(model_params.max_depth)));
+        impute_nodes->emplace_back((size_t) 0);
     }
 
     /* initialize array with candidate categories if not already done */
@@ -878,11 +978,17 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                               workspace,
                               input_data,
                               model_params,
+                              impute_nodes,
                               0);
     else
         split_hplane_recursive(*hplane_root,
                                workspace,
                                input_data,
                                model_params,
+                               impute_nodes,
                                0);
+
+    /* if producing imputation structs, only need to keep the ones for terminal nodes */
+    if (impute_nodes != NULL)
+        drop_nonterminal_imp_node(*impute_nodes, tree_root, hplane_root);
 }

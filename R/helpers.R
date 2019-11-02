@@ -60,8 +60,9 @@ get.types.dmat <- function() {
     return(c("matrix", "dgTMatrix"))
 }
 
-get.types.spmat <- function(allow_csr = FALSE) {
-    outp <- c("dgCMatrix", "matrix.csc")
+get.types.spmat <- function(allow_csr = FALSE, allow_csc = TRUE) {
+    outp <- c("dgCMatrix")
+    if (allow_csc) outp <- c(outp, "matrix.csc")
     if (allow_csr) outp <- c(outp, "matrix.csr")
     return(outp)
 }
@@ -165,7 +166,7 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL) {
     stop("Unexpected error.")
 }
 
-process.data.new <- function(df, metadata, allow_csr = FALSE) {
+process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) {
     if (!NROW(df)) stop("'df' contains zero rows.")
     if ( NCOL(df) < (metadata$ncols_num + metadata$ncols_cat) )
         stop(sprintf("Input data contains fewer columns than expected (%d vs. %d)",
@@ -175,7 +176,7 @@ process.data.new <- function(df, metadata, allow_csr = FALSE) {
         stop("Model was fit to categorical data, must pass a data.frame with new data.")
     
     dmatrix_types     <-  get.types.dmat()
-    spmatrix_types    <-  get.types.spmat(allow_csr = allow_csr)
+    spmatrix_types    <-  get.types.spmat(allow_csr = allow_csr, allow_csc = allow_csc)
     supported_dtypes  <-  c("data.frame", dmatrix_types, spmatrix_types)
     
     if (!NROW(intersect(class(df), supported_dtypes)))
@@ -256,3 +257,31 @@ process.data.new <- function(df, metadata, allow_csr = FALSE) {
     
     return(outp)
 }
+
+reconstruct.from.imp <- function(imputed_num, imputed_cat, df, model) {
+    
+    if ("dgCMatrix" %in% class(df)) {
+        outp     <-  df
+        outp@x   <-  imputed_num
+        return(outp)
+    } else if ("matrix.csc" %in% class(df)) {
+        outp     <-  df
+        outp@ra  <-  imputed_num
+    } else if (!("data.frame" %in% class(df))) {
+        return(matrix(imputed_num, nrow = NROW(df)))
+    } else {
+        df_num <- as.data.frame(matrix(imputed_num, nrow = NROW(df)))
+        names(df_num) <- model$metadata$cols_num
+        
+        df_cat <- as.data.frame(matrix(ifelse(imputed_cat < 0, NA, imputed_cat) + 1, nrow = NROW(df)))
+        names(df_cat) <- model$metadata$cols_cat
+        df_cat <- as.data.frame(mapply(function(x, levs) factor(x, labels = levs),
+                                       df_cat, model$metadata$cat_levs,
+                                       SIMPLIFY = FALSE))
+        
+        df_merged <- cbind(df_num, df_cat)
+        df_merged <- df_merged[, names(df)]
+        return(df_merged)
+    }
+}
+

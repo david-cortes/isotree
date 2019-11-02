@@ -18,6 +18,7 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
+*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019, David Cortes
@@ -58,21 +59,8 @@
 /* https://stackoverflow.com/questions/18474292/how-to-handle-c-internal-data-structure-in-r-in-order-to-allow-save-load */
 /* this extra comment below the link is a workaround for Rcpp issue 675 in GitHub, do not remove it */
 #include <Rinternals.h>
-Rcpp::RawVector serialize_IsoForest(IsoForest *model_outputs)
-{
-    std::stringstream ss;
-    {
-        cereal::BinaryOutputArchive oarchive(ss); // Create an output archive
-        oarchive(*model_outputs);
-    }
-    ss.seekg(0, ss.end);
-    Rcpp::RawVector retval(ss.tellg());
-    ss.seekg(0, ss.beg);
-    ss.read(reinterpret_cast<char*>(&retval[0]), retval.size());
-    return retval;
-}
-
-Rcpp::RawVector serialize_ExtIsoForest(ExtIsoForest *model_outputs)
+template <class T>
+Rcpp::RawVector serialize_cpp_obj(T *model_outputs)
 {
     std::stringstream ss;
     {
@@ -115,6 +103,20 @@ SEXP deserialize_ExtIsoForest(Rcpp::RawVector src)
 }
 
 // [[Rcpp::export]]
+SEXP deserialize_Imputer(Rcpp::RawVector src)
+{
+    std::stringstream ss;
+    ss.write(reinterpret_cast<char*>(&src[0]), src.size());
+    ss.seekg(0, ss.beg);
+    std::unique_ptr<Imputer> imputer = std::unique_ptr<Imputer>(new Imputer);
+    {
+        cereal::BinaryInputArchive iarchive(ss);
+        iarchive(*imputer);
+    }
+    return Rcpp::XPtr<Imputer>(imputer.release(), true);
+}
+
+// [[Rcpp::export]]
 Rcpp::LogicalVector check_null_ptr_model(SEXP ptr_model)
 {
     return Rcpp::LogicalVector(R_ExternalPtrAddr(ptr_model) == NULL);
@@ -130,6 +132,15 @@ double* set_R_nan_as_C_nan(double *x, size_t n, std::vector<double> &v, int nthr
     return v.data();
 }
 
+double* set_R_nan_as_C_nan(double *x, size_t n, int nthreads)
+{
+    #pragma omp parallel for schedule(static) num_threads(nthreads) shared(x, n)
+    for (size_t_for i = 0; i < n; i++)
+        if (isnan(x[i]))
+            x[i] = NAN;
+    return &x[0];
+}
+
 // [[Rcpp::export]]
 Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat,
                      Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
@@ -142,7 +153,10 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                      double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                      double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                      Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action,
-                     Rcpp::CharacterVector missing_action, bool all_perm, int random_seed, int nthreads)
+                     Rcpp::CharacterVector missing_action, bool all_perm,
+                     bool build_imputer, bool output_imputations,
+                     Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows,
+                     int random_seed, int nthreads)
 {
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
@@ -190,6 +204,8 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     CategSplit      cat_split_type_C  =  SubSet;
     NewCategAction  new_cat_action_C  =  Weighted;
     MissingAction   missing_action_C  =  Divide;
+    UseDepthImp     depth_imp_C       =  Higher;
+    WeighImpRows    weigh_imp_rows_C  =  Inverse;
 
     if (Rcpp::as<std::string>(coef_type) == std::string("uniform"))
     {
@@ -214,6 +230,22 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     else if (Rcpp::as<std::string>(missing_action) == std::string("fail"))
     {
         missing_action_C  =  Fail;
+    }
+    if (Rcpp::as<std::string>(depth_imp) == std::string("lower"))
+    {
+        depth_imp_C       =  Lower;
+    }
+    else if (Rcpp::as<std::string>(depth_imp) == std::string("same"))
+    {
+        depth_imp_C       =  Same;
+    }
+    if (Rcpp::as<std::string>(weigh_imp_rows) == std::string("prop"))
+    {
+        weigh_imp_rows_C  =  Prop;
+    }
+    else if (Rcpp::as<std::string>(weigh_imp_rows) == std::string("flat"))
+    {
+        weigh_imp_rows_C  =  Flat;
     }
 
     Rcpp::NumericVector  tmat    =  Rcpp::NumericVector();
@@ -242,11 +274,15 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
 
     std::unique_ptr<IsoForest>     model_ptr      =  std::unique_ptr<IsoForest>();
     std::unique_ptr<ExtIsoForest>  ext_model_ptr  =  std::unique_ptr<ExtIsoForest>();
+    std::unique_ptr<Imputer>       imputer_ptr    =  std::unique_ptr<Imputer>();
 
     if (ndim == 1)
         model_ptr      =  std::unique_ptr<IsoForest>(new IsoForest);
     else
         ext_model_ptr  =  std::unique_ptr<ExtIsoForest>(new ExtIsoForest);
+
+    if (build_imputer)
+        imputer_ptr    =  std::unique_ptr<Imputer>(new Imputer);
 
     fit_iforest(model_ptr.get(), ext_model_ptr.get(),
                 numeric_data_ptr,  ncols_numeric,
@@ -262,16 +298,18 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                 prob_pick_by_gain_avg, prob_split_by_gain_avg,
                 prob_pick_by_gain_pl,  prob_split_by_gain_pl,
                 cat_split_type_C, new_cat_action_C, missing_action_C,
-                all_perm, (uint64_t) random_seed, nthreads);
+                all_perm, imputer_ptr.get(),
+                depth_imp_C, weigh_imp_rows_C, output_imputations,
+                (uint64_t) random_seed, nthreads);
 
     if (calc_dist && sq_dist)
         tmat_to_dense(tmat_ptr, dmat_ptr, nrows, !standardize_dist);
 
     Rcpp::RawVector serialized_obj;
     if (ndim == 1)
-        serialized_obj  =  serialize_IsoForest(model_ptr.get());
+        serialized_obj  =  serialize_cpp_obj(model_ptr.get());
     else
-        serialized_obj  =  serialize_ExtIsoForest(ext_model_ptr.get());
+        serialized_obj  =  serialize_cpp_obj(ext_model_ptr.get());
 
     Rcpp::List outp = Rcpp::List::create(
                 Rcpp::_["serialized_obj"] = serialized_obj,
@@ -281,26 +319,40 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
         );
 
     if (ndim == 1)
-        outp["model_ptr"]  =  Rcpp::XPtr<IsoForest>(model_ptr.release(), true);
+        outp["model_ptr"]   =  Rcpp::XPtr<IsoForest>(model_ptr.release(), true);
     else
-        outp["model_ptr"]  =  Rcpp::XPtr<ExtIsoForest>(ext_model_ptr.release(), true);
+        outp["model_ptr"]   =  Rcpp::XPtr<ExtIsoForest>(ext_model_ptr.release(), true);
+
+    if (build_imputer)
+    {
+        outp["imputer_ser"] =  serialize_cpp_obj(imputer_ptr.get());
+        outp["imputer_ptr"] =  Rcpp::XPtr<Imputer>(imputer_ptr.release(), true);
+    }
+
+    if (output_imputations)
+    {
+        outp["imputed_num"] = Rcpp::NumericVector(Xcpp.begin(), Xcpp.end());
+        outp["imputed_cat"] = X_cat;
+    }
 
     return outp;
 }
 
 // [[Rcpp::export]]
-void fit_tree(SEXP model_R_ptr, 
-              Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat,
-              Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
-              Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights,
-              size_t nrows, size_t ncols_numeric, size_t ncols_categ,
-              size_t ndim, size_t ntry, Rcpp::CharacterVector coef_type, size_t max_depth,
-              bool limit_depth, bool penalize_range,
-              bool weigh_by_kurt,
-              double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
-              double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
-              Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action,
-              Rcpp::CharacterVector missing_action, bool all_perm, uint64_t random_seed)
+Rcpp::RawVector fit_tree(SEXP model_R_ptr, 
+                         Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat,
+                         Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
+                         Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights,
+                         size_t nrows, size_t ncols_numeric, size_t ncols_categ,
+                         size_t ndim, size_t ntry, Rcpp::CharacterVector coef_type, size_t max_depth,
+                         bool limit_depth, bool penalize_range,
+                         bool weigh_by_kurt,
+                         double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
+                         double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
+                         Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action,
+                         Rcpp::CharacterVector missing_action, bool build_imputer, SEXP imp_R_ptr,
+                         Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows,
+                         bool all_perm, uint64_t random_seed)
 {
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
@@ -348,6 +400,8 @@ void fit_tree(SEXP model_R_ptr,
     CategSplit      cat_split_type_C  =  SubSet;
     NewCategAction  new_cat_action_C  =  Weighted;
     MissingAction   missing_action_C  =  Divide;
+    UseDepthImp     depth_imp_C       =  Higher;
+    WeighImpRows    weigh_imp_rows_C  =  Inverse;
 
     if (Rcpp::as<std::string>(coef_type) == std::string("uniform"))
     {
@@ -373,13 +427,38 @@ void fit_tree(SEXP model_R_ptr,
     {
         missing_action_C  =  Fail;
     }
+    if (Rcpp::as<std::string>(depth_imp) == std::string("lower"))
+    {
+        depth_imp_C       =  Lower;
+    }
+    else if (Rcpp::as<std::string>(depth_imp) == std::string("same"))
+    {
+        depth_imp_C       =  Same;
+    }
+    if (Rcpp::as<std::string>(weigh_imp_rows) == std::string("prop"))
+    {
+        weigh_imp_rows_C  =  Prop;
+    }
+    else if (Rcpp::as<std::string>(weigh_imp_rows) == std::string("flat"))
+    {
+        weigh_imp_rows_C  =  Flat;
+    }
 
-    IsoForest* model_ptr         =  NULL;
-    ExtIsoForest* ext_model_ptr  =  NULL;
+    IsoForest*     model_ptr      =  NULL;
+    ExtIsoForest*  ext_model_ptr  =  NULL;
+    Imputer*       imputer_ptr    = NULL;
     if (ndim == 1)
         model_ptr      =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
     else
         ext_model_ptr  =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+
+    std::vector<ImputeNode>  *imp_ptr = NULL;
+    if (build_imputer)
+    {
+        imputer_ptr = static_cast<Imputer*>(R_ExternalPtrAddr(imp_R_ptr));
+        imputer_ptr->imputer_tree.emplace_back();
+        imp_ptr     = &imputer_ptr->imputer_tree.back();
+    }
 
     add_tree(model_ptr, ext_model_ptr,
              numeric_data_ptr,  ncols_numeric,
@@ -393,7 +472,13 @@ void fit_tree(SEXP model_R_ptr,
              prob_pick_by_gain_avg, prob_split_by_gain_avg,
              prob_pick_by_gain_pl,  prob_split_by_gain_pl,
              cat_split_type_C, new_cat_action_C, missing_action_C,
-             all_perm, (uint64_t)random_seed);
+             depth_imp_C, weigh_imp_rows_C, all_perm,
+             imp_ptr, (uint64_t)random_seed);
+
+    if (ndim == 1)
+        return serialize_cpp_obj(model_ptr);
+    else
+        return serialize_cpp_obj(ext_model_ptr);
 }
 
 // [[Rcpp::export]]
@@ -531,4 +616,58 @@ void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericVector dm
 
     if (sq_dist)
         tmat_to_dense(tmat_ptr, dmat_ptr, nrows, !standardize_dist);
+}
+
+// [[Rcpp::export]]
+Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
+                      Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat,
+                      Rcpp::NumericVector Xr, Rcpp::IntegerVector Xr_ind, Rcpp::IntegerVector Xr_indptr,
+                      size_t nrows, int nthreads)
+{
+    double*     numeric_data_ptr    =  NULL;
+    int*        categ_data_ptr      =  NULL;
+    double*     Xr_ptr              =  NULL;
+    sparse_ix*  Xr_ind_ptr          =  NULL;
+    sparse_ix*  Xr_indptr_ptr       =  NULL;
+
+    if (X_num.size())
+    {
+        numeric_data_ptr  =  &X_num[0];
+    }
+
+    if (X_cat.size())
+    {
+        categ_data_ptr    =  &X_cat[0];
+    }
+
+    if (Xr.size())
+    {
+        Xr_ptr         =  &Xr[0];
+        Xr_ind_ptr     =  &Xr_ind[0];
+        Xr_indptr_ptr  =  &Xr_indptr[0];
+    }
+
+    if (X_num.size()) numeric_data_ptr = set_R_nan_as_C_nan(numeric_data_ptr, X_num.size(), nthreads);
+    if (Xr.size())    Xr_ptr           = set_R_nan_as_C_nan(Xr_ptr, Xr.size(), nthreads);
+
+    IsoForest*     model_ptr      =  NULL;
+    ExtIsoForest*  ext_model_ptr  =  NULL;
+    if (is_extended)
+        ext_model_ptr  =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+    else
+        model_ptr      =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+
+    Imputer* imputer_ptr = static_cast<Imputer*>(R_ExternalPtrAddr(imputer_R_ptr));
+
+
+    impute_missing_values(numeric_data_ptr, categ_data_ptr,
+                          Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
+                          nrows, nthreads,
+                          model_ptr, ext_model_ptr,
+                          *imputer_ptr);
+
+    return Rcpp::List::create(
+                Rcpp::_["X_num"] = Xr.size()? Xr : X_num,
+                Rcpp::_["X_cat"] = X_cat
+            );
 }

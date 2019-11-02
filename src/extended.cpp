@@ -20,6 +20,7 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
+*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019, David Cortes
@@ -43,17 +44,29 @@
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-void split_hplane_recursive(std::vector<IsoHPlane> &hplanes,
-                            WorkerMemory           &workspace,
-                            InputData              &input_data,
-                            ModelParams            &model_params,
-                            size_t                 curr_depth)
+void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
+                            WorkerMemory             &workspace,
+                            InputData                &input_data,
+                            ModelParams              &model_params,
+                            std::vector<ImputeNode> *impute_nodes,
+                            size_t                   curr_depth)
 {
     long double sum_weight = -HUGE_VAL;
     size_t hplane_from = hplanes.size() - 1;
     std::unique_ptr<RecursionState> recursion_state;
     std::vector<bool> col_is_taken;
     std::unordered_set<size_t> col_is_taken_s;
+
+    /* calculate imputation statistics if desired */
+    if (impute_nodes != NULL)
+    {
+        if (input_data.Xc != NULL)
+            std::sort(workspace.ix_arr.begin() + workspace.st,
+                      workspace.ix_arr.begin() + workspace.end + 1);
+        build_impute_node(impute_nodes->back(), workspace,
+                          input_data, model_params,
+                          *impute_nodes, curr_depth);
+    }
 
     /* check for potential isolated leafs */
     if (workspace.end == workspace.st || curr_depth >= model_params.max_depth)
@@ -71,7 +84,7 @@ void split_hplane_recursive(std::vector<IsoHPlane> &hplanes,
         goto terminal_statistics;
 
     /* for sparse matrices, need to sort the indices */
-    if (input_data.Xc != NULL)
+    if (input_data.Xc != NULL && impute_nodes == NULL)
         std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
 
     /* pick column to split according to criteria */
@@ -443,11 +456,13 @@ void split_hplane_recursive(std::vector<IsoHPlane> &hplanes,
     /* follow left branch */
     hplanes[hplane_from].hplane_left = hplanes.size();
     hplanes.emplace_back();
+    if (impute_nodes != NULL) impute_nodes->emplace_back(hplane_from);
     workspace.end = workspace.split_ix - 1;
     split_hplane_recursive(hplanes,
                            workspace,
                            input_data,
                            model_params,
+                           impute_nodes,
                            curr_depth + 1);
 
 
@@ -455,11 +470,13 @@ void split_hplane_recursive(std::vector<IsoHPlane> &hplanes,
     hplanes[hplane_from].hplane_right = hplanes.size();
     restore_recursion_state(workspace, *recursion_state);
     hplanes.emplace_back();
+    if (impute_nodes != NULL) impute_nodes->emplace_back(hplane_from);
     workspace.st = workspace.split_ix;
     split_hplane_recursive(hplanes,
                            workspace,
                            input_data,
                            model_params,
+                           impute_nodes,
                            curr_depth + 1);
 
     return;
@@ -495,6 +512,10 @@ void split_hplane_recursive(std::vector<IsoHPlane> &hplanes,
         if (workspace.row_depths.size())
             for (size_t row = workspace.st; row <= workspace.end; row++)
                 workspace.row_depths[workspace.ix_arr[row]] += hplanes.back().score;
+
+        /* add imputations from node if requested */
+        if (model_params.impute_at_fit)
+            add_from_impute_node(impute_nodes->back(), workspace, input_data);
     }
 }
 

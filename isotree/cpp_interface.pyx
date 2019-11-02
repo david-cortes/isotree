@@ -20,6 +20,7 @@
 #     [5] https://sourceforge.net/projects/iforest/
 #     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 #     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
+#     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 # 
 #     BSD 2-Clause License
 #     Copyright (c) 2019, David Cortes
@@ -81,6 +82,16 @@ cdef extern from "isotree.hpp":
         Uniform
         Normal
 
+    ctypedef enum UseDepthImp:
+        Lower
+        Higher
+        Same
+
+    ctypedef enum WeighImpRows:
+        Inverse
+        Prop
+        Flat
+
     ctypedef struct IsoTree:
         ColType       col_type
         size_t        col_num
@@ -102,7 +113,7 @@ cdef extern from "isotree.hpp":
         MissingAction    missing_action
         double           exp_avg_depth
         double           exp_avg_sep
-        size_t           orig_sample_size;
+        size_t           orig_sample_size
 
     ctypedef struct IsoHPlane:
         vector[size_t]    col_num
@@ -128,7 +139,22 @@ cdef extern from "isotree.hpp":
         MissingAction     missing_action
         double            exp_avg_depth
         double            exp_avg_sep
-        size_t            orig_sample_size;
+        size_t            orig_sample_size
+
+    ctypedef struct ImputeNode:
+        vector[double]          num_sum
+        vector[double]          num_weight
+        vector[vector[double]]  cat_sum
+        vector[double]          cat_weight
+        size_t                  parent
+
+    ctypedef struct Imputer:
+        size_t          ncols_numeric
+        size_t          ncols_categ
+        vector[int]     ncat
+        vector[vector[ImputeNode]] imputer_tree
+        vector[double]  col_means
+        vector[int]     col_modes
 
 
     int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -145,7 +171,9 @@ cdef extern from "isotree.hpp":
                     double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                     double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                     CategSplit cat_split_type, NewCategAction new_cat_action, MissingAction missing_action,
-                    bool_t all_perm, uint64_t random_seed, int nthreads)
+                    bool_t all_perm, Imputer *imputer,
+                    UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool_t impute_at_fit,
+                    uint64_t random_seed, int nthreads)
 
     void predict_iforest(double *numeric_data, int *categ_data,
                          double *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr,
@@ -161,6 +189,12 @@ cdef extern from "isotree.hpp":
                          size_t nrows, int nthreads, bool_t assume_full_distr, bool_t standardize_dist,
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext, double *tmat)
 
+    void impute_missing_values(double *numeric_data, int *categ_data,
+                               double *Xr, sparse_ix *Xr_ind, sparse_ix *Xr_indptr,
+                               size_t nrows, int nthreads,
+                               IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                               Imputer &imputer)
+
     int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                  double *numeric_data,  size_t ncols_numeric,
                  int    *categ_data,    size_t ncols_categ,    int *ncat,
@@ -173,7 +207,8 @@ cdef extern from "isotree.hpp":
                  double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                  double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                  CategSplit cat_split_type, NewCategAction new_cat_action, MissingAction missing_action,
-                 bool_t  all_perm, uint64_t random_seed)
+                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
+                 bool_t  all_perm, vector[ImputeNode] *impute_nodes, uint64_t random_seed)
 
 
 
@@ -197,6 +232,7 @@ cdef int* get_ptr_int_mat(np.ndarray[int, ndim = 2] a):
 cdef class isoforest_cpp_obj:
     cdef IsoForest     isoforest
     cdef ExtIsoForest  ext_isoforest
+    cdef Imputer       imputer
 
     def __init__(self):
         pass
@@ -206,6 +242,9 @@ cdef class isoforest_cpp_obj:
             return self.ext_isoforest
         else:
             return self.isoforest
+
+    def get_imputer(self):
+        return self.imputer
 
     def fit_model(self, X_num, X_cat, ncat, sample_weights, col_weights,
                   size_t nrows, size_t ncols_numeric, size_t ncols_categ,
@@ -219,6 +258,7 @@ cdef class isoforest_cpp_obj:
                   double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                   double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                   cat_split_type, new_cat_action, missing_action,
+                  bool_t build_imputer, depth_imp, weigh_imp_rows, bool_t impute_at_fit,
                   bool_t all_perm, uint64_t random_seed, int nthreads):
         cdef double*     numeric_data_ptr    =  NULL
         cdef int*        categ_data_ptr      =  NULL
@@ -248,6 +288,8 @@ cdef class isoforest_cpp_obj:
         cdef CategSplit      cat_split_type_C  =  SubSet
         cdef NewCategAction  new_cat_action_C  =  Weighted
         cdef MissingAction   missing_action_C  =  Divide
+        cdef UseDepthImp     depth_imp_C       =  Same
+        cdef WeighImpRows    weigh_imp_rows_C  =  Flat
 
         if coef_type == "uniform":
             coef_type_C       =  Uniform
@@ -261,6 +303,14 @@ cdef class isoforest_cpp_obj:
             missing_action_C  =  Impute
         elif missing_action == "fail":
             missing_action_C  =  Fail
+        if depth_imp == "lower":
+            depth_imp_C       =  Lower
+        elif depth_imp == "higher":
+            depth_imp_C       =  Higher
+        if weigh_imp_rows == "inverse":
+            weigh_imp_rows_C  =  Inverse
+        elif weigh_imp_rows == "prop":
+            weigh_imp_rows_C  =  Prop
 
         cdef np.ndarray[double, ndim = 1]  tmat    =  np.empty(0, dtype = ctypes.c_double)
         cdef np.ndarray[double, ndim = 2]  dmat    =  np.empty((0, 0), dtype = ctypes.c_double)
@@ -279,8 +329,9 @@ cdef class isoforest_cpp_obj:
             depths      =  np.zeros(nrows, dtype = ctypes.c_double)
             depths_ptr  =  &depths[0]
 
-        cdef IsoForest* model_ptr         =  NULL
-        cdef ExtIsoForest* ext_model_ptr  =  NULL
+        cdef IsoForest*     model_ptr      =  NULL
+        cdef ExtIsoForest*  ext_model_ptr  =  NULL
+        cdef Imputer*       imputer_ptr    =  NULL
         if ndim == 1:
             self.isoforest      =  IsoForest()
             model_ptr           =  &self.isoforest
@@ -288,6 +339,9 @@ cdef class isoforest_cpp_obj:
             self.ext_isoforest  =  ExtIsoForest()
             ext_model_ptr       =  &self.ext_isoforest
 
+        if build_imputer:
+            self.imputer = Imputer()
+            imputer_ptr  = &self.imputer
 
         fit_iforest(model_ptr, ext_model_ptr,
                     numeric_data_ptr,  ncols_numeric,
@@ -303,12 +357,14 @@ cdef class isoforest_cpp_obj:
                     prob_pick_by_gain_avg, prob_split_by_gain_avg,
                     prob_pick_by_gain_pl,  prob_split_by_gain_pl,
                     cat_split_type_C, new_cat_action_C, missing_action_C,
-                    all_perm, random_seed, nthreads)
+                    all_perm, imputer_ptr,
+                    depth_imp_C, weigh_imp_rows_C, impute_at_fit,
+                    random_seed, nthreads)
 
         if (calc_dist) and (sq_dist):
             tmat_to_dense(tmat_ptr, dmat_ptr, nrows, <bool_t>(not standardize_dist))
 
-        return depths, tmat, dmat
+        return depths, tmat, dmat, X_num, X_cat
 
     def fit_tree(self, X_num, X_cat, ncat, sample_weights, col_weights,
                  size_t nrows, size_t ncols_numeric, size_t ncols_categ,
@@ -318,6 +374,7 @@ cdef class isoforest_cpp_obj:
                  double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                  double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                  cat_split_type, new_cat_action, missing_action,
+                 bool_t build_imputer, depth_imp, weigh_imp_rows,
                  bool_t all_perm, uint64_t random_seed):
         cdef double*     numeric_data_ptr    =  NULL
         cdef int*        categ_data_ptr      =  NULL
@@ -347,6 +404,9 @@ cdef class isoforest_cpp_obj:
         cdef CategSplit      cat_split_type_C  =  SubSet
         cdef NewCategAction  new_cat_action_C  =  Weighted
         cdef MissingAction   missing_action_C  =  Divide
+        cdef UseDepthImp     depth_imp_C       =  Same
+        cdef WeighImpRows    weigh_imp_rows_C  =  Flat
+        
 
         if coef_type == "uniform":
             coef_type_C       =  Uniform
@@ -360,13 +420,26 @@ cdef class isoforest_cpp_obj:
             missing_action_C  =  Impute
         elif missing_action == "fail":
             missing_action_C  =  Fail
+        if depth_imp == "lower":
+            depth_imp_C       =  Lower
+        elif depth_imp == "higher":
+            depth_imp_C       =  Higher
+        if weigh_imp_rows == "inverse":
+            weigh_imp_rows_C  =  Inverse
+        elif weigh_imp_rows == "prop":
+            weigh_imp_rows_C  =  Prop
 
-        cdef IsoForest* model_ptr         =  NULL
-        cdef ExtIsoForest* ext_model_ptr  =  NULL
+        cdef IsoForest*     model_ptr      =  NULL
+        cdef ExtIsoForest*  ext_model_ptr  =  NULL
         if ndim == 1:
             model_ptr           =  &self.isoforest
         else:
             ext_model_ptr       =  &self.ext_isoforest
+
+        cdef vector[ImputeNode] *imputer_tree_ptr = NULL
+        if build_imputer:
+            self.imputer.imputer_tree.push_back(vector[ImputeNode]()) ### emplace back doesn't work in cython
+            imputer_tree_ptr = &self.imputer.imputer_tree.back()
 
         add_tree(model_ptr, ext_model_ptr,
                  numeric_data_ptr,  ncols_numeric,
@@ -380,7 +453,8 @@ cdef class isoforest_cpp_obj:
                  prob_pick_by_gain_avg, prob_split_by_gain_avg,
                  prob_pick_by_gain_pl,  prob_split_by_gain_pl,
                  cat_split_type_C, new_cat_action_C, missing_action_C,
-                 all_perm, random_seed)
+                 depth_imp_C, weigh_imp_rows_C,
+                 all_perm, imputer_tree_ptr, random_seed)
 
     def predict(self, X_num, X_cat, is_extended,
                 size_t nrows, int nthreads, bool_t standardize, bool_t output_tree_num):
@@ -423,8 +497,8 @@ cdef class isoforest_cpp_obj:
             tree_num      =  np.empty((nrows, sz), dtype = ctypes.c_size_t, order = 'F')
             tree_num_ptr  =  &tree_num[0, 0]
 
-        cdef IsoForest* model_ptr         =  NULL
-        cdef ExtIsoForest* ext_model_ptr  =  NULL
+        cdef IsoForest*     model_ptr      =  NULL
+        cdef ExtIsoForest*  ext_model_ptr  =  NULL
         if not is_extended:
             model_ptr      =  &self.isoforest
         else:
@@ -471,8 +545,8 @@ cdef class isoforest_cpp_obj:
             dmat      =  np.zeros((nrows, nrows), dtype = ctypes.c_double, order = 'F')
             dmat_ptr  =  &dmat[0, 0]
 
-        cdef IsoForest* model_ptr         =  NULL
-        cdef ExtIsoForest* ext_model_ptr  =  NULL
+        cdef IsoForest*     model_ptr      =  NULL
+        cdef ExtIsoForest*  ext_model_ptr  =  NULL
         if not is_extended:
             model_ptr      =  &self.isoforest
         else:
@@ -487,3 +561,35 @@ cdef class isoforest_cpp_obj:
             tmat_to_dense(tmat_ptr, dmat_ptr, nrows, <bool_t>(not standardize_dist))
 
         return tmat, dmat
+
+    def impute(self, X_num, X_cat, bool_t is_extended, size_t nrows, int nthreads):
+        cdef double*     numeric_data_ptr  =  NULL
+        cdef int*        categ_data_ptr    =  NULL
+        cdef double*     Xr_ptr            =  NULL
+        cdef sparse_ix*  Xr_ind_ptr        =  NULL
+        cdef sparse_ix*  Xr_indptr_ptr     =  NULL
+
+        if X_num is not None:
+            if not issparse(X_num):
+                numeric_data_ptr  =  get_ptr_dbl_mat(X_num)
+            else:
+                Xr_ptr         =  get_ptr_dbl_vec(X_num.data)
+                Xr_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
+                Xr_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
+        if X_cat is not None:
+            categ_data_ptr     =  get_ptr_int_mat(X_cat)
+
+        cdef IsoForest*     model_ptr      =  NULL
+        cdef ExtIsoForest*  ext_model_ptr  =  NULL
+        if not is_extended:
+            model_ptr      =  &self.isoforest
+        else:
+            ext_model_ptr  =  &self.ext_isoforest
+
+        impute_missing_values(numeric_data_ptr, categ_data_ptr,
+                              Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
+                              nrows, nthreads,
+                              model_ptr, ext_model_ptr,
+                              self.imputer)
+
+        return X_num, X_cat
