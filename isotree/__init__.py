@@ -925,7 +925,7 @@ class IsolationForest:
 
         Note
         ----
-        In order to use this functionality, the model must have been built with imputation capabilities ('build_inputer' = 'True').
+        In order to use this functionality, the model must have been built with imputation capabilities ('build_imputer' = 'True').
 
         Note
         ----
