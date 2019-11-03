@@ -412,8 +412,8 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
                 {
                     if (!isnan(imputer_tree[curr_tree].num_sum[col]))
                     {
-                        imputer.num_sum[col]     =  imputer_tree[curr_tree].num_sum[col] / (double)(2 * look_aboves);
-                        imputer.num_weight[col]  =  imputer_tree[curr_tree].num_weight[col] / (double)(2 * look_aboves);
+                        imputer.num_sum[col]     =  imputer_tree[curr_tree].num_sum[col] / imputer_tree[curr_tree].num_weight[col];
+                        imputer.num_weight[col]  =  wsum / (double)(2 * look_aboves);
                         break;
                     }
 
