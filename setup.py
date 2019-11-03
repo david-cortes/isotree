@@ -71,6 +71,7 @@ setup(
                                          "src/crit.cpp", "src/dist.cpp", "src/impute.cpp", "src/mult.cpp", "src/dealloc.cpp"],
                                 include_dirs=[np.get_include(), ".", "./src"],
                                 language="c++",
-                                install_requires = ["numpy", "pandas>=0.24.0", "cython", "scipy"]
+                                install_requires = ["numpy", "pandas>=0.24.0", "cython", "scipy"],
+                                define_macros = [("_USE_MERSENNE_TWISTER", None)]
                             )]
     )
