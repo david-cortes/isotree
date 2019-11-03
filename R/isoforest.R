@@ -240,6 +240,7 @@
 #'     image(pts, pts, matrix(Z, nrow = length(pts)),
 #'       col = rev(heat.colors(50)),
 #'       main = ttl, cex.main = 1.4,
+#'       xlim = c(-3, 3), ylim = c(-3, 3),
 #'       xlab = "", ylab = "")
 #'     par(new = TRUE)
 #'     plot(X, type = "p", xlim = c(-3, 3), ylim = c(-3, 3),
