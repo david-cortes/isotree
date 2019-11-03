@@ -751,7 +751,7 @@ void apply_imputation_results(imp_arr    &impute_vec,
                 if (is_na_or_inf(input_data.Xc[ix]))
                 {
                     row = input_data.Xc_ind[ix];
-                    if (impute_vec[row].sp_num_weight[row_pos[row]] > 0)
+                    if (impute_vec[row].sp_num_weight[row_pos[row]] > 0 && !is_na_or_inf(impute_vec[row].sp_num_sum[row_pos[row]]))
                         input_data.Xc[ix]
                             =
                         impute_vec[row].sp_num_sum[row_pos[row]]
@@ -776,7 +776,7 @@ void apply_imputation_results(imp_arr    &impute_vec,
             for (size_t ix = 0; ix < impute_vec[row].n_missing_num; ix++)
             {
                 col = impute_vec[row].missing_num[ix];
-                if (impute_vec[row].num_weight[ix] > 0)
+                if (impute_vec[row].num_weight[ix] > 0 && !is_na_or_inf(impute_vec[row].num_sum[ix]))
                     input_data.numeric_data[row + col * input_data.nrows]
                         =
                     impute_vec[row].num_sum[ix] / impute_vec[row].num_weight[ix];
@@ -827,7 +827,7 @@ void apply_imputation_results(PredictionData  &prediction_data,
     for (size_t ix = 0; ix < imp.n_missing_num; ix++)
     {
         col = imp.missing_num[ix];
-        if (imp.num_weight[ix] > 0)
+        if (imp.num_weight[ix] > 0 && !is_na_or_inf(imp.num_sum[ix]))
             prediction_data.numeric_data[row + col * prediction_data.nrows]
                 =
             imp.num_sum[ix] / imp.num_weight[ix];
@@ -842,7 +842,7 @@ void apply_imputation_results(PredictionData  &prediction_data,
         {
             if (is_na_or_inf(prediction_data.Xr[ix]))
             {
-                if (imp.sp_num_weight[pos] > 0)
+                if (imp.sp_num_weight[pos] > 0 && !is_na_or_inf(imp.sp_num_sum[pos]))
                     prediction_data.Xr[ix]
                         =
                     imp.sp_num_sum[pos] / imp.sp_num_weight[pos];
