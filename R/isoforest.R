@@ -468,8 +468,8 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
     if (weigh_by_kurtosis & !is.null(column_weights))
         stop("Cannot pass column weights when weighting columns by kurtosis.")
     
-    if ((output_score || output_dist) & (sample_size != NROW(df)))
-        stop("Cannot calculate scores/distances when sub-sampling data ('sample_size').")
+    if ((output_score || output_dist || output_imputations) & (sample_size != NROW(df)))
+        stop("Cannot calculate scores/distances/imputations when sub-sampling data ('sample_size').")
     
     if ((output_score || output_dist) & sample_with_replacement)
         stop("Cannot calculate scores/distances when sampling data with replacement.")
