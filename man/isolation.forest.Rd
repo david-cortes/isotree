@@ -260,7 +260,7 @@ cat("Point with highest outlier score: ",
 ### ghost regions of low-outlierness in regions where there
 ### isn't any data
 library(isotree)
-par(mfrow = c(1, 2))
+par(mfrow = c(2, 2), mar = c(2.5,2.2,2,2.5))
 
 ### Randomly-generated data from different distributions
 set.seed(1)
@@ -270,36 +270,57 @@ group2 <- data.frame(x = rnorm(1000, +1, .2),
     y = rnorm(1000, +1, .4))
 X = rbind(group1, group2)
 
-### Extended model fit to the concatenated data
-iso_ext = isolation.forest(X, ndim=2, ntrees=100, nthreads=1)
+### Produce heatmaps
 pts = seq(-3, 3, .1)
 space_d <- expand.grid(x = pts, y = pts)
-Z <- predict(iso_ext, space_d)
-image(pts, pts, matrix(Z, nrow = length(pts)),
+plot.space <- function(Z, ttl) {
+    image(pts, pts, matrix(Z, nrow = length(pts)),
       col = rev(heat.colors(50)),
-      main = "Extended Isolation Forest",
+      main = ttl, cex.main = 1.4,
       xlab = "", ylab = "")
-par(new = TRUE)
-plot(X, type = "p", xlim = c(-3, 3), ylim = c(-3, 3),
+    par(new = TRUE)
+    plot(X, type = "p", xlim = c(-3, 3), ylim = c(-3, 3),
      col = "#0000801A",
      axes = FALSE, main = "",
      xlab = "", ylab = "")
+}
 
 ### Single-variable model
-iso_simple = isolation.forest(X, ndim=1, ntrees=100, nthreads=1)
-Z2 <- predict(iso_simple, space_d)
-image(pts, pts, matrix(Z2, nrow = length(pts)),
-      col = rev(heat.colors(50)),
-      main = paste0("Single-variable Isolation Forest",
-             "\\n(notice ghost regions)"),
-      xlab = "", ylab = "")
-par(new = TRUE)
-plot(X, type = "p", xlim = c(-3, 3), ylim = c(-3, 3),
-     col = "#0000801A",
-     axes = FALSE, main = "",
-     xlab = "", ylab = "")
+iso_simple = isolation.forest(
+    X, ndim=1,
+    ntrees=100,
+    nthreads=1,
+    prob_pick_pooled_gain=0)
+Z1 <- predict(iso_simple, space_d)
+plot.space(Z1, "Isolation Forest")
 
+### Extended model fit to the concatenated data
+iso_ext = isolation.forest(
+     X, ndim=2,
+     ntrees=100,
+     nthreads=1,
+     prob_pick_pooled_gain=0)
+Z2 <- predict(iso_ext, space_d)
+plot.space(Z2, "Extended Isolation Forest")
 
+### SCiForest fit to the concatenated data
+iso_ext = isolation.forest(
+     X, ndim=2,
+     ntrees=100,
+     nthreads=1,
+     prob_pick_pooled_gain=0,
+     prob_pick_avg_gain=1)
+Z3 <- predict(iso_ext, space_d)
+plot.space(Z3, "SCiForest")
+     
+### Alternative split criterion
+iso_ext = isolation.forest(
+     X, ndim=2,
+     ntrees=100,
+     nthreads=1,
+     prob_pick_pooled_gain=1)
+Z4 <- predict(iso_ext, space_d)
+plot.space(Z4, "Alternative split criterion")
 
 
 ### Example3:  calculating pairwise distances,
