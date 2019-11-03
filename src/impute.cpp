@@ -738,18 +738,17 @@ void apply_imputation_results(imp_arr    &impute_vec,
 
     if (input_data.Xc != NULL)
     {
-        std::vector<size_t> row_pos(input_data.n_missing, 0);
+        std::vector<size_t> row_pos(input_data.nrows, 0);
         size_t row;
 
-        #pragma omp parallel for schedule(dynamic) num_threads(nthreads) shared(input_data, impute_vec, imputer, row_pos) private(row)
-        for (size_t_for col = 0; col < input_data.ncols_numeric; col++)
+        for (size_t col = 0; col < input_data.ncols_numeric; col++)
         {
             for (sparse_ix ix = input_data.Xc_indptr[col]; ix < input_data.Xc_indptr[col + 1]; ix++)
             {
                 if (is_na_or_inf(input_data.Xc[ix]))
                 {
                     row = input_data.Xc_ind[ix];
-                    if (impute_vec[row].sp_num_weight[row_pos[row]])
+                    if (impute_vec[row].sp_num_weight[row_pos[row]] > 0)
                         input_data.Xc[ix]
                             =
                         impute_vec[row].sp_num_sum[row_pos[row]]
@@ -820,7 +819,8 @@ void apply_imputation_results(PredictionData  &prediction_data,
                               Imputer         &imputer,
                               size_t          row)
 {
-    size_t col, pos;
+    size_t col;
+    size_t pos = 0;
     for (size_t ix = 0; ix < imp.n_missing_num; ix++)
     {
         col = imp.missing_num[ix];
@@ -837,7 +837,6 @@ void apply_imputation_results(PredictionData  &prediction_data,
     if (prediction_data.Xr != NULL)
         for (size_t ix = prediction_data.Xr_indptr[row]; ix < prediction_data.Xr_indptr[row + 1]; ix++)
         {
-            pos = 0;
             if (is_na_or_inf(prediction_data.Xr[ix]))
             {
                 if (imp.sp_num_weight[pos] > 0)
@@ -847,7 +846,7 @@ void apply_imputation_results(PredictionData  &prediction_data,
                 else
                     prediction_data.Xr[ix]
                         =
-                    imputer.col_means[prediction_data.Xr_ind[ix]];
+                    imputer.col_means[imp.missing_sp[pos]];
                 pos++;
             }
         }
@@ -916,7 +915,7 @@ void initialize_impute_calc(ImputedData &imp, InputData &input_data, size_t row)
         imp.missing_cat.resize(imp.n_missing_cat);
         imp.cat_weight.assign(imp.n_missing_cat, 0);
         imp.cat_sum.resize(input_data.ncols_categ);
-        for (int cat = 0; cat < imp.n_missing_cat; cat++)
+        for (size_t cat = 0; cat < imp.n_missing_cat; cat++)
             imp.cat_sum[imp.missing_cat[cat]].assign(input_data.ncat[imp.missing_cat[cat]], 0);
     }
 }
