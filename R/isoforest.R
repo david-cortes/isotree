@@ -487,6 +487,10 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                        "it's recommended if possible to fit the model first and then pass the ",
                        "same matrix as CSR to 'predict'."))
     
+    if (output_imputations && !is.null(sample_weights) && !weights_as_sample_prob)
+        stop(paste0("Cannot impute missing values on-the-fly when using sample weights",
+                    " as distribution density. Must first fit model and then impute values."))
+    
     ### cast all parameters
     if (!is.null(sample_weights)) {
         sample_weights <- as.numeric(sample_weights)
