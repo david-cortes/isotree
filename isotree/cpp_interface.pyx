@@ -210,6 +210,10 @@ cdef extern from "isotree.hpp":
                  UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
                  bool_t  all_perm, vector[ImputeNode] *impute_nodes, uint64_t random_seed)
 
+    void dealloc_IsoForest(IsoForest &model_outputs)
+    void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext)
+    void dealloc_Imputer(Imputer &imputer)
+
 
 
 cdef double* get_ptr_dbl_vec(np.ndarray[double, ndim = 1] a):
@@ -236,6 +240,11 @@ cdef class isoforest_cpp_obj:
 
     def __init__(self):
         pass
+
+    def __dealloc__(self):
+        dealloc_IsoForest(self.isoforest)
+        dealloc_IsoExtForest(self.ext_isoforest)
+        dealloc_Imputer(self.imputer)
 
     def get_cpp_obj(self, is_extended):
         if is_extended:

@@ -857,3 +857,8 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                         size_t *restrict buffer_cnt, size_t *restrict buffer_pos, double *restrict buffer_prob,
                         int &chosen_cat, char *restrict split_categ, char *restrict buffer_split,
                         GainCriterion criterion, bool all_perm, MissingAction missing_action, CategSplit cat_split_type);
+
+/* dealloc.cpp */
+void dealloc_IsoForest(IsoForest &model_outputs);
+void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext);
+void dealloc_Imputer(Imputer &imputer);
