@@ -453,7 +453,10 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
                     if (imputer_tree[curr_tree].cat_weight[col] > 0)
                     {
                         for (int cat = 0; cat < input_data.ncat[col]; cat++)
-                            imputer.cat_sum[col][cat] += imputer_tree[curr_tree].cat_sum[col][cat] / (double)(2 * look_aboves);
+                        {
+                            imputer.cat_sum[col][cat] += imputer_tree[curr_tree].cat_sum[col][cat] / imputer.cat_weight[col];
+                            imputer.cat_weight[col]    =  wsum / (double)(2 * look_aboves);
+                        }
                         break;
                     }
 
