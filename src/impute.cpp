@@ -410,7 +410,7 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
                 curr_tree   = imputer.parent;
                 while (true)
                 {
-                    if (!isnan(imputer_tree[curr_tree].num_sum[col]))
+                    if (!is_na_or_inf(imputer_tree[curr_tree].num_sum[col]))
                     {
                         imputer.num_sum[col]     =  imputer_tree[curr_tree].num_sum[col] / imputer_tree[curr_tree].num_weight[col];
                         imputer.num_weight[col]  =  wsum / (double)(2 * look_aboves);
@@ -471,7 +471,9 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
                         break;
                     }
                 }
-                imputer.cat_weight[col] = *std::max_element(imputer.cat_sum[col].begin(), imputer.cat_sum[col].end());
+                imputer.cat_weight[col] = std::accumulate(imputer.cat_sum[col].begin(),
+                                                          imputer.cat_sum[col].end(),
+                                                          (double) 0);
             }
         }
     }
