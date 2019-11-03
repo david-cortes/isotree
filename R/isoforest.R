@@ -229,6 +229,10 @@
 #'     y = rnorm(1000, +1, .4))
 #' X = rbind(group1, group2)
 #' 
+#' ### Add an obvious outlier
+#' ### (As an interesting test, remove and see what happens)
+#' X = rbind(X, c(-2, 2))
+#' 
 #' ### Produce heatmaps
 #' pts = seq(-3, 3, .1)
 #' space_d <- expand.grid(x = pts, y = pts)
@@ -263,22 +267,22 @@
 #' plot.space(Z2, "Extended Isolation Forest")
 #' 
 #' ### SCiForest fit to the concatenated data
-#' iso_ext = isolation.forest(
+#' iso_sci = isolation.forest(
 #'      X, ndim=2,
 #'      ntrees=100,
 #'      nthreads=1,
 #'      prob_pick_pooled_gain=0,
 #'      prob_pick_avg_gain=1)
-#' Z3 <- predict(iso_ext, space_d)
+#' Z3 <- predict(iso_sci, space_d)
 #' plot.space(Z3, "SCiForest")
 #'      
 #' ### Alternative split criterion
-#' iso_ext = isolation.forest(
+#' iso_alt = isolation.forest(
 #'      X, ndim=2,
 #'      ntrees=100,
 #'      nthreads=1,
 #'      prob_pick_pooled_gain=1)
-#' Z4 <- predict(iso_ext, space_d)
+#' Z4 <- predict(iso_alt, space_d)
 #' plot.space(Z4, "Alternative split criterion")
 #' 
 #' 
