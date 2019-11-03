@@ -107,7 +107,7 @@ cat("Point with highest outlier score: ",
 
 # Examples
 
-* Python: [example notebook](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb), [example as imputer in sklearn pipeline](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb).
+* Python: [[example notebook](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb)], [[example as imputer in sklearn pipeline](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb)].
 * R: examples available in the documentation (`help(isotree::isolation.forest)`).
 
 # Documentation
