@@ -639,28 +639,28 @@ void combine_tree_imputations(WorkerMemory &workspace,
 }
 
 
-void add_from_impute_node(ImputeNode &imputer, ImputedData &imputed_data)
+void add_from_impute_node(ImputeNode &imputer, ImputedData &imputed_data, double w)
 {
     size_t col;
     for (size_t ix = 0; ix < imputed_data.n_missing_num; ix++)
     {
         col = imputed_data.missing_num[ix];
-        imputed_data.num_sum[ix]    += (!is_na_or_inf(imputer.num_sum[col]))? imputer.num_sum[col] : 0;
-        imputed_data.num_weight[ix] += imputer.num_weight[ix];
+        imputed_data.num_sum[ix]    += (!is_na_or_inf(imputer.num_sum[col]))? (w * imputer.num_sum[col]) : 0;
+        imputed_data.num_weight[ix] += w * imputer.num_weight[ix];
     }
 
     for (size_t ix = 0; ix < imputed_data.n_missing_sp; ix++)
     {
         col = imputed_data.missing_sp[ix];
-        imputed_data.sp_num_sum[ix]    += (!is_na_or_inf(imputer.num_sum[col]))? imputer.num_sum[col] : 0;
-        imputed_data.sp_num_weight[ix] += imputer.num_weight[ix];
+        imputed_data.sp_num_sum[ix]    += (!is_na_or_inf(imputer.num_sum[col]))? (w * imputer.num_sum[col]) : 0;
+        imputed_data.sp_num_weight[ix] += w * imputer.num_weight[ix];
     }
 
     for (size_t ix = 0; ix < imputed_data.n_missing_cat; ix++)
     {
         col = imputed_data.missing_cat[ix];
         for (size_t cat = 0; cat < imputer.cat_sum[col].size(); cat++)
-            imputed_data.cat_sum[col][cat] += imputer.cat_sum[col][cat];
+            imputed_data.cat_sum[col][cat] += w * imputer.cat_sum[col][cat];
     }
 }
 
@@ -669,16 +669,62 @@ void add_from_impute_node(ImputeNode &imputer, WorkerMemory &workspace, InputDat
 {
     if (workspace.impute_vec.size())
     {
-        for (size_t row = workspace.st; row <= workspace.end;  row++)
-            if (input_data.has_missing[workspace.ix_arr[row]])
-                add_from_impute_node(imputer, workspace.impute_vec[workspace.ix_arr[row]]);
+        if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+        {
+            for (size_t row = workspace.st; row <= workspace.end;  row++)
+                if (input_data.has_missing[workspace.ix_arr[row]])
+                    add_from_impute_node(imputer,
+                                         workspace.impute_vec[workspace.ix_arr[row]],
+                                         (double)1);
+        }
+
+        else if (workspace.weights_arr.size())
+        {
+            for (size_t row = workspace.st; row <= workspace.end;  row++)
+                if (input_data.has_missing[workspace.ix_arr[row]])
+                    add_from_impute_node(imputer,
+                                         workspace.impute_vec[workspace.ix_arr[row]],
+                                         workspace.weights_arr[workspace.ix_arr[row]]);
+        }
+
+        else
+        {
+            for (size_t row = workspace.st; row <= workspace.end;  row++)
+                if (input_data.has_missing[workspace.ix_arr[row]])
+                    add_from_impute_node(imputer,
+                                         workspace.impute_vec[workspace.ix_arr[row]],
+                                         workspace.weights_map[workspace.ix_arr[row]]);
+        }
     }
 
     else if (workspace.impute_map.size())
     {
-        for (size_t row = workspace.st; row <= workspace.end;  row++)
-            if (input_data.has_missing[workspace.ix_arr[row]])
-                add_from_impute_node(imputer, workspace.impute_map[workspace.ix_arr[row]]);
+        if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+        {
+            for (size_t row = workspace.st; row <= workspace.end;  row++)
+                if (input_data.has_missing[workspace.ix_arr[row]])
+                    add_from_impute_node(imputer,
+                                         workspace.impute_map[workspace.ix_arr[row]],
+                                         (double)1);
+        }
+
+        else if (workspace.weights_arr.size())
+        {
+            for (size_t row = workspace.st; row <= workspace.end;  row++)
+                if (input_data.has_missing[workspace.ix_arr[row]])
+                    add_from_impute_node(imputer,
+                                         workspace.impute_map[workspace.ix_arr[row]],
+                                         workspace.weights_arr[workspace.ix_arr[row]]);
+        }
+
+        else
+        {
+            for (size_t row = workspace.st; row <= workspace.end;  row++)
+                if (input_data.has_missing[workspace.ix_arr[row]])
+                    add_from_impute_node(imputer,
+                                         workspace.impute_map[workspace.ix_arr[row]],
+                                         workspace.weights_map[workspace.ix_arr[row]]);
+        }
     }
 }
 

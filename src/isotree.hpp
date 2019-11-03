@@ -691,7 +691,7 @@ void combine_tree_imputations(WorkerMemory &workspace,
                               std::unordered_map<size_t, ImputedData> &impute_map,
                               std::vector<char> &has_missing,
                               int nthreads);
-void add_from_impute_node(ImputeNode &imputer, ImputedData &imputed_data);
+void add_from_impute_node(ImputeNode &imputer, ImputedData &imputed_data, double w);
 void add_from_impute_node(ImputeNode &imputer, WorkerMemory &workspace, InputData &input_data);
 template <class imp_arr>
 void apply_imputation_results(imp_arr    &impute_vec,

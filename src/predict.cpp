@@ -392,7 +392,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
             if (tree_num != NULL)
                 tree_num[row] = curr_lev;
             if (imputed_data != NULL)
-                add_from_impute_node((*impute_nodes)[curr_lev], *imputed_data);
+                add_from_impute_node((*impute_nodes)[curr_lev], *imputed_data, curr_weight);
 
             return tree[curr_lev].score + range_penalty;
         }
@@ -695,7 +695,7 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
                 tree_num[row] = curr_lev;
             if (imputed_data != NULL)
             {
-                add_from_impute_node((*impute_nodes)[curr_lev], *imputed_data);
+                add_from_impute_node((*impute_nodes)[curr_lev], *imputed_data, (double)1);
             }
             return;
         }
