@@ -403,7 +403,7 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
     {
         for (size_t col = 0; col < input_data.ncols_numeric; col++)
         {
-            if (imputer.num_weight[col] > min_imp_obs_dbl)
+            if (imputer.num_weight[col] >= min_imp_obs_dbl)
             {
                 imputer.num_sum[col] /= imputer.num_weight[col];
             }
@@ -442,7 +442,7 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
     {
         for (size_t col = 0; col < input_data.ncols_categ; col++)
         {
-            if (imputer.cat_weight[col] > min_imp_obs_dbl)
+            if (imputer.cat_weight[col] >= min_imp_obs_dbl)
             {
                 for (double &cat : imputer.cat_sum[col])
                     cat /= imputer.cat_weight[col];
