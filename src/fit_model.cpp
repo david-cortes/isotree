@@ -242,6 +242,9 @@
 *       in new data. Pass NULL if no missing value imputations are required. Note that this is not related to
 *       'missing_action' as missing values inside the model are treated differently and follow their own imputation
 *       or division strategy.
+* - min_imp_obs
+*       Minimum number of observations with which an imputation value can be produced. Ignored if passing
+*       'build_imputer' = 'false'.
 * - depth_imp
 *       How to weight observations according to their depth when used for imputing missing values. Passing
 *       "Higher" will weigh observations higher the further down the tree (away from the root node) the
@@ -298,7 +301,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                 double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                 CategSplit cat_split_type, NewCategAction new_cat_action, MissingAction missing_action,
-                bool   all_perm, Imputer *imputer,
+                bool   all_perm, Imputer *imputer, size_t min_imp_obs,
                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
                 uint64_t random_seed, int nthreads)
 {
@@ -327,7 +330,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 cat_split_type, new_cat_action, missing_action, all_perm,
                                 (model_outputs != NULL)? 0 : ndim, (model_outputs != NULL)? 0 : ntry,
                                 coef_type, calc_dist, (bool)(output_depths != NULL), impute_at_fit,
-                                depth_imp, weigh_imp_rows};
+                                depth_imp, weigh_imp_rows, min_imp_obs};
 
     /* if using weights as sampling probability, build a binary tree for faster sampling */
     if (input_data.weight_as_sample && input_data.sample_weights != NULL)
@@ -606,6 +609,9 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Pointer to already-allocated imputation nodes for the tree that will be built. Note that the number of
 *       entries in the imputation object must match the number of fitted trees when it is used.  Pass
 *       NULL if no imputation node is required.
+* - min_imp_obs
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
 * - random_seed
 *       Seed that will be used to generate random numbers used by the model.
 */
@@ -621,7 +627,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
              CategSplit cat_split_type, NewCategAction new_cat_action, MissingAction missing_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
-             bool   all_perm, std::vector<ImputeNode> *impute_nodes,
+             bool   all_perm, std::vector<ImputeNode> *impute_nodes, size_t min_imp_obs,
              uint64_t random_seed)
 {
     int max_categ = 0;
@@ -641,7 +647,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 prob_pick_by_gain_pl,  (model_outputs == NULL)? 0 : prob_split_by_gain_pl,
                                 cat_split_type, new_cat_action, missing_action, all_perm,
                                 (model_outputs != NULL)? 0 : ndim, (model_outputs != NULL)? 0 : ntry,
-                                coef_type, false, false, false, depth_imp, weigh_imp_rows};
+                                coef_type, false, false, false, depth_imp, weigh_imp_rows, min_imp_obs};
 
     std::unique_ptr<WorkerMemory> workspace = std::unique_ptr<WorkerMemory>(new WorkerMemory);
 

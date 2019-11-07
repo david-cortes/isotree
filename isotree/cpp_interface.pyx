@@ -171,7 +171,7 @@ cdef extern from "isotree.hpp":
                     double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                     double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                     CategSplit cat_split_type, NewCategAction new_cat_action, MissingAction missing_action,
-                    bool_t all_perm, Imputer *imputer,
+                    bool_t all_perm, Imputer *imputer, size_t min_imp_obs,
                     UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool_t impute_at_fit,
                     uint64_t random_seed, int nthreads)
 
@@ -208,7 +208,8 @@ cdef extern from "isotree.hpp":
                  double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                  CategSplit cat_split_type, NewCategAction new_cat_action, MissingAction missing_action,
                  UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
-                 bool_t  all_perm, vector[ImputeNode] *impute_nodes, uint64_t random_seed)
+                 bool_t  all_perm, vector[ImputeNode] *impute_nodes, size_t min_imp_obs,
+                 uint64_t random_seed)
 
     void dealloc_IsoForest(IsoForest &model_outputs)
     void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext)
@@ -267,7 +268,8 @@ cdef class isoforest_cpp_obj:
                   double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                   double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                   cat_split_type, new_cat_action, missing_action,
-                  bool_t build_imputer, depth_imp, weigh_imp_rows, bool_t impute_at_fit,
+                  bool_t build_imputer, size_t min_imp_obs,
+                  depth_imp, weigh_imp_rows, bool_t impute_at_fit,
                   bool_t all_perm, uint64_t random_seed, int nthreads):
         cdef double*     numeric_data_ptr    =  NULL
         cdef int*        categ_data_ptr      =  NULL
@@ -366,7 +368,7 @@ cdef class isoforest_cpp_obj:
                     prob_pick_by_gain_avg, prob_split_by_gain_avg,
                     prob_pick_by_gain_pl,  prob_split_by_gain_pl,
                     cat_split_type_C, new_cat_action_C, missing_action_C,
-                    all_perm, imputer_ptr,
+                    all_perm, imputer_ptr, min_imp_obs,
                     depth_imp_C, weigh_imp_rows_C, impute_at_fit,
                     random_seed, nthreads)
 
@@ -383,7 +385,8 @@ cdef class isoforest_cpp_obj:
                  double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                  double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                  cat_split_type, new_cat_action, missing_action,
-                 bool_t build_imputer, depth_imp, weigh_imp_rows,
+                 bool_t build_imputer, size_t min_imp_obs,
+                 depth_imp, weigh_imp_rows,
                  bool_t all_perm, uint64_t random_seed):
         cdef double*     numeric_data_ptr    =  NULL
         cdef int*        categ_data_ptr      =  NULL
@@ -463,7 +466,7 @@ cdef class isoforest_cpp_obj:
                  prob_pick_by_gain_pl,  prob_split_by_gain_pl,
                  cat_split_type_C, new_cat_action_C, missing_action_C,
                  depth_imp_C, weigh_imp_rows_C,
-                 all_perm, imputer_tree_ptr, random_seed)
+                 all_perm, imputer_tree_ptr, min_imp_obs, random_seed)
 
     def predict(self, X_num, X_cat, is_extended,
                 size_t nrows, int nthreads, bool_t standardize, bool_t output_tree_num):

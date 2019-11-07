@@ -425,6 +425,7 @@ typedef struct {
 
     UseDepthImp   depth_imp;      /* only when building NA imputer */
     WeighImpRows  weigh_imp_rows; /* only when building NA imputer */
+    size_t        min_imp_obs;     /* only when building NA imputer */
 } ModelParams;
 
 typedef struct ImputedData {
@@ -558,7 +559,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                 double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                 CategSplit cat_split_type, NewCategAction new_cat_action, MissingAction missing_action,
-                bool   all_perm, Imputer *imputer,
+                bool   all_perm, Imputer *imputer, size_t min_imp_obs,
                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
                 uint64_t random_seed, int nthreads);
 int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -573,7 +574,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
              CategSplit cat_split_type, NewCategAction new_cat_action, MissingAction missing_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
-             bool   all_perm, std::vector<ImputeNode> *impute_nodes,
+             bool   all_perm, std::vector<ImputeNode> *impute_nodes, size_t min_imp_obs,
              uint64_t random_seed);
 void fit_itree(std::vector<IsoTree>    *tree_root,
                std::vector<IsoHPlane>  *hplane_root,
@@ -680,7 +681,7 @@ void initialize_imputer(Imputer &imputer, InputData &input_data, size_t ntrees, 
 void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
                        InputData  &input_data, ModelParams  &model_params,
                        std::vector<ImputeNode> &imputer_tree,
-                       size_t curr_depth);
+                       size_t curr_depth, size_t min_imp_obs);
 void shrink_impute_node(ImputeNode &imputer);
 void drop_nonterminal_imp_node(std::vector<ImputeNode>  &imputer_tree,
                                std::vector<IsoTree>     *trees,

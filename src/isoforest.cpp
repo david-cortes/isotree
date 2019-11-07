@@ -61,7 +61,8 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                       workspace.ix_arr.begin() + workspace.end + 1);
         build_impute_node(impute_nodes->back(), workspace,
                           input_data, model_params,
-                          *impute_nodes, curr_depth);
+                          *impute_nodes, curr_depth,
+                          model_params.min_imp_obs);
     }
 
     /* check for potential isolated leafs */

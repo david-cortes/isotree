@@ -152,6 +152,8 @@
 #' @param output_imputations Whether to output imputed missing values for `df`. Passing `TRUE` here will force
 #' `build_imputer` to `TRUE`. Note that, for sparse matrix inputs, even though the output will be sparse, it will
 #' generate a dense representation of each row with missing values.
+#' @param min_imp_obs Minimum number of observations with which an imputation value can be produced. Ignored if passing
+#' `build_imputer` = `FALSE`.
 #' @param depth_imp How to weight observations according to their depth when used for imputing missing values. Passing
 #' `"higher"` will weigh observations higher the further down the tree (away from the root node) the
 #' terminal node is, while `"lower"` will do the opposite, and `"same"` will not modify the weights according
@@ -382,7 +384,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                              weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
                              penalize_range = TRUE, weigh_by_kurtosis = FALSE,
                              coefs = "normal", assume_full_distr = TRUE,
-                             build_imputer = FALSE, output_imputations = FALSE,
+                             build_imputer = FALSE, output_imputations = FALSE, min_imp_obs = 3,
                              depth_imp = "higher", weigh_imp_rows = "inverse",
                              output_score = FALSE, output_dist = FALSE, square_dist = FALSE,
                              random_seed = 1, nthreads = parallel::detectCores()) {
@@ -392,6 +394,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
     check.pos.int(ndim,         "ndim")
     check.pos.int(ntry,         "ntry")
     check.pos.int(max_depth,    "max_depth")
+    check.pos.int(min_imp_obs,  "min_imp_obs")
     check.pos.int(random_seed,  "random_seed")
     
     allowed_missing_action    <-  c("divide",       "impute",   "fail")
@@ -509,6 +512,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
     ndim         <-  as.integer(ndim)
     ntry         <-  as.integer(ntry)
     max_depth    <-  as.integer(max_depth)
+    min_imp_obs  <-  as.integer(min_imp_obs)
     random_seed  <-  as.integer(random_seed)
     nthreads     <-  as.integer(nthreads)
     
@@ -540,7 +544,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                              prob_pick_pooled_gain,  prob_split_pooled_gain,
                              categ_split_type, new_categ_action,
                              missing_action, all_perm,
-                             build_imputer, output_imputations,
+                             build_imputer, output_imputations, min_imp_obs,
                              depth_imp, weigh_imp_rows,
                              random_seed, nthreads)
     
@@ -561,7 +565,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
             penalize_range = penalize_range,
             weigh_by_kurtosis = weigh_by_kurtosis,
             coefs = coefs, assume_full_distr = assume_full_distr,
-            build_imputer = build_imputer,
+            build_imputer = build_imputer, min_imp_obs = min_imp_obs,
             depth_imp = depth_imp, weigh_imp_rows = weigh_imp_rows
         ),
         metadata  = list(
@@ -853,7 +857,8 @@ add_isolation_tree <- function(model, df, sample_weights = NULL, column_weights 
                                              model$params$prob_pick_avg_gain, model$params$prob_split_avg_gain,
                                              model$params$prob_pick_pooled_gain,  model$params$prob_split_pooled_gain,
                                              model$params$categ_split_type, model$params$new_categ_action,
-                                             model$params$missing_action, model$params$build_imputer, model$cpp_obj$imp_ptr,
+                                             model$params$missing_action, model$params$build_imputer,
+                                             model$params$min_imp_obs, model$cpp_obj$imp_ptr,
                                              model$params$depth_imp, model$params$weigh_imp_rows,
                                              model$params$all_perm, model$random_seed)
     

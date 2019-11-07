@@ -265,7 +265,7 @@ void initialize_imputer(Imputer &imputer, InputData &input_data, size_t ntrees, 
 void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
                        InputData  &input_data, ModelParams  &model_params,
                        std::vector<ImputeNode> &imputer_tree,
-                       size_t curr_depth)
+                       size_t curr_depth, size_t min_imp_obs)
 {
     double wsum;
     if (!workspace.weights_arr.size() && !workspace.weights_map.size())
@@ -393,13 +393,17 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
         }
     }
 
-    /* if any value is not possible to impute, look it up from the parent tree, but assign a lesser weight */
+    /* if any value is not possible to impute, look it up from the parent tree, but assign a lesser weight
+       Note: in theory, the parent node should always have some imputation value for every variable, but due to
+       numeric rounding errors, it might have a weight of zero, so in those cases it's looked up higher up the
+       tree instead. */
     size_t look_aboves, curr_tree;
+    double min_imp_obs_dbl = (double) min_imp_obs;
     if (imputer.num_sum.size())
     {
         for (size_t col = 0; col < input_data.ncols_numeric; col++)
         {
-            if (imputer.num_weight[col] > 0)
+            if (imputer.num_weight[col] > min_imp_obs_dbl)
             {
                 imputer.num_sum[col] /= imputer.num_weight[col];
             }
@@ -438,7 +442,7 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
     {
         for (size_t col = 0; col < input_data.ncols_categ; col++)
         {
-            if (imputer.cat_weight[col] > 0)
+            if (imputer.cat_weight[col] > min_imp_obs_dbl)
             {
                 for (double &cat : imputer.cat_sum[col])
                     cat /= imputer.cat_weight[col];

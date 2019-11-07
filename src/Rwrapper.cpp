@@ -154,7 +154,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                      double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                      Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action,
                      Rcpp::CharacterVector missing_action, bool all_perm,
-                     bool build_imputer, bool output_imputations,
+                     bool build_imputer, bool output_imputations, size_t min_imp_obs,
                      Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows,
                      int random_seed, int nthreads)
 {
@@ -350,7 +350,7 @@ Rcpp::RawVector fit_tree(SEXP model_R_ptr,
                          double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                          double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                          Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action,
-                         Rcpp::CharacterVector missing_action, bool build_imputer, SEXP imp_R_ptr,
+                         Rcpp::CharacterVector missing_action, bool build_imputer, size_t min_imp_obs, SEXP imp_R_ptr,
                          Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows,
                          bool all_perm, uint64_t random_seed)
 {

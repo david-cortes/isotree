@@ -65,7 +65,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                       workspace.ix_arr.begin() + workspace.end + 1);
         build_impute_node(impute_nodes->back(), workspace,
                           input_data, model_params,
-                          *impute_nodes, curr_depth);
+                          *impute_nodes, curr_depth,
+                          model_params.min_imp_obs);
     }
 
     /* check for potential isolated leafs */

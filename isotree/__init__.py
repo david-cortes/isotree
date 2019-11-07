@@ -167,6 +167,9 @@ class IsolationForest:
         missing values of new (or the same) observations. Be aware that this will significantly increase the memory
         requirements and serialized object sizes. Note that this is not related to 'missing_action' as missing
         values inside the model are treated differently and follow their own imputation or division strategy.
+    min_imp_obs : int
+        Minimum number of observations with which an imputation value can be produced. Ignored if passing
+        'build_imputer' = 'False'.
     depth_imp : str, one of "higher", "lower", "same"
         How to weight observations according to their depth when used for imputing missing values. Passing
         "higher" will weigh observations higher the further down the tree (away from the root node) the
@@ -199,14 +202,19 @@ class IsolationForest:
 
     References
     ----------
-    [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "Isolation forest." 2008 Eighth IEEE International Conference on Data Mining. IEEE, 2008.
-    [2] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "Isolation-based anomaly detection." ACM Transactions on Knowledge Discovery from Data (TKDD) 6.1 (2012): 3.
-    [3] Hariri, Sahand, Matias Carrasco Kind, and Robert J. Brunner. "Extended Isolation Forest." arXiv preprint arXiv:1811.02141 (2018).
-    [4] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "On detecting clustered anomalies using SCiForest." Joint European Conference on Machine Learning and Knowledge Discovery in Databases. Springer, Berlin, Heidelberg, 2010.
-    [5] https://sourceforge.net/projects/iforest/
-    [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
-    [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
-    [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
+    .. [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "Isolation forest."
+           2008 Eighth IEEE International Conference on Data Mining. IEEE, 2008.
+    .. [2] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "Isolation-based anomaly detection."
+           ACM Transactions on Knowledge Discovery from Data (TKDD) 6.1 (2012): 3.
+    .. [3] Hariri, Sahand, Matias Carrasco Kind, and Robert J. Brunner. "Extended Isolation Forest."
+           arXiv preprint arXiv:1811.02141 (2018).
+    .. [4] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "On detecting clustered anomalies using SCiForest."
+           Joint European Conference on Machine Learning and Knowledge Discovery in Databases. Springer, Berlin, Heidelberg, 2010.
+    .. [5] https://sourceforge.net/projects/iforest/
+    .. [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
+    .. [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
+    .. [8] Cortes, David. "Distance approximation using Isolation Forests."
+           arXiv preprint arXiv:1910.12362 (2019).
     """
     def __init__(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3, max_depth = "auto",
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.25,
@@ -216,7 +224,8 @@ class IsolationForest:
                  weights_as_sample_prob = True, sample_with_replacement = False,
                  penalize_range = True, weigh_by_kurtosis = False,
                  coefs = "normal", assume_full_distr = True,
-                 build_imputer = False, depth_imp = "higher", weigh_imp_rows = "inverse",
+                 build_imputer = False, min_imp_obs = 3,
+                 depth_imp = "higher", weigh_imp_rows = "inverse",
                  random_seed = 1, nthreads = -1):
         if sample_size is not None:
             assert sample_size > 0
@@ -233,6 +242,8 @@ class IsolationForest:
         assert ntry >= 1
         assert isinstance(ntry, int)
         assert random_seed >= 1
+        assert isinstance(min_imp_obs, int)
+        assert min_imp_obs >= 1
 
         assert missing_action    in ["divide",        "impute",   "fail",   "auto"]
         assert new_categ_action  in ["weighted",      "smallest", "random", "impute", "auto"]
@@ -313,6 +324,7 @@ class IsolationForest:
         self.coefs                   =  coefs
         self.depth_imp               =  depth_imp
         self.weigh_imp_rows          =  weigh_imp_rows
+        self.min_imp_obs             =  min_imp_obs
         self.random_seed             =  random_seed
         self.nthreads                =  nthreads
 
@@ -435,6 +447,7 @@ class IsolationForest:
                                 self.new_categ_action,
                                 self.missing_action,
                                 ctypes.c_bool(self.build_imputer).value,
+                                ctypes.c_size_t(self.min_imp_obs).value,
                                 self.depth_imp,
                                 self.weigh_imp_rows,
                                 ctypes.c_bool(self.build_imputer).value,
@@ -444,8 +457,8 @@ class IsolationForest:
         self.is_fitted_ = True
         return self
 
-    def fit_and_predict(self, X, column_weights = None, output_outlierness = "score",
-                        output_distance = None, square_mat = False, output_imputed = False):
+    def fit_predict(self, X, column_weights = None, output_outlierness = "score",
+                    output_distance = None, square_mat = False, output_imputed = False):
         """
         Fit the model in-place and produce isolation or separation depths along the way
         
@@ -572,6 +585,7 @@ class IsolationForest:
                                                                    self.new_categ_action,
                                                                    self.missing_action,
                                                                    ctypes.c_bool(self.build_imputer).value,
+                                                                   ctypes.c_size_t(self.min_imp_obs).value,
                                                                    self.depth_imp,
                                                                    self.weigh_imp_rows,
                                                                    ctypes.c_bool(output_imputed).value,
@@ -961,11 +975,11 @@ class IsolationForest:
 
     def fit_transform(self, X, y = None, column_weights = None):
         """
-        SciKit-Learn pipeline-compatible version of 'fit_and_predict'
+        SciKit-Learn pipeline-compatible version of 'fit_predict'
 
         Will fit the model and output imputed missing values. Intended to be used as part of SciKit-learn
-        pipelining. Note that this is just a wrapper over 'fit_and_predict' with parameter 'output_imputed' = 'True'.
-        See the documentation of 'fit_and_predict' for details.
+        pipelining. Note that this is just a wrapper over 'fit_predict' with parameter 'output_imputed' = 'True'.
+        See the documentation of 'fit_predict' for details.
 
         Parameters
         ----------
@@ -988,7 +1002,7 @@ class IsolationForest:
         imputed : array-like(n_samples, n_columns)
             Input data 'X' with missing values imputed according to the model.
         """
-        outp = self.fit_and_predict(X = X, column_weights = column_weights, output_imputed = True)
+        outp = self.fit_predict(X = X, column_weights = column_weights, output_imputed = True)
         return outp["imputed"]
 
     def partial_fit(self, X, sample_weights = None, column_weights = None):
@@ -1064,6 +1078,7 @@ class IsolationForest:
                                self.new_categ_action,
                                self.missing_action,
                                ctypes.c_bool(self.build_imputer).value,
+                               ctypes.c_size_t(self.min_imp_obs).value,
                                self.depth_imp,
                                self.weigh_imp_rows,
                                ctypes.c_bool(self.all_perm).value,

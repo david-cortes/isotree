@@ -15,7 +15,7 @@ isolation.forest(df, sample_weights = NULL, column_weights = NULL,
   weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
   penalize_range = TRUE, weigh_by_kurtosis = FALSE, coefs = "normal",
   assume_full_distr = TRUE, build_imputer = FALSE,
-  output_imputations = FALSE, depth_imp = "higher",
+  output_imputations = FALSE, min_imp_obs = 3, depth_imp = "higher",
   weigh_imp_rows = "inverse", output_score = FALSE,
   output_dist = FALSE, square_dist = FALSE, random_seed = 1,
   nthreads = parallel::detectCores())
@@ -178,6 +178,9 @@ inside the model are treated differently and follow their own imputation or divi
 \item{output_imputations}{Whether to output imputed missing values for `df`. Passing `TRUE` here will force
 `build_imputer` to `TRUE`. Note that, for sparse matrix inputs, even though the output will be sparse, it will
 generate a dense representation of each row with missing values.}
+
+\item{min_imp_obs}{Minimum number of observations with which an imputation value can be produced. Ignored if passing
+`build_imputer` = `FALSE`.}
 
 \item{depth_imp}{How to weight observations according to their depth when used for imputing missing values. Passing
 `"higher"` will weigh observations higher the further down the tree (away from the root node) the
