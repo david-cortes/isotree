@@ -262,13 +262,16 @@ void initialize_imputer(Imputer &imputer, InputData &input_data, size_t ntrees, 
     }
 }
 
+
+/* https://en.wikipedia.org/wiki/Kahan_summation_algorithm */
 void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
                        InputData  &input_data, ModelParams  &model_params,
                        std::vector<ImputeNode> &imputer_tree,
                        size_t curr_depth, size_t min_imp_obs)
 {
     double wsum;
-    if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+    bool has_weights = workspace.weights_arr.size() || workspace.weights_map.size();
+    if (!has_weights)
         wsum = (double)(workspace.end - workspace.st + 1);
     else
         wsum = calculate_sum_weights(workspace.ix_arr, workspace.st, workspace.end, curr_depth,
@@ -301,41 +304,97 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
     double  weight;
     size_t  ix;
 
-
     if ((input_data.Xc == NULL && input_data.ncols_numeric) || input_data.ncols_categ)
     {
-        for (size_t row = workspace.st; row <= workspace.end; row++)
+        if (!has_weights)
         {
-            ix = workspace.ix_arr[row];
-            if (workspace.weights_arr.size())
-                weight = workspace.weights_arr[ix];
-            else if (workspace.weights_map.size())
-                weight = workspace.weights_map[ix];
-            else
-                weight = 1;
-
+            size_t cnt;
             if (input_data.numeric_data != NULL)
             {
                 for (size_t col = 0; col < input_data.ncols_numeric; col++)
                 {
-                    xnum = input_data.numeric_data[ix + col * input_data.nrows];
-                    if (!is_na_or_inf(xnum))
+                    cnt = 0;
+                    for (size_t row = workspace.st; row <= workspace.end; row++)
                     {
-                        imputer.num_sum[col]    += weight * xnum;
-                        imputer.num_weight[col] += weight;
+                        xnum = input_data.numeric_data[workspace.ix_arr[row] + col * input_data.nrows];
+                        if (!is_na_or_inf(xnum))
+                        {
+                            cnt++;
+                            imputer.num_sum[col] += (xnum - imputer.num_sum[col]) / (long double)cnt;
+                        }
                     }
+                    imputer.num_weight[col] = (double) cnt;
                 }
             }
 
-            if (input_data.ncols_categ)
+            if (input_data.categ_data != NULL)
             {
                 for (size_t col = 0; col < input_data.ncols_categ; col++)
                 {
-                    xcat = input_data.categ_data[ix + col * input_data.nrows];
-                    if (xcat >= 0)
+                    cnt = 0;
+                    for (size_t row = workspace.st; row <= workspace.end; row++)
                     {
-                        imputer.cat_sum[col][xcat] += weight; /* later gets divided */
-                        imputer.cat_weight[col]    += weight;
+                        xcat = input_data.categ_data[workspace.ix_arr[row] + col * input_data.nrows];
+                        if (xcat >= 0)
+                        {
+                            cnt++;
+                            imputer.cat_sum[col][xcat]++; /* later gets divided */
+                        }
+                    }
+                    imputer.cat_weight[col] = (double) cnt;
+                }
+            }
+
+        }
+
+        else
+        {
+            long double prod_sum, corr, val, diff;
+            if (input_data.numeric_data != NULL)
+            {
+                 for (size_t col = 0; col < input_data.ncols_numeric; col++)
+                 {
+                    prod_sum = 0; corr = 0;
+                    for (size_t row = workspace.st; row <= workspace.end; row++)
+                    {
+                        xnum = input_data.numeric_data[workspace.ix_arr[row] + col * input_data.nrows];
+                        if (!is_na_or_inf(xnum))
+                        {
+                            if (workspace.weights_arr.size())
+                                weight = workspace.weights_arr[workspace.ix_arr[row]];
+                            else
+                                weight = workspace.weights_map[workspace.ix_arr[row]];
+
+                            imputer.num_weight[col] += weight; /* these are always <= 1 */
+                            val      =  (xnum * weight) - corr;
+                            diff     =  prod_sum + val;
+                            corr     =  (diff - prod_sum) - val;
+                            prod_sum =  diff;
+                        }
+                    }
+                    imputer.num_sum[col] = prod_sum / imputer.num_weight[col];
+                 }
+            }
+
+
+            if (input_data.ncols_categ)
+            {
+                for (size_t row = workspace.st; row <= workspace.end; row++)
+                {
+                    ix = workspace.ix_arr[row];
+                    if (workspace.weights_arr.size())
+                        weight = workspace.weights_arr[ix];
+                    else
+                        weight = workspace.weights_map[ix];
+
+                    for (size_t col = 0; col < input_data.ncols_categ; col++)
+                    {
+                        xcat = input_data.categ_data[ix + col * input_data.nrows];
+                        if (xcat >= 0)
+                        {
+                            imputer.cat_sum[col][xcat] += weight; /* later gets divided */
+                            imputer.cat_weight[col]    += weight;
+                        }
                     }
                 }
             }
@@ -390,6 +449,8 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
                         curr_pos = std::lower_bound(input_data.Xc_ind + curr_pos + 1, input_data.Xc_ind + end_col + 1, *row) - input_data.Xc_ind;
                 }
             }
+
+            imputer.num_sum[col] /= imputer.num_weight[col];
         }
     }
 
@@ -403,12 +464,7 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
     {
         for (size_t col = 0; col < input_data.ncols_numeric; col++)
         {
-            if (imputer.num_weight[col] >= min_imp_obs_dbl)
-            {
-                imputer.num_sum[col] /= imputer.num_weight[col];
-            }
-
-            else
+            if (imputer.num_weight[col] < min_imp_obs_dbl)
             {
                 look_aboves = 1;
                 curr_tree   = imputer.parent;
@@ -542,6 +598,7 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
                 imputer.cat_sum[col][cat] *= imputer.cat_weight[col];
     }
 }
+
 
 void shrink_impute_node(ImputeNode &imputer)
 {

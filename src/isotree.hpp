@@ -429,12 +429,12 @@ typedef struct {
 } ModelParams;
 
 typedef struct ImputedData {
-    std::vector<double>  num_sum;
-    std::vector<double>  num_weight;
-    std::vector<std::vector<double>> cat_sum;
-    std::vector<double>  cat_weight;
-    std::vector<double>  sp_num_sum;
-    std::vector<double>  sp_num_weight;
+    std::vector<long double>  num_sum;
+    std::vector<long double>  num_weight;
+    std::vector<std::vector<long double>> cat_sum;
+    std::vector<long double>  cat_weight;
+    std::vector<long double>  sp_num_sum;
+    std::vector<long double>  sp_num_weight;
 
     std::vector<size_t>     missing_num;
     std::vector<size_t>     missing_cat;
