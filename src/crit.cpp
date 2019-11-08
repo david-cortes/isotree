@@ -48,51 +48,60 @@
 #define pw2(x) ((x) * (x))
 #define pw3(x) ((x) * (x) * (x))
 #define pw4(x) ((x) * (x) * (x) * (x))
+
 double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, double x[], MissingAction missing_action)
 {
-    long double s1 = 0;
-    long double s2 = 0;
-    long double s3 = 0;
-    long double s4 = 0;
-    size_t cnt = end - st + 1;
+    long double m = 0;
+    long double M2 = 0, M3 = 0, M4 = 0;
+    long double delta, delta_s, delta_div;
+    long double diff, n;
 
     if (missing_action == Fail)
     {
         for (size_t row = st; row <= end; row++)
         {
-            s1 += pw1(x[ix_arr[row]]);
-            s2 += pw2(x[ix_arr[row]]);
-            s3 += pw3(x[ix_arr[row]]);
-            s4 += pw4(x[ix_arr[row]]);
+            n  =  (long double)(row - st + 1);
+
+            delta      =  x[ix_arr[row]] - m;
+            delta_div  =  delta / n;
+            delta_s    =  delta_div * delta_div;
+            diff       =  delta * (delta_div * (long double)(row - st));
+
+            m   +=  delta_div;
+            M4  +=  diff * delta_s * (n * n - 3 * n + 3) + 6 * delta_s * M2 - 4 * delta_div * M3;
+            M3  +=  diff * delta_div * (n - 2) - 3 * delta_div * M2;
+            M2  +=  diff;
         }
+
+        return ( M4 / M2 ) * ( (long double)(end - st + 1) / M2 );
     }
 
     else
     {
+        size_t cnt = 0;
         for (size_t row = st; row <= end; row++)
         {
-            if (is_na_or_inf(x[ix_arr[row]]))
+            if (!is_na_or_inf(x[ix_arr[row]]))
             {
-                cnt--;
-            }
+                cnt++;
+                n = (long double) cnt;
 
-            else
-            {
-                s1 += pw1(x[ix_arr[row]]);
-                s2 += pw2(x[ix_arr[row]]);
-                s3 += pw3(x[ix_arr[row]]);
-                s4 += pw4(x[ix_arr[row]]);
+                delta      =  x[ix_arr[row]] - m;
+                delta_div  =  delta / n;
+                delta_s    =  delta_div * delta_div;
+                diff       =  delta * (delta_div * (long double)(cnt - 1));
+
+                m   +=  delta_div;
+                M4  +=  diff * delta_s * (n * n - 3 * n + 3) + 6 * delta_s * M2 - 4 * delta_div * M3;
+                M3  +=  diff * delta_div * (n - 2) - 3 * delta_div * M2;
+                M2  +=  diff;
             }
         }
-    }
 
-    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return 0;
-    long double cnt_l = (long double) cnt;
-    long double sn = s1 / cnt_l;
-    long double v  = s2 / cnt_l - pw2(sn);
-    if (v <= 0) return 0;
-    return (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt_l * pw4(sn)) / (cnt_l * pw2(v));
+        return ( M4 / M2 ) * ( (long double)cnt / M2 );
+    }
 }
+
 
 double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                      double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
@@ -230,9 +239,9 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, int x[], int ncat, 
     {
         case SubSet:
         {
-            double temp_v;
-            double s1, s2, s3, s4;
-            double coef;
+            long double temp_v;
+            long double s1, s2, s3, s4;
+            long double coef;
             std::uniform_real_distribution<double> runif(0, 1);
             size_t ntry = 50;
             for (size_t iternum = 0; iternum < 50; iternum++)
@@ -285,7 +294,7 @@ double expected_sd_cat(double p[], size_t n, size_t pos[])
 {
     if (n <= 1) return 0;
 
-    double cum_var = -square(p[pos[0]]) / 3.0 - p[pos[0]] * p[pos[1]] / 2.0 + p[pos[0]] / 3.0  - square(p[pos[1]]) / 3.0 + p[pos[1]] / 3.0;
+    long double cum_var = -square(p[pos[0]]) / 3.0 - p[pos[0]] * p[pos[1]] / 2.0 + p[pos[0]] / 3.0  - square(p[pos[1]]) / 3.0 + p[pos[1]] / 3.0;
     for (size_t cat1 = 2; cat1 < n; cat1++)
     {
         cum_var += p[pos[cat1]] / 3.0 - square(p[pos[cat1]]) / 3.0;

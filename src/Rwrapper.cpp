@@ -298,7 +298,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                 prob_pick_by_gain_avg, prob_split_by_gain_avg,
                 prob_pick_by_gain_pl,  prob_split_by_gain_pl,
                 cat_split_type_C, new_cat_action_C, missing_action_C,
-                all_perm, imputer_ptr.get(),
+                all_perm, imputer_ptr.get(), min_imp_obs,
                 depth_imp_C, weigh_imp_rows_C, output_imputations,
                 (uint64_t) random_seed, nthreads);
 
@@ -473,7 +473,7 @@ Rcpp::RawVector fit_tree(SEXP model_R_ptr,
              prob_pick_by_gain_pl,  prob_split_by_gain_pl,
              cat_split_type_C, new_cat_action_C, missing_action_C,
              depth_imp_C, weigh_imp_rows_C, all_perm,
-             imp_ptr, (uint64_t)random_seed);
+             imp_ptr, min_imp_obs, (uint64_t)random_seed);
 
     if (ndim == 1)
         return serialize_cpp_obj(model_ptr);

@@ -48,37 +48,38 @@
 void calc_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x,
              MissingAction missing_action, double &x_sd)
 {
-    long double sum = 0;
-    long double sum_sq = 0;
-    size_t cnt = end - st + 1;
+    long double m = 0;
+    long double s = 0;
+    long double m_prev = 0;
 
     if (missing_action == Fail)
     {
         for (size_t row = st; row <= end; row++)
         {
-            sum    += x[ix_arr[row]];
-            sum_sq += square(x[ix_arr[row]]);
+            m += (x[ix_arr[row]] - m) / (long double)(row - st + 1);
+            s += (x[ix_arr[row]] - m) * (x[ix_arr[row]] - m_prev);
+            m_prev = m;
         }
+
+        x_sd = sqrtl(s / (long double)(end - st + 1));
     }
 
     else
     {
+        size_t cnt = 0;
         for (size_t row = st; row <= end; row++)
         {
-            if (is_na_or_inf(x[ix_arr[row]]))
+            if (!is_na_or_inf(x[ix_arr[row]]))
             {
-                cnt--;
-            }
-
-            else
-            {
-                sum    += x[ix_arr[row]];
-                sum_sq += square(x[ix_arr[row]]);
+                cnt++;
+                m += (x[ix_arr[row]] - m) / (long double)cnt;
+                s += (x[ix_arr[row]] - m) * (x[ix_arr[row]] - m_prev);
+                m_prev = m;
             }
         }
-    }
 
-    x_sd = calc_sd_raw(cnt, sum, sum_sq);
+        x_sd = sqrtl(s / (long double)cnt);
+    }
 }
 
 /* for sparse numerical */
