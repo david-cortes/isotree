@@ -116,7 +116,8 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                                        input_data.numeric_data + col * input_data.nrows,
                                                        workspace.split_ix, workspace.this_split_point,
                                                        workspace.xmin, workspace.xmax,
-                                                       workspace.criterion, model_params.missing_action);
+                                                       workspace.criterion, model_params.min_gain,
+                                                       model_params.missing_action);
                 if (workspace.this_gain <= -HUGE_VAL)
                 {
                     workspace.cols_possible[col] = false;
@@ -145,7 +146,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                                        col, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                        workspace.buffer_dbl.data(), workspace.buffer_szt.data(),
                                                        workspace.this_split_point, workspace.xmin, workspace.xmax,
-                                                       workspace.criterion, model_params.missing_action);
+                                                       workspace.criterion, model_params.min_gain, model_params.missing_action);
                 if (workspace.this_gain <= -HUGE_VAL)
                 {
                     workspace.cols_possible[col] = false;
@@ -171,8 +172,8 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                                    input_data.categ_data + col * input_data.nrows, input_data.ncat[col],
                                                    workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
                                                    workspace.buffer_dbl.data(), workspace.this_categ, workspace.this_split_categ.data(),
-                                                   workspace.buffer_chr.data(), workspace.criterion, model_params.all_perm,
-                                                   model_params.missing_action, model_params.cat_split_type);
+                                                   workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                   model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
             if (workspace.this_gain <= -HUGE_VAL)
             {
                 workspace.cols_possible[col + input_data.ncols_numeric] = false;
@@ -410,7 +411,8 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                          input_data.numeric_data + trees.back().col_num * input_data.nrows,
                                          workspace.split_ix, trees.back().num_split,
                                          workspace.xmin, workspace.xmax,
-                                         workspace.criterion, model_params.missing_action);
+                                         workspace.criterion, model_params.min_gain,
+                                         model_params.missing_action);
                         if (model_params.missing_action == Fail) /* data is already split */
                         {
                             workspace.split_ix++;
@@ -424,7 +426,8 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                          trees.back().col_num, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                          workspace.buffer_dbl.data(), workspace.buffer_szt.data(),
                                          trees.back().num_split, workspace.xmin, workspace.xmax,
-                                         workspace.criterion, model_params.missing_action);
+                                         workspace.criterion, model_params.min_gain,
+                                         model_params.missing_action);
                     }
                     break;
                 }
@@ -488,8 +491,8 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                                  input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
                                                  workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
                                                  workspace.buffer_dbl.data(), trees.back().chosen_cat, workspace.this_split_categ.data(),
-                                                 workspace.buffer_chr.data(), workspace.criterion, model_params.all_perm,
-                                                 model_params.missing_action, model_params.cat_split_type);
+                                                 workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                 model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
                                 break;
                             }
                         }
@@ -540,8 +543,8 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                                  input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
                                                  workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
                                                  workspace.buffer_dbl.data(), trees.back().chosen_cat, trees.back().cat_split.data(),
-                                                 workspace.buffer_chr.data(), workspace.criterion, model_params.all_perm,
-                                                 model_params.missing_action, model_params.cat_split_type);
+                                                 workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                 model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
                                 break;
                             }
                         }

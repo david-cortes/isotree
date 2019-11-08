@@ -376,7 +376,7 @@ double categ_gain(size_t cnt_left, size_t cnt_right,
 #define sd_gain(sd, sd_left, sd_right) (1.0 - ((sd_left) + (sd_right)) / (2.0 * (sd)))
 
 /* for split-criterion in hyperplanes (see below for version aimed at single-variable splits) */
-double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
+double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion, double min_gain,
                         double &split_point, double &xmin, double &xmax)
 {
     /* here it's assumed the 'x' vector matches exactly with 'ix_arr' + 'st' */
@@ -427,7 +427,7 @@ double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
                                     calc_sd_raw(row + 1,     sum_left,  sum_sq_left),
                                     calc_sd_raw(n - row - 1, sum_right, sum_sq_right)
                                     );
-                if (this_gain > 0 && this_gain > best_gain)
+                if (this_gain > min_gain && this_gain > best_gain)
                 {
                     best_gain = this_gain;
                     split_point = avg_between(x[row], x[row + 1]);
@@ -454,7 +454,7 @@ double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
                                          sd_full, cnt
                                         );
 
-                if (this_gain > 0 && this_gain > best_gain)
+                if (this_gain > min_gain && this_gain > best_gain)
                 {
                     best_gain = this_gain;
                     split_point = avg_between(x[row], x[row + 1]);
@@ -464,7 +464,7 @@ double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
         }
     }
 
-    if (best_gain <= -HUGE_VAL && this_gain <= 0 && this_gain > -HUGE_VAL)
+    if (best_gain <= -HUGE_VAL && this_gain <= min_gain && this_gain > -HUGE_VAL)
         return 0;
     else
         return best_gain;
@@ -473,7 +473,7 @@ double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
 /* for split-criterion in single-variable splits */
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *restrict x,
                         size_t &split_ix, double &split_point, double &xmin, double &xmax,
-                        GainCriterion criterion, MissingAction missing_action)
+                        GainCriterion criterion, double min_gain, MissingAction missing_action)
 {
     /* move NAs to the front if there's any, exclude them from calculations */
     if (missing_action != Fail)
@@ -528,7 +528,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *
                                     calc_sd_raw(row - st + 1, sum_left,  sum_sq_left),
                                     calc_sd_raw(end - row,    sum_right, sum_sq_right)
                                     );
-                if (this_gain > 0 && this_gain > best_gain)
+                if (this_gain > min_gain && this_gain > best_gain)
                 {
                     best_gain = this_gain;
                     split_point = avg_between(x[ix_arr[row]], x[ix_arr[row + 1]]);
@@ -556,7 +556,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *
                                          sd_full, cnt
                                         );
 
-                if (this_gain > 0 && this_gain > best_gain)
+                if (this_gain > min_gain && this_gain > best_gain)
                 {
                     best_gain   = this_gain;
                     split_point = avg_between(x[ix_arr[row]], x[ix_arr[row + 1]]);
@@ -567,7 +567,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *
         }
     }
 
-    if (best_gain <= -HUGE_VAL && this_gain <= 0 && this_gain > -HUGE_VAL)
+    if (best_gain <= -HUGE_VAL && this_gain <= min_gain && this_gain > -HUGE_VAL)
         return 0;
     else
         return best_gain;
@@ -577,14 +577,15 @@ double eval_guided_crit(size_t ix_arr[], size_t st, size_t end,
                         size_t col_num, double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                         double buffer_arr[], size_t buffer_pos[],
                         double &split_point, double &xmin, double &xmax,
-                        GainCriterion criterion, MissingAction missing_action)
+                        GainCriterion criterion, double min_gain, MissingAction missing_action)
 {
     todense(ix_arr, st, end,
             col_num, Xc, Xc_ind, Xc_indptr,
             buffer_arr);
     std::iota(buffer_pos, buffer_pos + (end - st + 1), (size_t)0);
     size_t temp;
-    return eval_guided_crit(buffer_pos, 0, end - st, buffer_arr, temp, split_point, xmin, xmax, criterion, missing_action);
+    return eval_guided_crit(buffer_pos, 0, end - st, buffer_arr, temp, split_point,
+                            xmin, xmax, criterion, min_gain, missing_action);
 }
 
 /* How this works:
@@ -607,7 +608,7 @@ double eval_guided_crit(size_t ix_arr[], size_t st, size_t end,
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *restrict x, int ncat,
                         size_t *restrict buffer_cnt, size_t *restrict buffer_pos, double *restrict buffer_prob,
                         int &chosen_cat, char *restrict split_categ, char *restrict buffer_split,
-                        GainCriterion criterion, bool all_perm, MissingAction missing_action, CategSplit cat_split_type)
+                        GainCriterion criterion, double min_gain, bool all_perm, MissingAction missing_action, CategSplit cat_split_type)
 {
     /* move NAs to the front if there's any, exclude them from calculations */
     if (missing_action != Fail)
@@ -666,7 +667,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                                             0.0,
                                             expected_sd_cat_single(buffer_cnt, buffer_prob, ncat_present, buffer_pos + st_pos, pos, cnt)
                                             );
-                        if (this_gain > 0 && this_gain > best_gain)
+                        if (this_gain > min_gain && this_gain > best_gain)
                         {
                             best_gain = this_gain;
                             chosen_cat = buffer_pos[pos];
@@ -706,7 +707,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                                         (cnt_left <= 1)? 0 : (cnt_left * logl(cnt_left))
                                     )
                                 ) / cnt;
-                    best_gain = (this_gain > 0)? this_gain : best_gain;
+                    best_gain = (this_gain > min_gain)? this_gain : best_gain;
                     break;
                 }
             }
@@ -758,7 +759,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                                             expected_sd_cat(buffer_cnt, buffer_prob, pos - st_pos + 1,       buffer_pos + st_pos),
                                             expected_sd_cat(buffer_cnt, buffer_prob, (size_t)ncat - pos - 1, buffer_pos + pos + 1)
                                             );
-                        if (this_gain > 0 && this_gain > best_gain)
+                        if (this_gain > min_gain && this_gain > best_gain)
                         {
                             best_gain = this_gain;
                             memcpy(split_categ, buffer_split, ncat * sizeof(char));
@@ -828,7 +829,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                                                     s_left, s_right,
                                                     base_info, cnt);
 
-                            if (this_gain > 0 && this_gain > best_gain)
+                            if (this_gain > min_gain && this_gain > best_gain)
                             {
                                 best_gain = this_gain;
                                 best_combin = combin;
@@ -836,7 +837,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
 
                         }
 
-                        if (best_gain > 0)
+                        if (best_gain > min_gain)
                             for (size_t pos = 0; pos < ncat_present; pos++)
                                 split_categ[buffer_pos[st_pos + pos]] = extract_bit(best_combin, pos);
 
@@ -864,7 +865,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                                                     s_left, s_right,
                                                     base_info, cnt);
 
-                            if (this_gain > 0 && this_gain > best_gain)
+                            if (this_gain > min_gain && this_gain > best_gain)
                             {
                                 best_gain = this_gain;
                                 memcpy(split_categ, buffer_split, ncat * sizeof(char));
@@ -880,7 +881,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
 
     if (st == (end-1)) return 0;
 
-    if (best_gain <= -HUGE_VAL && this_gain <= 0 && this_gain > -HUGE_VAL)
+    if (best_gain <= -HUGE_VAL && this_gain <= min_gain && this_gain > -HUGE_VAL)
         return 0;
     else
         return best_gain;

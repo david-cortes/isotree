@@ -87,6 +87,9 @@
 #' @param prob_split_pooled_gain Probability of making each split by selecting a column at random and determining the split point as
 #' that which gives the highest pooled gain. Not supported for the extended model as the splits are on
 #' linear combinations of variables. See the documentation for parameter `prob_pick_pooled_gain`` for more details.
+#' @param min_gain Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
+#' are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
+#' splits at a node is below this  threshold, that node becomes a terminal node.
 #' @param missing_action How to handle missing data at both fitting and prediction time. Options are a) `"divide"` (for the single-variable
 #' model only, recommended), which will follow both branches and combine the result with the weight given by the fraction of
 #' the data that went to each branch when fitting the model, b) `"impute"`, which will assign observations to the
@@ -378,7 +381,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                              ntry = 3, max_depth = ceiling(log2(sample_size)),
                              prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = ifelse(ndim > 1, 0.25, 0),
                              prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
-                             missing_action = ifelse(ndim > 1, "impute", "divide"),
+                             min_gain = 0, missing_action = ifelse(ndim > 1, "impute", "divide"),
                              new_categ_action = ifelse(ndim > 1, "impute", "weighted"),
                              categ_split_type = "subset", all_perm = FALSE,
                              weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
@@ -436,6 +439,9 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
         prob_split_avg_gain     <- as.numeric(prob_split_avg_gain)    /  s
         prob_split_pooled_gain  <- as.numeric(prob_split_pooled_gain) /  s
     }
+    
+    if (is.null(min_gain) || NROW(min_gain) > 1 || is.na(min_gain) || min_gain < 0)
+        stop("'min_gain' must be a decimal non-negative number.")
 
     if ((ndim == 1) && (sample_size == NROW(df)) && (prob_pick_avg_gain >= 1 || prob_pick_pooled_gain >= 1)) {
         warning(paste0("Passed parameters for deterministic single-variable splits ",
@@ -520,6 +526,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
     prob_pick_pooled_gain    <-  as.numeric(prob_pick_pooled_gain)
     prob_split_avg_gain      <-  as.numeric(prob_split_avg_gain)
     prob_split_pooled_gain   <-  as.numeric(prob_split_pooled_gain)
+    min_gain                 <-  as.numeric(min_gain)
     
     all_perm                 <-  as.logical(all_perm)
     weights_as_sample_prob   <-  as.logical(weights_as_sample_prob)
@@ -541,7 +548,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                              penalize_range, output_dist, TRUE, square_dist,
                              output_score, TRUE, weigh_by_kurtosis,
                              prob_pick_avg_gain, prob_split_avg_gain,
-                             prob_pick_pooled_gain,  prob_split_pooled_gain,
+                             prob_pick_pooled_gain,  prob_split_pooled_gain, min_gain,
                              categ_split_type, new_categ_action,
                              missing_action, all_perm,
                              build_imputer, output_imputations, min_imp_obs,
@@ -557,7 +564,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
             prob_pick_pooled_gain = prob_pick_pooled_gain,
             prob_split_avg_gain = prob_split_avg_gain,
             prob_split_pooled_gain = prob_split_pooled_gain,
-            missing_action = missing_action,
+            min_gain = min_gain, missing_action = missing_action,
             new_categ_action = new_categ_action,
             categ_split_type = categ_split_type, all_perm = all_perm,
             weights_as_sample_prob = weights_as_sample_prob,
@@ -856,6 +863,7 @@ add_isolation_tree <- function(model, df, sample_weights = NULL, column_weights 
                                              model$params$weigh_by_kurtosis,
                                              model$params$prob_pick_avg_gain, model$params$prob_split_avg_gain,
                                              model$params$prob_pick_pooled_gain,  model$params$prob_split_pooled_gain,
+                                             model$params$min_gain,
                                              model$params$categ_split_type, model$params$new_categ_action,
                                              model$params$missing_action, model$params$build_imputer,
                                              model$params$min_imp_obs, model$cpp_obj$imp_ptr,

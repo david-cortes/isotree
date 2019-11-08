@@ -50,8 +50,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // fit_model
-Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights, size_t nrows, size_t ncols_numeric, size_t ncols_categ, size_t ndim, size_t ntry, Rcpp::CharacterVector coef_type, bool with_replacement, bool weight_as_sample, size_t sample_size, size_t ntrees, size_t max_depth, bool limit_depth, bool penalize_range, bool calc_dist, bool standardize_dist, bool sq_dist, bool calc_depth, bool standardize_depth, bool weigh_by_kurt, double prob_pick_by_gain_avg, double prob_split_by_gain_avg, double prob_pick_by_gain_pl, double prob_split_by_gain_pl, Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action, Rcpp::CharacterVector missing_action, bool all_perm, bool build_imputer, bool output_imputations, size_t min_imp_obs, Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows, int random_seed, int nthreads);
-RcppExport SEXP _isotree_fit_model(SEXP X_numSEXP, SEXP X_catSEXP, SEXP ncatSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP sample_weightsSEXP, SEXP col_weightsSEXP, SEXP nrowsSEXP, SEXP ncols_numericSEXP, SEXP ncols_categSEXP, SEXP ndimSEXP, SEXP ntrySEXP, SEXP coef_typeSEXP, SEXP with_replacementSEXP, SEXP weight_as_sampleSEXP, SEXP sample_sizeSEXP, SEXP ntreesSEXP, SEXP max_depthSEXP, SEXP limit_depthSEXP, SEXP penalize_rangeSEXP, SEXP calc_distSEXP, SEXP standardize_distSEXP, SEXP sq_distSEXP, SEXP calc_depthSEXP, SEXP standardize_depthSEXP, SEXP weigh_by_kurtSEXP, SEXP prob_pick_by_gain_avgSEXP, SEXP prob_split_by_gain_avgSEXP, SEXP prob_pick_by_gain_plSEXP, SEXP prob_split_by_gain_plSEXP, SEXP cat_split_typeSEXP, SEXP new_cat_actionSEXP, SEXP missing_actionSEXP, SEXP all_permSEXP, SEXP build_imputerSEXP, SEXP output_imputationsSEXP, SEXP min_imp_obsSEXP, SEXP depth_impSEXP, SEXP weigh_imp_rowsSEXP, SEXP random_seedSEXP, SEXP nthreadsSEXP) {
+Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights, size_t nrows, size_t ncols_numeric, size_t ncols_categ, size_t ndim, size_t ntry, Rcpp::CharacterVector coef_type, bool with_replacement, bool weight_as_sample, size_t sample_size, size_t ntrees, size_t max_depth, bool limit_depth, bool penalize_range, bool calc_dist, bool standardize_dist, bool sq_dist, bool calc_depth, bool standardize_depth, bool weigh_by_kurt, double prob_pick_by_gain_avg, double prob_split_by_gain_avg, double prob_pick_by_gain_pl, double prob_split_by_gain_pl, double min_gain, Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action, Rcpp::CharacterVector missing_action, bool all_perm, bool build_imputer, bool output_imputations, size_t min_imp_obs, Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows, int random_seed, int nthreads);
+RcppExport SEXP _isotree_fit_model(SEXP X_numSEXP, SEXP X_catSEXP, SEXP ncatSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP sample_weightsSEXP, SEXP col_weightsSEXP, SEXP nrowsSEXP, SEXP ncols_numericSEXP, SEXP ncols_categSEXP, SEXP ndimSEXP, SEXP ntrySEXP, SEXP coef_typeSEXP, SEXP with_replacementSEXP, SEXP weight_as_sampleSEXP, SEXP sample_sizeSEXP, SEXP ntreesSEXP, SEXP max_depthSEXP, SEXP limit_depthSEXP, SEXP penalize_rangeSEXP, SEXP calc_distSEXP, SEXP standardize_distSEXP, SEXP sq_distSEXP, SEXP calc_depthSEXP, SEXP standardize_depthSEXP, SEXP weigh_by_kurtSEXP, SEXP prob_pick_by_gain_avgSEXP, SEXP prob_split_by_gain_avgSEXP, SEXP prob_pick_by_gain_plSEXP, SEXP prob_split_by_gain_plSEXP, SEXP min_gainSEXP, SEXP cat_split_typeSEXP, SEXP new_cat_actionSEXP, SEXP missing_actionSEXP, SEXP all_permSEXP, SEXP build_imputerSEXP, SEXP output_imputationsSEXP, SEXP min_imp_obsSEXP, SEXP depth_impSEXP, SEXP weigh_imp_rowsSEXP, SEXP random_seedSEXP, SEXP nthreadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -86,6 +86,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type prob_split_by_gain_avg(prob_split_by_gain_avgSEXP);
     Rcpp::traits::input_parameter< double >::type prob_pick_by_gain_pl(prob_pick_by_gain_plSEXP);
     Rcpp::traits::input_parameter< double >::type prob_split_by_gain_pl(prob_split_by_gain_plSEXP);
+    Rcpp::traits::input_parameter< double >::type min_gain(min_gainSEXP);
     Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type cat_split_type(cat_split_typeSEXP);
     Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type new_cat_action(new_cat_actionSEXP);
     Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type missing_action(missing_actionSEXP);
@@ -97,13 +98,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type weigh_imp_rows(weigh_imp_rowsSEXP);
     Rcpp::traits::input_parameter< int >::type random_seed(random_seedSEXP);
     Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(fit_model(X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, with_replacement, weight_as_sample, sample_size, ntrees, max_depth, limit_depth, penalize_range, calc_dist, standardize_dist, sq_dist, calc_depth, standardize_depth, weigh_by_kurt, prob_pick_by_gain_avg, prob_split_by_gain_avg, prob_pick_by_gain_pl, prob_split_by_gain_pl, cat_split_type, new_cat_action, missing_action, all_perm, build_imputer, output_imputations, min_imp_obs, depth_imp, weigh_imp_rows, random_seed, nthreads));
+    rcpp_result_gen = Rcpp::wrap(fit_model(X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, with_replacement, weight_as_sample, sample_size, ntrees, max_depth, limit_depth, penalize_range, calc_dist, standardize_dist, sq_dist, calc_depth, standardize_depth, weigh_by_kurt, prob_pick_by_gain_avg, prob_split_by_gain_avg, prob_pick_by_gain_pl, prob_split_by_gain_pl, min_gain, cat_split_type, new_cat_action, missing_action, all_perm, build_imputer, output_imputations, min_imp_obs, depth_imp, weigh_imp_rows, random_seed, nthreads));
     return rcpp_result_gen;
 END_RCPP
 }
 // fit_tree
-Rcpp::RawVector fit_tree(SEXP model_R_ptr, Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights, size_t nrows, size_t ncols_numeric, size_t ncols_categ, size_t ndim, size_t ntry, Rcpp::CharacterVector coef_type, size_t max_depth, bool limit_depth, bool penalize_range, bool weigh_by_kurt, double prob_pick_by_gain_avg, double prob_split_by_gain_avg, double prob_pick_by_gain_pl, double prob_split_by_gain_pl, Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action, Rcpp::CharacterVector missing_action, bool build_imputer, size_t min_imp_obs, SEXP imp_R_ptr, Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows, bool all_perm, uint64_t random_seed);
-RcppExport SEXP _isotree_fit_tree(SEXP model_R_ptrSEXP, SEXP X_numSEXP, SEXP X_catSEXP, SEXP ncatSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP sample_weightsSEXP, SEXP col_weightsSEXP, SEXP nrowsSEXP, SEXP ncols_numericSEXP, SEXP ncols_categSEXP, SEXP ndimSEXP, SEXP ntrySEXP, SEXP coef_typeSEXP, SEXP max_depthSEXP, SEXP limit_depthSEXP, SEXP penalize_rangeSEXP, SEXP weigh_by_kurtSEXP, SEXP prob_pick_by_gain_avgSEXP, SEXP prob_split_by_gain_avgSEXP, SEXP prob_pick_by_gain_plSEXP, SEXP prob_split_by_gain_plSEXP, SEXP cat_split_typeSEXP, SEXP new_cat_actionSEXP, SEXP missing_actionSEXP, SEXP build_imputerSEXP, SEXP min_imp_obsSEXP, SEXP imp_R_ptrSEXP, SEXP depth_impSEXP, SEXP weigh_imp_rowsSEXP, SEXP all_permSEXP, SEXP random_seedSEXP) {
+Rcpp::RawVector fit_tree(SEXP model_R_ptr, Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights, size_t nrows, size_t ncols_numeric, size_t ncols_categ, size_t ndim, size_t ntry, Rcpp::CharacterVector coef_type, size_t max_depth, bool limit_depth, bool penalize_range, bool weigh_by_kurt, double prob_pick_by_gain_avg, double prob_split_by_gain_avg, double prob_pick_by_gain_pl, double prob_split_by_gain_pl, double min_gain, Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action, Rcpp::CharacterVector missing_action, bool build_imputer, size_t min_imp_obs, SEXP imp_R_ptr, Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows, bool all_perm, uint64_t random_seed);
+RcppExport SEXP _isotree_fit_tree(SEXP model_R_ptrSEXP, SEXP X_numSEXP, SEXP X_catSEXP, SEXP ncatSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP sample_weightsSEXP, SEXP col_weightsSEXP, SEXP nrowsSEXP, SEXP ncols_numericSEXP, SEXP ncols_categSEXP, SEXP ndimSEXP, SEXP ntrySEXP, SEXP coef_typeSEXP, SEXP max_depthSEXP, SEXP limit_depthSEXP, SEXP penalize_rangeSEXP, SEXP weigh_by_kurtSEXP, SEXP prob_pick_by_gain_avgSEXP, SEXP prob_split_by_gain_avgSEXP, SEXP prob_pick_by_gain_plSEXP, SEXP prob_split_by_gain_plSEXP, SEXP min_gainSEXP, SEXP cat_split_typeSEXP, SEXP new_cat_actionSEXP, SEXP missing_actionSEXP, SEXP build_imputerSEXP, SEXP min_imp_obsSEXP, SEXP imp_R_ptrSEXP, SEXP depth_impSEXP, SEXP weigh_imp_rowsSEXP, SEXP all_permSEXP, SEXP random_seedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -130,6 +131,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type prob_split_by_gain_avg(prob_split_by_gain_avgSEXP);
     Rcpp::traits::input_parameter< double >::type prob_pick_by_gain_pl(prob_pick_by_gain_plSEXP);
     Rcpp::traits::input_parameter< double >::type prob_split_by_gain_pl(prob_split_by_gain_plSEXP);
+    Rcpp::traits::input_parameter< double >::type min_gain(min_gainSEXP);
     Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type cat_split_type(cat_split_typeSEXP);
     Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type new_cat_action(new_cat_actionSEXP);
     Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type missing_action(missing_actionSEXP);
@@ -140,7 +142,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type weigh_imp_rows(weigh_imp_rowsSEXP);
     Rcpp::traits::input_parameter< bool >::type all_perm(all_permSEXP);
     Rcpp::traits::input_parameter< uint64_t >::type random_seed(random_seedSEXP);
-    rcpp_result_gen = Rcpp::wrap(fit_tree(model_R_ptr, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, max_depth, limit_depth, penalize_range, weigh_by_kurt, prob_pick_by_gain_avg, prob_split_by_gain_avg, prob_pick_by_gain_pl, prob_split_by_gain_pl, cat_split_type, new_cat_action, missing_action, build_imputer, min_imp_obs, imp_R_ptr, depth_imp, weigh_imp_rows, all_perm, random_seed));
+    rcpp_result_gen = Rcpp::wrap(fit_tree(model_R_ptr, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, max_depth, limit_depth, penalize_range, weigh_by_kurt, prob_pick_by_gain_avg, prob_split_by_gain_avg, prob_pick_by_gain_pl, prob_split_by_gain_pl, min_gain, cat_split_type, new_cat_action, missing_action, build_imputer, min_imp_obs, imp_R_ptr, depth_imp, weigh_imp_rows, all_perm, random_seed));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -217,8 +219,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_deserialize_ExtIsoForest", (DL_FUNC) &_isotree_deserialize_ExtIsoForest, 1},
     {"_isotree_deserialize_Imputer", (DL_FUNC) &_isotree_deserialize_Imputer, 1},
     {"_isotree_check_null_ptr_model", (DL_FUNC) &_isotree_check_null_ptr_model, 1},
-    {"_isotree_fit_model", (DL_FUNC) &_isotree_fit_model, 42},
-    {"_isotree_fit_tree", (DL_FUNC) &_isotree_fit_tree, 33},
+    {"_isotree_fit_model", (DL_FUNC) &_isotree_fit_model, 43},
+    {"_isotree_fit_tree", (DL_FUNC) &_isotree_fit_tree, 34},
     {"_isotree_predict_iso", (DL_FUNC) &_isotree_predict_iso, 15},
     {"_isotree_dist_iso", (DL_FUNC) &_isotree_dist_iso, 14},
     {"_isotree_impute_iso", (DL_FUNC) &_isotree_impute_iso, 10},

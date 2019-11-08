@@ -291,7 +291,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         /* evaluate gain if necessary */
         if (workspace.criterion != NoCrit)
             workspace.this_gain = eval_guided_crit(workspace.comb_val.data(), workspace.end - workspace.st + 1,
-                                                   workspace.criterion, workspace.this_split_point,
+                                                   workspace.criterion, model_params.min_gain, workspace.this_split_point,
                                                    workspace.xmin, workspace.xmax);
         
         /* pass to the output object */

@@ -205,6 +205,20 @@
 *       Probability of making each split by selecting a column at random and determining the split point as
 *       that which gives the highest pooled gain. Not supported for the extended model as the splits are on
 *       linear combinations of variables. See the documentation for parameter 'prob_pick_by_gain_pl' for more details.
+* - min_gain
+*       Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
+*       are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
+*       splits at a node is below this  threshold, that node becomes a terminal node.
+* - missing_action
+*       How to handle missing data at both fitting and prediction time. Options are a) "Divide" (for the single-variable
+*       model only, recommended), which will follow both branches and combine the result with the weight given by the fraction of
+*       the data that went to each branch when fitting the model, b) "Impute", which will assign observations to the
+*       branch with the most observations in the single-variable model, or fill in missing values with the median
+*       of each column of the sample from which the split was made in the extended model (recommended), c) "Fail" which will assume
+*       there are no missing values and will trigger undefined behavior if it encounters any. In the extended model, infinite
+*       values will be treated as missing. Note that passing "fail" might crash the process if there turn out to be
+*       missing values, but will otherwise produce faster fitting and prediction times along with decreased model object sizes.
+*       Models from [1], [2], [3], [4] correspond to "Fail" here.
 * - cat_split_type
 *       Whether to split categorical features by assigning sub-sets of them to each branch, or by assigning
 *       a single category to a branch and the rest to the other branch. For the extended model, whether to
@@ -219,16 +233,6 @@
 *       fitting the model, c) "Random", which will assing a branch (coefficient in the extended model) at random for
 *       each category beforehand, even if no observations had that category when fitting the model. Ignored when
 *       passing 'cat_split_type' = 'SingleCateg'.
-* - missing_action
-*       How to handle missing data at both fitting and prediction time. Options are a) "Divide" (for the single-variable
-*       model only, recommended), which will follow both branches and combine the result with the weight given by the fraction of
-*       the data that went to each branch when fitting the model, b) "Impute", which will assign observations to the
-*       branch with the most observations in the single-variable model, or fill in missing values with the median
-*       of each column of the sample from which the split was made in the extended model (recommended), c) "Fail" which will assume
-*       there are no missing values and will trigger undefined behavior if it encounters any. In the extended model, infinite
-*       values will be treated as missing. Note that passing "fail" might crash the process if there turn out to be
-*       missing values, but will otherwise produce faster fitting and prediction times along with decreased model object sizes.
-*       Models from [1], [2], [3], [4] correspond to "Fail" here.
 * - all_perm
 *       When doing categorical variable splits by pooled gain, whether to consider all possible permutations
 *       of variables to assign to each branch or not. If 'false', will sort the categories by their frequency
@@ -300,7 +304,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 double col_weights[], bool weigh_by_kurt,
                 double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                 double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
-                CategSplit cat_split_type, NewCategAction new_cat_action, MissingAction missing_action,
+                double min_gain, MissingAction missing_action,
+                CategSplit cat_split_type, NewCategAction new_cat_action,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
                 uint64_t random_seed, int nthreads)
@@ -327,7 +332,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 penalize_range, random_seed, weigh_by_kurt,
                                 prob_pick_by_gain_avg, (model_outputs == NULL)? 0 : prob_split_by_gain_avg,
                                 prob_pick_by_gain_pl,  (model_outputs == NULL)? 0 : prob_split_by_gain_pl,
-                                cat_split_type, new_cat_action, missing_action, all_perm,
+                                min_gain, cat_split_type, new_cat_action, missing_action, all_perm,
                                 (model_outputs != NULL)? 0 : ndim, (model_outputs != NULL)? 0 : ntry,
                                 coef_type, calc_dist, (bool)(output_depths != NULL), impute_at_fit,
                                 depth_imp, weigh_imp_rows, min_imp_obs};
@@ -587,13 +592,16 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - prob_split_by_gain_pl
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
+* - min_gain
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
+* - missing_action
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Cannot be changed from
+*       what was originally passed to 'fit_iforest'.
 * - cat_split_type
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Cannot be changed from
 *       what was originally passed to 'fit_iforest'.
 * - new_cat_action
-*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Cannot be changed from
-*       what was originally passed to 'fit_iforest'.
-* - missing_action
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Cannot be changed from
 *       what was originally passed to 'fit_iforest'.
 * - depth_imp
@@ -625,7 +633,8 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              double col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
              double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
-             CategSplit cat_split_type, NewCategAction new_cat_action, MissingAction missing_action,
+             double min_gain, MissingAction missing_action,
+             CategSplit cat_split_type, NewCategAction new_cat_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
              bool   all_perm, std::vector<ImputeNode> *impute_nodes, size_t min_imp_obs,
              uint64_t random_seed)
@@ -645,7 +654,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 penalize_range, random_seed, weigh_by_kurt,
                                 prob_pick_by_gain_avg, (model_outputs == NULL)? 0 : prob_split_by_gain_avg,
                                 prob_pick_by_gain_pl,  (model_outputs == NULL)? 0 : prob_split_by_gain_pl,
-                                cat_split_type, new_cat_action, missing_action, all_perm,
+                                min_gain, cat_split_type, new_cat_action, missing_action, all_perm,
                                 (model_outputs != NULL)? 0 : ndim, (model_outputs != NULL)? 0 : ntry,
                                 coef_type, false, false, false, depth_imp, weigh_imp_rows, min_imp_obs};
 

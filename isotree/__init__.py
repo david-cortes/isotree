@@ -92,6 +92,10 @@ class IsolationForest:
         Probability of making each split by selecting a column at random and determining the split point as
         that which gives the highest pooled gain. Not supported for the extended model as the splits are on
         linear combinations of variables. See the documentation for parameter 'prob_pick_pooled_gain' for more details.
+    min_gain : float > 0
+        Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
+        are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
+        splits at a node is below this  threshold, that node becomes a terminal node.
     missing_action : str, one of "divide" (single-variable only), "impute", "fail", "auto"
         How to handle missing data at both fitting and prediction time. Options are a) "divide" (for the single-variable
         model only, recommended), which will follow both branches and combine the result with the weight given by the fraction of
@@ -219,7 +223,7 @@ class IsolationForest:
     def __init__(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3, max_depth = "auto",
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.25,
                  prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
-                 missing_action = "auto", new_categ_action = "auto",
+                 min_gain = 0, missing_action = "auto", new_categ_action = "auto",
                  categ_split_type = "subset", all_perm = False,
                  weights_as_sample_prob = True, sample_with_replacement = False,
                  penalize_range = True, weigh_by_kurtosis = False,
@@ -256,6 +260,7 @@ class IsolationForest:
         assert prob_pick_pooled_gain  >= 0
         assert prob_split_avg_gain    >= 0
         assert prob_split_pooled_gain >= 0
+        assert min_gain               >= 0
         s = prob_pick_avg_gain + prob_pick_pooled_gain + prob_split_avg_gain + prob_split_pooled_gain
         if s > 1:
             warnings.warn("Split type probabilities sum to more than 1, will standardize them")
@@ -318,6 +323,7 @@ class IsolationForest:
         self.prob_pick_pooled_gain   =  prob_pick_pooled_gain
         self.prob_split_avg_gain     =  prob_split_avg_gain
         self.prob_split_pooled_gain  =  prob_split_pooled_gain
+        self.min_gain                =  min_gain
         self.missing_action          =  missing_action
         self.new_categ_action        =  new_categ_action
         self.categ_split_type        =  categ_split_type
@@ -443,9 +449,10 @@ class IsolationForest:
                                 ctypes.c_double(self.prob_split_avg_gain).value,
                                 ctypes.c_double(self.prob_pick_pooled_gain).value,
                                 ctypes.c_double(self.prob_split_pooled_gain).value,
+                                ctypes.c_double(self.min_gain).value,
+                                self.missing_action,
                                 self.categ_split_type,
                                 self.new_categ_action,
-                                self.missing_action,
                                 ctypes.c_bool(self.build_imputer).value,
                                 ctypes.c_size_t(self.min_imp_obs).value,
                                 self.depth_imp,
@@ -581,9 +588,10 @@ class IsolationForest:
                                                                    ctypes.c_double(self.prob_split_avg_gain).value,
                                                                    ctypes.c_double(self.prob_pick_pooled_gain).value,
                                                                    ctypes.c_double(self.prob_split_pooled_gain).value,
+                                                                   ctypes.c_double(self.min_gain).value,
+                                                                   self.missing_action,
                                                                    self.categ_split_type,
                                                                    self.new_categ_action,
-                                                                   self.missing_action,
                                                                    ctypes.c_bool(self.build_imputer).value,
                                                                    ctypes.c_size_t(self.min_imp_obs).value,
                                                                    self.depth_imp,
@@ -1074,9 +1082,10 @@ class IsolationForest:
                                ctypes.c_double(self.prob_split_avg_gain).value,
                                ctypes.c_double(self.prob_pick_pooled_gain).value,
                                ctypes.c_double(self.prob_split_pooled_gain).value,
+                               ctypes.c_double(self.min_gain).value,
+                               self.missing_action,
                                self.categ_split_type,
                                self.new_categ_action,
-                               self.missing_action,
                                ctypes.c_bool(self.build_imputer).value,
                                ctypes.c_size_t(self.min_imp_obs).value,
                                self.depth_imp,

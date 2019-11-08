@@ -21,6 +21,7 @@ build/
 *.dynlib
 *.pyd
 *.dll
+isotree/cpp_interface.cpp
 
 
 isotree.egg-info/

@@ -410,6 +410,7 @@ typedef struct {
     double    prob_split_by_gain_avg;
     double    prob_pick_by_gain_pl;
     double    prob_split_by_gain_pl;
+    double    min_gain;
     CategSplit      cat_split_type;
     NewCategAction  new_cat_action;
     MissingAction   missing_action;
@@ -558,7 +559,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 double col_weights[], bool weigh_by_kurt,
                 double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                 double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
-                CategSplit cat_split_type, NewCategAction new_cat_action, MissingAction missing_action,
+                double min_gain, MissingAction missing_action,
+                CategSplit cat_split_type, NewCategAction new_cat_action,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
                 uint64_t random_seed, int nthreads);
@@ -572,7 +574,8 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              double col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
              double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
-             CategSplit cat_split_type, NewCategAction new_cat_action, MissingAction missing_action,
+             double min_gain, MissingAction missing_action,
+             CategSplit cat_split_type, NewCategAction new_cat_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
              bool   all_perm, std::vector<ImputeNode> *impute_nodes, size_t min_imp_obs,
              uint64_t random_seed);
@@ -844,20 +847,20 @@ double numeric_gain(size_t cnt_left, size_t cnt_right,
 double categ_gain(size_t cnt_left, size_t cnt_right,
                   long double s_left, long double s_right,
                   long double base_info, long double cnt);
-double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
+double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion, double min_gain,
                         double &split_point, double &xmin, double &xmax);
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *restrict x,
                         size_t &split_ix, double &split_point, double &xmin, double &xmax,
-                        GainCriterion criterion, MissingAction missing_action);
+                        GainCriterion criterion, double min_gain, MissingAction missing_action);
 double eval_guided_crit(size_t ix_arr[], size_t st, size_t end,
                         size_t col_num, double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                         double buffer_arr[], size_t buffer_pos[],
                         double &split_point, double &xmin, double &xmax,
-                        GainCriterion criterion, MissingAction missing_action);
+                        GainCriterion criterion, double min_gain, MissingAction missing_action);
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *restrict x, int ncat,
                         size_t *restrict buffer_cnt, size_t *restrict buffer_pos, double *restrict buffer_prob,
                         int &chosen_cat, char *restrict split_categ, char *restrict buffer_split,
-                        GainCriterion criterion, bool all_perm, MissingAction missing_action, CategSplit cat_split_type);
+                        GainCriterion criterion, double min_gain, bool all_perm, MissingAction missing_action, CategSplit cat_split_type);
 
 /* dealloc.cpp */
 void dealloc_IsoForest(IsoForest &model_outputs);

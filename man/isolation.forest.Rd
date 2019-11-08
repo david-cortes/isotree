@@ -9,7 +9,7 @@ isolation.forest(df, sample_weights = NULL, column_weights = NULL,
   ntry = 3, max_depth = ceiling(log2(sample_size)),
   prob_pick_avg_gain = 0, prob_pick_pooled_gain = ifelse(ndim > 1,
   0.25, 0), prob_split_avg_gain = 0, prob_split_pooled_gain = 0,
-  missing_action = ifelse(ndim > 1, "impute", "divide"),
+  min_gain = 0, missing_action = ifelse(ndim > 1, "impute", "divide"),
   new_categ_action = ifelse(ndim > 1, "impute", "weighted"),
   categ_split_type = "subset", all_perm = FALSE,
   weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
@@ -101,6 +101,10 @@ linear combinations of variables. See the documentation for parameter `prob_pick
 \item{prob_split_pooled_gain}{Probability of making each split by selecting a column at random and determining the split point as
 that which gives the highest pooled gain. Not supported for the extended model as the splits are on
 linear combinations of variables. See the documentation for parameter `prob_pick_pooled_gain`` for more details.}
+
+\item{min_gain}{Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
+are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
+splits at a node is below this  threshold, that node becomes a terminal node.}
 
 \item{missing_action}{How to handle missing data at both fitting and prediction time. Options are a) `"divide"` (for the single-variable
 model only, recommended), which will follow both branches and combine the result with the weight given by the fraction of
