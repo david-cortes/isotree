@@ -119,6 +119,7 @@ cdef extern from "isotree.hpp":
         vector[size_t]    col_num
         vector[ColType]   col_type
         vector[double]    coef
+        vector[double]    mean
         vector[vector[double]] cat_coef
         vector[int]       chosen_cat
         vector[double]    fill_val

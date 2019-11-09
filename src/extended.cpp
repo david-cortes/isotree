@@ -312,6 +312,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
             hplanes.back().col_num.assign(workspace.col_take.begin(), workspace.col_take.begin() + workspace.ntaken);
             hplanes.back().col_type.assign(workspace.col_take_type.begin(), workspace.col_take_type.begin() + workspace.ntaken);
             hplanes.back().coef.assign(workspace.ext_coef.begin(), workspace.ext_coef.begin() + workspace.ntaken);
+            hplanes.back().mean.assign(workspace.ext_mean.begin(), workspace.ext_mean.begin() + workspace.ntaken);
 
             if (model_params.missing_action != Fail)
                 hplanes.back().fill_val.assign(workspace.ext_fill_val.begin(), workspace.ext_fill_val.begin() + workspace.ntaken);
@@ -370,7 +371,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                     {
                         add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                         input_data.numeric_data + hplanes.back().col_num[col] * input_data.nrows,
-                                        hplanes.back().coef[col], (double)0,
+                                        hplanes.back().coef[col], (double)0, hplanes.back().mean[col],
                                         hplanes.back().fill_val.size()? hplanes.back().fill_val[col] : workspace.this_split_point, /* second case is not used */
                                         model_params.missing_action, NULL, NULL, false);
                     }
@@ -380,7 +381,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                         add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end,
                                         hplanes.back().col_num[col], workspace.comb_val.data(),
                                         input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                        hplanes.back().coef[col], (double)0,
+                                        hplanes.back().coef[col], (double)0, hplanes.back().mean[col],
                                         hplanes.back().fill_val.size()? hplanes.back().fill_val[col] : workspace.this_split_point, /* second case is not used */
                                         model_params.missing_action, NULL, NULL, false);
                     }
@@ -549,25 +550,25 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
 
             if (input_data.Xc == NULL)
             {
-                calc_sd(workspace.ix_arr.data(), workspace.st, workspace.end,
-                        input_data.numeric_data + workspace.col_chosen * input_data.nrows,
-                        model_params.missing_action, workspace.ext_sd);
+                calc_mean_and_sd(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                 input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                 model_params.missing_action, workspace.ext_sd, workspace.ext_mean[workspace.ntaken]);
                 add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                 input_data.numeric_data + workspace.col_chosen * input_data.nrows,
-                                workspace.ext_coef[workspace.ntaken], workspace.ext_sd,
+                                workspace.ext_coef[workspace.ntaken], workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
                                 workspace.ext_fill_val[workspace.ntaken], model_params.missing_action,
                                 workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true);
             }
 
             else
             {
-                calc_sd(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
-                        input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                        workspace.ext_sd);
+                calc_mean_and_sd(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
+                                 input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                 workspace.ext_sd, workspace.ext_mean[workspace.ntaken]);
                 add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end,
                                 workspace.col_chosen, workspace.comb_val.data(),
                                 input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                workspace.ext_coef[workspace.ntaken], workspace.ext_sd,
+                                workspace.ext_coef[workspace.ntaken], workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
                                 workspace.ext_fill_val[workspace.ntaken], model_params.missing_action,
                                 workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true);
             }
@@ -627,6 +628,7 @@ void shrink_to_fit_hplane(IsoHPlane &hplane, bool clear_vectors)
         hplane.col_num.clear();
         hplane.col_type.clear();
         hplane.coef.clear();
+        hplane.mean.clear();
         hplane.cat_coef.clear();
         hplane.chosen_cat.clear();
         hplane.fill_val.clear();
@@ -636,6 +638,7 @@ void shrink_to_fit_hplane(IsoHPlane &hplane, bool clear_vectors)
     hplane.col_num.shrink_to_fit();
     hplane.col_type.shrink_to_fit();
     hplane.coef.shrink_to_fit();
+    hplane.mean.shrink_to_fit();
     hplane.cat_coef.shrink_to_fit();
     hplane.chosen_cat.shrink_to_fit();
     hplane.fill_val.shrink_to_fit();
@@ -664,6 +667,7 @@ void simplify_hplane(IsoHPlane &hplane, WorkerMemory &workspace, InputData &inpu
                 case Numeric:
                 {
                     workspace.ext_coef[ncols_numeric] = hplane.coef[col];
+                    workspace.ext_mean[ncols_numeric] = hplane.mean[col];
                     ncols_numeric++;
                     break;
                 }
@@ -701,7 +705,9 @@ void simplify_hplane(IsoHPlane &hplane, WorkerMemory &workspace, InputData &inpu
 
 
     hplane.coef.resize(ncols_numeric);
+    hplane.mean.resize(ncols_numeric);
     std::copy(workspace.ext_coef.begin(), workspace.ext_coef.begin() + ncols_numeric, hplane.coef.begin());
+    std::copy(workspace.ext_mean.begin(), workspace.ext_mean.begin() + ncols_numeric, hplane.mean.begin());
 
     /* If there are no categorical columns, all of them will be numerical and there is no need to reorder */
     if (ncols_categ)

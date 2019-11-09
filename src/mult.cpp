@@ -45,8 +45,8 @@
 */
 
 /* for regular numerical */
-void calc_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x,
-             MissingAction missing_action, double &x_sd)
+void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x,
+                      MissingAction missing_action, double &x_sd, double &x_mean)
 {
     long double m = 0;
     long double s = 0;
@@ -61,7 +61,8 @@ void calc_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x,
             m_prev = m;
         }
 
-        x_sd = sqrtl(s / (long double)(end - st + 1));
+        x_mean = m;
+        x_sd   = sqrtl(s / (long double)(end - st + 1));
     }
 
     else
@@ -78,19 +79,21 @@ void calc_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x,
             }
         }
 
-        x_sd = sqrtl(s / (long double)cnt);
+        x_mean = m;
+        x_sd   = sqrtl(s / (long double)cnt);
     }
 }
 
 /* for sparse numerical */
-void calc_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-             double *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-             double &x_sd)
+void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
+                      double *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                      double &x_sd, double &x_mean)
 {
     /* ix_arr must be already sorted beforehand */
     if (Xc_indptr[col_num] == Xc_indptr[col_num + 1])
     {
-        x_sd = 0;
+        x_sd   = 0;
+        x_mean = 0;
         return;
     }
     size_t st_col  = Xc_indptr[col_num];
@@ -136,7 +139,8 @@ void calc_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
         }
     }
 
-    x_sd = calc_sd_raw(cnt, sum, sum_sq);
+    x_mean = sum / (long double) cnt;
+    x_sd   = calc_sd_raw(cnt, sum, sum_sq);
 }
 
 
@@ -145,7 +149,7 @@ void calc_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 
 /* for regular numerical */
 void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict res,
-                     double *restrict x, double &coef, double x_sd, double &fill_val,
+                     double *restrict x, double &coef, double x_sd, double x_mean, double &fill_val,
                      MissingAction missing_action, double *restrict buffer_arr,
                      size_t *restrict buffer_NAs, bool first_run)
 {
@@ -161,7 +165,7 @@ void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict re
     if (missing_action == Fail)
     {    
         for (size_t row = st; row <= end; row++)
-            res_write[row] += x[ix_arr[row]] * coef;
+            res_write[row] += (x[ix_arr[row]] - x_mean) * coef;
     }
 
     else
@@ -172,8 +176,8 @@ void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict re
             {
                 if (!is_na_or_inf(x[ix_arr[row]]))
                 {
-                    res_write[row]    += x[ix_arr[row]] * coef;
-                    buffer_arr[cnt++]  = x[ix_arr[row]];
+                    res_write[row]    += (x[ix_arr[row]] - x_mean) * coef;
+                    buffer_arr[cnt++]  =  x[ix_arr[row]];
                 }
 
                 else
@@ -188,7 +192,7 @@ void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict re
         {
             for (size_t row = st; row <= end; row++)
             {
-                res_write[row] += (is_na_or_inf(x[ix_arr[row]]))? fill_val : (x[ix_arr[row]] * coef);
+                res_write[row] += (is_na_or_inf(x[ix_arr[row]]))? fill_val : ( (x[ix_arr[row]]-x_mean) * coef );
             }
             return;
         }
@@ -201,7 +205,7 @@ void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict re
         else
             fill_val = buffer_arr[mid_ceil];
 
-        fill_val *= coef;
+        fill_val = (fill_val - x_mean) * coef;
         if (cnt_NA)
         {
             for (size_t row = 0; row < cnt_NA; row++)
@@ -214,12 +218,10 @@ void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict re
 /* for sparse numerical */
 void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num, double *restrict res,
                      double *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
-                     double &coef, double x_sd, double &fill_val, MissingAction missing_action,
+                     double &coef, double x_sd, double x_mean, double &fill_val, MissingAction missing_action,
                      double *restrict buffer_arr, size_t *restrict buffer_NAs, bool first_run)
 {
     /* ix_arr must be already sorted beforehand */
-
-    /* TODO: create a 'res_write' like for dense, in order not to substract every time */
 
     /* if it's all zeros, no need to do anything, but this is not supposed
        to happen while fitting because the range is determined before calling this */
@@ -235,6 +237,12 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
             if (missing_action != Fail)
                 fill_val = 0;
         }
+
+        double *restrict res_write = res - st;
+        double offset = x_mean * coef;
+        for (size_t row = st; row <= end; row++)
+            res_write[row] -= offset;
+
         return;
     }
 
@@ -250,6 +258,11 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
 
     if (first_run)
         coef /= x_sd;
+
+    double *restrict res_write = res - st;
+    double offset = x_mean * coef;
+    for (size_t row = st; row <= end; row++)
+        res_write[row] -= offset;
 
     size_t ind_end_col = Xc_ind[end_col];
     size_t nmatches = 0;
@@ -300,7 +313,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
                 if (Xc_ind[curr_pos] == *row)
                 {
                     res[row - ix_arr_plus_st] += is_na_or_inf(Xc[curr_pos])?
-                                                 fill_val : (Xc[curr_pos] * coef);
+                                                  (fill_val + offset) : (Xc[curr_pos] * coef);
                     if (row == ix_arr + end) break;
                     curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *(++row)) - Xc_ind;
                 }
@@ -378,12 +391,14 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
                     }
                 }
 
+                /* fill missing if any */
                 fill_val *= coef;
-
-                /* finally, fill missing if any */
                 if (cnt_NA && fill_val)
                     for (size_t ix = 0; ix < cnt_NA; ix++)
                         res[buffer_NAs[ix]] += fill_val; 
+
+                /* next time, it will need to have the offset added */
+                fill_val -= offset;
             }
         }
     }

@@ -379,6 +379,9 @@ double categ_gain(size_t cnt_left, size_t cnt_right,
 double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion, double min_gain,
                         double &split_point, double &xmin, double &xmax)
 {
+    /* Note: the input 'x' is supposed to be a linear combination of standardized variables, so
+       all numbers are assumed to be small and in the same scale */
+
     /* here it's assumed the 'x' vector matches exactly with 'ix_arr' + 'st' */
     if (n == 2)
     {
@@ -471,6 +474,7 @@ double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion, d
 }
 
 /* for split-criterion in single-variable splits */
+#define std_val(x, m, sd) ( ((x) - (m)) / (sd)  )
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *restrict x,
                         size_t &split_ix, double &split_point, double &xmin, double &xmax,
                         GainCriterion criterion, double min_gain, MissingAction missing_action)
@@ -492,14 +496,26 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *
     if (x[ix_arr[st]] == x[ix_arr[end]]) return -HUGE_VAL;
     xmin = x[ix_arr[st]]; xmax = x[ix_arr[end]];
 
-    /* compute sum - sum_sq - sd in one pass */
+    /* Note: these variables are not standardized beforehand, so a single-pass gain
+       calculation for both branches would suffer from numerical instability and perhaps give
+       negative standard deviations if the sample size is large or the values have different
+       orders of magnitude */
+
+    /* first get mean and sd */
+    double x_mean, x_sd;
+    calc_mean_and_sd(ix_arr, st, end, x,
+                     Fail, x_sd, x_mean);
+
+    /* compute sum - sum_sq - sd in one pass, on the standardized values */
+    double zval;
     long double sum = 0;
     long double sum_sq = 0;
     double sd_full;
     for (size_t row = st; row <= end; row++)
     {
-        sum    += x[ix_arr[row]];
-        sum_sq += square(x[ix_arr[row]]);
+        zval    = std_val(x[ix_arr[row]], x_mean, x_sd);
+        sum    += zval;
+        sum_sq += square(zval);
     }
     sd_full = calc_sd_raw(end - st + 1, sum, sum_sq);
 
@@ -517,10 +533,11 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *
         {
             for (size_t row = st; row < end; row++)
             {
-                sum_left     += x[ix_arr[row]];
-                sum_sq_left  += square(x[ix_arr[row]]);
-                sum_right    -= x[ix_arr[row]];
-                sum_sq_right -= square(x[ix_arr[row]]);
+                zval          = std_val(x[ix_arr[row]], x_mean, x_sd);
+                sum_left     += zval;
+                sum_sq_left  += square(zval);
+                sum_right    -= zval;
+                sum_sq_right -= square(zval);
 
                 if (x[ix_arr[row]] == x[ix_arr[row + 1]]) continue;
 
@@ -543,10 +560,11 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *
             long double cnt = (long double)(end - st + 1);
             for (size_t row = st; row < end; row++)
             {
-                sum_left     += x[ix_arr[row]];
-                sum_sq_left  += square(x[ix_arr[row]]);
-                sum_right    -= x[ix_arr[row]];
-                sum_sq_right -= square(x[ix_arr[row]]);
+                zval          = std_val(x[ix_arr[row]], x_mean, x_sd);
+                sum_left     += zval;
+                sum_sq_left  += square(zval);
+                sum_right    -= zval;
+                sum_sq_right -= square(zval);
 
                 if (x[ix_arr[row]] == x[ix_arr[row + 1]]) continue;
 

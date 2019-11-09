@@ -11,7 +11,8 @@
 \item{object}{An Isolation Forest object as returned by `isolation.forest`.}
 
 \item{newdata}{A data.frame, matrix, or sparse matrix (from package `Matrix` or `SparseM`, CSC format for distance and outlierness,
-or CSR format for outlierness and imputations) for which to predict outlierness, distance, or imputations of missing values.}
+or CSR format for outlierness and imputations) for which to predict outlierness, distance, or imputations of missing values.
+Note that when passing `type` = `"impute"` and newdata is a sparse matrix, under some situations it might get modified in-place.}
 
 \item{type}{Type of prediction to output. Options are `"score"` for the standardized outlier score (where
 values closer to 1 indicate more outlierness, while values closer to 0.5 indicate average outlierness,
@@ -19,7 +20,7 @@ and close to 0 more averageness (harder to isolate)), `"avg_depth"` for  the non
 isolation depth, `"dist"` for approximate pairwise distances (must pass more than 1 row) (these are
 standardized in the same way as outlierness, values closer to zero indicate nearer points,
 closer to one further away points, and closer to 0.5 average distance), `"avg_sep"` for the non-standardize
-average separation depth between points, `"tree_num` for the terminal node number for each tree (in this last
+average separation depth between points, `"tree_num"` for the terminal node number for each tree (in this last
 case, will return a list containing both the outlier score and the terminal node numbers, under entries
 `score` and `tree_num`, respectively), `"impute"` for imputation of missing values in `newdata`.}
 

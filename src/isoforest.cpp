@@ -742,8 +742,25 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
         /* add this depth right away if requested */
         if (workspace.row_depths.size())
-            for (size_t row = workspace.st; row <= workspace.end; row++)
-                workspace.row_depths[workspace.ix_arr[row]] += trees.back().score;
+        {
+            if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+            {
+                for (size_t row = workspace.st; row <= workspace.end; row++)
+                    workspace.row_depths[workspace.ix_arr[row]] += trees.back().score;
+            }
+
+            else if (workspace.weights_arr.size())
+            {
+                for (size_t row = workspace.st; row <= workspace.end; row++)
+                    workspace.row_depths[workspace.ix_arr[row]] += workspace.weights_arr[workspace.ix_arr[row]] * trees.back().score;
+            }
+
+            else
+            {
+                for (size_t row = workspace.st; row <= workspace.end; row++)
+                    workspace.row_depths[workspace.ix_arr[row]] += workspace.weights_map[workspace.ix_arr[row]] * trees.back().score;
+            }
+        }
 
         /* add imputations from node if requested */
         if (model_params.impute_at_fit)

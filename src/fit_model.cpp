@@ -761,6 +761,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         {
             workspace.ext_offset.resize(input_data.ncols_tot);
             workspace.ext_coef.resize(input_data.ncols_tot);
+            workspace.ext_mean.resize(input_data.ncols_tot);
         }
 
         if (input_data.ncols_categ)

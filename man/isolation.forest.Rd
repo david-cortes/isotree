@@ -200,11 +200,13 @@ and not recommended to change from the default. Ignored when passing `build_impu
 
 \item{output_score}{Whether to output outlierness scores for the input data, which will be calculated as
 the model is being fit and it's thus faster. Cannot be done when using sub-samples of the data for each tree
-(in such case will later need to call the `predict` function on the same data).}
+(in such case will later need to call the `predict` function on the same data). If using `penalize_range`, the
+results from this might differet a bit from those of `predict` called after.}
 
 \item{output_dist}{Whether to output pairwise distances for the input data, which will be calculated as
 the model is being fit and it's thus faster. Cannot be done when using sub-samples of the data for each tree
-(in such case will later need to call the `predict` function on the same data).}
+(in such case will later need to call the `predict` function on the same data). If using `penalize_range`, the
+results from this might differet a bit from those of `predict` called after.}
 
 \item{square_dist}{If passing `output_dist` = `TRUE`, whether to return a full square matrix or
 just the upper-triangular part, in which the entry for pair 1 <= i < j <= n is located at position
@@ -236,6 +238,18 @@ trees beyond balanced-tree limit. Offers options to vary between randomized and 
 
 Note that the default parameters set up for this implementation will not scale to large datasets. In particular,
 if the amount of data is large, you might want to set a smaller sample size for each tree, and fit fewer of them.
+}
+\details{
+When calculating gain, the variables are standardized at each step, so there is no need to center/scale the
+data beforehand.
+
+When using sparse matrices, calculations such as standard deviations, gain, and kurtosis, will use procedures
+that rely on calculating sums of squared numbers. This is not a problem if most of the entries are zero and the
+numbers are small, but if you pass dense matrices as sparse and/or the entries in the sparse matrices have values
+in wildly different orders of magnitude (e.g. 0.0001 and 10000000), the calculations will fail due to loss of
+numeric precision, and the results might not make sense. For dense matrices it uses more numerically-robust
+techniques (which would add a large computational overhead in sparse matrices), so it's not a problem to have values
+with different orders of magnitude.
 }
 \examples{
 ### Example 1: detect an obvious outlier

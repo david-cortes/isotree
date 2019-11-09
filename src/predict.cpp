@@ -278,7 +278,7 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                     xval = prediction_data.numeric_data[row +  tree[curr_lev].col_num * prediction_data.nrows];
                     curr_lev = (xval <= tree[curr_lev].num_split)?
                                 tree[curr_lev].tree_left : tree[curr_lev].tree_right;
-                    output_depth += (xval <= tree[curr_lev].range_low) || (xval >= tree[curr_lev].range_high);
+                    output_depth += (xval < tree[curr_lev].range_low) || (xval > tree[curr_lev].range_high);
                     break;
                 }
 
@@ -447,7 +447,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                     {
                         curr_lev = (xval <=tree[curr_lev].num_split)?
                                     tree[curr_lev].tree_left : tree[curr_lev].tree_right;
-                        range_penalty += (xval <= tree[curr_lev].range_low) || (xval >= tree[curr_lev].range_high);
+                        range_penalty += (xval < tree[curr_lev].range_low) || (xval > tree[curr_lev].range_high);
                     }
                     break;
                 }
@@ -651,8 +651,8 @@ void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
         {
             hval = 0;
             for (size_t col = 0; col < hplane[curr_lev].col_num.size(); col++)
-                hval += prediction_data.numeric_data[row +  hplane[curr_lev].col_num[col] * prediction_data.nrows] 
-                         * hplane[curr_lev].coef[col];
+                hval += (prediction_data.numeric_data[row +  hplane[curr_lev].col_num[col] * prediction_data.nrows] 
+                         - hplane[curr_lev].mean[col]) * hplane[curr_lev].coef[col];
         }
 
         output_depth += (hval < hplane[curr_lev].range_low) ||
@@ -733,7 +733,7 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
 
                         else
                         {
-                            hval += xval * hplane[curr_lev].coef[ncols_numeric];
+                            hval += (xval - hplane[curr_lev].mean[ncols_numeric]) * hplane[curr_lev].coef[ncols_numeric];
                         }
 
                         ncols_numeric++;

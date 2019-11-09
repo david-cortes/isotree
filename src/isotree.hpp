@@ -210,6 +210,7 @@ typedef struct IsoHPlane {
     std::vector<size_t>   col_num;
     std::vector<ColType>  col_type;
     std::vector<double>   coef;
+    std::vector<double>   mean;
     std::vector<std::vector<double>> cat_coef;
     std::vector<int>      chosen_cat;
     std::vector<double>   fill_val;
@@ -231,6 +232,7 @@ typedef struct IsoHPlane {
             this->col_num,
             this->col_type,
             this->coef,
+            this->mean,
             this->cat_coef,
             this->chosen_cat,
             this->fill_val,
@@ -501,6 +503,7 @@ typedef struct {
     std::vector<ColType> col_take_type;
     std::vector<double>  ext_offset;
     std::vector<double>  ext_coef;
+    std::vector<double>  ext_mean;
     std::vector<double>  ext_fill_val;
     std::vector<double>  ext_fill_new;
     std::vector<int>     chosen_cat;
@@ -812,18 +815,18 @@ void todense(size_t ix_arr[], size_t st, size_t end,
              double *restrict buffer_arr);
 
 /* mult.cpp */
-void calc_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x,
-             MissingAction missing_action, double &x_sd);
-void calc_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-             double *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-             double &x_sd);
+void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x,
+                      MissingAction missing_action, double &x_sd, double &x_mean);
+void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
+                      double *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                      double &x_sd, double &x_mean);
 void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict res,
-                     double *restrict x, double &coef, double x_sd, double &fill_val,
+                     double *restrict x, double &coef, double x_sd, double x_mean, double &fill_val,
                      MissingAction missing_action, double *restrict buffer_arr,
                      size_t *restrict buffer_NAs, bool first_run);
 void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num, double *restrict res,
                      double *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
-                     double &coef, double x_sd, double &fill_val, MissingAction missing_action,
+                     double &coef, double x_sd, double x_mean, double &fill_val, MissingAction missing_action,
                      double *restrict buffer_arr, size_t *restrict buffer_NAs, bool first_run);
 void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, double *restrict res,
                      int x[], int ncat, double *restrict cat_coef, double single_cat_coef, int chosen_cat,

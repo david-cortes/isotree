@@ -410,14 +410,14 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
                     if (prediction_data.Xc == NULL)
                         add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                         prediction_data.numeric_data + prediction_data.nrows * hplanes[curr_tree].col_num[col],
-                                        hplanes[curr_tree].coef[ncols_numeric], (double)0,
+                                        hplanes[curr_tree].coef[ncols_numeric], (double)0, hplanes[curr_tree].mean[ncols_numeric],
                                         (model_outputs.missing_action == Fail)?  workspace.comb_val[0] : hplanes[curr_tree].fill_val[col],
                                         model_outputs.missing_action, NULL, NULL, false);
                     else
                         add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end,
                                         hplanes[curr_tree].col_num[col], workspace.comb_val.data(),
                                         prediction_data.Xc, prediction_data.Xc_ind, prediction_data.Xc_indptr,
-                                        hplanes[curr_tree].coef[ncols_numeric], (double)0,
+                                        hplanes[curr_tree].coef[ncols_numeric], (double)0, hplanes[curr_tree].mean[ncols_numeric],
                                         (model_outputs.missing_action == Fail)?  workspace.comb_val[0] : hplanes[curr_tree].fill_val[col],
                                         model_outputs.missing_action, NULL, NULL, false);
                     ncols_numeric++;
@@ -465,7 +465,7 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
         for (size_t col = 0; col < hplanes[curr_tree].col_num.size(); col++)
             add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                             prediction_data.numeric_data + prediction_data.nrows * hplanes[curr_tree].col_num[col],
-                            hplanes[curr_tree].coef[col], (double)0,
+                            hplanes[curr_tree].coef[col], (double)0, hplanes[curr_tree].mean[col],
                             (model_outputs.missing_action == Fail)?  workspace.comb_val[0] : hplanes[curr_tree].fill_val[col],
                             model_outputs.missing_action, NULL, NULL, false);
     }

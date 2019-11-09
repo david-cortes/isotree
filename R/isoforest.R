@@ -169,10 +169,12 @@
 #' and not recommended to change from the default. Ignored when passing `build_imputer` = `FALSE`.
 #' @param output_score Whether to output outlierness scores for the input data, which will be calculated as
 #' the model is being fit and it's thus faster. Cannot be done when using sub-samples of the data for each tree
-#' (in such case will later need to call the `predict` function on the same data).
+#' (in such case will later need to call the `predict` function on the same data). If using `penalize_range`, the
+#' results from this might differet a bit from those of `predict` called after.
 #' @param output_dist Whether to output pairwise distances for the input data, which will be calculated as
 #' the model is being fit and it's thus faster. Cannot be done when using sub-samples of the data for each tree
-#' (in such case will later need to call the `predict` function on the same data).
+#' (in such case will later need to call the `predict` function on the same data). If using `penalize_range`, the
+#' results from this might differet a bit from those of `predict` called after.
 #' @param square_dist If passing `output_dist` = `TRUE`, whether to return a full square matrix or
 #' just the upper-triangular part, in which the entry for pair 1 <= i < j <= n is located at position
 #' p(i, j) = ((i - 1) * (n - i/2) + j - i).
@@ -375,6 +377,16 @@
 #' ### outliers from isolation forest
 #' head(hypothyroid[order(-pred_iso), ], 20)
 #' }
+#' @details When calculating gain, the variables are standardized at each step, so there is no need to center/scale the
+#' data beforehand.
+#' 
+#' When using sparse matrices, calculations such as standard deviations, gain, and kurtosis, will use procedures
+#' that rely on calculating sums of squared numbers. This is not a problem if most of the entries are zero and the
+#' numbers are small, but if you pass dense matrices as sparse and/or the entries in the sparse matrices have values
+#' in wildly different orders of magnitude (e.g. 0.0001 and 10000000), the calculations will fail due to loss of
+#' numeric precision, and the results might not make sense. For dense matrices it uses more numerically-robust
+#' techniques (which would add a large computational overhead in sparse matrices), so it's not a problem to have values
+#' with different orders of magnitude.
 #' @export
 isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                              sample_size = NROW(df), ntrees = 500, ndim = min(3, NCOL(df)),
@@ -622,13 +634,14 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
 #' @param object An Isolation Forest object as returned by `isolation.forest`.
 #' @param newdata A data.frame, matrix, or sparse matrix (from package `Matrix` or `SparseM`, CSC format for distance and outlierness,
 #' or CSR format for outlierness and imputations) for which to predict outlierness, distance, or imputations of missing values.
+#' Note that when passing `type` = `"impute"` and newdata is a sparse matrix, under some situations it might get modified in-place.
 #' @param type Type of prediction to output. Options are `"score"` for the standardized outlier score (where
 #' values closer to 1 indicate more outlierness, while values closer to 0.5 indicate average outlierness,
 #' and close to 0 more averageness (harder to isolate)), `"avg_depth"` for  the non-standardize average
 #' isolation depth, `"dist"` for approximate pairwise distances (must pass more than 1 row) (these are
 #' standardized in the same way as outlierness, values closer to zero indicate nearer points,
 #' closer to one further away points, and closer to 0.5 average distance), `"avg_sep"` for the non-standardize
-#' average separation depth between points, `"tree_num` for the terminal node number for each tree (in this last
+#' average separation depth between points, `"tree_num"` for the terminal node number for each tree (in this last
 #' case, will return a list containing both the outlier score and the terminal node numbers, under entries
 #' `score` and `tree_num`, respectively), `"impute"` for imputation of missing values in `newdata`.
 #' @param square_mat When passing `type` = `"dist` or `"avg_sep"`, whether to return a full square matrix or

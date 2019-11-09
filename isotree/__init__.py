@@ -28,6 +28,21 @@ class IsolationForest:
     If using the single-variable model, you might also want to set 'prob_pick_pooled_gain' = 0, or perhaps replace it
     with 'prob_split_pooled_gain'. See the documentation of the parameters for more details.
 
+    Note
+    ----
+    When calculating gain, the variables are standardized at each step, so there is no need to center/scale the
+    data beforehand.
+
+    Note
+    ----
+    When using sparse matrices, calculations such as standard deviations, gain, and kurtosis, will use procedures
+    that rely on calculating sums of squared numbers. This is not a problem if most of the entries are zero and the
+    numbers are small, but if you pass dense matrices as sparse and/or the entries in the sparse matrices have values
+    in wildly different orders of magnitude (e.g. 0.0001 and 10000000), the calculations will fail due to loss of
+    numeric precision, and the results might not make sense. For dense matrices it uses more numerically-robust
+    techniques (which would add a large computational overhead in sparse matrices), so it's not a problem to have values
+    with different orders of magnitude.
+
     Parameters
     ----------
     sample_size : int or None
@@ -779,6 +794,8 @@ class IsolationForest:
                     X = csc_matrix(X)
                 else:
                     X.sort_indices()
+
+                X = X.copy() ### avoid modifying it in-place
                 X.data    = X.data.astype(ctypes.c_double)
                 X.indices = X.indices.astype(ctypes.c_size_t)
                 X.indptr  = X.indptr.astype(ctypes.c_size_t)
@@ -988,6 +1005,11 @@ class IsolationForest:
         Will fit the model and output imputed missing values. Intended to be used as part of SciKit-learn
         pipelining. Note that this is just a wrapper over 'fit_predict' with parameter 'output_imputed' = 'True'.
         See the documentation of 'fit_predict' for details.
+
+        Note
+        ----
+        If using 'penalize_range' = 'True', the resulting scores/depths from this function might differ a bit
+        from those of 'fit' + 'predict' ran separately.
 
         Parameters
         ----------
