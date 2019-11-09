@@ -966,11 +966,6 @@ class IsolationForest:
         ----
         In order to use this functionality, the model must have been built with imputation capabilities ('build_imputer' = 'True').
 
-        Note
-        ----
-        This function is not related to 'fit_transform', and the name was chosen so that it could be used in SciKit-Learn pipelines
-        that require a 'transform' method. Be aware however that the model object is not 100% SciKit-Learn compatible.
-
         Parameters
         ----------
         X : array or array-like (n_samples, n_features)
