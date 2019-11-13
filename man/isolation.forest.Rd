@@ -22,9 +22,12 @@ isolation.forest(df, sample_weights = NULL, column_weights = NULL,
 }
 \arguments{
 \item{df}{Data to which to fit the model. Can pass a `data.frame`, `matrix`, or sparse matrix (in CSC format,
-either from package `Matrix` or from package `SparseM`). If passing a data.frame, will assume that columns are
-categorical if they are of type `character`, `factor`, `bool`, and will assume they are numerical if they are of
-type `numeric`, `integer`, `Date`, `POSIXct`. Other column types are not supported.}
+either from package `Matrix` or from package `SparseM`). If passing a data.frame, will assume that columns are:
+\itemize{
+  \item Numerical, if they are of types `numeric`, `integer`, `Date`, `POSIXct`.
+  \item Categorical, if they are of type `character`, `factor`, `bool`.
+}
+Other column types are not supported.}
 
 \item{sample_weights}{Sample observation weights for each row of `df`, with higher weights indicating either higher sampling
 probability (i.e. the observation has a larger effect on the fitted model, if using sub-samples), or
@@ -106,26 +109,33 @@ linear combinations of variables. See the documentation for parameter `prob_pick
 are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
 splits at a node is below this  threshold, that node becomes a terminal node.}
 
-\item{missing_action}{How to handle missing data at both fitting and prediction time. Options are a) `"divide"` (for the single-variable
-model only, recommended), which will follow both branches and combine the result with the weight given by the fraction of
-the data that went to each branch when fitting the model, b) `"impute"`, which will assign observations to the
-branch with the most observations in the single-variable model, or fill in missing values with the median
-of each column of the sample from which the split was made in the extended model (recommended for it), c) `"fail"` which
-will assume there are no missing values and will trigger undefined behavior if it encounters any. In the extended model,
-infinite values will be treated as missing. Note that passing `"fail"` might
+\item{missing_action}{How to handle missing data at both fitting and prediction time. Options are
+\itemize{
+  \item `"divide"` (for the single-variable model only, recommended), which will follow both branches and combine
+  the result with the weight given by the fraction of the data that went to each branch when fitting the model.
+  \item `"impute"`, which will assign observations to the branch with the most observations in the single-variable model,
+  or fill in missing values with the median of each column of the sample from which the split was made in the extended
+  model (recommended for it).
+  \item `"fail"`, which will assume there are no missing values and will trigger undefined behavior if it encounters any.
+}
+In the extended model, infinite values will be treated as missing. Note that passing `"fail"` might
 crash the R process if there turn out to be missing values, but will otherwise produce faster fitting and prediction
 times along with decreased model object sizes. Models from references [1], [2], [3], [4] correspond to `"fail"` here.}
 
 \item{new_categ_action}{What to do after splitting a categorical feature when new data that reaches that split has categories that
-the sub-sample from which the split was done did not have. Options are a) `"weighted"` (for the single-variable
-model only, recommended), which will follow both branches and combine the result with weight given by the fraction of the
-data that went to each branch when fitting the model, b) `"impute"` (for the extended model only, recommended) which will assign
-them the median value for that column that was added to the linear combination of features, c) `"smallest"`, which
-in the single-variable case will assign all observations with unseen categories in the split to the branch that had
-fewer observations when fitting the model, and in the extended case will assign them the coefficient of the least common
-category, d) `"random"`, which will assing a branch (coefficient in the extended model) at random for
-each category beforehand, even if no observations had that category when fitting the model. Ignored when
-passing `categ_split_type` = `"single_categ"`.}
+the sub-sample from which the split was done did not have. Options are
+\itemize{
+  \item `"weighted"` (for the single-variable model only, recommended), which will follow both branches and combine
+  the result with weight given by the fraction of the data that went to each branch when fitting the model.
+  \item `"impute"` (for the extended model only, recommended) which will assign them the median value for that column
+  that was added to the linear combination of features.
+  \item `"smallest"`, which in the single-variable case will assign all observations with unseen categories in the split
+  to the branch that had fewer observations when fitting the model, and in the extended case will assign them the coefficient
+  of the least common category.
+  \item `"random"`, which will assing a branch (coefficient in the extended model) at random for
+  each category beforehand, even if no observations had that category when fitting the model.
+}
+Ignored when passing `categ_split_type` = `"single_categ"`.}
 
 \item{categ_split_type}{Whether to split categorical features by assigning sub-sets of them to each branch (by passing `"subset"` there),
 or by assigning a single category to a branch and the rest to the other branch (by passing `"single_categ"` here). For the extended model,
@@ -193,7 +203,7 @@ to node depth in the tree. Implemented for testing purposes and not recommended 
 from the default. Ignored when passing `build_imputer` = `FALSE`.}
 
 \item{weigh_imp_rows}{How to weight node sizes when used for imputing missing values. Passing `"inverse"` will weigh
-a node inversely proportional to the number of observations that end up there, while `"proportional"`
+a node inversely proportional to the number of observations that end up there, while `"prop"`
 will weight them heavier the more observations there are, and `"flat"` will weigh all nodes the same
 in this regard regardless of how many observations end up there. Implemented for testing purposes
 and not recommended to change from the default. Ignored when passing `build_imputer` = `FALSE`.}

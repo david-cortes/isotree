@@ -112,28 +112,41 @@ class IsolationForest:
         are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
         splits at a node is below this  threshold, that node becomes a terminal node.
     missing_action : str, one of "divide" (single-variable only), "impute", "fail", "auto"
-        How to handle missing data at both fitting and prediction time. Options are a) "divide" (for the single-variable
-        model only, recommended), which will follow both branches and combine the result with the weight given by the fraction of
-        the data that went to each branch when fitting the model, b) "impute", which will assign observations to the
-        branch with the most observations in the single-variable model, or fill in missing values with the median
-        of each column of the sample from which the split was made in the extended model (recommended), c) "fail" which will assume
-        there are no missing values and will trigger undefined behavior if it encounters any, d) "auto", which will use "divide" for
-        the single-variable model and "impute" for the extended model. In the extended model, infinite values will be treated as
-        missing. Note that passing "fail" might crash the Python process if there turn out to be
-        missing values, but will otherwise produce faster fitting and prediction times along with decreased model object sizes.
+        How to handle missing data at both fitting and prediction time. Options are:
+        ``"divide"``:
+            (For the single-variable model only, recommended) Will follow both branches and combine the result with the
+            weight given by the fraction of the data that went to each branch when fitting the model.
+        ``"impute"``:
+            Will assign observations to the branch with the most observations in the single-variable model, or fill in
+            missing values with the median of each column of the sample from which the split was made in the extended
+            model (recommended for the extended model).
+        ``"fail"``:
+            Will assume there are no missing values and will trigger undefined behavior if it encounters any.
+        ``"auto"``:
+            Will use "divide" for the single-variable model and "impute" for the extended model.
+        In the extended model, infinite values will be treated as missing. Note that passing "fail" might crash the Python process
+        if there turn out to be missing values, but will otherwise produce faster fitting and prediction times along with decreased
+        model object sizes.
         Models from [1], [2], [3], [4] correspond to "fail" here.
     new_categ_action : str, one of "weighted" (single-variable only), "impute" (extended only), "smallest", "random"
         What to do after splitting a categorical feature when new data that reaches that split has categories that
-        the sub-sample from which the split was done did not have. Options are a) "weighted" (for the single-variable
-        model only, recommended), which will follow both branches and combine the result with weight given by the fraction of the
-        data that went to each branch when fitting the model, b) "impute" (for the extended model only, recommended) which will assign
-        them the median value for that column that was added to the linear combination of features, c) "smallest", which
-        in the single-variable case will assign all observations with unseen categories in the split to the branch that had
-        fewer observations when fitting the model, and in the extended case will assign them the coefficient of the least common
-        category, d) "random", which will assing a branch (coefficient in the extended model) at random for
-        each category beforehand, even if no observations had that category when fitting the model, e) "auto" which will select
-        "weighted" for the single-variable model and "impute" for the extended model. Ignored when
-        passing 'categ_split_type' = 'single_categ'.
+        the sub-sample from which the split was done did not have. Options are:
+        ``"weighted"``:
+            (For the single-variable model only, recommended) Will follow both branches and combine the result with weight given
+            by the fraction of the data that went to each branch when fitting the model.
+        ``"impute"``:
+            (For the extended model only, recommended) Will assign them the median value for that column that was added to the linear
+            combination of features.
+        ``"smallest"``:
+            In the single-variable case will assign all observations with unseen categories in the split to the branch that had
+            fewer observations when fitting the model, and in the extended case will assign them the coefficient of the least
+            common category.
+        ``"random"``:
+            Will assing a branch (coefficient in the extended model) at random for each category beforehand, even if no observations
+            had that category when fitting the model.
+        ``"auto"``:
+            Will select "weighted" for the single-variable model and "impute" for the extended model.
+        Ignored when passing 'categ_split_type' = 'single_categ'.
     categ_split_type : str, one of "subset" or "single_categ"
         Whether to split categorical features by assigning sub-sets of them to each branch, or by assigning
         a single category to a branch and the rest to the other branch. For the extended model, whether to
@@ -203,6 +216,10 @@ class IsolationForest:
         and not recommended to change from the default. Ignored when passing 'build_imputer' = 'False'.
     random_seed : int
         Seed that will be used to generate random numbers used by the model.
+    random_state : RandomState
+        NumPy random state object - if passed, will be used to generate an integer for 'random_seed', and
+        the value that was originally passed to 'random_seed' will be ignored. This is only kept as
+        a workaround for using this object in SciKit-Learn pipelines.
     nthreads : int
         Number of parallel threads to use. If passing a negative number, will use
         the maximum number of available threads in the system. Note that, the more threads,
@@ -245,7 +262,7 @@ class IsolationForest:
                  coefs = "normal", assume_full_distr = True,
                  build_imputer = False, min_imp_obs = 3,
                  depth_imp = "higher", weigh_imp_rows = "inverse",
-                 random_seed = 1, nthreads = -1):
+                 random_seed = 1, random_state = None, nthreads = -1):
         if sample_size is not None:
             assert sample_size > 0
             assert isinstance(sample_size, int)
@@ -263,6 +280,9 @@ class IsolationForest:
         assert random_seed >= 1
         assert isinstance(min_imp_obs, int)
         assert min_imp_obs >= 1
+
+        if random_state is not None:
+            assert isinstance(random_state, np.random.RandomState) or isinstance(random_state, int)
 
         assert missing_action    in ["divide",        "impute",   "fail",   "auto"]
         assert new_categ_action  in ["weighted",      "smallest", "random", "impute", "auto"]
@@ -347,6 +367,7 @@ class IsolationForest:
         self.weigh_imp_rows          =  weigh_imp_rows
         self.min_imp_obs             =  min_imp_obs
         self.random_seed             =  random_seed
+        self.random_state            =  random_state
         self.nthreads                =  nthreads
 
         self.all_perm                =  bool(all_perm)
@@ -402,8 +423,11 @@ class IsolationForest:
         ----------
         X : array or array-like (n_samples, n_features)
             Data to which to fit the model. Can pass a NumPy array, Pandas DataFrame, or SciPy sparse CSC matrix.
-            If passing a DataFrame, will assume that columns are categorical if their dtype is 'object', 'Categorical', or 'bool',
-            and will assume they are numerical if their dtype is a subtype of NumPy's 'number' or 'datetime64'.
+            If passing a DataFrame, will assume that columns are:
+            `Numeric`:
+                If their dtype is a subtype of NumPy's 'number' or 'datetime64'.
+            `Categorical`:
+                If their dtype is 'object', 'Categorical', or 'bool'.
             Other dtypes are not supported.
         y : None
             Not used. Kept as argument for compatibility with SciKit-learn pipelining.
@@ -440,6 +464,11 @@ class IsolationForest:
             max_depth = self.max_depth
             limit_depth = False
 
+        if isinstance(self.random_state, np.random.RandomState):
+            seed = self.random_state.randint(np.iinfo(np.int32).max)
+        else:
+            seed = self.random_seed
+
         self._cpp_obj.fit_model(X_num, X_cat, ncat, sample_weights, column_weights,
                                 ctypes.c_size_t(nrows).value,
                                 ctypes.c_size_t(self._ncols_numeric).value,
@@ -474,7 +503,7 @@ class IsolationForest:
                                 self.weigh_imp_rows,
                                 ctypes.c_bool(self.build_imputer).value,
                                 ctypes.c_bool(False).value,
-                                ctypes.c_uint64(self.random_seed).value,
+                                ctypes.c_uint64(seed).value,
                                 ctypes.c_int(self.nthreads).value)
         self.is_fitted_ = True
         return self
@@ -504,8 +533,11 @@ class IsolationForest:
         ----------
         X : array or array-like (n_samples, n_features)
             Data to which to fit the model. Can pass a NumPy array, Pandas DataFrame, or SciPy sparse CSC matrix.
-            If passing a DataFrame, will assume that columns are categorical if their dtype is 'object', 'Categorical', or 'bool',
-            and will assume they are numerical if their dtype is a subtype of NumPy's 'number' or 'datetime64'.
+            If passing a DataFrame, will assume that columns are:
+            `Numeric`:
+                If their dtype is a subtype of NumPy's 'number' or 'datetime64'.
+            `Categorical`:
+                If their dtype is 'object', 'Categorical', or 'bool'.
             Other dtypes are not supported.
         column_weights : None or array(n_features,)
             Sampling weights for each column in 'X'. Ignored when picking columns by deterministic criterion.
@@ -537,9 +569,9 @@ class IsolationForest:
             "imputed" (array-like(n_samples, n_columns)), according to whether each output type is present.
         """
         if self.sample_size is not None:
-            raise ValueError("Cannot use 'fit_transform' when the sample size is limited.")
+            raise ValueError("Cannot use 'fit_predict' when the sample size is limited.")
         if self.sample_with_replacement:
-            raise ValueError("Cannot use 'fit_transform' when sampling with replacement.")
+            raise ValueError("Cannot use 'fit_predict' or 'fit_transform' when sampling with replacement.")
         if column_weights is not None and self.weigh_by_kurtosis:
             raise ValueError("Cannot pass column weights when weighting columns by kurtosis.")
 
@@ -579,6 +611,11 @@ class IsolationForest:
             max_depth = self.max_depth
             limit_depth = False
 
+        if isinstance(self.random_state, np.random.RandomState):
+            seed = self.random_state.randint(np.iinfo(np.int32).max)
+        else:
+            seed = self.random_seed
+
         depths, tmat, dmat, X_num, X_cat = self._cpp_obj.fit_model(X_num, X_cat, ncat, None, column_weights,
                                                                    ctypes.c_size_t(nrows).value,
                                                                    ctypes.c_size_t(self._ncols_numeric).value,
@@ -613,7 +650,7 @@ class IsolationForest:
                                                                    self.weigh_imp_rows,
                                                                    ctypes.c_bool(output_imputed).value,
                                                                    ctypes.c_bool(self.all_perm).value,
-                                                                   ctypes.c_uint64(self.random_seed).value,
+                                                                   ctypes.c_uint64(seed).value,
                                                                    ctypes.c_int(self.nthreads).value)
         self.is_fitted_ = True
 
@@ -1027,8 +1064,12 @@ class IsolationForest:
         imputed : array-like(n_samples, n_columns)
             Input data 'X' with missing values imputed according to the model.
         """
-        outp = self.fit_predict(X = X, column_weights = column_weights, output_imputed = True)
-        return outp["imputed"]
+        if self.sample_size is None:
+            outp = self.fit_predict(X = X, column_weights = column_weights, output_imputed = True)
+            return outp["imputed"]
+        else:
+            self.fit(X = X, column_weights = column_weights)
+            return self.transform(X)
 
     def partial_fit(self, X, sample_weights = None, column_weights = None):
         """

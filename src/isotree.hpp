@@ -847,6 +847,10 @@ double numeric_gain(size_t cnt_left, size_t cnt_right,
                     long double sum_left, long double sum_right,
                     long double sum_sq_left, long double sum_sq_right,
                     double sd_full, long double cnt);
+double numeric_gain_no_div(size_t cnt_left, size_t cnt_right,
+                           long double sum_left, long double sum_right,
+                           long double sum_sq_left, long double sum_sq_right,
+                           double sd_full, long double cnt);
 double categ_gain(size_t cnt_left, size_t cnt_right,
                   long double s_left, long double s_right,
                   long double base_info, long double cnt);

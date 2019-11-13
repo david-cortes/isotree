@@ -19,9 +19,12 @@
 #' if the amount of data is large, you might want to set a smaller sample size for each tree, and fit fewer of them.
 #' 
 #' @param df Data to which to fit the model. Can pass a `data.frame`, `matrix`, or sparse matrix (in CSC format,
-#' either from package `Matrix` or from package `SparseM`). If passing a data.frame, will assume that columns are
-#' categorical if they are of type `character`, `factor`, `bool`, and will assume they are numerical if they are of
-#' type `numeric`, `integer`, `Date`, `POSIXct`. Other column types are not supported.
+#' either from package `Matrix` or from package `SparseM`). If passing a data.frame, will assume that columns are:
+#' \itemize{
+#'   \item Numerical, if they are of types `numeric`, `integer`, `Date`, `POSIXct`.
+#'   \item Categorical, if they are of type `character`, `factor`, `bool`.
+#' }
+#' Other column types are not supported.
 #' @param sample_weights Sample observation weights for each row of `df`, with higher weights indicating either higher sampling
 #' probability (i.e. the observation has a larger effect on the fitted model, if using sub-samples), or
 #' distribution density (i.e. if the weight is two, it has the same effect of including the same data
@@ -90,25 +93,32 @@
 #' @param min_gain Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
 #' are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
 #' splits at a node is below this  threshold, that node becomes a terminal node.
-#' @param missing_action How to handle missing data at both fitting and prediction time. Options are a) `"divide"` (for the single-variable
-#' model only, recommended), which will follow both branches and combine the result with the weight given by the fraction of
-#' the data that went to each branch when fitting the model, b) `"impute"`, which will assign observations to the
-#' branch with the most observations in the single-variable model, or fill in missing values with the median
-#' of each column of the sample from which the split was made in the extended model (recommended for it), c) `"fail"` which
-#' will assume there are no missing values and will trigger undefined behavior if it encounters any. In the extended model,
-#' infinite values will be treated as missing. Note that passing `"fail"` might
+#' @param missing_action How to handle missing data at both fitting and prediction time. Options are
+#' \itemize{
+#'   \item `"divide"` (for the single-variable model only, recommended), which will follow both branches and combine
+#'   the result with the weight given by the fraction of the data that went to each branch when fitting the model.
+#'   \item `"impute"`, which will assign observations to the branch with the most observations in the single-variable model,
+#'   or fill in missing values with the median of each column of the sample from which the split was made in the extended
+#'   model (recommended for it).
+#'   \item `"fail"`, which will assume there are no missing values and will trigger undefined behavior if it encounters any.
+#' }
+#' In the extended model, infinite values will be treated as missing. Note that passing `"fail"` might
 #' crash the R process if there turn out to be missing values, but will otherwise produce faster fitting and prediction
 #' times along with decreased model object sizes. Models from references [1], [2], [3], [4] correspond to `"fail"` here.
 #' @param new_categ_action What to do after splitting a categorical feature when new data that reaches that split has categories that
-#' the sub-sample from which the split was done did not have. Options are a) `"weighted"` (for the single-variable
-#' model only, recommended), which will follow both branches and combine the result with weight given by the fraction of the
-#' data that went to each branch when fitting the model, b) `"impute"` (for the extended model only, recommended) which will assign
-#' them the median value for that column that was added to the linear combination of features, c) `"smallest"`, which
-#' in the single-variable case will assign all observations with unseen categories in the split to the branch that had
-#' fewer observations when fitting the model, and in the extended case will assign them the coefficient of the least common
-#' category, d) `"random"`, which will assing a branch (coefficient in the extended model) at random for
-#' each category beforehand, even if no observations had that category when fitting the model. Ignored when
-#' passing `categ_split_type` = `"single_categ"`.
+#' the sub-sample from which the split was done did not have. Options are
+#' \itemize{
+#'   \item `"weighted"` (for the single-variable model only, recommended), which will follow both branches and combine
+#'   the result with weight given by the fraction of the data that went to each branch when fitting the model.
+#'   \item `"impute"` (for the extended model only, recommended) which will assign them the median value for that column
+#'   that was added to the linear combination of features.
+#'   \item `"smallest"`, which in the single-variable case will assign all observations with unseen categories in the split
+#'   to the branch that had fewer observations when fitting the model, and in the extended case will assign them the coefficient
+#'   of the least common category.
+#'   \item `"random"`, which will assing a branch (coefficient in the extended model) at random for
+#'   each category beforehand, even if no observations had that category when fitting the model.
+#' }
+#' Ignored when passing `categ_split_type` = `"single_categ"`.
 #' @param categ_split_type Whether to split categorical features by assigning sub-sets of them to each branch (by passing `"subset"` there),
 #' or by assigning a single category to a branch and the rest to the other branch (by passing `"single_categ"` here). For the extended model,
 #' whether to give each category a coefficient (`"subset"`), or only one while the rest get zero (`"single_categ"`).
@@ -163,7 +173,7 @@
 #' to node depth in the tree. Implemented for testing purposes and not recommended to change
 #' from the default. Ignored when passing `build_imputer` = `FALSE`.
 #' @param weigh_imp_rows How to weight node sizes when used for imputing missing values. Passing `"inverse"` will weigh
-#' a node inversely proportional to the number of observations that end up there, while `"proportional"`
+#' a node inversely proportional to the number of observations that end up there, while `"prop"`
 #' will weight them heavier the more observations there are, and `"flat"` will weigh all nodes the same
 #' in this regard regardless of how many observations end up there. Implemented for testing purposes
 #' and not recommended to change from the default. Ignored when passing `build_imputer` = `FALSE`.
@@ -635,15 +645,19 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
 #' @param newdata A data.frame, matrix, or sparse matrix (from package `Matrix` or `SparseM`, CSC format for distance and outlierness,
 #' or CSR format for outlierness and imputations) for which to predict outlierness, distance, or imputations of missing values.
 #' Note that when passing `type` = `"impute"` and newdata is a sparse matrix, under some situations it might get modified in-place.
-#' @param type Type of prediction to output. Options are `"score"` for the standardized outlier score (where
-#' values closer to 1 indicate more outlierness, while values closer to 0.5 indicate average outlierness,
-#' and close to 0 more averageness (harder to isolate)), `"avg_depth"` for  the non-standardize average
-#' isolation depth, `"dist"` for approximate pairwise distances (must pass more than 1 row) (these are
-#' standardized in the same way as outlierness, values closer to zero indicate nearer points,
-#' closer to one further away points, and closer to 0.5 average distance), `"avg_sep"` for the non-standardize
-#' average separation depth between points, `"tree_num"` for the terminal node number for each tree (in this last
-#' case, will return a list containing both the outlier score and the terminal node numbers, under entries
-#' `score` and `tree_num`, respectively), `"impute"` for imputation of missing values in `newdata`.
+#' @param type Type of prediction to output. Options are:
+#' \itemize{
+#'   \item `"score"` for the standardized outlier score, where values closer to 1 indicate more outlierness, while values
+#'   closer to 0.5 indicate average outlierness, and close to 0 more averageness (harder to isolate).
+#'   \item `"avg_depth"` for  the non-standardize average isolation depth.
+#'   \item `"dist"` for approximate pairwise distances (must pass more than 1 row) - these are
+#'   standardized in the same way as outlierness, values closer to zero indicate nearer points,
+#'   closer to one further away points, and closer to 0.5 average distance.
+#'   \item `"tree_num"` for the terminal node number for each tree - if choosing this option,
+#'   will return a list containing both the outlier score and the terminal node numbers, under entries
+#'   `score` and `tree_num`, respectively.
+#'   \item `"impute"` for imputation of missing values in `newdata`.
+#' }
 #' @param square_mat When passing `type` = `"dist` or `"avg_sep"`, whether to return a full square matrix or
 #' just the upper-triangular part, in which the entry for pair 1 <= i < j <= n is located at position
 #' p(i, j) = ((i - 1) * (n - i/2) + j - i).

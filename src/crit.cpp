@@ -357,6 +357,17 @@ double numeric_gain(size_t cnt_left, size_t cnt_right,
     long double residual =
         (long double) cnt_left  * calc_sd_raw_l(cnt_left,  sum_left,  sum_sq_left) +
         (long double) cnt_right * calc_sd_raw_l(cnt_right, sum_right, sum_sq_right);
+    return 1 - residual / (cnt * sd_full);
+}
+
+double numeric_gain_no_div(size_t cnt_left, size_t cnt_right,
+                           long double sum_left, long double sum_right,
+                           long double sum_sq_left, long double sum_sq_right,
+                           double sd_full, long double cnt)
+{
+    long double residual =
+        (long double) cnt_left  * calc_sd_raw_l(cnt_left,  sum_left,  sum_sq_left) +
+        (long double) cnt_right * calc_sd_raw_l(cnt_right, sum_right, sum_sq_right);
     return sd_full - residual / cnt;
 }
 
@@ -568,11 +579,11 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *
 
                 if (x[ix_arr[row]] == x[ix_arr[row + 1]]) continue;
 
-                this_gain = numeric_gain(row - st + 1, end - row,
-                                         sum_left, sum_right,
-                                         sum_sq_left, sum_sq_right,
-                                         sd_full, cnt
-                                        );
+                this_gain = numeric_gain_no_div(row - st + 1, end - row,
+                                                sum_left, sum_right,
+                                                sum_sq_left, sum_sq_right,
+                                                sd_full, cnt
+                                               );
 
                 if (this_gain > min_gain && this_gain > best_gain)
                 {

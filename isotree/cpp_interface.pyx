@@ -346,6 +346,10 @@ cdef class isoforest_cpp_obj:
         cdef IsoForest*     model_ptr      =  NULL
         cdef ExtIsoForest*  ext_model_ptr  =  NULL
         cdef Imputer*       imputer_ptr    =  NULL
+
+        dealloc_IsoForest(self.isoforest)
+        dealloc_IsoExtForest(self.ext_isoforest)
+        dealloc_Imputer(self.imputer)
         if ndim == 1:
             self.isoforest      =  IsoForest()
             model_ptr           =  &self.isoforest
