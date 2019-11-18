@@ -113,6 +113,7 @@ class IsolationForest:
         splits at a node is below this  threshold, that node becomes a terminal node.
     missing_action : str, one of "divide" (single-variable only), "impute", "fail", "auto"
         How to handle missing data at both fitting and prediction time. Options are:
+        
         ``"divide"``:
             (For the single-variable model only, recommended) Will follow both branches and combine the result with the
             weight given by the fraction of the data that went to each branch when fitting the model.
@@ -131,6 +132,7 @@ class IsolationForest:
     new_categ_action : str, one of "weighted" (single-variable only), "impute" (extended only), "smallest", "random"
         What to do after splitting a categorical feature when new data that reaches that split has categories that
         the sub-sample from which the split was done did not have. Options are:
+
         ``"weighted"``:
             (For the single-variable model only, recommended) Will follow both branches and combine the result with weight given
             by the fraction of the data that went to each branch when fitting the model.
