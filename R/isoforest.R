@@ -228,7 +228,7 @@
 #'     X[which.max(pred), ], "\n")
 #' 
 #' 
-#' 
+#' \dontrun{
 #' ### Example 2: plotting outlier regions
 #' ### This example shows predicted outlier score in a small
 #' ### grid, with a model fit to a bi-modal distribution. As can
@@ -303,7 +303,7 @@
 #'      prob_pick_pooled_gain=1)
 #' Z4 <- predict(iso_alt, space_d)
 #' plot.space(Z4, "Fair-Cut Forest")
-#' 
+#' }
 #' 
 #' ### Example3:  calculating pairwise distances,
 #' ### with a short validation against euclidean
