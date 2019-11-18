@@ -205,6 +205,7 @@
 #' \item https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 #' \item Quinlan, J. Ross. "C4. 5: programs for machine learning." Elsevier, 2014.
 #' \item Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
+#' \item Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
 #' }
 #' @examples
 #' ### Example 1: detect an obvious outlier
@@ -294,14 +295,14 @@
 #' Z3 <- predict(iso_sci, space_d)
 #' plot.space(Z3, "SCiForest")
 #'      
-#' ### Alternative split criterion
+#' ### Fair-cut forest
 #' iso_alt = isolation.forest(
 #'      X, ndim=2,
 #'      ntrees=100,
 #'      nthreads=1,
 #'      prob_pick_pooled_gain=1)
 #' Z4 <- predict(iso_alt, space_d)
-#' plot.space(Z4, "Alternative split criterion")
+#' plot.space(Z4, "Fair-Cut Forest")
 #' 
 #' 
 #' ### Example3:  calculating pairwise distances,

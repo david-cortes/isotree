@@ -1,6 +1,10 @@
 # IsoTree
 
-Fast and multi-threaded implementation of Isolation Forest (a.k.a. iForest), Extended Isolation Forest, and SCiForest (a.k.a. Split-Criterion iForest) for outlier/anomaly detection, with additions for distance/similarity calculation between observations, and handling of categorical and missing data. Written in C++ with interfaces for Python and R.
+Fast and multi-threaded implementation of Extended Isolation Forest, Fair-Cut Forest, SCiForest (a.k.a. Split-Criterion iForest), and regular Isolation Forest, for outlier/anomaly detection, plus additions for imputation of missing values, distance/similarity calculation between observations, and handling of categorical data. Written in C++ with interfaces for Python and R.
+
+The new concepts in this software are described in:
+* [Imputing missing values with unsupervised random trees](https://arxiv.org/abs/1911.06646)
+* [Distance approximation using Isolation Forests](https://arxiv.org/abs/1910.12362)
 
 # Description
 
@@ -10,13 +14,15 @@ Note that this is a black-box model that will not produce explanations or import
 
 ![image](image/density_regions.png "density regions")
 
-# Distance / similarity calculations
-
-General idea was extended to produce distance (alternatively, similarity) between observations according to how many random splits it takes to separate them - idea is described in [Distance approximation using Isolation Forests](https://arxiv.org/abs/1910.12362).
+![image](image/covtype_table.png "imputer")
 
 # Imputation of missing values
 
-The model can also be used to impute missing values by taking the values from observations in the terminal nodes of each tree in which an observation with missing values falls at prediction time, combining the non-missing values of the other observations as a weighted average according to the depth of the node and the number of observations that fall there. This is not related to how the model handles missing values internally, but is rather meant as a faster way of imputing by similarity. Quality is not as good as chained equations, but the method is a lot faster and more scalable. Recommended to use non-random splits when used as an imputer. Paper on this to come soon.
+The model can also be used to impute missing values in a similar fashion as kNN, by taking the values from observations in the terminal nodes of each tree in which an observation with missing values falls at prediction time, combining the non-missing values of the other observations as a weighted average according to the depth of the node and the number of observations that fall there. This is not related to how the model handles missing values internally, but is rather meant as a faster way of imputing by similarity. Quality is usually not as good as chained equations, but the method is a lot faster and more scalable. Recommended to use non-random splits when used as an imputer. Details are described in [Imputing missing values with unsupervised random trees](https://arxiv.org/abs/1911.06646).
+
+# Distance / similarity calculations
+
+General idea was extended to produce distance (alternatively, similarity) between observations according to how many random splits it takes to separate them - idea is described in [Distance approximation using Isolation Forests](https://arxiv.org/abs/1910.12362).
 
 # Highlights
 
@@ -130,3 +136,4 @@ Random seeds do not give fully-reproducible results when using more than one thr
 * https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 * Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
 * Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
+* Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).

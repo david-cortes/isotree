@@ -251,6 +251,8 @@ class IsolationForest:
     .. [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
     .. [8] Cortes, David. "Distance approximation using Isolation Forests."
            arXiv preprint arXiv:1910.12362 (2019).
+    .. [9] Cortes, David. "Imputing missing values with unsupervised random trees."
+           arXiv preprint arXiv:1911.06646 (2019).
     """
     def __init__(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3, max_depth = "auto",
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.25,
