@@ -21,6 +21,7 @@
 #     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 #     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
 #     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
+#     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
 # 
 #     BSD 2-Clause License
 #     Copyright (c) 2019, David Cortes
