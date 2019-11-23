@@ -942,14 +942,15 @@ add_isolation_tree <- function(model, df, sample_weights = NULL, column_weights 
 #' file through `readRDS`, `load`, or a session restart.
 #' @return No return value. Object is modified in-place.
 #' @examples \dontrun{
-#' ### Warning: this example will generate a .Rds file
-#' ### in the working directory from which it is run
+#' ### Warning: this example will generate a temporary .Rds
+#' ### file in the working directory from which it is run
 #' library(isotree)
 #' set.seed(1)
 #' X <- matrix(rnorm(100), nrow = 20)
 #' iso <- isolation.forest(X)
 #' saveRDS(iso, "iso.Rds")
 #' iso2 <- readRDS("iso.Rds")
+#' file.remove("iso.Rds")
 #' 
 #' ### will de-serialize inside, but object is short-lived
 #' wrap_predict <- function(model, data) {
