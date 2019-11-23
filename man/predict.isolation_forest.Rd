@@ -18,10 +18,11 @@ Note that when passing `type` = `"impute"` and newdata is a sparse matrix, under
 \itemize{
   \item `"score"` for the standardized outlier score, where values closer to 1 indicate more outlierness, while values
   closer to 0.5 indicate average outlierness, and close to 0 more averageness (harder to isolate).
-  \item `"avg_depth"` for  the non-standardize average isolation depth.
+  \item `"avg_depth"` for  the non-standardized average isolation depth.
   \item `"dist"` for approximate pairwise distances (must pass more than 1 row) - these are
   standardized in the same way as outlierness, values closer to zero indicate nearer points,
   closer to one further away points, and closer to 0.5 average distance.
+  \item `"avg_sep"` for the non-standardized average separation depth.
   \item `"tree_num"` for the terminal node number for each tree - if choosing this option,
   will return a list containing both the outlier score and the terminal node numbers, under entries
   `score` and `tree_num`, respectively.
@@ -33,6 +34,12 @@ just the upper-triangular part, in which the entry for pair 1 <= i < j <= n is l
 p(i, j) = ((i - 1) * (n - i/2) + j - i).}
 
 \item{...}{Not used.}
+}
+\value{
+The requested prediction type, which can be a vector with one entry per row in `newdata`
+(for output types `"score"`, `"avg_depth"`, `"tree_num"`), a square matrix or vector with the upper triangular
+part of a square matrix (for output types `"dist"`, `"avg_sep"`), or the same type as the input `newdata`
+(for output type `"impute"`).
 }
 \description{
 Predict method for Isolation Forest

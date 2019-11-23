@@ -194,7 +194,14 @@
 #' the more memory will be allocated, even if the thread does not end up being used.
 #' @return If passing `output_score` = `FALSE`, `output_dist` = `FALSE`, and `output_imputations` = `FALSE` (the defaults),
 #' will output an `isolation_forest` object from which `predict` method can then be called on new data. If passing
-#' `TRUE` to any of the former options, will output a list with entries `model`, `scores`, `dist`, `imputed`.
+#' `TRUE` to any of the former options, will output a list with entries:
+#' \itemize{
+#'   \item `model`: the `isolation_forest` object from which new predictions can be made.
+#'   \item `scores`: a vector with the outlier score for each inpuit observation (if passing `output_score` = `TRUE`).
+#'   \item `dist`: the distances (either a 1-d vector with the upper-triangular part or a square matrix), if
+#'   passing `output_dist` = `TRUE`.
+#'   \item `imputed`: the input data with missing values imputed according to the model (if passing `output_imputations` = `TRUE`).
+#' }
 #' @seealso \link{predict.isolation_forest},  \link{add_isolation_tree} \link{unpack.isolation.forest}
 #' @references \itemize{
 #' \item Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "Isolation forest." 2008 Eighth IEEE International Conference on Data Mining. IEEE, 2008.
@@ -228,7 +235,6 @@
 #'     X[which.max(pred), ], "\n")
 #' 
 #' 
-#' \dontrun{
 #' ### Example 2: plotting outlier regions
 #' ### This example shows predicted outlier score in a small
 #' ### grid, with a model fit to a bi-modal distribution. As can
@@ -237,7 +243,7 @@
 #' ### ghost regions of low-outlierness in regions where there
 #' ### isn't any data
 #' library(isotree)
-#' par(mfrow = c(2, 2), mar = c(2.5,2.2,2,2.5))
+#' oldpar <- par(mfrow = c(2, 2), mar = c(2.5,2.2,2,2.5))
 #' 
 #' ### Randomly-generated data from different distributions
 #' set.seed(1)
@@ -303,7 +309,7 @@
 #'      prob_pick_pooled_gain=1)
 #' Z4 <- predict(iso_alt, space_d)
 #' plot.space(Z4, "Fair-Cut Forest")
-#' }
+#' par(oldpar)
 #' 
 #' ### Example3:  calculating pairwise distances,
 #' ### with a short validation against euclidean
@@ -650,10 +656,11 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
 #' \itemize{
 #'   \item `"score"` for the standardized outlier score, where values closer to 1 indicate more outlierness, while values
 #'   closer to 0.5 indicate average outlierness, and close to 0 more averageness (harder to isolate).
-#'   \item `"avg_depth"` for  the non-standardize average isolation depth.
+#'   \item `"avg_depth"` for  the non-standardized average isolation depth.
 #'   \item `"dist"` for approximate pairwise distances (must pass more than 1 row) - these are
 #'   standardized in the same way as outlierness, values closer to zero indicate nearer points,
 #'   closer to one further away points, and closer to 0.5 average distance.
+#'   \item `"avg_sep"` for the non-standardized average separation depth.
 #'   \item `"tree_num"` for the terminal node number for each tree - if choosing this option,
 #'   will return a list containing both the outlier score and the terminal node numbers, under entries
 #'   `score` and `tree_num`, respectively.
@@ -663,6 +670,10 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
 #' just the upper-triangular part, in which the entry for pair 1 <= i < j <= n is located at position
 #' p(i, j) = ((i - 1) * (n - i/2) + j - i).
 #' @param ... Not used.
+#' @return The requested prediction type, which can be a vector with one entry per row in `newdata`
+#' (for output types `"score"`, `"avg_depth"`, `"tree_num"`), a square matrix or vector with the upper triangular
+#' part of a square matrix (for output types `"dist"`, `"avg_sep"`), or the same type as the input `newdata`
+#' (for output type `"impute"`).
 #' @details The more threads that are set for the model, the higher the memory requirement will be as each
 #' thread will allocate an array with one entry per row (ourlierness) or combination (distance).
 #' 
@@ -829,6 +840,12 @@ summary.isolation_forest <- function(object, ...) {
 #' point twice). If not `NULL`, model must have been built with `weights_as_sample_prob` = `FALSE`.
 #' @param column_weights Sampling weights for each column in `df`. Ignored when picking columns by deterministic criterion.
 #' If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+#' @return No return value. The model is modified in-place.
+#' @details Important: this function will modify the model object in-place, but this modification will only affect the R
+#' object in the environment in which it was called. If trying to use the same model object in e.g. its parent environment,
+#' it will lead to issues due to the C++ object being modified but the R oject remaining the asme, so if this method is used
+#' inside a function, make sure to output the newly-modified R object and have it replace the old R object outside the calling
+#' function too.
 #' @seealso \link{isolation.forest} \link{unpack.isolation.forest}
 #' @export
 add_isolation_tree <- function(model, df, sample_weights = NULL, column_weights = NULL) {
@@ -923,7 +940,10 @@ add_isolation_tree <- function(model, df, sample_weights = NULL, column_weights 
 #' in the same way as `predict` or `print`, but without producing any outputs or messages.
 #' @param model An Isolation Forest object as returned by `isolation.forest`, which has been just loaded from a disk
 #' file through `readRDS`, `load`, or a session restart.
+#' @return No return value. Object is modified in-place.
 #' @examples \dontrun{
+#' ### Warning: this example will generate a .Rds file
+#' ### in the working directory from which it is run
 #' library(isotree)
 #' set.seed(1)
 #' X <- matrix(rnorm(100), nrow = 20)

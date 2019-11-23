@@ -231,7 +231,14 @@ the more memory will be allocated, even if the thread does not end up being used
 \value{
 If passing `output_score` = `FALSE`, `output_dist` = `FALSE`, and `output_imputations` = `FALSE` (the defaults),
 will output an `isolation_forest` object from which `predict` method can then be called on new data. If passing
-`TRUE` to any of the former options, will output a list with entries `model`, `scores`, `dist`, `imputed`.
+`TRUE` to any of the former options, will output a list with entries:
+\itemize{
+  \item `model`: the `isolation_forest` object from which new predictions can be made.
+  \item `scores`: a vector with the outlier score for each inpuit observation (if passing `output_score` = `TRUE`).
+  \item `dist`: the distances (either a 1-d vector with the upper-triangular part or a square matrix), if
+  passing `output_dist` = `TRUE`.
+  \item `imputed`: the input data with missing values imputed according to the model (if passing `output_imputations` = `TRUE`).
+}
 }
 \description{
 Isolation Forest is an algorithm originally developed for outlier detection that consists in splitting
@@ -282,7 +289,6 @@ cat("Point with highest outlier score: ",
     X[which.max(pred), ], "\\n")
 
 
-\dontrun{
 ### Example 2: plotting outlier regions
 ### This example shows predicted outlier score in a small
 ### grid, with a model fit to a bi-modal distribution. As can
@@ -291,7 +297,7 @@ cat("Point with highest outlier score: ",
 ### ghost regions of low-outlierness in regions where there
 ### isn't any data
 library(isotree)
-par(mfrow = c(2, 2), mar = c(2.5,2.2,2,2.5))
+oldpar <- par(mfrow = c(2, 2), mar = c(2.5,2.2,2,2.5))
 
 ### Randomly-generated data from different distributions
 set.seed(1)
@@ -357,7 +363,7 @@ iso_alt = isolation.forest(
      prob_pick_pooled_gain=1)
 Z4 <- predict(iso_alt, space_d)
 plot.space(Z4, "Fair-Cut Forest")
-}
+par(oldpar)
 
 ### Example3:  calculating pairwise distances,
 ### with a short validation against euclidean

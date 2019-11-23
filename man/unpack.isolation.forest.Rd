@@ -10,6 +10,9 @@ unpack.isolation.forest(model)
 \item{model}{An Isolation Forest object as returned by `isolation.forest`, which has been just loaded from a disk
 file through `readRDS`, `load`, or a session restart.}
 }
+\value{
+No return value. Object is modified in-place.
+}
 \description{
 After persisting an isolation forest model object through `saveRDS`, `save`, or restarting a session, the
 underlying C++ objects that constitute the isolation forest model and which live only on the C++ heap memory are not saved along,
@@ -31,6 +34,8 @@ in the same way as `predict` or `print`, but without producing any outputs or me
 }
 \examples{
 \dontrun{
+### Warning: this example will generate a .Rds file
+### in the working directory from which it is run
 library(isotree)
 set.seed(1)
 X <- matrix(rnorm(100), nrow = 20)
