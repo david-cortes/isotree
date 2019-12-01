@@ -8,13 +8,13 @@ Maintainer: David Cortes <david.cortes.rivera@gmail.com>
 URL: https://github.com/david-cortes/isotree
 BugReports: https://github.com/david-cortes/isotree/issues
 Description: Fast and multi-threaded implementation of
-	isolation forest (Liu, F.T., Ting, K.M, and Zhou, Z.H., 2008, <doi:10.1109/ICDM.2008.17>),
-	extended isolation forest (Hariri, S., Kind, M.C., Brunner, R.J., 2018, <arXiv:1811.02141>),
-	SCiForest (Liu, F.T., Ting, K.M, and Zhou, Z.H., 2010, <doi:10.1007/978-3-642-15883-4_18>),
-	and fair-cut forest (Cortes, D., 2019, <arXiv:1911.06646>),
+	isolation forest (Liu, Ting, Zhou (2008) <doi:10.1109/ICDM.2008.17>),
+	extended isolation forest (Hariri, Kind, Brunner (2018) <arXiv:1811.02141>),
+	SCiForest (Liu, Ting, Zhou, (2010) <doi:10.1007/978-3-642-15883-4_18>),
+	and fair-cut forest (Cortes (2019) <arXiv:1911.06646>),
 	for isolation-based outlier detection, clustered outlier detection, distance or similarity
-	approximation (Cortes, D., 2019, <arXiv:1910.12362>),
-	and imputation of missing values (Cortes, D., 2019, <arXiv:1911.06646>),
+	approximation (Cortes (2019) <arXiv:1910.12362>),
+	and imputation of missing values (Cortes (2019) <arXiv:1911.06646>),
 	based on random or guided decision tree splitting. Provides simple heuristics for fitting the model to
 	categorical columns and handling missing data, and offers options for varying between random and guided
 	splits, and for using different splitting criteria.
