@@ -20,6 +20,7 @@ Description: Fast and multi-threaded implementation of
 	splits, and for using different splitting criteria.
 License: BSD_2_clause + file LICENSE
 Imports: Rcpp (>= 1.0.1)
-Suggests: Matrix, SparseM
+Suggests: MASS, outliertree
+Enhances: Matrix, SparseM
 LinkingTo: Rcpp, Rcereal
 RoxygenNote: 6.1.1

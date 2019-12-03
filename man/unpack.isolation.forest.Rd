@@ -33,16 +33,16 @@ freshly-loaded model object to those other functions, and then they will not nee
 in the same way as `predict` or `print`, but without producing any outputs or messages.
 }
 \examples{
-\dontrun{
 ### Warning: this example will generate a temporary .Rds
-### file in the working directory from which it is run
+### file in your temp folder, and will then delete it
 library(isotree)
 set.seed(1)
 X <- matrix(rnorm(100), nrow = 20)
 iso <- isolation.forest(X)
-saveRDS(iso, "iso.Rds")
-iso2 <- readRDS("iso.Rds")
-file.remove("iso.Rds")
+temp_file <- file.path(tempdir(), "iso.Rds")
+saveRDS(iso, temp_file)
+iso2 <- readRDS(temp_file)
+file.remove(temp_file)
 
 ### will de-serialize inside, but object is short-lived
 wrap_predict <- function(model, data) {
@@ -61,5 +61,4 @@ print("after unpacking beforehand")
 temp <- wrap_predict(iso2, X)
 cat("pointer outside function is this: \\n")
 print(iso2$cpp_obj$ptr)
-}
 }

@@ -240,8 +240,7 @@
 #' ### grid, with a model fit to a bi-modal distribution. As can
 #' ### be seen, the extended model is able to detect high
 #' ### outlierness outside of both regions, without having false
-#' ### ghost regions of low-outlierness in regions where there
-#' ### isn't any data
+#' ### ghost regions of low-outlierness where there isn't any data
 #' library(isotree)
 #' oldpar <- par(mfrow = c(2, 2), mar = c(2.5,2.2,2,2.5))
 #' 
@@ -312,8 +311,7 @@
 #' par(oldpar)
 #' 
 #' ### Example3:  calculating pairwise distances,
-#' ### with a short validation against euclidean
-#' ### distance in this simple example
+#' ### with a short validation against euclidean dist.
 #' library(isotree)
 #' 
 #' ### Generate random data with 3 dimensions
@@ -337,62 +335,64 @@
 #' ###  any correlations between variables into account,
 #' ###  which the isolation forest model can do)
 #' 
-#' 
-#' \dontrun{
+#' \donttest{
 #' ### Example 4: imputing missing values
 #' ### (requires package MASS)
 #' library(isotree)
 #' 
 #' ### Generate random data, set some values as NA
-#' set.seed(1)
-#' S <- matrix(rnorm(5 * 5), nrow = 5)
-#' S <- t(S) %*% S
-#' mu <- rnorm(5)
-#' X <- MASS::mvrnorm(1000, mu, S)
-#' X_na <- X
-#' values_NA <- matrix(runif(1000 * 5) < .15, nrow = 1000)
-#' X_na[values_NA] = NA
-#' 
-#' ### Impute missing values with model
-#' iso <- isolation.forest(X_na,
-#'     build_imputer = TRUE,
-#'     prob_pick_pooled_gain = 1,
-#'     ntry = 10)
-#' X_imputed <- predict(iso, X_na, type = "impute")
-#' cat(sprintf("MSE for imputed values w/model: %f\n",
-#'     mean((X[values_NA] - X_imputed[values_NA])^2)))
+#' if (require("MASS")) {
+#'   set.seed(1)
+#'   S <- matrix(rnorm(5 * 5), nrow = 5)
+#'   S <- t(S) %*% S
+#'   mu <- rnorm(5)
+#'   X <- MASS::mvrnorm(1000, mu, S)
+#'   X_na <- X
+#'   values_NA <- matrix(runif(1000 * 5) < .15, nrow = 1000)
+#'   X_na[values_NA] = NA
+#'   
+#'   ### Impute missing values with model
+#'   iso <- isolation.forest(X_na,
+#'       build_imputer = TRUE,
+#'       prob_pick_pooled_gain = 1,
+#'       ntry = 10)
+#'   X_imputed <- predict(iso, X_na, type = "impute")
+#'   cat(sprintf("MSE for imputed values w/model: %f\n",
+#'       mean((X[values_NA] - X_imputed[values_NA])^2)))
 #'     
-#' ### Compare against simple mean imputation
-#' X_means <- apply(X, 2, mean)
-#' X_imp_mean <- X_na
-#' for (cl in 1:5)
-#'     X_imp_mean[values_NA[,cl], cl] <- X_means[cl]
-#' cat(sprintf("MSE for imputed values w/means: %f\n",
-#'     mean((X[values_NA] - X_imp_mean[values_NA])^2)))
+#'   ### Compare against simple mean imputation
+#'   X_means <- apply(X, 2, mean)
+#'   X_imp_mean <- X_na
+#'   for (cl in 1:5)
+#'       X_imp_mean[values_NA[,cl], cl] <- X_means[cl]
+#'   cat(sprintf("MSE for imputed values w/means: %f\n",
+#'       mean((X[values_NA] - X_imp_mean[values_NA])^2)))
+#' }
 #' }
 #' 
-#' 
-#' 
-#' \dontrun{
+#' \donttest{
 #' #### A more interesting example
 #' #### (requires package outliertree)
 #' 
 #' ### Compare outliers returned by these different methods,
 #' ### and see why some of the outliers returned by the
 #' ### isolation forest could be flagged as outliers
-#' library(outliertree)
-#' data("hypothyroid")
-#' 
-#' iso <- isolation.forest(hypothyroid)
-#' pred_iso <- predict(iso, hypothyroid)
-#' otree <- outlier.tree(hypothyroid,
-#'     z_outlier = 6,
-#'     pct_outliers = 0.02,
-#'     outliers_print = 20)
-#' 
-#' ### Now compare against the top
-#' ### outliers from isolation forest
-#' head(hypothyroid[order(-pred_iso), ], 20)
+#' if (require("outliertree")) {
+#'   hypothyroid <- outliertree::hypothyroid
+#'   
+#'   iso <- isolation.forest(hypothyroid, nthreads=1)
+#'   pred_iso <- predict(iso, hypothyroid)
+#'   otree <- outliertree::outlier.tree(
+#'       hypothyroid,
+#'       z_outlier = 6,
+#'       pct_outliers = 0.02,
+#'       outliers_print = 20,
+#'       nthreads = 1)
+#'   
+#'   ### Now compare against the top
+#'   ### outliers from isolation forest
+#'   head(hypothyroid[order(-pred_iso), ], 20)
+#' }
 #' }
 #' @details When calculating gain, the variables are standardized at each step, so there is no need to center/scale the
 #' data beforehand.
@@ -941,16 +941,17 @@ add_isolation_tree <- function(model, df, sample_weights = NULL, column_weights 
 #' @param model An Isolation Forest object as returned by `isolation.forest`, which has been just loaded from a disk
 #' file through `readRDS`, `load`, or a session restart.
 #' @return No return value. Object is modified in-place.
-#' @examples \dontrun{
+#' @examples 
 #' ### Warning: this example will generate a temporary .Rds
-#' ### file in the working directory from which it is run
+#' ### file in your temp folder, and will then delete it
 #' library(isotree)
 #' set.seed(1)
 #' X <- matrix(rnorm(100), nrow = 20)
 #' iso <- isolation.forest(X)
-#' saveRDS(iso, "iso.Rds")
-#' iso2 <- readRDS("iso.Rds")
-#' file.remove("iso.Rds")
+#' temp_file <- file.path(tempdir(), "iso.Rds")
+#' saveRDS(iso, temp_file)
+#' iso2 <- readRDS(temp_file)
+#' file.remove(temp_file)
 #' 
 #' ### will de-serialize inside, but object is short-lived
 #' wrap_predict <- function(model, data) {
@@ -969,7 +970,6 @@ add_isolation_tree <- function(model, df, sample_weights = NULL, column_weights 
 #' temp <- wrap_predict(iso2, X)
 #' cat("pointer outside function is this: \n")
 #' print(iso2$cpp_obj$ptr)
-#' }
 #' @export
 unpack.isolation.forest <- function(model)  {
     if (!("isolation_forest" %in% class(model)))
