@@ -263,14 +263,14 @@ data beforehand.
 When using sparse matrices, calculations such as standard deviations, gain, and kurtosis, will use procedures
 that rely on calculating sums of squared numbers. This is not a problem if most of the entries are zero and the
 numbers are small, but if you pass dense matrices as sparse and/or the entries in the sparse matrices have values
-in wildly different orders of magnitude (e.g. 0.0001 and 10000000), the calculations will fail due to loss of
+in wildly different orders of magnitude (e.g. 0.0001 and 10000000), the calculations might fail due to loss of
 numeric precision, and the results might not make sense. For dense matrices it uses more numerically-robust
 techniques (which would add a large computational overhead in sparse matrices), so it's not a problem to have values
 with different orders of magnitude.
 }
 \examples{
 ### Example 1: detect an obvious outlier
-### Random data from a standard normal distribution
+### (Random data from a standard normal distribution)
 library(isotree)
 set.seed(1)
 n <- 100
@@ -326,6 +326,8 @@ plot.space <- function(Z, ttl) {
      xlab = "", ylab = "")
 }
 
+### Now try ouy different variations of the model
+
 ### Single-variable model
 iso_simple = isolation.forest(
     X, ndim=1,
@@ -335,7 +337,7 @@ iso_simple = isolation.forest(
 Z1 <- predict(iso_simple, space_d)
 plot.space(Z1, "Isolation Forest")
 
-### Extended model fit to the concatenated data
+### Extended model
 iso_ext = isolation.forest(
      X, ndim=2,
      ntrees=100,
@@ -344,7 +346,7 @@ iso_ext = isolation.forest(
 Z2 <- predict(iso_ext, space_d)
 plot.space(Z2, "Extended Isolation Forest")
 
-### SCiForest fit to the concatenated data
+### SCiForest
 iso_sci = isolation.forest(
      X, ndim=2,
      ntrees=100,
@@ -363,6 +365,7 @@ iso_alt = isolation.forest(
 Z4 <- predict(iso_alt, space_d)
 plot.space(Z4, "Fair-Cut Forest")
 par(oldpar)
+
 
 ### Example3:  calculating pairwise distances,
 ### with a short validation against euclidean dist.

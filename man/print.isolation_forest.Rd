@@ -11,6 +11,9 @@
 
 \item{...}{Not used.}
 }
+\value{
+No return value.
+}
 \description{
 Displays the most general characteristics of an isolation forest model (same as `summary`).
 }

@@ -1,4 +1,4 @@
-useDynLib(isotree, .registration=TRUE)
+useDynLib(isotree, .registration = TRUE)
 importFrom(Rcpp, evalCpp)
 S3method(predict,isolation_forest)
 S3method(print,isolation_forest)
