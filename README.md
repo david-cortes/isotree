@@ -14,15 +14,18 @@ Note that this is a black-box model that will not produce explanations or import
 
 ![image](image/density_regions.png "density regions")
 
+_(Code to produce these plots can be found in the R examples in the documentation)_
+
 ![image](image/covtype_table.png "imputer")
 
-# Imputation of missing values
-
-The model can also be used to impute missing values in a similar fashion as kNN, by taking the values from observations in the terminal nodes of each tree in which an observation with missing values falls at prediction time, combining the non-missing values of the other observations as a weighted average according to the depth of the node and the number of observations that fall there. This is not related to how the model handles missing values internally, but is rather meant as a faster way of imputing by similarity. Quality is usually not as good as chained equations, but the method is a lot faster and more scalable. Recommended to use non-random splits when used as an imputer. Details are described in [Imputing missing values with unsupervised random trees](https://arxiv.org/abs/1911.06646).
 
 # Distance / similarity calculations
 
 General idea was extended to produce distance (alternatively, similarity) between observations according to how many random splits it takes to separate them - idea is described in [Distance approximation using Isolation Forests](https://arxiv.org/abs/1910.12362).
+
+# Imputation of missing values
+
+The model can also be used to impute missing values in a similar fashion as kNN, by taking the values from observations in the terminal nodes of each tree in which an observation with missing values falls at prediction time, combining the non-missing values of the other observations as a weighted average according to the depth of the node and the number of observations that fall there. This is not related to how the model handles missing values internally, but is rather meant as a faster way of imputing by similarity. Quality is usually not as good as chained equations, but the method is a lot faster and more scalable. Recommended to use non-random splits when used as an imputer. Details are described in [Imputing missing values with unsupervised random trees](https://arxiv.org/abs/1911.06646).
 
 # Highlights
 
@@ -54,9 +57,8 @@ pip install isotree
 
 * R:
 ```r
-devtools::install_github("david-cortes/isotree")
+install.packages("isotree")
 ```
-(Coming to CRAN soon)
 
 * C++: package doesn't have a build system, nor a main function that can produce an executable, but can be built as a shared object and wrapped into other languages with any C++11-compliant compiler (`-std=c++11` in most compilers, `/std:c++14` in MSVC). For parallelization, needs OpenMP linkage (`-fopenmp` in most compilers, `/openmp` in MSVC). Package should not be built with optimization higher than `O3` (i.e. don't use `-Ofast`). Needs linkage to the math library, which should be enabled by default in most C++ compilers, but otherwise would require `-lm` argument. No external dependencies are required.
 
@@ -114,12 +116,12 @@ cat("Point with highest outlier score: ",
 # Examples
 
 * Python: [[example notebook](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb)], [[example as imputer in sklearn pipeline](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb)].
-* R: examples available in the documentation (`help(isotree::isolation.forest)`).
+* R: examples available in the documentation (`help(isotree::isolation.forest)`, [link to CRAN](https://cran.r-project.org/web/packages/isotree/index.html)).
 
 # Documentation
 
 * Python: documentation is available at [ReadTheDocs](http://isotree.readthedocs.io/en/latest/).
-* R: documentation is available internally in the package (e.g. `help(isolation.forest)`). PDF coming to CRAN soon.
+* R: documentation is available internally in the package (e.g. `help(isolation.forest)`) and in [CRAN](https://cran.r-project.org/web/packages/isotree/index.html).
 * C++: documentation is available in the source files (not the header).
 
 # Known issues
