@@ -57,7 +57,7 @@
                 0, 9,  1,  10, 13, 21, 2, 29, 11, 14, 16, 18, 22, 25, 3, 30,
                 8, 12, 20, 28, 15, 17, 24, 7, 19, 27, 23, 6,  26, 5,  4, 31
             };
-        size_t log2ceil( uint32_t v )
+        size_t log2ceil( size_t v )
         {
 
             v--;
@@ -67,7 +67,7 @@
             v |= v >> 8;
             v |= v >> 16;
 
-            return MultiplyDeBruijnBitPosition[( unsigned int )( v * 0x07C4ACDDU ) >> 27] + 1;
+            return MultiplyDeBruijnBitPosition[( uint32_t )( v * 0x07C4ACDDU ) >> 27] + 1;
         }
     #endif
 #elif SIZE_MAX == UINT64_MAX /* 64-bit systems */
@@ -84,7 +84,7 @@
             56, 45, 25, 31, 35, 16,  9, 12,
             44, 24, 15,  8, 23,  7,  6,  5};
 
-        size_t log2ceil(uint64_t value)
+        size_t log2ceil(size_t value)
         {
             value--;
             value |= value >> 1;
