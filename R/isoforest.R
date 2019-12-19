@@ -952,7 +952,7 @@ add_isolation_tree <- function(model, df, sample_weights = NULL, column_weights 
 #' library(isotree)
 #' set.seed(1)
 #' X <- matrix(rnorm(100), nrow = 20)
-#' iso <- isolation.forest(X)
+#' iso <- isolation.forest(X, nthreads = 1)
 #' temp_file <- file.path(tempdir(), "iso.Rds")
 #' saveRDS(iso, temp_file)
 #' iso2 <- readRDS(temp_file)
