@@ -1,8 +1,8 @@
 Package: isotree
 Type: Package
 Title: Isolation-Based Outlier Detection
-Version: 0.1.5
-Date: 2019-12-11
+Version: 0.1.6
+Date: 2019-12-26
 Author: David Cortes
 Maintainer: David Cortes <david.cortes.rivera@gmail.com>
 URL: https://github.com/david-cortes/isotree
@@ -10,7 +10,7 @@ BugReports: https://github.com/david-cortes/isotree/issues
 Description: Fast and multi-threaded implementation of
 	isolation forest (Liu, Ting, Zhou (2008) <doi:10.1109/ICDM.2008.17>),
 	extended isolation forest (Hariri, Kind, Brunner (2018) <arXiv:1811.02141>),
-	SCiForest (Liu, Ting, Zhou, (2010) <doi:10.1007/978-3-642-15883-4_18>),
+	SCiForest (Liu, Ting, Zhou (2010) <doi:10.1007/978-3-642-15883-4_18>),
 	and fair-cut forest (Cortes (2019) <arXiv:1911.06646>),
 	for isolation-based outlier detection, clustered outlier detection, distance or similarity
 	approximation (Cortes (2019) <arXiv:1910.12362>),
