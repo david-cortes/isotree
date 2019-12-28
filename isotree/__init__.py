@@ -35,6 +35,14 @@ class IsolationForest:
 
     Note
     ----
+    Be aware that, under the default parameters, the model will produce some fraction of non-random splits (parameter
+    `prob_pick_pooled_gain`), which tends to result in a better ability to flag outliers in the training data
+    at the expense of hindered performance when making predictions on new data (calling method `predict`) and poorer
+    generalizability to inputs with values outside the variables' ranges to which the model was fit
+    (see plots generated from the examples in GitHub for a better idea of the difference).
+
+    Note
+    ----
     When using sparse matrices, calculations such as standard deviations, gain, and kurtosis, will use procedures
     that rely on calculating sums of squared numbers. This is not a problem if most of the entries are zero and the
     numbers are small, but if you pass dense matrices as sparse and/or the entries in the sparse matrices have values
@@ -94,8 +102,10 @@ class IsolationForest:
         variables, will use shannon entropy instead (like in [7]). For the extended model, this parameter indicates the probability
         that the split point in the chosen linear combination of variables will be decided by this pooled gain
         criterion. Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
-        groups when they are smaller. Recommended to pass higher values when used for imputation of missing values. When splits
-        are not made according to any of 'prob_pick_avg_gain',
+        groups when they are smaller. Recommended to pass higher values when used for imputation of missing values.
+        When used for outlier detection, higher values of this parameter result in models that are able to better flag
+        outliers in the training data, but generalize poorly to outliers in new data and to values of variables
+        outside of the ranges from the training data. When splits are not made according to any of 'prob_pick_avg_gain',
         'prob_pick_pooled_gain', 'prob_split_avg_gain', 'prob_split_pooled_gain', both the column and the split point
         are decided at random. Note that, if passing value 1 (100%) with no sub-sampling and using the single-variable model,
         every single tree will have the exact same splits.

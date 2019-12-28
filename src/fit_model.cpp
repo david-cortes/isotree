@@ -199,9 +199,12 @@
 *       variables, will use shannon entropy instead (like in [7]). For the extended model, this parameter indicates the probability
 *       that the split point in the chosen linear combination of variables will be decided by this pooled gain
 *       criterion. Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
-*       groups when they are smaller Recommended to pass higher values when used for imputation of missing values. When splits
-*       are not made according to any of 'prob_pick_by_gain_avg', 'prob_pick_by_gain_pl', 'prob_split_by_gain_avg', 'prob_split_by_gain_pl',
-*       both the column and the split point are decided at random.
+*       groups when they are smaller. Recommended to pass higher values when used for imputation of missing values.
+*       When used for outlier detection, higher values of this parameter result in models that are able to better flag
+*       outliers in the training data, but generalize poorly to outliers in new data and to values of variables
+*       outside of the ranges from the training data. When splits are not made according to any of 'prob_pick_by_gain_avg',
+*       'prob_pick_by_gain_pl', 'prob_split_by_gain_avg', 'prob_split_by_gain_pl', both the column and the split point
+*       are decided at random.
 * - prob_split_by_gain_pl
 *       Probability of making each split by selecting a column at random and determining the split point as
 *       that which gives the highest pooled gain. Not supported for the extended model as the splits are on

@@ -9,6 +9,7 @@ MANIFEST
 dist/
 *.zip
 *.tar.gz
+*.Rproj
 
 build/
 	*.*
@@ -29,3 +30,5 @@ isotree.egg-info/
 
 build/
 	*
+.Rproj.user
+.Rbuildignore

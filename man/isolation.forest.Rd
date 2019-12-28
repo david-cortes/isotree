@@ -91,8 +91,10 @@ will potentially make the model fitting much slower, but has no impact on predic
 variables, will use shannon entropy instead (like in reference [7]). For the extended model, this parameter indicates the probability
 that the split point in the chosen linear combination of variables will be decided by this pooled gain
 criterion. Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
-groups when they are smaller Recommended to pass higher values when used for imputation of missing values. When splits
-are not made according to any of `prob_pick_avg_gain`,
+groups when they are smaller Recommended to pass higher values when used for imputation of missing values.
+When used for outlier detection, higher values of this parameter result in models that are able to better flag
+outliers in the training data, but generalize poorly to outliers in new data and to values of variables
+outside of the ranges from the training data. When splits are not made according to any of `prob_pick_avg_gain`,
 `prob_pick_pooled_gain`, `prob_split_avg_gain`, `prob_split_pooled_gain`, both the column and the split point
 are decided at random. Note that, if passing value = 1 with no sub-sampling and using the single-variable model,
 every single tree will have the exact same splits.}
@@ -255,6 +257,12 @@ trees beyond balanced-tree limit. Offers options to vary between randomized and 
 
 Note that the default parameters set up for this implementation will not scale to large datasets. In particular,
 if the amount of data is large, you might want to set a smaller sample size for each tree, and fit fewer of them.
+
+Be aware that, under the default parameters, the model will produce some fraction of non-random splits (parameter
+`prob_pick_pooled_gain`), which tends to result in a better ability to flag outliers in the training data (`df`)
+at the expense of hindered performance when making predictions on new data (calling function `predict`) and poorer
+generalizability to inputs with values outside the variables' ranges to which the model was fit
+(see plots generated from the examples for a better idea of the difference).
 }
 \details{
 When calculating gain, the variables are standardized at each step, so there is no need to center/scale the
