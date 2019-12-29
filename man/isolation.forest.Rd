@@ -474,5 +474,5 @@ if (require("outliertree")) {
 }
 }
 \seealso{
-\link{predict.isolation_forest},  \link{add_isolation_tree} \link{unpack.isolation.forest}
+\link{predict.isolation_forest},  \link{add.isolation.tree} \link{unpack.isolation.forest}
 }

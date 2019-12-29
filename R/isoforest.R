@@ -210,7 +210,7 @@
 #'   passing `output_dist` = `TRUE`.
 #'   \item `imputed`: the input data with missing values imputed according to the model (if passing `output_imputations` = `TRUE`).
 #' }
-#' @seealso \link{predict.isolation_forest},  \link{add_isolation_tree} \link{unpack.isolation.forest}
+#' @seealso \link{predict.isolation_forest},  \link{add.isolation.tree} \link{unpack.isolation.forest}
 #' @references \itemize{
 #' \item Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "Isolation forest." 2008 Eighth IEEE International Conference on Data Mining. IEEE, 2008.
 #' \item Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "Isolation-based anomaly detection." ACM Transactions on Knowledge Discovery from Data (TKDD) 6.1 (2012): 3.
@@ -861,7 +861,7 @@ summary.isolation_forest <- function(object, ...) {
 #' function too.
 #' @seealso \link{isolation.forest} \link{unpack.isolation.forest}
 #' @export
-add_isolation_tree <- function(model, df, sample_weights = NULL, column_weights = NULL) {
+add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights = NULL) {
     
     if (!("isolation_forest" %in% class(model)))
         stop("'model' must be an isolation forest model object as output by function 'isolation.forest'.")
@@ -939,7 +939,7 @@ add_isolation_tree <- function(model, df, sample_weights = NULL, column_weights 
 #' thus not restored after loading a saved model through `readRDS` or `load`.
 #' 
 #' The model object however keeps serialized versions of the C++ objects as raw bytes, from which the C++ objects can be
-#' reconstructed, and are done so automatically after calling `predict`, `print`, `summary`, or `add_isolation_tree` on the
+#' reconstructed, and are done so automatically after calling `predict`, `print`, `summary`, or `add.isolation.tree` on the
 #' freshly-loaded object from `readRDS` or `load`.
 #' 
 #' But due to R's environments system (as opposed to other systems such as Python which can use pass-by-reference), they will
