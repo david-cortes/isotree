@@ -23,6 +23,17 @@ class IsolationForest:
 
     Note
     ----
+    The model offers many tunable parameters. The most likely candidate to tune is 'prob_pick_pooled_gain', for
+    which higher values tend to result in a better ability to flag outliers in the training data
+    at the expense of hindered performance when making predictions on new data (calling method 'predict') and poorer
+    generalizability to inputs with values outside the variables' ranges to which the model was fit
+    (see plots generated from the examples in GitHub notebook for a better idea of the difference). The next candidate to tune is
+    'prob_pick_avg_gain' (along with 'sample_size'), for which high values tend to result in models that are more likely
+    to flag values outside of the variables' ranges and fewer ghost regions, at the expense of fewer flagged outliers
+    in the original data.
+
+    Note
+    ----
     The default parameters set up for this implementation will not scale to large datasets. In particular,
     if the amount of data is large, you might want to set a smaller sample size for each tree, and fit fewer of them.
     If using the single-variable model, you might also want to set 'prob_pick_pooled_gain' = 0, or perhaps replace it
@@ -32,14 +43,6 @@ class IsolationForest:
     ----
     When calculating gain, the variables are standardized at each step, so there is no need to center/scale the
     data beforehand.
-
-    Note
-    ----
-    Be aware that, under the default parameters, the model will produce some fraction of non-random splits (parameter
-    `prob_pick_pooled_gain`), which tends to result in a better ability to flag outliers in the training data
-    at the expense of hindered performance when making predictions on new data (calling method `predict`) and poorer
-    generalizability to inputs with values outside the variables' ranges to which the model was fit
-    (see plots generated from the examples in GitHub for a better idea of the difference).
 
     Note
     ----
@@ -88,7 +91,8 @@ class IsolationForest:
         and calculate gain with those assumed standard deviations. For the extended model, this parameter indicates the probability that the
         split point in the chosen linear combination of variables will be decided by this averaged gain criterion. Compared to
         a pooled average, this tends to result in more cases in which a single observation or very few of them are put into
-        one branch. When splits are not made according to any of 'prob_pick_avg_gain', 'prob_pick_pooled_gain', 'prob_split_avg_gain',
+        one branch. Recommended to use sub-samples (parameter 'sample_size') when passing this parameter. When splits are
+        not made according to any of 'prob_pick_avg_gain', 'prob_pick_pooled_gain', 'prob_split_avg_gain',
         'prob_split_pooled_gain', both the column and the split point are decided at random. Default setting for [1], [2], [3] is
         zero, and default for [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5].
         Note that, if passing value 1 (100%) with no sub-sampling and using the single-variable model, every single tree will have
@@ -105,7 +109,8 @@ class IsolationForest:
         groups when they are smaller. Recommended to pass higher values when used for imputation of missing values.
         When used for outlier detection, higher values of this parameter result in models that are able to better flag
         outliers in the training data, but generalize poorly to outliers in new data and to values of variables
-        outside of the ranges from the training data. When splits are not made according to any of 'prob_pick_avg_gain',
+        outside of the ranges from the training data. Passing small 'sample_size' and high values of this parameter will
+        tend to flag too many outliers. When splits are not made according to any of 'prob_pick_avg_gain',
         'prob_pick_pooled_gain', 'prob_split_avg_gain', 'prob_split_pooled_gain', both the column and the split point
         are decided at random. Note that, if passing value 1 (100%) with no sub-sampling and using the single-variable model,
         every single tree will have the exact same splits.
@@ -267,7 +272,7 @@ class IsolationForest:
            arXiv preprint arXiv:1911.06646 (2019).
     """
     def __init__(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3, max_depth = "auto",
-                 prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.25,
+                 prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
                  prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
                  min_gain = 0, missing_action = "auto", new_categ_action = "auto",
                  categ_split_type = "subset", all_perm = False,
@@ -783,7 +788,11 @@ class IsolationForest:
 
         if self.ndim > 1:
             if self.ndim > ncols:
-                raise ValueError("Model was meant to take %d variables for each split, but data has %d columns." % (self.ndim, ncols))
+                msg  = "Model was meant to take %d variables for each split, but data has %d columns."
+                msg += " Will decrease number of splitting variables to match number of columns."
+                msg = msg % (self.ndim, ncols)
+                warnings.warn(msg)
+                self.ndim = ncols
 
         return X_num, X_cat, ncat, sample_weights, column_weights, nrows
 

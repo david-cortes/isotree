@@ -182,10 +182,12 @@
 *       and calculate gain with those assumed standard deviations. For the extended model, this parameter indicates the probability that the
 *       split point in the chosen linear combination of variables will be decided by this averaged gain criterion. Compared to
 *       a pooled average, this tends to result in more cases in which a single observation or very few of them are put into
-*       one branch. When splits are not made according to any of 'prob_pick_by_gain_avg', 'prob_pick_by_gain_pl',
-*       'prob_split_by_gain_avg', 'prob_split_by_gain_pl', both the column and the split point are decided at random.
+*       one branch.  Recommended to use sub-samples (parameter `sample_size`) when passing this parameter. When splits are
+*       not made according to any of 'prob_pick_by_gain_avg', 'prob_pick_by_gain_pl', 'prob_split_by_gain_avg', 'prob_split_by_gain_pl',
+*       both the column and the split point are decided at random.
 *       Default setting for [1], [2], [3] is zero, and default for [4] is 1. This is the randomization parameter that can
-*       be passed to the author's original code in [5].
+*       be passed to the author's original code in [5]. Note that, if passing value 1 (100%) with no sub-sampling and using the
+*       single-variable model, every single tree will have the exact same splits.
 * - prob_split_by_gain_avg
 *       Probability of making each split by selecting a column at random and determining the split point as
 *       that which gives the highest averaged gain. Not supported for the extended model as the splits are on
@@ -202,9 +204,11 @@
 *       groups when they are smaller. Recommended to pass higher values when used for imputation of missing values.
 *       When used for outlier detection, higher values of this parameter result in models that are able to better flag
 *       outliers in the training data, but generalize poorly to outliers in new data and to values of variables
-*       outside of the ranges from the training data. When splits are not made according to any of 'prob_pick_by_gain_avg',
+*       outside of the ranges from the training data. Passing small 'sample_size' and high values of this parameter will
+*       tend to flag too many outliers. When splits are not made according to any of 'prob_pick_by_gain_avg',
 *       'prob_pick_by_gain_pl', 'prob_split_by_gain_avg', 'prob_split_by_gain_pl', both the column and the split point
-*       are decided at random.
+*       are decided at random. Note that, if passing value 1 (100%) with no sub-sampling and using the single-variable model,
+*       every single tree will have the exact same splits.
 * - prob_split_by_gain_pl
 *       Probability of making each split by selecting a column at random and determining the split point as
 *       that which gives the highest pooled gain. Not supported for the extended model as the splits are on
