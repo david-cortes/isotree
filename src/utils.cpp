@@ -97,7 +97,7 @@
         }
     #endif
 #else /* other architectures - might not be entirely precise, and will be slower */
-    size_t log2ceil(size_t x) {return (size_t)(ceill(log2l(x)));}
+    size_t log2ceil(size_t x) {return (size_t)(ceill(log2l((long double) x)));}
 #endif
 
 /* http://fredrik-j.blogspot.com/2009/02/how-not-to-compute-harmonic-numbers.html
