@@ -723,6 +723,9 @@ class IsolationForest:
                 self._cat_mapping = [None for cl in range(X_cat.shape[1])]
                 for cl in range(X_cat.shape[1]):
                     X_cat[X_cat.columns[cl]], self._cat_mapping[cl] = pd.factorize(X_cat[X_cat.columns[cl]])
+                    # https://github.com/pandas-dev/pandas/issues/30618
+                    if self._cat_mapping[cl].__class__.__name__ == "CategoricalIndex":
+                        self._cat_mapping[cl] = self._cat_mapping[cl].to_numpy()
                 X_cat = np.asfortranarray(X_cat).astype(ctypes.c_int)
 
         else:
