@@ -318,13 +318,13 @@
 #' plot.space(Z3, "SCiForest")
 #'      
 #' ### Fair-cut forest
-#' iso_alt = isolation.forest(
+#' iso_fcf = isolation.forest(
 #'      X, ndim=2,
 #'      ntrees=100,
 #'      nthreads=1,
 #'      prob_pick_pooled_gain=1,
 #'      prob_pick_avg_gain=0)
-#' Z4 <- predict(iso_alt, space_d)
+#' Z4 <- predict(iso_fcf, space_d)
 #' plot.space(Z4, "Fair-Cut Forest")
 #' par(oldpar)
 #' 
