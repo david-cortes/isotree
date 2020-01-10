@@ -69,6 +69,7 @@ cdef extern from "isotree.hpp":
     ctypedef enum ColType:
         Numeric
         Categorical
+        NotUsed
 
     ctypedef enum CategSplit:
         SubSet

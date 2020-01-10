@@ -1,8 +1,8 @@
 Package: isotree
 Type: Package
 Title: Isolation-Based Outlier Detection
-Version: 0.1.8
-Date: 2020-01-01
+Version: 0.1.10
+Date: 2020-01-10
 Author: David Cortes
 Maintainer: David Cortes <david.cortes.rivera@gmail.com>
 URL: https://github.com/david-cortes/isotree
