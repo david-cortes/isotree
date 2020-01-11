@@ -131,6 +131,9 @@ void predict_iforest(double numeric_data[], int categ_data[],
                                       Xc, Xc_ind, Xc_indptr,
                                       Xr, Xr_ind, Xr_indptr};
 
+    if ((size_t)nthreads > nrows)
+        nthreads = nrows;
+
     if (model_outputs != NULL)
     {
         if (

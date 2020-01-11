@@ -733,20 +733,27 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         workspace.cols_possible.assign(workspace.cols_possible.size(), true);
 
     /* set expected tree size and add root node */
-    if (tree_root != NULL)
     {
-        tree_root->reserve(std::min(2 * model_params.sample_size, pow2(model_params.max_depth)));
-        tree_root->emplace_back();
-    }
-    else
-    {
-        hplane_root->reserve(std::min(2 * model_params.sample_size, pow2(model_params.max_depth)));
-        hplane_root->emplace_back();
-    }
-    if (impute_nodes != NULL)
-    {
-        impute_nodes->reserve(std::min(2 * model_params.sample_size, pow2(model_params.max_depth)));
-        impute_nodes->emplace_back((size_t) 0);
+        size_t exp_nodes = 2 * model_params.sample_size;
+        if (model_params.sample_size >= (SIZE_MAX / (size_t)2))
+            exp_nodes = SIZE_MAX;
+        if (model_params.max_depth <= (size_t)30)
+            exp_nodes = std::min(exp_nodes, pow2(model_params.max_depth));
+        if (tree_root != NULL)
+        {
+            tree_root->reserve(exp_nodes);
+            tree_root->emplace_back();
+        }
+        else
+        {
+            hplane_root->reserve(exp_nodes);
+            hplane_root->emplace_back();
+        }
+        if (impute_nodes != NULL)
+        {
+            impute_nodes->reserve(exp_nodes);
+            impute_nodes->emplace_back((size_t) 0);
+        }
     }
 
     /* initialize array with candidate categories if not already done */
