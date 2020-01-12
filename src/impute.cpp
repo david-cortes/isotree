@@ -128,6 +128,8 @@ void impute_missing_values(double numeric_data[], int categ_data[],
     if (end == 0)
         return;
 
+    if ((size_t)nthreads > end)
+        nthreads = (int)end;
     #ifdef _OPENMP
         std::vector<ImputedData> imp_memory(nthreads);
     #else

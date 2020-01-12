@@ -385,6 +385,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         initialize_imputer(*imputer, input_data, ntrees, nthreads);
 
     /* initialize thread-private memory */
+    if ((size_t)nthreads > ntrees)
+        nthreads = (int)ntrees;
     #ifdef _OPENMP
         std::vector<WorkerMemory> worker_memory(nthreads);
     #else

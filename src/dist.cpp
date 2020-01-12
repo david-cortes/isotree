@@ -122,13 +122,15 @@ void calc_similarity(double numeric_data[], int categ_data[],
                                       Xc, Xc_ind, Xc_indptr,
                                       NULL, NULL, NULL};
 
+    size_t ntrees = (model_outputs != NULL)? model_outputs->trees.size() : model_outputs_ext->hplanes.size();
+
+    if ((size_t)nthreads > ntrees)
+        nthreads = (int)ntrees;
     #ifdef _OPENMP
     std::vector<WorkerForSimilarity> worker_memory(nthreads);
     #else
     std::vector<WorkerForSimilarity> worker_memory(1);
     #endif
-
-    size_t ntrees = (model_outputs != NULL)? model_outputs->trees.size() : model_outputs_ext->hplanes.size();
 
     if (model_outputs != NULL)
     {
