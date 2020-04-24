@@ -820,3 +820,32 @@ double extract_spR(PredictionData &prediction_data, sparse_ix *row_st, sparse_ix
     else
         return prediction_data.Xr[search_res - prediction_data.Xr_ind];
 }
+
+void get_num_nodes(IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads)
+{
+    std::fill(n_terminal, n_terminal + model_outputs.trees.size(), 0);
+    #pragma omp parallel for schedule(static) num_threads(nthreads) shared(model_outputs, n_nodes, n_terminal)
+    for (size_t_for tree = 0; tree < model_outputs.trees.size(); tree++)
+    {
+        n_nodes[tree] = model_outputs.trees[tree].size();
+        for (IsoTree &node : model_outputs.trees[tree])
+        {
+            n_terminal[tree] += (node.score > 0);
+        }
+    }
+}
+
+void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads)
+{
+    std::fill(n_terminal, n_terminal + model_outputs.hplanes.size(), 0);
+    #pragma omp parallel for schedule(static) num_threads(nthreads) shared(model_outputs, n_nodes, n_terminal)
+    for (size_t_for hplane = 0; hplane < model_outputs.hplanes.size(); hplane++)
+    {
+        n_nodes[hplane] = model_outputs.hplanes[hplane].size();
+        for (IsoHPlane &node : model_outputs.hplanes[hplane])
+        {
+            n_terminal[hplane] += (node.score > 0);
+        }
+    }
+}
+

@@ -52,13 +52,13 @@ wrap_predict <- function(model, data) {
     return(pred)
 }
 temp <- wrap_predict(iso2, X)
-cat("pointer outside function is this: \\n")
+cat("pointer outside function is this: \n")
 print(iso2$cpp_obj$ptr) ### pointer to the C++ object
 
 ### now unpack the C++ object beforehand
 unpack.isolation.forest(iso2)
 print("after unpacking beforehand")
 temp <- wrap_predict(iso2, X)
-cat("pointer outside function is this: \\n")
+cat("pointer outside function is this: \n")
 print(iso2$cpp_obj$ptr)
 }

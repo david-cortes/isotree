@@ -4,21 +4,41 @@
 \alias{isolation.forest}
 \title{Isolation Forest model}
 \usage{
-isolation.forest(df, sample_weights = NULL, column_weights = NULL,
-  sample_size = NROW(df), ntrees = 500, ndim = min(3, NCOL(df)),
-  ntry = 3, max_depth = ceiling(log2(sample_size)),
-  prob_pick_avg_gain = 0, prob_pick_pooled_gain = 0,
-  prob_split_avg_gain = 0, prob_split_pooled_gain = 0, min_gain = 0,
+isolation.forest(
+  df,
+  sample_weights = NULL,
+  column_weights = NULL,
+  sample_size = NROW(df),
+  ntrees = 500,
+  ndim = min(3, NCOL(df)),
+  ntry = 3,
+  max_depth = ceiling(log2(sample_size)),
+  prob_pick_avg_gain = 0,
+  prob_pick_pooled_gain = 0,
+  prob_split_avg_gain = 0,
+  prob_split_pooled_gain = 0,
+  min_gain = 0,
   missing_action = ifelse(ndim > 1, "impute", "divide"),
   new_categ_action = ifelse(ndim > 1, "impute", "weighted"),
-  categ_split_type = "subset", all_perm = FALSE,
-  weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
-  penalize_range = TRUE, weigh_by_kurtosis = FALSE, coefs = "normal",
-  assume_full_distr = TRUE, build_imputer = FALSE,
-  output_imputations = FALSE, min_imp_obs = 3, depth_imp = "higher",
-  weigh_imp_rows = "inverse", output_score = FALSE,
-  output_dist = FALSE, square_dist = FALSE, random_seed = 1,
-  nthreads = parallel::detectCores())
+  categ_split_type = "subset",
+  all_perm = FALSE,
+  weights_as_sample_prob = TRUE,
+  sample_with_replacement = FALSE,
+  penalize_range = TRUE,
+  weigh_by_kurtosis = FALSE,
+  coefs = "normal",
+  assume_full_distr = TRUE,
+  build_imputer = FALSE,
+  output_imputations = FALSE,
+  min_imp_obs = 3,
+  depth_imp = "higher",
+  weigh_imp_rows = "inverse",
+  output_score = FALSE,
+  output_dist = FALSE,
+  square_dist = FALSE,
+  random_seed = 1,
+  nthreads = parallel::detectCores()
+)
 }
 \arguments{
 \item{df}{Data to which to fit the model. Can pass a `data.frame`, `matrix`, or sparse matrix (in CSC format,
@@ -299,7 +319,7 @@ iso <- isolation.forest(X, ntrees = 10, nthreads = 1)
 ### Check which row has the highest outlier score
 pred <- predict(iso, X)
 cat("Point with highest outlier score: ",
-    X[which.max(pred), ], "\\n")
+    X[which.max(pred), ], "\n")
 
 
 ### Example 2: plotting outlier regions
@@ -319,9 +339,9 @@ group2 <- data.frame(x = rnorm(1000, +1, .2),
     y = rnorm(1000, +1, .4))
 X = rbind(group1, group2)
 
-### Add an obvious outlier
+### Add an obvious outlier which is within the 1d ranges
 ### (As an interesting test, remove and see what happens)
-X = rbind(X, c(-2, 2))
+X = rbind(X, c(-1, 1))
 
 ### Produce heatmaps
 pts = seq(-3, 3, .1)
@@ -402,7 +422,7 @@ D_iso <- predict(iso, X, type = "dist")
 ### Check that it correlates with euclidean distance
 D_euc <- dist(X, method = "euclidean")
 
-cat(sprintf("Correlation with euclidean distance: \%f\\n",
+cat(sprintf("Correlation with euclidean distance: \%f\n",
     cor(D_euc, D_iso)))
 ### (Note that euclidean distance will never take
 ###  any correlations between variables into account,
@@ -430,7 +450,7 @@ if (require("MASS")) {
       prob_pick_pooled_gain = 1,
       ntry = 10)
   X_imputed <- predict(iso, X_na, type = "impute")
-  cat(sprintf("MSE for imputed values w/model: \%f\\n",
+  cat(sprintf("MSE for imputed values w/model: \%f\n",
       mean((X[values_NA] - X_imputed[values_NA])^2)))
     
   ### Compare against simple mean imputation
@@ -438,7 +458,7 @@ if (require("MASS")) {
   X_imp_mean <- X_na
   for (cl in 1:5)
       X_imp_mean[values_NA[,cl], cl] <- X_means[cl]
-  cat(sprintf("MSE for imputed values w/means: \%f\\n",
+  cat(sprintf("MSE for imputed values w/means: \%f\n",
       mean((X[values_NA] - X_imp_mean[values_NA])^2)))
 }
 }

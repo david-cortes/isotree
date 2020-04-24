@@ -4,8 +4,7 @@
 \alias{add.isolation.tree}
 \title{Add additional (single) tree to isolation forest model}
 \usage{
-add.isolation.tree(model, df, sample_weights = NULL,
-  column_weights = NULL)
+add.isolation.tree(model, df, sample_weights = NULL, column_weights = NULL)
 }
 \arguments{
 \item{model}{An Isolation Forest object as returned by `isolation.forest`, to which an additional tree will be added.}

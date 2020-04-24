@@ -674,3 +674,33 @@ Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
                 Rcpp::_["X_cat"] = X_cat
             );
 }
+
+// [[Rcpp::export]]
+Rcpp::List get_n_nodes(SEXP model_R_ptr, bool is_extended, int nthreads)
+{
+    size_t ntrees;
+    IsoForest*     model_ptr      =  NULL;
+    ExtIsoForest*  ext_model_ptr  =  NULL;
+    if (is_extended)
+    {
+        ext_model_ptr =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        ntrees        =  ext_model_ptr->hplanes.size();
+    }
+    else
+    {
+        model_ptr     =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        ntrees        =  model_ptr->trees.size();
+    }
+
+    Rcpp::IntegerVector n_nodes(ntrees);
+    Rcpp::IntegerVector n_terminal(ntrees);
+    if (is_extended)
+        get_num_nodes(*ext_model_ptr, &n_nodes[0], &n_terminal[0], nthreads);
+    else
+        get_num_nodes(*model_ptr, &n_nodes[0], &n_terminal[0], nthreads);
+
+    return Rcpp::List::create(
+                Rcpp::_["total"]    = n_nodes,
+                Rcpp::_["terminal"] = n_terminal
+            );
+}

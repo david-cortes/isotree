@@ -1178,3 +1178,21 @@ class IsolationForest:
                                ctypes.c_int(self.nthreads).value)
         self.ntrees += 1
         return self
+
+    def get_num_nodes(self):
+        """
+        Get number of nodes per tree
+
+        Gets the number of nodes per tree, along with the number of terminal nodes.
+
+        Returns
+        -------
+        nodes : tuple(array(n_trees,), array(n_trees,))
+            A tuple in which the first element denotes the total number of nodes
+            in each tree, and the second element denotes the number of terminal
+            nodes. Both are returned as arrays having one entry per tree.
+        """
+        assert self.is_fitted_
+        n_nodes, n_terminal = self._cpp_obj.get_n_nodes(ctypes.c_bool(self._is_extended_).value,
+                                                        ctypes.c_int(self.nthreads).value)
+        return n_nodes, n_terminal

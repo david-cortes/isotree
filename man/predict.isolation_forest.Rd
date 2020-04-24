@@ -4,8 +4,7 @@
 \alias{predict.isolation_forest}
 \title{Predict method for Isolation Forest}
 \usage{
-\method{predict}{isolation_forest}(object, newdata, type = "score",
-  square_mat = FALSE, ...)
+\method{predict}{isolation_forest}(object, newdata, type = "score", square_mat = FALSE, ...)
 }
 \arguments{
 \item{object}{An Isolation Forest object as returned by `isolation.forest`.}

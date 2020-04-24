@@ -37,3 +37,7 @@ impute_iso <- function(model_R_ptr, imputer_R_ptr, is_extended, X_num, X_cat, Xr
     .Call(`_isotree_impute_iso`, model_R_ptr, imputer_R_ptr, is_extended, X_num, X_cat, Xr, Xr_ind, Xr_indptr, nrows, nthreads)
 }
 
+get_n_nodes <- function(model_R_ptr, is_extended, nthreads) {
+    .Call(`_isotree_get_n_nodes`, model_R_ptr, is_extended, nthreads)
+}
+

@@ -650,6 +650,8 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
                      size_t                   row);
 double extract_spC(PredictionData &prediction_data, size_t row, size_t col_num);
 double extract_spR(PredictionData &prediction_data, sparse_ix *row_st, sparse_ix *row_end, size_t col_num);
+void get_num_nodes(IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads);
+void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads);
 
 /* dist.cpp */
 void calc_similarity(double numeric_data[], int categ_data[],

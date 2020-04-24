@@ -213,6 +213,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// get_n_nodes
+Rcpp::List get_n_nodes(SEXP model_R_ptr, bool is_extended, int nthreads);
+RcppExport SEXP _isotree_get_n_nodes(SEXP model_R_ptrSEXP, SEXP is_extendedSEXP, SEXP nthreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
+    Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
+    Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(get_n_nodes(model_R_ptr, is_extended, nthreads));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_isotree_deserialize_IsoForest", (DL_FUNC) &_isotree_deserialize_IsoForest, 1},
@@ -224,6 +237,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_predict_iso", (DL_FUNC) &_isotree_predict_iso, 15},
     {"_isotree_dist_iso", (DL_FUNC) &_isotree_dist_iso, 14},
     {"_isotree_impute_iso", (DL_FUNC) &_isotree_impute_iso, 10},
+    {"_isotree_get_n_nodes", (DL_FUNC) &_isotree_get_n_nodes, 3},
     {NULL, NULL, 0}
 };
 

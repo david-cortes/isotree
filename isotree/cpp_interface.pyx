@@ -186,6 +186,10 @@ cdef extern from "isotree.hpp":
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                          double *output_depths, size_t *tree_num)
 
+    void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads)
+
+    void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads)
+
     void tmat_to_dense(double *tmat, double *dmat, size_t n, bool_t diag_to_one)
 
     void calc_similarity(double *numeric_data, int *categ_data,
@@ -616,3 +620,17 @@ cdef class isoforest_cpp_obj:
                               self.imputer)
 
         return X_num, X_cat
+
+    def get_n_nodes(self, bool_t is_extended, int nthreads):
+        cdef size_t ntrees
+        if not is_extended:
+            ntrees = self.isoforest.trees.size()
+        else:
+            ntrees = self.ext_isoforest.hplanes.size()
+        cdef np.ndarray[sparse_ix, ndim=1] n_nodes    = np.empty(ntrees, dtype=ctypes.c_size_t)
+        cdef np.ndarray[sparse_ix, ndim=1] n_terminal = np.empty(ntrees, dtype=ctypes.c_size_t)
+        if not is_extended:
+            get_num_nodes(self.isoforest, &n_nodes[0], &n_terminal[0], nthreads)
+        else:
+            get_num_nodes(self.ext_isoforest, &n_nodes[0], &n_terminal[0], nthreads)
+        return n_nodes, n_terminal

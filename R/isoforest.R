@@ -265,9 +265,9 @@
 #'     y = rnorm(1000, +1, .4))
 #' X = rbind(group1, group2)
 #' 
-#' ### Add an obvious outlier
+#' ### Add an obvious outlier which is within the 1d ranges
 #' ### (As an interesting test, remove and see what happens)
-#' X = rbind(X, c(-2, 2))
+#' X = rbind(X, c(-1, 1))
 #' 
 #' ### Produce heatmaps
 #' pts = seq(-3, 3, .1)
@@ -1014,4 +1014,34 @@ unpack.isolation.forest <- function(model)  {
     }
     
     return(invisible(NULL))
+}
+
+#' @title Get Number of Nodes per Tree
+#' @param model An Isolation Forest model as produced by function `isolation.forest`.
+#' @return A list with entries `"total"` and `"terminal"`, both of which are integer vectors
+#' with length equal to the number of trees. `"total"` contains the total number of nodes that
+#' each tree has, while `"terminal"` contains the number of terminal nodes per tree.
+#' @export
+get.num.nodes <- function(model)  {
+    if (!("isolation_forest" %in% class(model)))
+        stop("'model' must be an isolation forest model object as output by function 'isolation.forest'.")
+
+    if (check_null_ptr_model(model$cpp_obj$ptr)) {
+        obj_new <- model$cpp_obj
+        if (model$params$ndim == 1)
+            ptr_new <- deserialize_IsoForest(model$cpp_obj$serialized)
+        else
+            ptr_new <- deserialize_ExtIsoForest(model$cpp_obj$serialized)
+        obj_new$ptr <- ptr_new
+        
+        if (model$params$build_imputer) {
+            imp_new <- deserialize_Imputer(model$cpp_obj$imp_ser)
+            obj_new$imp_ptr <- imp_new
+        }
+        
+        eval.parent(substitute(model$cpp_obj <- obj_new))
+        model$cpp_obj <- obj_new
+    }
+
+    return(get_n_nodes(model$cpp_obj$ptr, model$params$ndim > 1, model$nthreads))
 }
