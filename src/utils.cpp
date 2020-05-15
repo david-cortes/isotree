@@ -124,8 +124,8 @@ double expected_avg_depth(size_t sample_size)
 {
     switch(sample_size)
     {
-        case 1: return 0;
-        case 2: return 1;
+        case 1: return 0.;
+        case 2: return 1.;
         case 3: return 5.0/3.0;
         case 4: return 13.0/6.0;
         case 5: return 77.0/30.0;
@@ -158,11 +158,11 @@ double expected_separation_depth(size_t n)
 {
     switch(n)
     {
-        case 0: return 0;
-        case 1: return 0;
-        case 2: return 1;
-        case 3: return 1 + (1/3);
-        case 4: return 1 + (1/3) + (2/9);
+        case 0: return 0.;
+        case 1: return 0.;
+        case 2: return 1.;
+        case 3: return 1. + (1./3.);
+        case 4: return 1. + (1./3.) + (2./9.);
         case 5: return 1.71666666667;
         case 6: return 1.84;
         case 7: return 1.93809524;
@@ -213,7 +213,7 @@ double expected_separation_depth_hotstart(double curr, size_t n_curr, size_t n_f
     }
 
     for (size_t i = n_curr + 1; i <= n_final; i++)
-        curr += (-curr * (double)i + 3 * (double)i - 4) / ((double)i * ((double)(i-1)));
+        curr += (-curr * (double)i + 3. * (double)i - 4.) / ((double)i * ((double)(i-1)));
     return curr;
 }
 
@@ -224,7 +224,7 @@ double expected_separation_depth(long double n)
         return 3;
     double s_l = expected_separation_depth((size_t) floorl(n));
     long double u = ceill(n);
-    double s_u = s_l + (-s_l * u + 3 * u - 4) / (u * (u - 1));
+    double s_u = s_l + (-s_l * u + 3. * u - 4.) / (u * (u - 1.));
     double diff = n - floorl(n);
     return s_l + diff * s_u;
 }
@@ -340,7 +340,7 @@ void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool 
 double calc_sd_raw(size_t cnt, long double sum, long double sum_sq)
 {
     if (cnt <= 1)
-        return 0;
+        return 0.;
     else
         return sqrtl(fmax(SD_MIN, (sum_sq - (square(sum) / (long double)cnt)) / (long double)cnt ));
 }
@@ -348,7 +348,7 @@ double calc_sd_raw(size_t cnt, long double sum, long double sum_sq)
 long double calc_sd_raw_l(size_t cnt, long double sum, long double sum_sq)
 {
     if (cnt <= 1)
-        return 0;
+        return 0.;
     else
         return sqrtl(fmaxl(SD_MIN, (sum_sq - (square(sum) / (long double)cnt)) / (long double)cnt ));
 }
@@ -460,7 +460,7 @@ void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_rep
             std::iota(ix_all.begin(), ix_all.end(), (size_t)0);
 
             /* If the number of sampled elements is large, do a full shuffle, enjoy simd-instructs when copying over */
-            if (ntake >= (nrows * 3/4))
+            if (ntake >= ((nrows * 3)/4))
             {
                 std::shuffle(ix_all.begin(), ix_all.end(), rnd_generator);
                 ix_arr.assign(ix_all.begin(), ix_all.begin() + ntake);
@@ -488,7 +488,7 @@ void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_rep
             size_t candidate;
 
             /* if the sample size is relatively large, use a temporary boolean vector */
-            if ((ntake / nrows) > (1 / 20))
+            if (((long double)ntake / (long double)nrows) > (1. / 20.))
             {
 
                 if (!is_repeated.size())
