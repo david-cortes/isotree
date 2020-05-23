@@ -57,7 +57,7 @@ cast.df.alike <- function(df) {
 }
 
 get.types.dmat <- function() {
-    return(c("matrix", "dgTMatrix"))
+    return(c("matrix"))
 }
 
 get.types.spmat <- function(allow_csr = FALSE, allow_csc = TRUE) {
@@ -117,8 +117,8 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL) {
         } else {
             ### From package 'SparseM'
             outp$Xc         <-  as.numeric(df@ra)
-            outp$Xc_ind     <-  as.integer(df@ia - 1)
-            outp$Xc_indptr  <-  as.integer(df@ja - 1)
+            outp$Xc_ind     <-  as.integer(df@ia - 1L)
+            outp$Xc_indptr  <-  as.integer(df@ja - 1L)
         }
         
         return(outp)
@@ -151,7 +151,7 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL) {
             outp$X_cat      <-  as.data.frame(lapply(df[, is_cat, drop = FALSE], factor))
             outp$cat_levs   <-  lapply(outp$X_cat, levels)
             outp$ncat       <-  sapply(outp$cat_levs, NROW)
-            outp$X_cat      <-  as.data.frame(lapply(outp$X_cat, function(x) ifelse(is.na(x), -1, as.integer(x) - 1)))
+            outp$X_cat      <-  as.data.frame(lapply(outp$X_cat, function(x) ifelse(is.na(x), -1L, as.integer(x) - 1L)))
             outp$X_cat      <-  unname(as.integer(as.matrix(outp$X_cat)))
         }
         
@@ -220,7 +220,7 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
                 outp$X_cat <- as.data.frame(mapply(function(cl, levs) factor(cl, levs),
                                                    outp$X_cat, metadata$cat_levs,
                                                    SIMPLIFY = FALSE, USE.NAMES = FALSE))
-                outp$X_cat <- as.data.frame(lapply(outp$X_cat, function(x) ifelse(is.na(x), -1, as.integer(x) - 1)))
+                outp$X_cat <- as.data.frame(lapply(outp$X_cat, function(x) ifelse(is.na(x), -1L, as.integer(x) - 1L)))
                 outp$X_cat <- unname(as.integer(as.matrix(outp$X_cat)))
             }
             
@@ -243,12 +243,12 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
                 ### From package 'SparseM'
                 if ("matrix.csc" %in% class(df)) {
                     outp$Xc         <-  as.numeric(df@ra)
-                    outp$Xc_ind     <-  as.integer(df@ia - 1)
-                    outp$Xc_indptr  <-  as.integer(df@ja - 1)
+                    outp$Xc_ind     <-  as.integer(df@ia - 1L)
+                    outp$Xc_indptr  <-  as.integer(df@ja - 1L)
                 } else {
                     outp$Xr         <-  as.numeric(df@ra)
-                    outp$Xr_ind     <-  as.integer(df@ia - 1)
-                    outp$Xr_indptr  <-  as.integer(df@ja - 1)
+                    outp$Xr_ind     <-  as.integer(df@ia - 1L)
+                    outp$Xr_indptr  <-  as.integer(df@ja - 1L)
                 }
             }
         }
@@ -273,7 +273,7 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, df, model) {
         df_num <- as.data.frame(matrix(imputed_num, nrow = NROW(df)))
         names(df_num) <- model$metadata$cols_num
         
-        df_cat <- as.data.frame(matrix(ifelse(imputed_cat < 0, NA, imputed_cat) + 1, nrow = NROW(df)))
+        df_cat <- as.data.frame(matrix(ifelse(imputed_cat < 0, NA_integer_, imputed_cat) + 1L, nrow = NROW(df)))
         names(df_cat) <- model$metadata$cols_cat
         df_cat <- as.data.frame(mapply(function(x, levs) factor(x, labels = levs),
                                        df_cat, model$metadata$cat_levs,

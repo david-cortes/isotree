@@ -753,7 +753,7 @@ predict.isolation_forest <- function(object, newdata, type = "score", square_mat
     
     if (type %in% c("dist", "avg_sep")) {
         if (NROW(newdata) == 1) stop("Need more than 1 data point for distance predictions.")
-        dist_tmat <- vector("numeric", (pdata$nrows * (pdata$nrows - 1)) / 2)
+        dist_tmat <- vector("numeric", (pdata$nrows * (pdata$nrows - 1L)) / 2L)
         if (square_mat) dist_dmat <- vector("numeric", pdata$nrows ^ 2)
     } else {
         score_array <- vector("numeric", pdata$nrows)
@@ -767,7 +767,7 @@ predict.isolation_forest <- function(object, newdata, type = "score", square_mat
                     pdata$Xr, pdata$Xr_ind, pdata$Xr_indptr,
                     pdata$nrows, object$nthreads, type == "score")
         if (type == "tree_num")
-            return(list(score = score_array, tree_num = matrix(tree_num + 1, nrow = pdata$nrows, ncol = object$params$ntrees)))
+            return(list(score = score_array, tree_num = matrix(tree_num + 1L, nrow = pdata$nrows, ncol = object$params$ntrees)))
         else
             return(score_array)
     } else if (type != "impute") {
@@ -936,7 +936,7 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
                                              model$params$depth_imp, model$params$weigh_imp_rows,
                                              model$params$all_perm, model$random_seed)
     
-    model_new$params$ntrees <- model_new$params$ntrees + 1
+    model_new$params$ntrees <- model_new$params$ntrees + 1L
     eval.parent(substitute(model <- model_new))
     return(invisible(NULL))
 }
