@@ -55,6 +55,18 @@ There's already many available implementations of isolation forests for both Pyt
 pip install isotree
 ```
 
+**Note for macOS users:** on macOS, the Python version of this package will compile **without** multi-threading capabilities. This is due to default apple's redistribution of `clang` not providing OpenMP modules, and aliasing it to `gcc` which causes confusions in build scripts. If you have a non-apple version of `clang` with the OpenMP modules, or if you have `gcc` installed, you can compile this package with multi-threading enabled by passing argument `enable-omp` to `setup.py` - e.g.:
+```
+git clone https://www.github.com/david-cortes/isotree.git
+cd isotree
+python setup.py install enable-omp
+```
+Alternatively, you can define an environmental variable `ENABLE_OMP=1`, and then install the usual way from `pip` - e.g.:
+```
+export ENABLE_OMP=1
+pip install isotree
+```
+
 * R:
 ```r
 install.packages("isotree")
