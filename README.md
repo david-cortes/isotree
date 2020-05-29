@@ -125,10 +125,16 @@ cat("Point with highest outlier score: ",
 	X[which.max(pred), ], "\n")
 ```
 
+* C++:
+
+See file [isotree_cpp_ex.cpp](https://github.com/david-cortes/isotree/blob/master/example/isotree_cpp_ex.cpp).
+
+
 # Examples
 
 * Python: example notebook [here](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb), (also example as imputer in sklearn pipeline [here](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb)).
 * R: examples available in the documentation (`help(isotree::isolation.forest)`, [link to CRAN](https://cran.r-project.org/web/packages/isotree/index.html)).
+* C++: see short example in the section above.
 
 # Documentation
 

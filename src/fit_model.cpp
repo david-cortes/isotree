@@ -121,8 +121,9 @@
 * - sample_size
 *       Sample size of the data sub-samples with which each binary tree will be built. When a terminal node has more than
 *       1 observation, the remaining isolation depth for them is estimated assuming the data and splits are both uniformly
-*       random (separation depth follows a similar process with expected value calculated as in [6]). Recommended value
-*       in [1], [2], [3] is 256, while the default value in the author's code in [5] is 'nrows' here.
+*       random (separation depth follows a similar process with expected value calculated as in [6]). If passing zero,
+*       will set it to 'nrows'. Recommended value in [1], [2], [3] is 256, while the default value in the author's code
+*       in [5] is 'nrows' here.
 * - ntrees
 *       Number of binary trees to build for the model. Recommended value in [1] is 100, while the default value in the
 *       author's code in [5] is 10.
@@ -325,7 +326,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 
     bool calc_dist = tmat != NULL;
 
-    if (calc_dist)
+    if (calc_dist || sample_size == 0)
         sample_size = nrows;
 
     /* put data in structs to shorten function calls */
