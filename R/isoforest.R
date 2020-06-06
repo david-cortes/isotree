@@ -660,7 +660,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
         if (output_imputations) {
             outp$imputed   <-  reconstruct.from.imp(cpp_outputs$imputed_num,
                                                     cpp_outputs$imputed_cat,
-                                                    df, this)
+                                                    df, this, trans_CSC = FALSE)
         }
         return(outp)
     }
@@ -787,7 +787,8 @@ predict.isolation_forest <- function(object, newdata, type = "score", square_mat
                           pdata$nrows, object$nthreads)
         return(reconstruct.from.imp(imp$X_num,
                                     imp$X_cat,
-                                    newdata, object))
+                                    newdata, object,
+                                    trans_CSC = TRUE))
     }
 }
 

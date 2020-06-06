@@ -61,7 +61,7 @@ get.types.dmat <- function() {
 }
 
 get.types.spmat <- function(allow_csr = FALSE, allow_csc = TRUE) {
-    outp <- c("dgCMatrix")
+    outp <- c("dgCMatrix") ### if no CSC, will transpose it later
     if (allow_csc) outp <- c(outp, "matrix.csc")
     if (allow_csr) outp <- c(outp, "matrix.csr")
     return(outp)
@@ -104,10 +104,10 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL) {
                  )
     
     ### Dense matrix
-    if ( max(class(df) %in% dmatrix_types) ) { outp$X_num <- unname(as.numeric(df)) ; return(outp) }
+    if ( any(class(df) %in% dmatrix_types) ) { outp$X_num <- unname(as.numeric(df)) ; return(outp) }
     
     ### Sparse matrix
-    if ( max(class(df) %in% spmatrix_types) ) {
+    if ( any(class(df) %in% spmatrix_types) ) {
         
         if ("dgCMatrix" %in% class(df)) {
             ### From package 'Matrix'
@@ -125,7 +125,7 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL) {
     }
     
     ### Data Frame
-    if ( max(class(df) %in% "data.frame") ) {
+    if ( "data.frame" %in% class(df) ) {
         dtypes_num  <-  c("numeric",   "integer",  "Date",  "POSIXct")
         dtypes_cat  <-  c("character", "factor",   "logical")
         supported_col_types <- c(dtypes_num, dtypes_cat)
@@ -138,14 +138,14 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL) {
         }
         
         if (any(df_coltypes %in% dtypes_num)) {
-            is_num          <-  unname(as.logical(sapply(df, function(x) max(class(x) %in% dtypes_num))))
+            is_num          <-  unname(as.logical(sapply(df, function(x) any(class(x) %in% dtypes_num))))
             outp$cols_num   <-  names(df)[is_num]
             outp$ncols_num  <-  as.integer(sum(is_num))
             outp$X_num      <-  unname(as.numeric(as.matrix(as.data.frame(lapply(df[, is_num, drop = FALSE], as.numeric)))))
         } else { outp$ncols_num <- as.integer(0) }
         
         if (any(df_coltypes %in% dtypes_cat)) {
-            is_cat          <-  unname(as.logical(sapply(df, function(x) max(class(x) %in% dtypes_cat))))
+            is_cat          <-  unname(as.logical(sapply(df, function(x) any(class(x) %in% dtypes_cat))))
             outp$cols_cat   <-  names(df)[is_cat]
             outp$ncols_cat  <-  as.integer(sum(is_cat))
             outp$X_cat      <-  as.data.frame(lapply(df[, is_cat, drop = FALSE], factor))
@@ -236,9 +236,16 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
         } else {
             if ("dgCMatrix" %in% class(df)) {
                 ### From package 'Matrix'
-                outp$Xc         <-  as.numeric(df@x)
-                outp$Xc_ind     <-  as.integer(df@i)
-                outp$Xc_indptr  <-  as.integer(df@p)
+                if (allow_csc) {
+                    outp$Xc         <-  as.numeric(df@x)
+                    outp$Xc_ind     <-  as.integer(df@i)
+                    outp$Xc_indptr  <-  as.integer(df@p)
+                } else {
+                    df <- Matrix::t(df)
+                    outp$Xr         <-  as.numeric(df@x)
+                    outp$Xr_ind     <-  as.integer(df@i)
+                    outp$Xr_indptr  <-  as.integer(df@p)
+                }
             } else {
                 ### From package 'SparseM'
                 if ("matrix.csc" %in% class(df)) {
@@ -258,13 +265,15 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
     return(outp)
 }
 
-reconstruct.from.imp <- function(imputed_num, imputed_cat, df, model) {
+reconstruct.from.imp <- function(imputed_num, imputed_cat, df, model, trans_CSC=FALSE) {
     
     if ("dgCMatrix" %in% class(df)) {
         outp     <-  df
+        if (trans_CSC) outp <- Matrix::t(outp)
         outp@x   <-  imputed_num
+        if (trans_CSC) outp <- Matrix::t(outp)
         return(outp)
-    } else if ("matrix.csc" %in% class(df)) {
+    } else if ( any(class(df) %in% ("matrix.csr", "matrix.csc")) ) {
         outp     <-  df
         outp@ra  <-  imputed_num
     } else if (!("data.frame" %in% class(df))) {
