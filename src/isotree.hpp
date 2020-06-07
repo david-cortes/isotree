@@ -91,23 +91,12 @@
 #define square(x) ((x) * (x))
 /* https://stackoverflow.com/questions/2249731/how-do-i-get-bit-by-bit-data-from-an-integer-value-in-c */
 #define extract_bit(number, bit) (((number) >> (bit)) & 1)
-
-#ifndef isnan
-    #ifdef _isnan
-        #define isnan _isnan
-    #else
-        #define isnan(x) ( (x) != (x) )
-    #endif
-#endif
-
 #ifndef isinf
-    #ifdef _finite
-        #define isinf(x) (!_finite(x))
-    #else
-        #define isinf(x) ( (x) >= HUGE_VAL || (x) <= -HUGE_VAL )
-    #endif
+    #define isinf std::isinf
 #endif
-
+#ifndef isnan
+    #define isnan std::isnan
+#endif
 #define is_na_or_inf(x) (isnan(x) || isinf(x))
 
 
