@@ -8,6 +8,17 @@
 g++ -o test isotree_cpp_ex.cpp $(ls ../src | grep ^[^R] | grep cpp | perl \
    -pe 's/^(\w)/..\/src\/\1/') -I../src -std=c++11 -O2
    Then run with './test'
+
+   Alternatively, might instead build the package through the cmake system:
+     mkdir build
+     cd build
+     cmake ..
+     make
+     sudo make install
+     sudo ldconfig
+  Then compile this single file and link to the shared library:
+    g++ -o test isotree_cpp_ex.cpp -lisotree
+  Then run with './test'
 */
 
 int which_max(std::vector<double> &v)

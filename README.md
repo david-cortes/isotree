@@ -72,7 +72,21 @@ pip install isotree
 install.packages("isotree")
 ```
 
-* C++: package doesn't have a build system, nor a main function that can produce an executable, but can be built as a shared object and wrapped into other languages with any C++11-compliant compiler (`-std=c++11` in most compilers, `/std:c++14` in MSVC). For parallelization, needs OpenMP linkage (`-fopenmp` in most compilers, `/openmp` in MSVC). Package should not be built with optimization higher than `O3` (i.e. don't use `-Ofast`). Needs linkage to the math library, which should be enabled by default in most C++ compilers, but otherwise would require `-lm` argument. No external dependencies are required.
+* C++:
+```
+git clone https://www.github.com/david-cortes/isotree.git
+cd isotree
+mkdir build
+cd build
+cmake ..
+make
+
+### for a system-wide install in linux
+sudo make install
+sudo ldconfig
+```
+
+(Will build as a shared object - linkage is then done with `-lisotree`)
 
 # Sample usage
 
@@ -140,7 +154,7 @@ See file [isotree_cpp_ex.cpp](https://github.com/david-cortes/isotree/blob/maste
 
 * Python: documentation is available at [ReadTheDocs](http://isotree.readthedocs.io/en/latest/).
 * R: documentation is available internally in the package (e.g. `help(isolation.forest)`) and in [CRAN](https://cran.r-project.org/web/packages/isotree/index.html).
-* C++: documentation is available in the source files (not the header).
+* C++: documentation is available in the public header (`include/isotree.hpp`) and in the source files.
 
 # Known issues
 

@@ -17,8 +17,10 @@ global-exclude *.a
 global-exclude *.exe
 global-exclude *.dll
 global-exclude *.dynlib
+exclude include/*
 prune man
 prune R
 prune docs
 prune example
 prune image
+prune include

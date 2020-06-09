@@ -50,7 +50,7 @@
 
 /* TODO: this file is a complete mess, needs a refactor from scratch along with the data structs */
 
-/* Predict outlier score, average depth, or terminal node numbers
+/* Impute missing values in new data
 * 
 * Parameters
 * ==========
