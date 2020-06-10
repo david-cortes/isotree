@@ -226,6 +226,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// append_trees_from_other
+void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr, SEXP imp_R_ptr, SEXP oimp_R_ptr, bool is_extended);
+RcppExport SEXP _isotree_append_trees_from_other(SEXP model_R_ptrSEXP, SEXP other_R_ptrSEXP, SEXP imp_R_ptrSEXP, SEXP oimp_R_ptrSEXP, SEXP is_extendedSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type other_R_ptr(other_R_ptrSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type imp_R_ptr(imp_R_ptrSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type oimp_R_ptr(oimp_R_ptrSEXP);
+    Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
+    append_trees_from_other(model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, is_extended);
+    return R_NilValue;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_isotree_deserialize_IsoForest", (DL_FUNC) &_isotree_deserialize_IsoForest, 1},
@@ -238,6 +252,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_dist_iso", (DL_FUNC) &_isotree_dist_iso, 14},
     {"_isotree_impute_iso", (DL_FUNC) &_isotree_impute_iso, 10},
     {"_isotree_get_n_nodes", (DL_FUNC) &_isotree_get_n_nodes, 3},
+    {"_isotree_append_trees_from_other", (DL_FUNC) &_isotree_append_trees_from_other, 5},
     {NULL, NULL, 0}
 };
 

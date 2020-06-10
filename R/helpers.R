@@ -273,7 +273,7 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, df, model, trans_CSC=
         outp@x   <-  imputed_num
         if (trans_CSC) outp <- Matrix::t(outp)
         return(outp)
-    } else if ( any(class(df) %in% ("matrix.csr", "matrix.csc")) ) {
+    } else if ( any(class(df) %in% c("matrix.csr", "matrix.csc")) ) {
         outp     <-  df
         outp@ra  <-  imputed_num
     } else if (!("data.frame" %in% class(df))) {

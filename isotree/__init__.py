@@ -397,6 +397,9 @@ class IsolationForest:
         self.assume_full_distr       =  bool(assume_full_distr)
         self.build_imputer           =  bool(build_imputer)
 
+        self._reset_obj()
+
+    def _reset_obj(self):
         self.cols_numeric_  =  np.array([])
         self.cols_categ_    =  np.array([])
         self._cat_mapping   =  list()
@@ -404,7 +407,7 @@ class IsolationForest:
         self._ncols_categ   =  0
         self.is_fitted_     =  False
         self._cpp_obj       =  isoforest_cpp_obj()
-        self._is_extended_  =  ndim > 1
+        self._is_extended_  =  self.ndim > 1
 
     def __str__(self):
         msg = ""
@@ -468,6 +471,7 @@ class IsolationForest:
             raise ValueError("Sampling weights are only supported when using sub-samples for each tree.")
         if column_weights is not None and self.weigh_by_kurtosis:
             raise ValueError("Cannot pass column weights when weighting columns by kurtosis.")
+        self._reset_obj()
         X_num, X_cat, ncat, sample_weights, column_weights, nrows = self._process_data(X, sample_weights, column_weights)
 
         if self.sample_size is None:
@@ -613,6 +617,7 @@ class IsolationForest:
                 warnings.warn(msg)
                 self.build_imputer = True
 
+        self._reset_obj()
         X_num, X_cat, ncat, sample_weights, column_weights, nrows = self._process_data(X, None, column_weights)
 
         if (output_imputed) and (issparse(X_num)):
@@ -1196,3 +1201,48 @@ class IsolationForest:
         n_nodes, n_terminal = self._cpp_obj.get_n_nodes(ctypes.c_bool(self._is_extended_).value,
                                                         ctypes.c_int(self.nthreads).value)
         return n_nodes, n_terminal
+
+    def append_trees(self, other):
+        """
+        Appends isolation trees from another Isolation Forest model into this one
+
+        This function is intended for merging models **that use the same hyperparameters** but
+        were fitted to different subsets of data.
+        In order for this work, both models must have been fit to data in the same format -
+        that is, same number of columns, same order of the columns, and same types. This will
+        only work for numeric types - if the input data contains categorical columns, this is
+        likely to fail as the categories are internally re-indexed, and will give wrong results
+        unless both have the exact same factors appearing in the same order in the data (you can
+        check this through the results from ``pd.factorize``, which this library uses internally).
+        Using ``pd.Categorical`` with the same codes will **not** make it work.
+
+        Note
+        ----
+        This function will not perform any checks on the inputs, and passing two incompatible
+        models (e.g. fit to different numbers of columns) will result in wrong results and
+        potentially crashing the Python process when using it.
+
+        Parameters
+        ----------
+        other : IsolationForest
+            Another Isolation Forest model from which trees will be appended to this model.
+
+        Returns
+        -------
+        self : obj
+            This object.
+        """
+        assert self.is_fitted_
+        assert other.is_fitted_
+        assert isinstance(other, IsolationForest)
+
+        if (self._is_extended_) != (other._is_extended_):
+            raise ValueError("Cannot mix extended and regular isolation forest models (ndim=1).")
+
+        if self.cols_categ_.shape[0]:
+            warnings.warn("Merging models with categorical features might give wrong results.")
+
+        self._cpp_obj.append_trees_from_other(other._cpp_obj, self._is_extended_)
+        self.ntrees += other.ntrees
+
+        return self

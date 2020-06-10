@@ -1046,3 +1046,46 @@ get.num.nodes <- function(model)  {
 
     return(get_n_nodes(model$cpp_obj$ptr, model$params$ndim > 1, model$nthreads))
 }
+
+#' @title Append isolation trees from one model into another
+#' @description This function is intended for merging models \bold{that use the same hyperparameters} but
+#' were fitted to different subsets of data.
+#' In order for this work, both models must have been fit to data in the same format - 
+#' that is, same number of columns, same order of the columns, and same types. This will
+#' only work for numeric types - if the input data contains categorical columns, this is
+#' likely to fail as the categories are internally re-indexed, and will give wrong results
+#' unless both have the exact same factors appearing in the same order in the data (you can
+#' check this through the results from `factor(data$col)`, which this library uses internally).
+#' Using `factor` types with the same levels will \bold{not} make it work.
+#' 
+#' Note that this function will not perform any checks on the inputs, and passing two incompatible
+#' models (e.g. fit to different numbers of columns) will result in wrong results and
+#' potentially crashing the R process when using it.
+#' 
+#' \bold{Important:} the result of this function must be reassigned to `model` in order for it
+#' to work properly - e.g. `model <- append.trees(model, other)`.
+#' @param model An Isolation Forest model (as returned by function \link{isolation.forest})
+#' to which trees from `other` (another Isolation Forest model) will be appended into.
+#' @param other Another Isolation Forest model, from which trees will be appended into
+#' `model`.
+#' @return The updated `model` object, to which `model` needs to be reassigned
+#' (i.e. you need to use it as follows: `model <- append.trees(model, other)`).
+#' @export
+append.trees <- function(model, other) {
+    if (!("isolation_forest" %in% class(model)) || !("isolation_forest" %in% class(other))) {
+        stop("'model' and 'other' must be isolation forest models.")
+    }
+    if ((model$params$ndim == 1) != (other$params$ndim == 1)) {
+        stop("Cannot mix extended and regular isolation forest models (ndim=1).")
+    }
+    if (model$metadata$ncols_cat) {
+        warning("Merging models with categorical features might give wrong results.")
+    }
+    
+    append_trees_from_other(model$cpp_obj$ptr,    other$cpp_obj$ptr,
+                            model$cpp_obj$imputer_ptr,  other$cpp_obj$imputer_ptr,
+                            model$params$ndim > 1)
+    
+    model$params$ntrees <- model$params$ntrees + other$params$ntrees
+    return(model)
+}

@@ -634,3 +634,17 @@ cdef class isoforest_cpp_obj:
         else:
             get_num_nodes(self.ext_isoforest, &n_nodes[0], &n_terminal[0], nthreads)
         return n_nodes, n_terminal
+
+    def append_trees_from_other(self, isoforest_cpp_obj other, bool_t is_extended):
+        if is_extended:
+            self.ext_isoforest.hplanes.insert(self.ext_isoforest.hplanes.end(),
+                                              other.ext_isoforest.hplanes.begin(),
+                                              other.ext_isoforest.hplanes.end())
+        else:
+            self.isoforest.trees.insert(self.isoforest.trees.end(),
+                                        other.isoforest.trees.begin(),
+                                        other.isoforest.trees.end())
+        if self.imputer.imputer_tree.size() > 0:
+            self.imputer.imputer_tree.insert(self.imputer.imputer_tree.end(),
+                                             other.imputer.imputer_tree.begin(),
+                                             other.imputer.imputer_tree.end())

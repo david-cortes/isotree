@@ -704,3 +704,31 @@ Rcpp::List get_n_nodes(SEXP model_R_ptr, bool is_extended, int nthreads)
                 Rcpp::_["terminal"] = n_terminal
             );
 }
+
+// [[Rcpp::export]]
+void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
+                             SEXP imp_R_ptr, SEXP oimp_R_ptr,
+                             bool is_extended)
+{
+    if (is_extended) {
+        ExtIsoForest* ext_model_ptr = static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        ExtIsoForest* ext_other_ptr = static_cast<ExtIsoForest*>(R_ExternalPtrAddr(other_R_ptr));
+        ext_model_ptr->hplanes.insert(ext_model_ptr->hplanes.end(),
+                                      ext_other_ptr->hplanes.begin(),
+                                      ext_other_ptr->hplanes.end());
+    } else {
+        IsoForest* model_ptr = static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        IsoForest* other_ptr = static_cast<IsoForest*>(R_ExternalPtrAddr(other_R_ptr));
+        model_ptr->trees.insert(model_ptr->trees.end(),
+                                other_ptr->trees.begin(),
+                                other_ptr->trees.end());
+    }
+
+    Imputer* imputer_ptr  = static_cast<Imputer*>(R_ExternalPtrAddr(imp_R_ptr));
+    Imputer* oimputer_ptr = static_cast<Imputer*>(R_ExternalPtrAddr(oimp_R_ptr));
+
+    if (imputer_ptr != NULL && oimputer_ptr != NULL)
+        imputer_ptr->imputer_tree.insert(imputer_ptr->imputer_tree.end(),
+                                         oimputer_ptr->imputer_tree.begin(),
+                                         oimputer_ptr->imputer_tree.end());
+}
