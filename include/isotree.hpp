@@ -922,4 +922,59 @@ void impute_missing_values(double numeric_data[], int categ_data[],
                            IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                            Imputer &imputer);
 
+/* Append trees from one model into another
+* 
+* Parameters
+* ==========
+* - model (in, out)
+*       Pointer to isolation forest model wich has already been fit through 'fit_iforest'.
+*       The trees from 'other' will be merged into this (will be at the end of vector member 'trees').
+*       Both 'model' and 'other' must have been fit with the same hyperparameters
+*       in order for this merge to work correctly - at the very least, should have
+*       the same 'missing_action', 'cat_split_type', 'new_cat_action'.
+*       Should only pass one of 'model'+'other' or 'ext_model'+'ext_other'.
+*       Pass NULL if this is not to be used.
+* - other
+*       Pointer to isolation forest model which has already been fit through 'fit_iforest'.
+*       The trees from this object will be added into 'model' (this object will not be modified).
+*       Both 'model' and 'other' must have been fit with the same hyperparameters
+*       in order for this merge to work correctly - at the very least, should have
+*       the same 'missing_action', 'cat_split_type', 'new_cat_action'.
+*       Should only pass one of 'model'+'other' or 'ext_model'+'ext_other'.
+*       Pass NULL if this is not to be used.
+* - ext_model (in, out)
+*       Pointer to extended isolation forest model which has already been fit through 'fit_iforest'.
+*       The trees/hyperplanes from 'ext_other' will be merged into this (will be at the end of vector member 'hplanes').
+*       Both 'ext_model' and 'ext_other' must have been fit with the same hyperparameters
+*       in order for this merge to work correctly - at the very least, should have
+*       the same 'missing_action', 'cat_split_type', 'new_cat_action'.
+*       Should only pass one of 'model'+'other' or 'ext_model'+'ext_other'.
+*       Pass NULL if this is not to be used.
+* - ext_other
+*       Pointer to extended isolation forest model which has already been fit through 'fit_iforest'.
+*       The trees/hyperplanes from this object will be added into 'ext_model' (this object will not be modified).
+*       Both 'ext_model' and 'ext_other' must have been fit with the same hyperparameters
+*       in order for this merge to work correctly - at the very least, should have
+*       the same 'missing_action', 'cat_split_type', 'new_cat_action'.
+*       Should only pass one of 'model'+'other' or 'ext_model'+'ext_other'.
+*       Pass NULL if this is not to be used.
+* - imputer (in, out)
+*       Pointer to imputation object which has already been fit through 'fit_iforest' along with
+*       either 'model' or 'ext_model' in the same call to 'fit_iforest'.
+*       The imputation nodes from 'iother' will be merged into this (will be at the end of vector member 'imputer_tree').
+*       Hyperparameters related to imputation might differ between 'imputer' and 'iother' ('imputer' will preserve its
+*       hyperparameters after the merge).
+*       Pass NULL if this is not to be used.
+* - iother
+*       Pointer to imputation object which has already been fit through 'fit_iforest' along with
+*       either 'model' or 'ext_model' in the same call to 'fit_iforest'.
+*       The imputation nodes from this object will be added into 'imputer' (this object will not be modified).
+*       Hyperparameters related to imputation might differ between 'imputer' and 'iother' ('imputer' will preserve its
+*       hyperparameters after the merge).
+*       Pass NULL if this is not to be used.
+*/
+void merge_models(IsoForest*     model,      IsoForest*     other,
+                  ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
+                  Imputer*       imputer,    Imputer*       iother);
+
 #endif /* #ifndef ISOTREE_H */

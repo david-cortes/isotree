@@ -624,7 +624,6 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
             depth_imp = depth_imp, weigh_imp_rows = weigh_imp_rows
         ),
         metadata  = list(
-            nrows      =  pdata$nrows,
             ncols_num  =  pdata$ncols_num,
             ncols_cat  =  pdata$ncols_cat,
             cols_num   =  pdata$cols_num,
@@ -1070,6 +1069,35 @@ get.num.nodes <- function(model)  {
 #' `model`.
 #' @return The updated `model` object, to which `model` needs to be reassigned
 #' (i.e. you need to use it as follows: `model <- append.trees(model, other)`).
+#' @examples 
+#' library(isotree)
+#' 
+#' ### Generate two random sets of data
+#' m <- 100
+#' n <- 2
+#' set.seed(1)
+#' X1 <- matrix(rnorm(m*n), nrow=m)
+#' X2 <- matrix(rnorm(m*n), nrow=m)
+#' 
+#' ### Fit a model to each dataset
+#' iso1 <- isolation.forest(X1, ntrees=3, nthreads=1)
+#' iso2 <- isolation.forest(X2, ntrees=2, nthreads=1)
+#' 
+#' ### Check the terminal nodes for some observations
+#' nodes1 <- predict(iso1, head(X1, 3), type="tree_num")
+#' nodes2 <- predict(iso2, head(X1, 3), type="tree_num")
+#' 
+#' ### Append the trees from 'iso1' into 'iso1'
+#' iso1 <- append.trees(iso1, iso2)
+#' 
+#' ### Check that it predicts the same as the two models
+#' nodes.comb <- predict(iso1, head(X1, 3), type="tree_num")
+#' nodes.comb$tree_num == cbind(nodes1$tree_num, nodes2$tree_num)
+#' 
+#' ### The new predicted scores will be a weighted average
+#' ### (Be aware that, due to round-off, it will not match with '==')
+#' nodes.comb$score
+#' (3*nodes1$score + 2*nodes2$score) / 5
 #' @export
 append.trees <- function(model, other) {
     if (!("isolation_forest" %in% class(model)) || !("isolation_forest" %in% class(other))) {
@@ -1082,9 +1110,13 @@ append.trees <- function(model, other) {
         warning("Merging models with categorical features might give wrong results.")
     }
     
-    append_trees_from_other(model$cpp_obj$ptr,    other$cpp_obj$ptr,
-                            model$cpp_obj$imputer_ptr,  other$cpp_obj$imputer_ptr,
-                            model$params$ndim > 1)
+    serialized <- append_trees_from_other(model$cpp_obj$ptr,      other$cpp_obj$ptr,
+                                          model$cpp_obj$imp_ptr,  other$cpp_obj$imp_ptr,
+                                          model$params$ndim > 1)
+    model$cpp_obj$serialized <- serialized$serialized
+    if ("imp_ser" %in% names(model)) {
+        model$cpp_obj$imp_ser <- serialized$imp_ser
+    }
     
     model$params$ntrees <- model$params$ntrees + other$params$ntrees
     return(model)

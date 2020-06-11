@@ -35,3 +35,33 @@ potentially crashing the R process when using it.
 \bold{Important:} the result of this function must be reassigned to `model` in order for it
 to work properly - e.g. `model <- append.trees(model, other)`.
 }
+\examples{
+library(isotree)
+
+### Generate two random sets of data
+m <- 100
+n <- 2
+set.seed(1)
+X1 <- matrix(rnorm(m*n), nrow=m)
+X2 <- matrix(rnorm(m*n), nrow=m)
+
+### Fit a model to each dataset
+iso1 <- isolation.forest(X1, ntrees=3, nthreads=1)
+iso2 <- isolation.forest(X2, ntrees=2, nthreads=1)
+
+### Check the terminal nodes for some observations
+nodes1 <- predict(iso1, head(X1, 3), type="tree_num")
+nodes2 <- predict(iso2, head(X1, 3), type="tree_num")
+
+### Append the trees from 'iso1' into 'iso1'
+iso1 <- append.trees(iso1, iso2)
+
+### Check that it predicts the same as the two models
+nodes.comb <- predict(iso1, head(X1, 3), type="tree_num")
+nodes.comb$tree_num == cbind(nodes1$tree_num, nodes2$tree_num)
+
+### The new predicted scores will be a weighted average
+### (Be aware that, due to round-off, it will not match with '==')
+nodes.comb$score
+(3*nodes1$score + 2*nodes2$score) / 5
+}

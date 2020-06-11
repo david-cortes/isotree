@@ -220,6 +220,10 @@ cdef extern from "isotree.hpp":
                  bool_t  all_perm, vector[ImputeNode] *impute_nodes, size_t min_imp_obs,
                  uint64_t random_seed)
 
+    void merge_models(IsoForest*     model,      IsoForest*     other,
+                      ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
+                      Imputer*       imputer,    Imputer*       iother)
+
     void dealloc_IsoForest(IsoForest &model_outputs)
     void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext)
     void dealloc_Imputer(Imputer &imputer)
@@ -636,15 +640,25 @@ cdef class isoforest_cpp_obj:
         return n_nodes, n_terminal
 
     def append_trees_from_other(self, isoforest_cpp_obj other, bool_t is_extended):
+        cdef IsoForest *ptr_model = NULL
+        cdef IsoForest *ptr_other = NULL
+        cdef ExtIsoForest *ptr_ext_model = NULL
+        cdef ExtIsoForest *ptr_ext_other = NULL
+        cdef Imputer *ptr_imp = NULL
+        cdef Imputer *prt_iother = NULL
+
         if is_extended:
-            self.ext_isoforest.hplanes.insert(self.ext_isoforest.hplanes.end(),
-                                              other.ext_isoforest.hplanes.begin(),
-                                              other.ext_isoforest.hplanes.end())
+            ptr_ext_model = &self.ext_isoforest
+            ptr_ext_other = &other.ext_isoforest
         else:
-            self.isoforest.trees.insert(self.isoforest.trees.end(),
-                                        other.isoforest.trees.begin(),
-                                        other.isoforest.trees.end())
-        if self.imputer.imputer_tree.size() > 0:
-            self.imputer.imputer_tree.insert(self.imputer.imputer_tree.end(),
-                                             other.imputer.imputer_tree.begin(),
-                                             other.imputer.imputer_tree.end())
+            ptr_model = &self.isoforest
+            ptr_other = &other.isoforest
+
+        if self.imputer.imputer_tree.size():
+            ptr_imp = &self.imputer
+        if other.imputer.imputer_tree.size():
+            prt_iother = &other.imputer
+
+        merge_models(ptr_model, ptr_other,
+                     ptr_ext_model, ptr_ext_other,
+                     ptr_imp, prt_iother)

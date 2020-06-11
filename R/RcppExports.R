@@ -42,6 +42,6 @@ get_n_nodes <- function(model_R_ptr, is_extended, nthreads) {
 }
 
 append_trees_from_other <- function(model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, is_extended) {
-    invisible(.Call(`_isotree_append_trees_from_other`, model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, is_extended))
+    .Call(`_isotree_append_trees_from_other`, model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, is_extended)
 }
 

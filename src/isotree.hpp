@@ -861,6 +861,10 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                         int &chosen_cat, char *restrict split_categ, char *restrict buffer_split,
                         GainCriterion criterion, double min_gain, bool all_perm, MissingAction missing_action, CategSplit cat_split_type);
 
+/* merge_models.cpp */
+void merge_models(IsoForest*     model,      IsoForest*     other,
+                  ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
+                  Imputer*       imputer,    Imputer*       iother);
 /* dealloc.cpp */
 void dealloc_IsoForest(IsoForest &model_outputs);
 void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext);

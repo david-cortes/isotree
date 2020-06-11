@@ -227,17 +227,18 @@ BEGIN_RCPP
 END_RCPP
 }
 // append_trees_from_other
-void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr, SEXP imp_R_ptr, SEXP oimp_R_ptr, bool is_extended);
+Rcpp::List append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr, SEXP imp_R_ptr, SEXP oimp_R_ptr, bool is_extended);
 RcppExport SEXP _isotree_append_trees_from_other(SEXP model_R_ptrSEXP, SEXP other_R_ptrSEXP, SEXP imp_R_ptrSEXP, SEXP oimp_R_ptrSEXP, SEXP is_extendedSEXP) {
 BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
     Rcpp::traits::input_parameter< SEXP >::type other_R_ptr(other_R_ptrSEXP);
     Rcpp::traits::input_parameter< SEXP >::type imp_R_ptr(imp_R_ptrSEXP);
     Rcpp::traits::input_parameter< SEXP >::type oimp_R_ptr(oimp_R_ptrSEXP);
     Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
-    append_trees_from_other(model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, is_extended);
-    return R_NilValue;
+    rcpp_result_gen = Rcpp::wrap(append_trees_from_other(model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, is_extended));
+    return rcpp_result_gen;
 END_RCPP
 }
 
