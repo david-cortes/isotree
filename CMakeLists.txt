@@ -15,6 +15,7 @@ set(SRC_FILES ${PROJECT_SOURCE_DIR}/src/crit.cpp
               ${PROJECT_SOURCE_DIR}/src/isoforest.cpp
               ${PROJECT_SOURCE_DIR}/src/mult.cpp
               ${PROJECT_SOURCE_DIR}/src/predict.cpp
+              ${PROJECT_SOURCE_DIR}/src/merge_models.cpp
               ${PROJECT_SOURCE_DIR}/src/utils.cpp)
 add_library(isotree SHARED ${SRC_FILES})
 target_include_directories(isotree PRIVATE ${PROJECT_SOURCE_DIR}/src)
