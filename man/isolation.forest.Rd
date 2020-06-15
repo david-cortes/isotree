@@ -240,10 +240,10 @@ results from this might differet a bit from those of `predict` called after.}
 \item{output_dist}{Whether to output pairwise distances for the input data, which will be calculated as
 the model is being fit and it's thus faster. Cannot be done when using sub-samples of the data for each tree
 (in such case will later need to call the `predict` function on the same data). If using `penalize_range`, the
-results from this might differet a bit from those of `predict` called after.}
+results from this might differ a bit from those of `predict` called after.}
 
 \item{square_dist}{If passing `output_dist` = `TRUE`, whether to return a full square matrix or
-just the upper-triangular part, in which the entry for pair 1 <= i < j <= n is located at position
+just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 p(i, j) = ((i - 1) * (n - i/2) + j - i).}
 
 \item{random_seed}{Seed that will be used to generate random numbers used by the model.}
@@ -403,7 +403,7 @@ plot.space(Z4, "Fair-Cut Forest")
 par(oldpar)
 
 
-### Example3:  calculating pairwise distances,
+### Example3: calculating pairwise distances,
 ### with a short validation against euclidean dist.
 library(isotree)
 

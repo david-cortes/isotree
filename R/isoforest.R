@@ -197,9 +197,9 @@
 #' @param output_dist Whether to output pairwise distances for the input data, which will be calculated as
 #' the model is being fit and it's thus faster. Cannot be done when using sub-samples of the data for each tree
 #' (in such case will later need to call the `predict` function on the same data). If using `penalize_range`, the
-#' results from this might differet a bit from those of `predict` called after.
+#' results from this might differ a bit from those of `predict` called after.
 #' @param square_dist If passing `output_dist` = `TRUE`, whether to return a full square matrix or
-#' just the upper-triangular part, in which the entry for pair 1 <= i < j <= n is located at position
+#' just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 #' p(i, j) = ((i - 1) * (n - i/2) + j - i).
 #' @param random_seed Seed that will be used to generate random numbers used by the model.
 #' @param nthreads Number of parallel threads to use. If passing a negative number, will use
@@ -329,7 +329,7 @@
 #' par(oldpar)
 #' 
 #' 
-#' ### Example3:  calculating pairwise distances,
+#' ### Example3: calculating pairwise distances,
 #' ### with a short validation against euclidean dist.
 #' library(isotree)
 #' 
@@ -514,6 +514,9 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
             stop("'new_categ_action' = 'weighted' not supported in extended model.")
     }
     
+    if (ndim > NCOL(df))
+        stop("'ndim' must be less or equal than the number of columns in 'df'.")
+    
     nthreads <- check.nthreads(nthreads)
     if (sample_size > NROW(df)) stop("'sample_size' cannot be greater then the number of rows in 'df'.")
     
@@ -685,7 +688,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
 #'   \item `"impute"` for imputation of missing values in `newdata`.
 #' }
 #' @param square_mat When passing `type` = `"dist` or `"avg_sep"`, whether to return a full square matrix or
-#' just the upper-triangular part, in which the entry for pair 1 <= i < j <= n is located at position
+#' just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 #' p(i, j) = ((i - 1) * (n - i/2) + j - i).
 #' @param ... Not used.
 #' @return The requested prediction type, which can be a vector with one entry per row in `newdata`
@@ -968,7 +971,7 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
 #' library(isotree)
 #' set.seed(1)
 #' X <- matrix(rnorm(100), nrow = 20)
-#' iso <- isolation.forest(X, nthreads = 1)
+#' iso <- isolation.forest(X, ntrees=10, nthreads=1)
 #' temp_file <- file.path(tempdir(), "iso.Rds")
 #' saveRDS(iso, temp_file)
 #' iso2 <- readRDS(temp_file)
@@ -1120,4 +1123,100 @@ append.trees <- function(model, other) {
     
     model$params$ntrees <- model$params$ntrees + other$params$ntrees
     return(model)
+}
+
+#' @title Export Isolation Forest model
+#' @description Save Isolation Forest model to a serialized file along with its
+#' metadata, in order to be used in the Python or the C++ versions of this package.
+#' 
+#' This function is not meant to be used for passing models to and from R -
+#' in such case, you can use `saveRDS` and `readRDS` instead.
+#' 
+#' Note that, if the model was fitted to a `data.frame`, the column names must be
+#' something exportable as JSON, and must be something that Python's Pandas could
+#' use as column names (e.g. strings/character).
+#' 
+#' It is recommended to visually inspect the produced `.metadata` file in any case.
+#' @details This function will create 2 files: the serialized model, in binary format,
+#' with the name passed in `file`; and a metadata file in JSON format with the same
+#' name but ending in `.metadata`. The second file should \bold{NOT} be edited manually,
+#' except for the field `nthreads` if desired.
+#' 
+#' If the model was built with `build_imputer=TRUE`, there will also be a third binary file
+#' ending in `.imputer`.
+#' 
+#' The metadata will contain, among other things, the encoding that was used for
+#' categorical columns - this is under `data_info.cat_levels`, as an array of arrays by column,
+#' with the first entry for each column corresponding to category 0, second to category 1,
+#' and so on (the C++ version takes them as integers). This metadata is written to a JSON file
+#' using the `jsonlite` package, which must be installed in order for this to work.
+#' 
+#' The serialized file can be used in the C++ version by reading it as a binary raw file
+#' and de-serializing its contents with the `cereal` library. If using `ndim=1`, it will be
+#' an object of class `IsoForest`, and if using `ndim>1`, will be an object of
+#' class `ExtIsoForest`. The imputer file, if produced, will be an object of class `Imputer`.
+#' 
+#' The metadata is not used in the C++ version, but is necessary for the Python version.
+#' @param model An Isolation Forest model as returned by function \link{isolation.forest}.
+#' @param file File path where to save the model. File connections are not accepted, only
+#' file paths
+#' @param ... Additional arguments to pass to \link{writeBin} - you might want to pass
+#' extra parameters if passing files between different CPU architectures or similar.
+#' @return No return value.
+#' @seealso \link{load.isotree.model} \link{writeBin} \link{unpack.isolation.forest}
+#' @references \url{https://uscilab.github.io/cereal}
+#' @export
+export.isotree.model <- function(model, file, ...) {
+    if (!("isolation_forest" %in% class(model)))
+        stop("This function is only available for isolation forest objects as returned from 'isolation.forest'.")
+    metadata <- export.metadata(model)
+    file.metadata <- paste0(file, ".metadata")
+    jsonlite::write_json(export.metadata(model), file.metadata,
+                         pretty=TRUE, auto_unbox=TRUE)
+    writeBin(model$cpp_obj$serialized, file, ...)
+    return(invisible(NULL))
+}
+
+#' @title Load an Isolation Forest model exported from Python
+#' @description Loads a serialized Isolation Forest model as produced and exported
+#' by the Python version of this package. Note that the metadata must be something
+#' importable in R - e.g. column names must be valid for R (numbers are not valid names for R).
+#' It's recommended to visually inspect the `.metadata` file in any case.
+#' 
+#' This function is not meant to be used for passing models to and from R -
+#' in such case, you can use `saveRDS` and `readRDS` instead.
+#' @param file Path to the saved isolation forest model along with its metadata file,.
+#' and imputer file if produced. Must be a file path, not a file connection.
+#' @details Internally, this function uses `readr::read_file_raw` (from the `readr` package)
+#' and `jsonlite::fromJSON` (from the `jsonlite` package). Be sure to have those installed
+#' and that the files are readable through them.
+#' @return An isolation forest model, as if it had been constructed through
+#' \link{isolation.forest}.
+#' @seealso \link{export.isotree.model} \link{unpack.isolation.forest}
+#' @export
+load.isotree.model <- function(file) {
+    if (!file.exists(file)) stop("'file' does not exist.")
+    metadata.file <- paste0(file, ".metadata")
+    if (!file.exists(metadata.file)) stop("No matching metadata for 'file'.")
+    
+    metadata <- jsonlite::fromJSON(metadata.file,
+                                   simplifyVector = TRUE,
+                                   simplifyDataFrame = FALSE,
+                                   simplifyMatrix = FALSE)
+    
+    this <- take.metadata(metadata)
+    this$cpp_obj$serialized <- readr::read_file_raw(file)
+    if (this$params$ndim == 1)
+        this$cpp_obj$ptr <- deserialize_IsoForest(this$cpp_obj$serialized)
+    else
+        this$cpp_obj$ptr <- deserialize_ExtIsoForest(this$cpp_obj$serialized)
+    
+    imputer.file <- paste0(file, ".imputer")
+    if (file.exists(imputer.file)) {
+        this$cpp_obj$imp_ser <- readr::read_file_raw(imputer.file)
+        this$cpp_obj$imp_ptr <- deserialize_Imputer(this$cpp_obj$imp_ser)
+    }
+    
+    class(this) <- "isolation_forest"
+    return(this)
 }

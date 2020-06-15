@@ -29,7 +29,7 @@ Note that when passing `type` = `"impute"` and newdata is a sparse matrix, under
 }}
 
 \item{square_mat}{When passing `type` = `"dist` or `"avg_sep"`, whether to return a full square matrix or
-just the upper-triangular part, in which the entry for pair 1 <= i < j <= n is located at position
+just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 p(i, j) = ((i - 1) * (n - i/2) + j - i).}
 
 \item{...}{Not used.}

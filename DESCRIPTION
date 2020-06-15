@@ -2,7 +2,7 @@ Package: isotree
 Type: Package
 Title: Isolation-Based Outlier Detection
 Version: 0.1.13
-Date: 2020-06-10
+Date: 2020-06-15
 Author: David Cortes
 Maintainer: David Cortes <david.cortes.rivera@gmail.com>
 URL: https://github.com/david-cortes/isotree
@@ -20,7 +20,7 @@ Description: Fast and multi-threaded implementation of
 	splits, and for using different splitting criteria.
 License: BSD_2_clause + file LICENSE
 Imports: Rcpp (>= 1.0.1)
-Suggests: MASS, outliertree
+Suggests: MASS, outliertree, jsonlite, readr
 Enhances: Matrix, SparseM
 LinkingTo: Rcpp, Rcereal
 RoxygenNote: 7.1.0

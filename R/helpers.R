@@ -294,3 +294,90 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, df, model, trans_CSC=
     }
 }
 
+export.metadata <- function(model) {
+    data_info <- list(
+        ncols_numeric = model$metadata$ncols_num, ## is in c++
+        ncols_categ = model$metadata$ncols_cat,  ## is in c++
+        cols_numeric = as.list(model$metadata$cols_num),
+        cols_categ = as.list(model$metadata$cols_cat),
+        cat_levels = unname(as.list(model$metadata$cat_levs))
+    )
+
+    model_info <- list(
+        ndim = model$params$ndim,
+        nthreads = model$nthreads,
+        build_imputer = model$params$build_imputer
+    )
+    
+    params <- list(
+        sample_size = model$params$sample_size,
+        ntrees = model$params$ntrees,  ## is in c++
+        ntry = model$params$ntry,
+        max_depth = model$params$max_depth,
+        prob_pick_avg_gain = model$params$prob_pick_avg_gain,
+        prob_pick_pooled_gain = model$params$prob_pick_pooled_gain,
+        prob_split_avg_gain = model$params$prob_split_avg_gain,
+        prob_split_pooled_gain = model$params$prob_split_pooled_gain,
+        min_gain = model$params$min_gain,
+        missing_action = model$params$missing_action,  ## is in c++
+        new_categ_action = model$params$new_categ_action,  ## is in c++
+        categ_split_type = model$params$categ_split_type,  ## is in c++
+        coefs = model$params$coefs,
+        depth_imp = model$params$depth_imp,
+        weigh_imp_rows = model$params$weigh_imp_rows,
+        min_imp_obs = model$params$min_imp_obs,
+        random_seed = model$random_seed,
+        all_perm = model$params$all_perm,
+        weights_as_sample_prob = model$params$weights_as_sample_prob,
+        sample_with_replacement = model$params$sample_with_replacement,
+        penalize_range = model$params$penalize_range,
+        weigh_by_kurtosis = model$params$weigh_by_kurtosis,
+        assume_full_distr = model$params$assume_full_distr
+    )
+
+    return(list(data_info = data_info, model_info = model_info, params = params))
+}
+
+take.metadata <- function(metadata) {
+    this <- list(
+        params  =  list(
+            sample_size = metadata$params$sample_size, ntrees = metadata$params$ntrees, ndim = metadata$model_info$ndim,
+            ntry = metadata$params$ntry, max_depth = metadata$params$max_depth,
+            prob_pick_avg_gain = metadata$params$prob_pick_avg_gain,
+            prob_pick_pooled_gain = metadata$params$prob_pick_pooled_gain,
+            prob_split_avg_gain = metadata$params$prob_split_avg_gain,
+            prob_split_pooled_gain = metadata$params$prob_split_pooled_gain,
+            min_gain = metadata$params$min_gain, missing_action = metadata$params$missing_action,
+            new_categ_action = metadata$params$new_categ_action,
+            categ_split_type = metadata$params$categ_split_type, all_perm = metadata$params$all_perm,
+            weights_as_sample_prob = metadata$params$weights_as_sample_prob,
+            sample_with_replacement = metadata$params$sample_with_replacement,
+            penalize_range = metadata$params$penalize_range,
+            weigh_by_kurtosis = metadata$params$weigh_by_kurtosis,
+            coefs = metadata$params$coefs, assume_full_distr = metadata$params$assume_full_distr,
+            build_imputer = metadata$model_info$build_imputer, min_imp_obs = metadata$params$min_imp_obs,
+            depth_imp = metadata$params$depth_imp, weigh_imp_rows = metadata$params$weigh_imp_rows
+        ),
+        metadata  = list(
+            ncols_num  =  metadata$data_info$ncols_numeric,
+            ncols_cat  =  metadata$data_info$ncols_categ,
+            cols_num   =  unlist(metadata$data_info$cols_numeric),
+            cols_cat   =  unlist(metadata$data_info$cols_categ),
+            cat_levs   =  metadata$data_info$cat_levels
+        ),
+        random_seed  =  metadata$params$random_seed,
+        nthreads     =  metadata$model_info$nthreads,
+        cpp_obj      =  list(
+            ptr         =  NULL,
+            serialized  =  NULL,
+            imp_ptr     =  NULL,
+            imp_ser     =  NULL
+        )
+    )
+    
+    if (NROW(this$metadata$cat_levels))
+        names(this$metadata$cat_levels) <- this$metadata$cols_cat
+    
+    class(this) <- "isolation_forest"
+    return(this)
+}
