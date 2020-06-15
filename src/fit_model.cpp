@@ -803,10 +803,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
             }
         }
 
-        if (model_params.missing_action != Fail)
-        {
-            workspace.ext_fill_val.resize(input_data.ncols_tot);
-        }
+        workspace.ext_fill_val.resize(input_data.ncols_tot);
 
     }
 
