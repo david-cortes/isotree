@@ -1,5 +1,3 @@
-#include "isotree.hpp"
-
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
 *     Writen for C++11 standard and aimed at being used in R and Python.
@@ -44,6 +42,7 @@
 *     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#include "isotree.hpp"
 
 void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                             WorkerMemory             &workspace,
@@ -335,7 +334,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 
                     case SubSet:
                     {
-                        if (!hplanes.back().cat_coef.size())
+                        if (hplanes.back().cat_coef.size() < workspace.ntaken)
                              hplanes.back().cat_coef.assign(workspace.ext_cat_coef.begin(),
                                                             workspace.ext_cat_coef.begin() + workspace.ntaken);
                         else
