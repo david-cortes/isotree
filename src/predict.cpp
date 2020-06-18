@@ -1,6 +1,3 @@
-#include "isotree.hpp" 
-
-
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
 *     Writen for C++11 standard and aimed at being used in R and Python.
@@ -45,6 +42,7 @@
 *     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#include "isotree.hpp" 
 
 /* Predict outlier score, average depth, or terminal node numbers
 * 
@@ -391,7 +389,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
 
     while (true)
     {
-        if (tree[curr_lev].score > 0)
+        if (tree[curr_lev].score >= 0.)
         {
             if (tree_num != NULL)
                 tree_num[row] = curr_lev;
