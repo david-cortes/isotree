@@ -47,11 +47,17 @@ and so on (the C++ version takes them as integers). This metadata is written to 
 using the `jsonlite` package, which must be installed in order for this to work.
 
 The serialized file can be used in the C++ version by reading it as a binary raw file
-and de-serializing its contents with the `cereal` library. If using `ndim=1`, it will be
-an object of class `IsoForest`, and if using `ndim>1`, will be an object of
-class `ExtIsoForest`. The imputer file, if produced, will be an object of class `Imputer`.
+and de-serializing its contents with the `cereal` library or using the provided C++ functions
+for de-serialization. If using `ndim=1`, it will be an object of class `IsoForest`, and if
+using `ndim>1`, will be an object of class `ExtIsoForest`. The imputer file, if produced, will
+be an object of class `Imputer`.
 
 The metadata is not used in the C++ version, but is necessary for the Python version.
+
+Note that the model treats boolean/logical variables as categorical. Thus, if the model was fit
+to a `data.frame` with boolean columns, when importing this model into C++, they need to be
+encoded in the same order - e.g. the model might encode `TRUE` as zero and `FALSE`
+as one - you need to look at the metadata for this.
 }
 \references{
 \url{https://uscilab.github.io/cereal}

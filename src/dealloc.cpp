@@ -1,5 +1,3 @@
-#include "isotree.hpp"
-
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
 *     Writen for C++11 standard and aimed at being used in R and Python.
@@ -44,12 +42,13 @@
 *     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#include "isotree.hpp"
 
 /* Reason behind this file: Cython (as of v0.29) will not auto-deallocate
    structs which are part of a cdef'd class, which produces a memory leak
    but can be force-destructed. Unfortunately, Cython itself doesn't even
    allow calling destructors for structs, so it has to be done externally.
-   These functions should otherwise have no reason to be */
+   These functions should otherwise have no reason to be. */
 
 void dealloc_IsoForest(IsoForest &model_outputs)
 {

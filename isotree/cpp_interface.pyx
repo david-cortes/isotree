@@ -51,7 +51,10 @@ from scipy.sparse import issparse, isspmatrix_csc, isspmatrix_csr
 from libcpp cimport bool as bool_t ###don't confuse it with Python bool
 from libc.stdint cimport uint64_t
 from libcpp.vector cimport vector
+from libcpp.string cimport string as cpp_string
+from libc.string cimport memcpy
 import ctypes
+import os
 
 cdef extern from "isotree.hpp":
     ctypedef size_t sparse_ix
@@ -223,6 +226,20 @@ cdef extern from "isotree.hpp":
     void merge_models(IsoForest*     model,      IsoForest*     other,
                       ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                       Imputer*       imputer,    Imputer*       iother)
+
+    void serialize_isoforest(IsoForest &model, const char *output_file_path)
+    cpp_string serialize_isoforest(IsoForest &model)
+    void deserialize_isoforest(IsoForest &output, const char *input_file_path)
+    void deserialize_isoforest(IsoForest &output, cpp_string &serialized, bool_t move_str)
+    void serialize_ext_isoforest(ExtIsoForest &model, const char *output_file_path)
+    cpp_string serialize_ext_isoforest(ExtIsoForest &model)
+    void deserialize_ext_isoforest(ExtIsoForest &output, const char *input_file_path)
+    void deserialize_ext_isoforest(ExtIsoForest &output, cpp_string &serialized, bool_t move_str)
+    void serialize_imputer(Imputer &imputer, const char *output_file_path)
+    cpp_string serialize_imputer(Imputer &imputer)
+    void deserialize_imputer(Imputer &output, const char *input_file_path)
+    void deserialize_imputer(Imputer &output, cpp_string &serialized, bool_t move_str)
+    bool_t has_msvc()
 
     void dealloc_IsoForest(IsoForest &model_outputs)
     void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext)
@@ -662,3 +679,74 @@ cdef class isoforest_cpp_obj:
         merge_models(ptr_model, ptr_other,
                      ptr_ext_model, ptr_ext_other,
                      ptr_imp, prt_iother)
+
+    def serialize_obj(self, fpath, use_cpp=False, is_extended=False, has_imputer=False):
+        fpath_imputer = fpath + ".imputer"
+        cdef char *fpath_as_char = NULL
+        cdef char *fpath_imp_as_char = NULL
+        cdef cpp_string obj_as_string
+
+        if use_cpp:
+            py_byte_string = fpath.encode()
+            fpath_as_char = py_byte_string
+            if is_extended:
+                serialize_ext_isoforest(self.ext_isoforest, fpath_as_char)
+            else:
+                serialize_isoforest(self.isoforest, fpath_as_char)
+            if has_imputer:
+                imp_bytes = fpath_imputer.encode()
+                fpath_imp_as_char = imp_bytes
+                serialize_imputer(self.imputer, fpath_imp_as_char)
+        else:
+            if is_extended:
+                obj_as_string = serialize_ext_isoforest(self.ext_isoforest)
+            else:
+                obj_as_string = serialize_isoforest(self.isoforest)
+            with open(fpath, "wb") as of:
+                of.write(obj_as_string)
+            if has_imputer:
+                obj_as_string.clear()
+                obj_as_string = serialize_imputer(self.imputer)
+                with open(fpath_imputer, "wb") as of:
+                    of.write(obj_as_string)
+
+    def deserialize_obj(self, fpath, is_extended=False, use_cpp=False):
+        fpath_imputer = fpath + ".imputer"
+        has_imputer = os.path.isfile(fpath_imputer)
+        cdef char *fpath_as_char = NULL
+        cdef char *fpath_imp_as_char = NULL
+        cdef cpp_string obj_as_string
+        cdef char *ptr_to_bytes = NULL
+        cdef size_t n_bytes = 0
+
+        if use_cpp:
+            py_byte_string = fpath.encode()
+            fpath_as_char = py_byte_string
+            if is_extended:
+                deserialize_ext_isoforest(self.ext_isoforest, fpath_as_char)
+            else:
+                deserialize_isoforest(self.isoforest, fpath_as_char)
+            if has_imputer:
+                imp_bytes = fpath_imputer.encode()
+                fpath_imp_as_char = imp_bytes
+                deserialize_imputer(self.imputer, fpath_imp_as_char)
+        else:
+            with open(fpath, "rb") as ff:
+                model_bytes = ff.read()
+            n_bytes = len(model_bytes)
+            ptr_to_bytes = model_bytes
+            obj_as_string = cpp_string(ptr_to_bytes, n_bytes)
+            del model_bytes
+            if is_extended:
+                deserialize_ext_isoforest(self.ext_isoforest, obj_as_string, 1)
+            else:
+                deserialize_isoforest(self.isoforest, obj_as_string, 1)
+            if has_imputer:
+                obj_as_string.clear()
+                with open(fpath_imputer, "rb"):
+                    model_bytes = ff.read()
+                n_bytes = len(model_bytes)
+                ptr_to_bytes = model_bytes
+                obj_as_string = cpp_string(ptr_to_bytes, n_bytes)
+                del model_bytes
+                deserialize_imputer(self.imputer, obj_as_string, 1)

@@ -302,6 +302,17 @@ export.metadata <- function(model) {
         cols_categ = as.list(model$metadata$cols_cat),
         cat_levels = unname(as.list(model$metadata$cat_levs))
     )
+    
+    if (NROW(data_info$cat_levels)) {
+        force.to.bool <- function(v) {
+            if (NROW(v) == 2) {
+                if (("TRUE" %in% v) && ("FALSE" %in% v))
+                    v <- as.logical(v)
+            }
+            return(v)
+        }
+        data_info$cat_levels <- lapply(data_info$cat_levels, force.to.bool)
+    }
 
     model_info <- list(
         ndim = model$params$ndim,

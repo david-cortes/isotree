@@ -3,7 +3,10 @@ from scipy.sparse import csc_matrix, csr_matrix, issparse, isspmatrix_csc, isspm
 import warnings
 import multiprocessing
 import ctypes
+import json
 from ._cpp_interface import isoforest_cpp_obj
+
+__all__ = ["IsolationForest"]
 
 class IsolationForest:
     """
@@ -169,13 +172,14 @@ class IsolationForest:
         a single category to a branch and the rest to the other branch. For the extended model, whether to
         give each category a coefficient, or only one while the rest get zero.
     all_perm : bool
-        When doing categorical variable splits by pooled gain, whether to consider all possible permutations
-        of variables to assign to each branch or not. If 'False', will sort the categories by their frequency
-        and make a grouping in this sorted order. Note that the number of combinations evaluated (if 'True')
-        is the factorial of the number of present categories in a given column (minus 2). For averaged gain, the
-        best split is always to put the second most-frequent category in a separate branch, so not evaluating all
-        permutations (passing 'False') will make it possible to select other splits that respect the sorted frequency order.
-        Ignored when not using categorical variables or not doing splits by pooled gain.
+        When doing categorical variable splits by pooled gain with ``ndim=1`` (regular model),
+        whether to consider all possible permutations of variables to assign to each branch or not. If ``False``,
+        will sort the categories by their frequency and make a grouping in this sorted order. Note that the
+        number of combinations evaluated (if ``True``) is the factorial of the number of present categories in
+        a given column (minus 2). For averaged gain, the best split is always to put the second most-frequent
+        category in a separate branch, so not evaluating all  permutations (passing ``False``) will make it
+        possible to select other splits that respect the sorted frequency order.
+        Ignored when not using categorical variables or not doing splits by pooled gain or using ``ndim > 1``.
     weights_as_sample_prob : bool
         If passing sample (row) weights when fitting the model, whether to consider those weights as row
         sampling weights (i.e. the higher the weights, the more likely the observation will end up included
@@ -274,7 +278,7 @@ class IsolationForest:
     def __init__(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3, max_depth = "auto",
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
                  prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
-                 min_gain = 0, missing_action = "auto", new_categ_action = "auto",
+                 min_gain = 0., missing_action = "auto", new_categ_action = "auto",
                  categ_split_type = "subset", all_perm = False,
                  weights_as_sample_prob = True, sample_with_replacement = False,
                  penalize_range = True, weigh_by_kurtosis = False,
@@ -483,6 +487,7 @@ class IsolationForest:
             limit_depth = True
         elif self.max_depth is None:
             max_depth = nrows - 1
+            limit_depth = False
         else:
             max_depth = self.max_depth
             limit_depth = False
@@ -577,7 +582,7 @@ class IsolationForest:
             (note that lower separation depth means furthest distance). If passing 'None', will skip distance calculations.
         square_mat : bool
             Whether to produce a full square matrix with the distances. If passing 'False', will output
-            only the upper triangular part as a 1-d array in which entry 0 <= i < j < n is located at
+            only the upper triangular part as a 1-d array in which entry (i,j) with 0 <= i < j < n is located at
             position p(i,j) = (i * (n - (i+1)/2) + j - i - 1). Ignored when passing 'output_distance' = 'None'.
         output_imputed : bool
             Whether to output the data with imputed missing values. Model object must have been initialized
@@ -728,6 +733,14 @@ class IsolationForest:
                 self._cat_mapping = [None for cl in range(X_cat.shape[1])]
                 for cl in range(X_cat.shape[1]):
                     X_cat[X_cat.columns[cl]], self._cat_mapping[cl] = pd.factorize(X_cat[X_cat.columns[cl]])
+                    if (self.all_perm
+                        and (self.ndim == 1)
+                        and (self.prob_pick_pooled_gain or self.prob_split_pooled_gain)
+                    ):
+                        if np.math.factorial(self._cat_mapping[cl].shape[0]) > np.iinfo(ctypes.c_size_t).max:
+                            msg  = "Number of permutations for categorical variables is larger than "
+                            msg += "maximum representable integer. Try using 'all_perm=False'."
+                            raise ValueError(msg)
                     # https://github.com/pandas-dev/pandas/issues/30618
                     if self._cat_mapping[cl].__class__.__name__ == "CategoricalIndex":
                         self._cat_mapping[cl] = self._cat_mapping[cl].to_numpy()
@@ -992,7 +1005,7 @@ class IsolationForest:
             (note that lower separation depth means furthest distance).
         square_mat : bool
             Whether to produce a full square matrix with the distances. If passing 'False', will output
-            only the upper triangular part as a 1-d array in which entry 0 <= i < j < n is located at
+            only the upper triangular part as a 1-d array in which entry (i,j) with 0 <= i < j < n is located at
             position p(i,j) = (i * (n - (i+1)/2) + j - i - 1).
 
         Returns
@@ -1245,4 +1258,222 @@ class IsolationForest:
         self._cpp_obj.append_trees_from_other(other._cpp_obj, self._is_extended_)
         self.ntrees += other.ntrees
 
+        return self
+
+    def export_model(self, file, use_cpp = False):
+        """
+        Export Isolation Forest model
+
+        Save Isolation Forest model to a serialized file along with its
+        metadata, in order to be used in the R or the C++ versions of this package.
+        
+        This function is not meant to be used for passing models to and from Pyton -
+        in such case, you can use ``pickle`` instead.
+        
+        Note that, if the model was fitted to a ``DataFrame``, the column names must be
+        something exportable as JSON, and must be something that R could
+        use as column names (e.g. strings/character).
+        
+        It is recommended to visually inspect the produced ``.metadata`` file in any case.
+
+        This function will create 2 files: the serialized model, in binary format,
+        with the name passed in ``file``; and a metadata file in JSON format with the same
+        name but ending in ``.metadata``. The second file should **NOT** be edited manually,
+        except for the field ``nthreads`` if desired.
+        
+        If the model was built with ``build_imputer=True``, there will also be a third binary file
+        ending in ``.imputer``.
+        
+        The metadata will contain, among other things, the encoding that was used for
+        categorical columns - this is under ``data_info.cat_levels``, as an array of arrays by column,
+        with the first entry for each column corresponding to category 0, second to category 1,
+        and so on (the C++ version takes them as integers).
+        
+        The serialized file can be used in the C++ version by reading it as a binary raw file
+        and de-serializing its contents with the ``cereal`` library or using the provided C++ functions
+        for de-serialization. If using ``ndim=1``, it will be an object of class ``IsoForest``, and if
+        using ``ndim>1``, will be an object of class ``ExtIsoForest``. The imputer file, if produced, will
+        be an object of class ``Imputer``.
+        
+        The metadata is not used in the C++ version, but is necessary for the R version.
+
+        Note
+        ----
+        **Important:** The model treats boolean variables as categorical. Thus, if the model was fit
+        to a ``DataFrame`` with boolean columns, when importing this model into C++, they need to be
+        encoded in the same order - e.g. the model might encode ``True`` as zero and ``False``
+        as one - you need to look at the metadata for this. Also, if using some of Pandas' own
+        Boolean types, these might end up as non-boolean categorical, and if importing the model into R,
+        you might need to pass values as e.g. ``"True"`` instead of ``TRUE`` (look at the ``.metadata``
+        file to determine this).
+
+        Parameters
+        ----------
+        file : str
+            The output file path into which to export the model. Must be a file name, not a
+            file handle.
+        use_cpp : bool
+            Whether to use C++ directly for IO. Using the C++ funcionality directly is faster, and
+            will write directly to a file instead of first creating the file contents in-memory,
+            but in Windows OS, file paths that contain non-ASCII characters will faill to write
+            and might crash the Python process along with it. If passing ``False``, it will at
+            first create the file contents in-memory in a Python object, and then use a Python
+            file handle to write such contents into a file.
+
+        Returns
+        -------
+        self : obj
+            This object.
+
+        References
+        ----------
+        .. [1] https://uscilab.github.io/cereal
+        """
+        assert self.is_fitted_
+        metadata = self._export_metadata()
+        with open(file + ".metadata", "w") as of:
+            json.dump(metadata, of, indent=4)
+        self._cpp_obj.serialize_obj(file, use_cpp, self.ndim > 1)
+        return self
+
+    @staticmethod
+    def import_model(file, use_cpp = False):
+        """
+        Load an Isolation Forest model exported from R
+
+        Loads a serialized Isolation Forest model as produced and exported
+        by the R version of this package. Note that the metadata must be something
+        importable in Python - e.g. column names must be valid for Pandas.
+        It's recommended to visually inspect the ``.metadata`` file in any case.
+        
+        This function is not meant to be used for passing models to and from Python -
+        in such case, you can use ``pickle`` instead.
+
+        Note
+        ----
+        This is a static class method - i.e. should be called like this:
+            ``iso = IsolationForest.import_model(...)``
+        (i.e. no parentheses after `IsolationForest`)
+        
+        Parameters
+        ----------
+        file : str
+            The input file path containing an exported model along with its metadata file.
+            Must be a file name, not a file handle.
+        use_cpp : bool
+            Whether to use C++ directly for IO. Using the C++ funcionality directly is faster, and
+            will read directly from a file into a model object instead of first reading the file
+            contents in-memory, but in Windows OS, file paths that contain non-ASCII characters will
+            faill to read and might crash the Python process along with it. If passing ``False``,
+            it will at first read the file contents in-memory into a Python object, and then recreate
+            the model from those bytes.
+
+        Returns
+        -------
+        iso : IsolationForest
+            An Isolation Forest model object reconstructed from the serialized file
+            and ready to use.
+        """
+        obj = IsolationForest()
+        metadata_file = file + ".metadata"
+        with open(metadata_file, "r") as ff:
+            metadata = json.load(ff)
+        obj._take_metadata(metadata)
+        obj._cpp_obj.deserialize_obj(file, obj.ndim > 1, use_cpp)
+        return obj
+
+    def _denumpify_list(self, lst):
+        return [int(el) if np.issubdtype(el.__class__, np.int) else el for el in lst]
+
+    def _export_metadata(self):
+        if (self.max_depth is not None) and (self.max_depth != "auto"):
+            self.max_depth = int(self.max_depth)
+
+        data_info = {
+            "ncols_numeric" : int(self._ncols_numeric), ## is in c++
+            "ncols_categ" : int(self._ncols_categ),  ## is in c++
+            "cols_numeric" : list(self.cols_numeric_),
+            "cols_categ" : list(self.cols_categ_),
+            "cat_levels" : [list(m) for m in self._cat_mapping]
+        }
+
+        ### Beaware of np.int64, which looks like a Python integer but is not accepted by json
+        data_info["cols_numeric"] = self._denumpify_list(data_info["cols_numeric"])
+        data_info["cols_categ"] = self._denumpify_list(data_info["cols_categ"])
+        if len(data_info["cat_levels"]):
+            data_info["cat_levels"] = [self._denumpify_list(lst) for lst in data_info["cat_levels"]]
+
+        model_info = {
+            "ndim" : int(self.ndim),
+            "nthreads" : int(self.nthreads),
+            "build_imputer" : bool(self.build_imputer)
+        }
+
+        params = {
+            "sample_size" : self.sample_size,
+            "ntrees" : int(self.ntrees),  ## is in c++
+            "ntry" : int(self.ntry),
+            "max_depth" : self.max_depth,
+            "prob_pick_avg_gain" : float(self.prob_pick_avg_gain),
+            "prob_pick_pooled_gain" : float(self.prob_pick_pooled_gain),
+            "prob_split_avg_gain" : float(self.prob_split_avg_gain),
+            "prob_split_pooled_gain" : float(self.prob_split_pooled_gain),
+            "min_gain" : float(self.min_gain),
+            "missing_action" : self.missing_action,  ## is in c++
+            "new_categ_action" : self.new_categ_action,  ## is in c++
+            "categ_split_type" : self.categ_split_type,  ## is in c++
+            "coefs" : self.coefs,
+            "depth_imp" : self.depth_imp,
+            "weigh_imp_rows" : self.weigh_imp_rows,
+            "min_imp_obs" : int(self.min_imp_obs),
+            "random_seed" : self.random_seed,
+            "all_perm" : self.all_perm,
+            "weights_as_sample_prob" : self.weights_as_sample_prob,
+            "sample_with_replacement" : self.sample_with_replacement,
+            "penalize_range" : self.penalize_range,
+            "weigh_by_kurtosis" : self.weigh_by_kurtosis,
+            "assume_full_distr" : self.assume_full_distr,
+        }
+
+        if params["max_depth"] == "auto":
+            params["max_depth"] = 0
+
+        return {"data_info" : data_info, "model_info" : model_info, "params" : params}
+
+    def _take_metadata(self, metadata):
+        self._ncols_numeric = metadata["data_info"]["ncols_numeric"]
+        self._ncols_categ = metadata["data_info"]["ncols_categ"]
+        self.cols_numeric_ = np.array(metadata["data_info"]["cols_numeric"])
+        self.cols_categ_ = np.array(metadata["data_info"]["cols_categ"])
+        self._cat_mapping = [np.array(lst) for lst in metadata["data_info"]["cat_levels"]]
+
+        self.ndim = metadata["model_info"]["ndim"]
+        self.nthreads = metadata["model_info"]["nthreads"]
+        self.build_imputer = metadata["model_info"]["build_imputer"]
+
+        self.sample_size = metadata["params"]["sample_size"]
+        self.ntrees = metadata["params"]["ntrees"]
+        self.ntry = metadata["params"]["ntry"]
+        self.max_depth = metadata["params"]["max_depth"]
+        self.prob_pick_avg_gain = metadata["params"]["prob_pick_avg_gain"]
+        self.prob_pick_pooled_gain = metadata["params"]["prob_pick_pooled_gain"]
+        self.prob_split_avg_gain = metadata["params"]["prob_split_avg_gain"]
+        self.prob_split_pooled_gain = metadata["params"]["prob_split_pooled_gain"]
+        self.min_gain = metadata["params"]["min_gain"]
+        self.missing_action = metadata["params"]["missing_action"]
+        self.new_categ_action = metadata["params"]["new_categ_action"]
+        self.categ_split_type = metadata["params"]["categ_split_type"]
+        self.coefs = metadata["params"]["coefs"]
+        self.depth_imp = metadata["params"]["depth_imp"]
+        self.weigh_imp_rows = metadata["params"]["weigh_imp_rows"]
+        self.min_imp_obs = metadata["params"]["min_imp_obs"]
+        self.random_seed = metadata["params"]["random_seed"]
+        self.all_perm = metadata["params"]["all_perm"]
+        self.weights_as_sample_prob = metadata["params"]["weights_as_sample_prob"]
+        self.sample_with_replacement = metadata["params"]["sample_with_replacement"]
+        self.penalize_range = metadata["params"]["penalize_range"]
+        self.weigh_by_kurtosis = metadata["params"]["weigh_by_kurtosis"]
+        self.assume_full_distr = metadata["params"]["assume_full_distr"]
+
+        self.is_fitted_ = True
         return self

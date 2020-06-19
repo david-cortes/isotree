@@ -8,8 +8,9 @@ except:
 import numpy as np
 from Cython.Distutils import build_ext
 from sys import platform
-import sys
+import sys, os, re
 from os import environ
+import cycereal
 
 ## https://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
 class build_ext_subclass( build_ext ):
@@ -64,7 +65,7 @@ if platform[:3] != "dar":
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.1.13',
+    version = '0.1.15',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',
@@ -76,11 +77,12 @@ setup(
                                 sources=["isotree/cpp_interface.pyx", "src/fit_model.cpp", "src/isoforest.cpp",
                                          "src/extended.cpp", "src/helpers_iforest.cpp", "src/predict.cpp", "src/utils.cpp",
                                          "src/crit.cpp", "src/dist.cpp", "src/impute.cpp", "src/mult.cpp", "src/dealloc.cpp",
-                                         "src/merge_models.cpp"],
-                                include_dirs=[np.get_include(), ".", "./src"],
+                                         "src/merge_models.cpp", "src/serialize.cpp"],
+                                include_dirs=[np.get_include(), ".", "./src", cycereal.get_cereal_include_dir()],
                                 language="c++",
                                 install_requires = ["numpy", "pandas>=0.24.0", "cython", "scipy"],
-                                define_macros = [("_USE_MERSENNE_TWISTER", None)]
+                                define_macros = [("_USE_MERSENNE_TWISTER", None),
+                                                 ("_ENABLE_CEREAL", None)]
                             )]
     )
 

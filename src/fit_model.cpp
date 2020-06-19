@@ -1,5 +1,3 @@
-#include "isotree.hpp"
-
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
 *     Writen for C++11 standard and aimed at being used in R and Python.
@@ -44,6 +42,7 @@
 *     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#include "isotree.hpp"
 
 /*  Fit Isolation Forest (or variant) model 
 * 
@@ -243,13 +242,17 @@
 *       each category beforehand, even if no observations had that category when fitting the model. Ignored when
 *       passing 'cat_split_type' = 'SingleCateg'.
 * - all_perm
-*       When doing categorical variable splits by pooled gain, whether to consider all possible permutations
-*       of variables to assign to each branch or not. If 'false', will sort the categories by their frequency
-*       and make a grouping in this sorted order. Note that the number of combinations evaluated (if 'true')
-*       is the factorial of the number of present categories in a given column (minus 2). For averaged gain, the
-*       best split is always to put the second most-frequent category in a separate branch, so not evaluating all
-*       permutations (passing 'false') will make it possible to select other splits that respect the sorted frequency order.
-*       Ignored when not using categorical variables or not doing splits by pooled gain.
+*       When doing categorical variable splits by pooled gain with 'ndim=1' (regular model),
+*       whether to consider all possible permutations of variables to assign to each branch or not. If 'false',
+*       will sort the categories by their frequency and make a grouping in this sorted order. Note that the
+*       number of combinations evaluated (if 'true') is the factorial of the number of present categories in
+*       a given column (minus 2). For averaged gain, the best split is always to put the second most-frequent
+*       category in a separate branch, so not evaluating all  permutations (passing 'false') will make it
+*       possible to select other splits that respect the sorted frequency order.
+*       The total number of combinations must be a number that can fit into a 'size_t' variable - for x64-64
+*       systems, this means no column can have more than 20 different categories if using 'all_perm=true',
+*       but note that this is not checked within the function.
+*       Ignored when not using categorical variables or not doing splits by pooled gain or using 'ndim>1'.
 * - imputer (out)
 *       Pointer to already-allocated imputer object, which can be used to produce missing value imputations
 *       in new data. Pass NULL if no missing value imputations are required. Note that this is not related to

@@ -480,13 +480,17 @@ typedef struct Imputer {
 *       each category beforehand, even if no observations had that category when fitting the model. Ignored when
 *       passing 'cat_split_type' = 'SingleCateg'.
 * - all_perm
-*       When doing categorical variable splits by pooled gain, whether to consider all possible permutations
-*       of variables to assign to each branch or not. If 'false', will sort the categories by their frequency
-*       and make a grouping in this sorted order. Note that the number of combinations evaluated (if 'true')
-*       is the factorial of the number of present categories in a given column (minus 2). For averaged gain, the
-*       best split is always to put the second most-frequent category in a separate branch, so not evaluating all
-*       permutations (passing 'false') will make it possible to select other splits that respect the sorted frequency order.
-*       Ignored when not using categorical variables or not doing splits by pooled gain.
+*       When doing categorical variable splits by pooled gain with 'ndim=1' (regular model),
+*       whether to consider all possible permutations of variables to assign to each branch or not. If 'false',
+*       will sort the categories by their frequency and make a grouping in this sorted order. Note that the
+*       number of combinations evaluated (if 'true') is the factorial of the number of present categories in
+*       a given column (minus 2). For averaged gain, the best split is always to put the second most-frequent
+*       category in a separate branch, so not evaluating all  permutations (passing 'false') will make it
+*       possible to select other splits that respect the sorted frequency order.
+*       The total number of combinations must be a number that can fit into a 'size_t' variable - for x64-64
+*       systems, this means no column can have more than 20 different categories if using 'all_perm=true',
+*       but note that this is not checked within the function.
+*       Ignored when not using categorical variables or not doing splits by pooled gain or using 'ndim>1'.
 * - imputer (out)
 *       Pointer to already-allocated imputer object, which can be used to produce missing value imputations
 *       in new data. Pass NULL if no missing value imputations are required. Note that this is not related to
@@ -976,5 +980,71 @@ void impute_missing_values(double numeric_data[], int categ_data[],
 void merge_models(IsoForest*     model,      IsoForest*     other,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                   Imputer*       imputer,    Imputer*       iother);
+
+
+/* Serialization and de-serialization functions using Cereal
+* 
+* Parameters
+* ==========
+* - model (in)
+*       A model object to serialize, after being fitted through function 'fit_iforest'.
+* - imputer (in)
+*       An imputer object to serialize, after being fitted through function 'fit_iforest'
+*       with 'build_imputer=true'.
+* - output_obj (out)
+*       An already-allocated object into which a serialized object of the same class will
+*       be de-serialized. The contents of this object will be overwritten. Should be initialized
+*       through the default constructor (e.g. 'new ExtIsoForest' or 'ExtIsoForest()').
+* - output (out)
+*       An output stream (any type will do) in which to save/persist/serialize the
+*       model or imputer object using the cereal library. In the functions that do not
+*       take this parameter, it will be returned as a string containing the raw bytes.
+* - serialized (in)
+*       The input stream which contains the serialized/saved/persisted model or imputer object,
+*       which will be de-serialized into 'output'.
+* - output_file_path
+*       File name into which to write the serialized model or imputer object as raw bytes.
+*       Note that, on Windows, passing non-ASCII characters will fail, and in such case,
+*       you might instead want to use instead the versions that take 'wchar_t', which are
+*       only available in the MSVC compiler (it uses 'std::ofstream' internally, which as
+*       of C++20, is not required by the standard to accept 'wchar_t' in its constructor).
+*       Be aware that it will only write raw bytes, thus metadata such as CPU endianness
+*       will be lost. If you need to transfer files berween e.g. an x86 computer and a SPARC
+*       server, you'll have to use other methods.
+*       This  functionality is intended for being easily wrapper into scripting languages
+*       without having to copy the contents to to some intermediate language.
+* - input_file_path
+*       File name from which to read a serialized model or imputer object as raw bytes.
+*       See the description for 'output_file_path' for more details.
+*/
+#ifdef _ENABLE_CEREAL
+void serialize_isoforest(IsoForest &model, std::ostream &output);
+void serialize_isoforest(IsoForest &model, const char *output_file_path);
+std::string serialize_isoforest(IsoForest &model);
+void deserialize_isoforest(IsoForest &output_obj, std::istream &serialized);
+void deserialize_isoforest(IsoForest &output_obj, const char *input_file_path);
+void deserialize_isoforest(IsoForest &output_obj, std::string &serialized, bool move_str);
+void serialize_ext_isoforest(ExtIsoForest &model, std::ostream &output);
+void serialize_ext_isoforest(ExtIsoForest &model, const char *output_file_path);
+std::string serialize_ext_isoforest(ExtIsoForest &model);
+void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::istream &serialized);
+void deserialize_ext_isoforest(ExtIsoForest &output_obj, const char *input_file_path);
+void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::string &serialized, bool move_str);
+void serialize_imputer(Imputer &imputer, std::ostream &output);
+void serialize_imputer(Imputer &imputer, const char *output_file_path);
+std::string serialize_imputer(Imputer &imputer);
+void deserialize_imputer(Imputer &output_obj, std::istream &serialized);
+void deserialize_imputer(Imputer &output_obj, const char *input_file_path);
+void deserialize_imputer(Imputer &output_obj, std::string &serialized, bool move_str);
+#ifdef _MSC_VER
+void serialize_isoforest(IsoForest &model, const wchar_t *output_file_path);
+void deserialize_isoforest(IsoForest &output_obj, const wchar_t *input_file_path);
+void serialize_ext_isoforest(ExtIsoForest &model, const wchar_t *output_file_path);
+void deserialize_ext_isoforest(ExtIsoForest &output_obj, const wchar_t *input_file_path);
+void serialize_imputer(Imputer &imputer, const wchar_t *output_file_path);
+void deserialize_imputer(Imputer &output_obj, const wchar_t *input_file_path);
+#endif /* _MSC_VER */
+bool has_msvc();
+#endif /* _ENABLE_CEREAL */
 
 #endif /* #ifndef ISOTREE_H */

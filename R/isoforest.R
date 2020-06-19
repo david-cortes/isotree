@@ -135,13 +135,14 @@
 #' @param categ_split_type Whether to split categorical features by assigning sub-sets of them to each branch (by passing `"subset"` there),
 #' or by assigning a single category to a branch and the rest to the other branch (by passing `"single_categ"` here). For the extended model,
 #' whether to give each category a coefficient (`"subset"`), or only one while the rest get zero (`"single_categ"`).
-#' @param all_perm When doing categorical variable splits by pooled gain, whether to consider all possible permutations
-#' of variables to assign to each branch or not. If `FALSE`, will sort the categories by their frequency
-#' and make a grouping in this sorted order. Note that the number of combinations evaluated (if `TRUE`)
-#' is the factorial of the number of present categories in a given column (minus 2). For averaged gain, the
-#' best split is always to put the second most-frequent category in a separate branch, so not evaluating all
-#' permutations (passing `FALSE`) will make it possible to select other splits that respect the sorted frequency order.
-#' Ignored when not using categorical variables or not doing splits by pooled gain.
+#' @param all_perm When doing categorical variable splits by pooled gain with `ndim=1` (regular model),
+#' whether to consider all possible permutations of variables to assign to each branch or not. If `FALSE`,
+#' will sort the categories by their frequency and make a grouping in this sorted order. Note that the
+#' number of combinations evaluated (if `TRUE`) is the factorial of the number of present categories in
+#' a given column (minus 2). For averaged gain, the best split is always to put the second most-frequent
+#' category in a separate branch, so not evaluating all  permutations (passing `FALSE`) will make it
+#' possible to select other splits that respect the sorted frequency order.
+#' Ignored when not using categorical variables or not doing splits by pooled gain or using `ndim>1`.
 #' @param weights_as_sample_prob If passing `sample_weights` argument, whether to consider those weights as row
 #' sampling weights (i.e. the higher the weights, the more likely the observation will end up included
 #' in each tree sub-sample), or as distribution density weights (i.e. putting a weight of two is the same
@@ -588,6 +589,17 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
     
     ### split column types
     pdata <- process.data(df, sample_weights, column_weights)
+    
+    ### extra check for potential integer overflow
+    if (all_perm && (ndim == 1) &&
+        (prob_pick_pooled_gain || prob_split_pooled_gain) &&
+        NROW(pdata$cat_levs)
+        ) {
+        max_categ <- max(sapply(pdata$cat_levs, NROW))
+        if (factorial(max_categ) > 2 * .Machine$integer.max)
+            stop(paste0("Number of permutations for categorical variables is larger than ",
+                        "maximum representable integer. Try using 'all_perm=FALSE'."))
+    }
     
     ### fit the model
     cpp_outputs <- fit_model(pdata$X_num, pdata$X_cat, unname(pdata$ncat),
@@ -1152,11 +1164,17 @@ append.trees <- function(model, other) {
 #' using the `jsonlite` package, which must be installed in order for this to work.
 #' 
 #' The serialized file can be used in the C++ version by reading it as a binary raw file
-#' and de-serializing its contents with the `cereal` library. If using `ndim=1`, it will be
-#' an object of class `IsoForest`, and if using `ndim>1`, will be an object of
-#' class `ExtIsoForest`. The imputer file, if produced, will be an object of class `Imputer`.
+#' and de-serializing its contents with the `cereal` library or using the provided C++ functions
+#' for de-serialization. If using `ndim=1`, it will be an object of class `IsoForest`, and if
+#' using `ndim>1`, will be an object of class `ExtIsoForest`. The imputer file, if produced, will
+#' be an object of class `Imputer`.
 #' 
 #' The metadata is not used in the C++ version, but is necessary for the Python version.
+#' 
+#' Note that the model treats boolean/logical variables as categorical. Thus, if the model was fit
+#' to a `data.frame` with boolean columns, when importing this model into C++, they need to be
+#' encoded in the same order - e.g. the model might encode `TRUE` as zero and `FALSE`
+#' as one - you need to look at the metadata for this.
 #' @param model An Isolation Forest model as returned by function \link{isolation.forest}.
 #' @param file File path where to save the model. File connections are not accepted, only
 #' file paths
@@ -1174,6 +1192,10 @@ export.isotree.model <- function(model, file, ...) {
     jsonlite::write_json(export.metadata(model), file.metadata,
                          pretty=TRUE, auto_unbox=TRUE)
     writeBin(model$cpp_obj$serialized, file, ...)
+    if (model$params$build_imputer) {
+        file.imp <- paste0(file, ".imputer")
+        writeBin(model$cpp_obj$imp_ser, file.imp, ...)
+    }
     return(invisible(NULL))
 }
 
@@ -1190,6 +1212,10 @@ export.isotree.model <- function(model, file, ...) {
 #' @details Internally, this function uses `readr::read_file_raw` (from the `readr` package)
 #' and `jsonlite::fromJSON` (from the `jsonlite` package). Be sure to have those installed
 #' and that the files are readable through them.
+#' 
+#' Note: If the model was fit to a ``DataFrame`` using Pandas' own Boolean types,
+#' take a look at the metadata to check if these columns will be taken as booleans
+#' (R logicals) or as categoricals with string values `"True"` or `"False"`.
 #' @return An isolation forest model, as if it had been constructed through
 #' \link{isolation.forest}.
 #' @seealso \link{export.isotree.model} \link{unpack.isolation.forest}

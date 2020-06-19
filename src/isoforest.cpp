@@ -1,5 +1,3 @@
-#include "isotree.hpp"
-
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
 *     Writen for C++11 standard and aimed at being used in R and Python.
@@ -44,6 +42,7 @@
 *     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#include "isotree.hpp"
 
 void split_itree_recursive(std::vector<IsoTree>     &trees,
                            WorkerMemory             &workspace,
@@ -202,10 +201,11 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             }
         }
 
-        if (trees.back().score <= 0)
+
+        if (trees.back().score <= 0.)
             goto terminal_statistics;
         else
-            trees.back().score = 0;
+            trees.back().score = 0.;
 
         if (trees.back().col_num < input_data.ncols_numeric)
         {

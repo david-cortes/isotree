@@ -71,6 +71,13 @@
 #ifdef _OPENMP
     #include <omp.h>
 #endif
+#ifdef _ENABLE_CEREAL
+    #include <cereal/archives/binary.hpp>
+    #include <cereal/types/vector.hpp>
+    #include <sstream>
+    #include <string>
+    #include <fstream>
+#endif
 
 /* By default, will use Mersenne-Twister for RNG, but can be switched to something faster */
 #ifdef _USE_MERSENNE_TWISTER
@@ -865,6 +872,38 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
 void merge_models(IsoForest*     model,      IsoForest*     other,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                   Imputer*       imputer,    Imputer*       iother);
+
+#ifdef _ENABLE_CEREAL
+/* serialize.cpp */
+void serialize_isoforest(IsoForest &model, std::ostream &output);
+void serialize_isoforest(IsoForest &model, const char *output_file_path);
+std::string serialize_isoforest(IsoForest &model);
+void deserialize_isoforest(IsoForest &output_obj, std::istream &serialized);
+void deserialize_isoforest(IsoForest &output_obj, const char *input_file_path);
+void deserialize_isoforest(IsoForest &output_obj, std::string &serialized, bool move_str);
+void serialize_ext_isoforest(ExtIsoForest &model, std::ostream &output);
+void serialize_ext_isoforest(ExtIsoForest &model, const char *output_file_path);
+std::string serialize_ext_isoforest(ExtIsoForest &model);
+void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::istream &serialized);
+void deserialize_ext_isoforest(ExtIsoForest &output_obj, const char *input_file_path);
+void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::string &serialized, bool move_str);
+void serialize_imputer(Imputer &imputer, std::ostream &output);
+void serialize_imputer(Imputer &imputer, const char *output_file_path);
+std::string serialize_imputer(Imputer &imputer);
+void deserialize_imputer(Imputer &output_obj, std::istream &serialized);
+void deserialize_imputer(Imputer &output_obj, const char *input_file_path);
+void deserialize_imputer(Imputer &output_obj, std::string &serialized, bool move_str);
+#ifdef _MSC_VER
+void serialize_isoforest(IsoForest &model, const wchar_t *output_file_path);
+void deserialize_isoforest(IsoForest &output_obj, const wchar_t *input_file_path);
+void serialize_ext_isoforest(ExtIsoForest &model, const wchar_t *output_file_path);
+void deserialize_ext_isoforest(ExtIsoForest &output_obj, const wchar_t *input_file_path);
+void serialize_imputer(Imputer &imputer, const wchar_t *output_file_path);
+void deserialize_imputer(Imputer &output_obj, const wchar_t *input_file_path);
+#endif /* _MSC_VER */
+bool has_msvc();
+#endif /* _ENABLE_CEREAL */
+
 /* dealloc.cpp */
 void dealloc_IsoForest(IsoForest &model_outputs);
 void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext);

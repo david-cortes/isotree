@@ -27,6 +27,10 @@ in such case, you can use `saveRDS` and `readRDS` instead.
 Internally, this function uses `readr::read_file_raw` (from the `readr` package)
 and `jsonlite::fromJSON` (from the `jsonlite` package). Be sure to have those installed
 and that the files are readable through them.
+
+Note: If the model was fit to a ``DataFrame`` using Pandas' own Boolean types,
+take a look at the metadata to check if these columns will be taken as booleans
+(R logicals) or as categoricals with string values `"True"` or `"False"`.
 }
 \seealso{
 \link{export.isotree.model} \link{unpack.isolation.forest}

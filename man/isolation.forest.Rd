@@ -165,13 +165,14 @@ Ignored when passing `categ_split_type` = `"single_categ"`.}
 or by assigning a single category to a branch and the rest to the other branch (by passing `"single_categ"` here). For the extended model,
 whether to give each category a coefficient (`"subset"`), or only one while the rest get zero (`"single_categ"`).}
 
-\item{all_perm}{When doing categorical variable splits by pooled gain, whether to consider all possible permutations
-of variables to assign to each branch or not. If `FALSE`, will sort the categories by their frequency
-and make a grouping in this sorted order. Note that the number of combinations evaluated (if `TRUE`)
-is the factorial of the number of present categories in a given column (minus 2). For averaged gain, the
-best split is always to put the second most-frequent category in a separate branch, so not evaluating all
-permutations (passing `FALSE`) will make it possible to select other splits that respect the sorted frequency order.
-Ignored when not using categorical variables or not doing splits by pooled gain.}
+\item{all_perm}{When doing categorical variable splits by pooled gain with `ndim=1` (regular model),
+whether to consider all possible permutations of variables to assign to each branch or not. If `FALSE`,
+will sort the categories by their frequency and make a grouping in this sorted order. Note that the
+number of combinations evaluated (if `TRUE`) is the factorial of the number of present categories in
+a given column (minus 2). For averaged gain, the best split is always to put the second most-frequent
+category in a separate branch, so not evaluating all  permutations (passing `FALSE`) will make it
+possible to select other splits that respect the sorted frequency order.
+Ignored when not using categorical variables or not doing splits by pooled gain or using `ndim>1`.}
 
 \item{weights_as_sample_prob}{If passing `sample_weights` argument, whether to consider those weights as row
 sampling weights (i.e. the higher the weights, the more likely the observation will end up included

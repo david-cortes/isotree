@@ -1,5 +1,3 @@
-#include "isotree.hpp"
-
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
 *     Writen for C++11 standard and aimed at being used in R and Python.
@@ -44,6 +42,7 @@
 *     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#include "isotree.hpp"
 
 void decide_column(size_t ncols_numeric, size_t ncols_categ, size_t &col_chosen, ColType &col_type,
                    RNG_engine &rnd_generator, std::uniform_int_distribution<size_t> &runif,
@@ -237,7 +236,7 @@ void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_
             std::fill(tree_mapping.begin(), tree_mapping.end(), (size_t)0);
             curr_term = 0;
             for (size_t node = 0; node < model_outputs->trees[tree].size(); node++)
-                if (model_outputs->trees[tree][node].score > 0)
+                if (model_outputs->trees[tree][node].score >= 0)
                     tree_mapping[node] = curr_term++;
 
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(tree_num, tree_mapping, tree, prediction_data)
@@ -259,7 +258,7 @@ void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_
             std::fill(tree_mapping.begin(), tree_mapping.end(), (size_t)0);
             curr_term = 0;
             for (size_t node = 0; node < model_outputs_ext->hplanes[tree].size(); node++)
-                if (model_outputs_ext->hplanes[tree][node].score > 0)
+                if (model_outputs_ext->hplanes[tree][node].score >= 0)
                     tree_mapping[node] = curr_term++;
             
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(tree_num, tree_mapping, tree, prediction_data)
