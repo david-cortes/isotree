@@ -197,7 +197,9 @@ assigning to each category a random number `~ Unif(0, 1)`.}
 
 \item{coefs}{For the extended model, whether to sample random coefficients according to a normal distribution `~ N(0, 1)`
 (as proposed in reference [3]) or according to a uniform distribution `~ Unif(-1, +1)` as proposed in reference [4].
-Ignored for the single-variable model.}
+Ignored for the single-variable model. Note that, for categorical variables, the coefficients will be sampled ~ N (0,1)
+regardless - in order for both types of variables to have transformations in similar ranges (which will tend
+to boost the importance of categorical variables), pass ``"uniform"`` here.}
 
 \item{assume_full_distr}{When calculating pairwise distances (see reference [8]), whether to assume that the fitted model represents
 a full population distribution (will use a standardizing criterion assuming infinite sample as in reference [6],

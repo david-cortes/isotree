@@ -204,7 +204,9 @@ class IsolationForest:
     coefs : str, one of "normal" or "uniform"
         For the extended model, whether to sample random coefficients according to a normal distribution ~ N(0, 1)
         (as proposed in [3]) or according to a uniform distribution ~ Unif(-1, +1) as proposed in [4]. Ignored for the
-        single-variable model.
+        single-variable model. Note that, for categorical variables, the coefficients will be sampled ~ N (0,1)
+        regardless - in order for both types of variables to have transformations in similar ranges (which will tend
+        to boost the importance of categorical variables), pass ``"uniform"`` here.
     assume_full_distr : bool
         When calculating pairwise distances (see [8]), whether to assume that the fitted model represents
         a full population distribution (will use a standardizing criterion assuming infinite sample,
