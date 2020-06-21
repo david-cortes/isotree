@@ -438,7 +438,8 @@ void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_rep
             for (size_t lev = 0; lev < log2_n; lev++)
             {
                 curr_ix = ix_parent(curr_ix);
-                btree_weights[curr_ix] -= sample_weights[ix];
+                btree_weights[curr_ix] =   btree_weights[ix_child(curr_ix)]
+                                         + btree_weights[ix_child(curr_ix) + 1];
             }
         }
     }
@@ -572,7 +573,7 @@ void weighted_shuffle(size_t *restrict outp, size_t n, double *restrict weights,
         curr_subrange = buffer_arr[0];
         for (size_t lev = 0; lev < tree_levels; lev++)
         {
-            rnd_subrange = std::uniform_real_distribution<double>(0, curr_subrange)(rnd_generator);
+            rnd_subrange = std::uniform_real_distribution<double>(0., curr_subrange)(rnd_generator);
             w_left = buffer_arr[ix_child(curr_ix)];
             curr_ix = ix_child(curr_ix) + (rnd_subrange >= w_left);
             curr_subrange = buffer_arr[curr_ix];
@@ -586,7 +587,8 @@ void weighted_shuffle(size_t *restrict outp, size_t n, double *restrict weights,
         for (size_t lev = 0; lev < tree_levels; lev++)
         {
             curr_ix = ix_parent(curr_ix);
-            buffer_arr[curr_ix] -= weights[outp[el]];
+            buffer_arr[curr_ix] =   buffer_arr[ix_child(curr_ix)]
+                                  + buffer_arr[ix_child(curr_ix) + 1];
         }
     }
 

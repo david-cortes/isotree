@@ -115,6 +115,10 @@ void deserialize_obj(T &output, std::string &serialized, bool move_str)
 * - input_file_path
 *       File name from which to read a serialized model or imputer object as raw bytes.
 *       See the description for 'output_file_path' for more details.
+* - move_str
+*       Whether to move ('std::move') the contents of the string passed as input in order
+*       to speed things up and avoid making a redundant copy of the raw bytes. If passing
+*       'true', the input string will be rendered empty afterwards.
 */
 void serialize_isoforest(IsoForest &model, std::ostream &output)
 {
