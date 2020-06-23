@@ -282,7 +282,7 @@ typedef struct Imputer {
 
 
 
-/*  Fit Isolation Forest (or variant) model 
+/*  Fit Isolation Forest model, or variant of it such as SCiForest
 * 
 * Parameters:
 * ===========
@@ -521,6 +521,15 @@ typedef struct Imputer {
 *       Number of parallel threads to use. Note that, the more threads, the more memory will be
 *       allocated, even if the thread does not end up being used. Ignored when not building with
 *       OpenMP support.
+* 
+* Returns
+* =======
+* Will return macro 'EXIT_SUCCESS' (typically =0) upon completion.
+* If the process receives an interrupt signal, will return instead
+* 'EXIT_FAILURE' (typically =1). If you do not have any way of determining
+* what these values correspond to, you can use the functions
+* 'return_EXIT_SUCESS' and 'return_EXIT_FAILURE', which will return them
+* as integers.
 * 
 * References
 * ==========

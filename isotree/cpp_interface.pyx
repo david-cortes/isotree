@@ -245,6 +245,8 @@ cdef extern from "isotree.hpp":
     void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext)
     void dealloc_Imputer(Imputer &imputer)
 
+    int return_EXIT_SUCCESS()
+    int return_EXIT_FAILURE()
 
 
 cdef double* get_ptr_dbl_vec(np.ndarray[double, ndim = 1] a):
@@ -388,6 +390,9 @@ cdef class isoforest_cpp_obj:
             self.imputer = Imputer()
             imputer_ptr  = &self.imputer
 
+        cdef int ret_val = 0
+
+        ret_val = \
         fit_iforest(model_ptr, ext_model_ptr,
                     numeric_data_ptr,  ncols_numeric,
                     categ_data_ptr,    ncols_categ,    ncat_ptr,
@@ -406,6 +411,9 @@ cdef class isoforest_cpp_obj:
                     all_perm, imputer_ptr, min_imp_obs,
                     depth_imp_C, weigh_imp_rows_C, impute_at_fit,
                     random_seed, nthreads)
+
+        if ret_val == return_EXIT_FAILURE():
+            raise KeyboardInterrupt("Error: procedure was interrupted.")
 
         if (calc_dist) and (sq_dist):
             tmat_to_dense(tmat_ptr, dmat_ptr, nrows, <bool_t>(not standardize_dist))

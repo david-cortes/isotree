@@ -620,6 +620,9 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                              depth_imp, weigh_imp_rows,
                              random_seed, nthreads)
     
+    if (cpp_outputs$err)
+        stop("Procedure was interrupted.")
+    
     ### pack the outputs
     this <- list(
         params  =  list(

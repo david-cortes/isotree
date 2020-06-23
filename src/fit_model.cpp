@@ -44,7 +44,9 @@
 */
 #include "isotree.hpp"
 
-/*  Fit Isolation Forest (or variant) model 
+bool interrupt_switch;
+
+/*  Fit Isolation Forest model, or variant of it such as SCiForest
 * 
 * Parameters:
 * ===========
@@ -284,6 +286,15 @@
 *       allocated, even if the thread does not end up being used. Ignored when not building with
 *       OpenMP support.
 * 
+* Returns
+* =======
+* Will return macro 'EXIT_SUCCESS' (typically =0) upon completion.
+* If the process receives an interrupt signal, will return instead
+* 'EXIT_FAILURE' (typically =1). If you do not have any way of determining
+* what these values correspond to, you can use the functions
+* 'return_EXIT_SUCESS' and 'return_EXIT_FAILURE', which will return them
+* as integers.
+* 
 * References
 * ==========
 * [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
@@ -397,10 +408,16 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         std::vector<WorkerMemory> worker_memory(1);
     #endif
 
+    /* Global variable that determines if the procedure receives a stop signal */
+    interrupt_switch = false;
+
     /* grow trees */
     #pragma omp parallel for num_threads(nthreads) schedule(dynamic) shared(model_outputs, model_outputs_ext, worker_memory, input_data, model_params)
     for (size_t_for tree = 0; tree < ntrees; tree++)
     {
+        if (interrupt_switch)
+            continue; /* Cannot break with OpenMP==2.0 (MSVC) */
+
         if (
             model_params.impute_at_fit &&
             input_data.n_missing &&
@@ -436,7 +453,12 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         else
             model_outputs_ext->hplanes[tree].shrink_to_fit();
 
+        signal(SIGINT, set_interrup_global_variable);
     }
+
+    /* check if the procedure got interrupted */
+    if (interrupt_switch) return EXIT_FAILURE;
+    interrupt_switch = false;
 
     /* if calculating similarity/distance, now need to reduce and average */
     if (calc_dist)

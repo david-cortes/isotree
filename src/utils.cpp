@@ -1501,3 +1501,25 @@ void todense(size_t ix_arr[], size_t st, size_t end,
         }
     }
 }
+
+/* Function to handle interrupt signals */
+void set_interrup_global_variable(int s)
+{
+    fprintf(stderr, "Error: procedure was interrupted\n");
+    #pragma omp critical
+    {
+        interrupt_switch = true;
+    }
+}
+
+/* Return the #def'd constants from standard header. This is in order to determine if the return
+   value from the 'fit_model' function is a success or failure within Cython, which does not
+   allow importing #def'd macro values. */
+int return_EXIT_SUCCESS()
+{
+    return EXIT_SUCCESS;
+}
+int return_EXIT_FAILURE()
+{
+    return EXIT_FAILURE;
+}

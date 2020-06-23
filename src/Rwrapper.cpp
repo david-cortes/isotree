@@ -285,6 +285,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     if (build_imputer)
         imputer_ptr    =  std::unique_ptr<Imputer>(new Imputer);
 
+    int ret_val = 
     fit_iforest(model_ptr.get(), ext_model_ptr.get(),
                 numeric_data_ptr,  ncols_numeric,
                 categ_data_ptr,    ncols_categ,    ncat_ptr,
@@ -303,6 +304,11 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                 all_perm, imputer_ptr.get(), min_imp_obs,
                 depth_imp_C, weigh_imp_rows_C, output_imputations,
                 (uint64_t) random_seed, nthreads);
+
+    if (ret_val == EXIT_FAILURE)
+    {
+        return Rcpp::List::create(Rcpp::_["err"] = Rcpp::LogicalVector::create(1));
+    }
 
     if (calc_dist && sq_dist)
         tmat_to_dense(tmat_ptr, dmat_ptr, nrows, !standardize_dist);
@@ -336,6 +342,8 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
         outp["imputed_num"] = Rcpp::NumericVector(Xcpp.begin(), Xcpp.end());
         outp["imputed_cat"] = X_cat;
     }
+
+    outp["err"] = Rcpp::LogicalVector::create(0);
 
     return outp;
 }
