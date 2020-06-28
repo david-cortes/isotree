@@ -65,7 +65,9 @@ class IsolationForest:
         the default value in the author's code in [5] is 'None' here.
     ntrees : int
         Number of binary trees to build for the model. Recommended value in [1] is 100, while the default value in the
-        author's code in [5] is 10.
+        author's code in [5] is 10. In general, the number of trees required for good results
+        is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
+        categories, (d) you are using large `ndim`.
     ndim : int
         Number of columns to combine to produce a split. If passing 1, will produce the single-variable model described
         in [1] and [2], while if passing values greater than 1, will produce the extended model described in [3] and [4].
@@ -180,6 +182,12 @@ class IsolationForest:
         category in a separate branch, so not evaluating all  permutations (passing ``False``) will make it
         possible to select other splits that respect the sorted frequency order.
         Ignored when not using categorical variables or not doing splits by pooled gain or using ``ndim > 1``.
+    coef_by_prop : bool
+        In the extended model, whether to sort the randomly-generated coefficients for categories
+        according to their relative frequency in the tree node. This might provide better results when using
+        categorical variables with too many categories, but is not recommended, and not reflective of
+        real "categorical-ness". Ignored for the regular model (``ndim=1``) and/or when not using categorical
+        variables.
     weights_as_sample_prob : bool
         If passing sample (row) weights when fitting the model, whether to consider those weights as row
         sampling weights (i.e. the higher the weights, the more likely the observation will end up included
@@ -281,7 +289,7 @@ class IsolationForest:
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
                  prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
-                 categ_split_type = "subset", all_perm = False,
+                 categ_split_type = "subset", all_perm = False, coef_by_prop = False,
                  weights_as_sample_prob = True, sample_with_replacement = False,
                  penalize_range = True, weigh_by_kurtosis = False,
                  coefs = "normal", assume_full_distr = True,
@@ -396,6 +404,7 @@ class IsolationForest:
         self.nthreads                =  nthreads
 
         self.all_perm                =  bool(all_perm)
+        self.coef_by_prop            =  bool(coef_by_prop)
         self.weights_as_sample_prob  =  bool(weights_as_sample_prob)
         self.sample_with_replacement =  bool(sample_with_replacement)
         self.penalize_range          =  bool(penalize_range)
@@ -506,6 +515,7 @@ class IsolationForest:
                                 ctypes.c_size_t(self.ndim).value,
                                 ctypes.c_size_t(self.ntry).value,
                                 self.coefs,
+                                ctypes.c_bool(self.coef_by_prop).value,
                                 ctypes.c_bool(self.sample_with_replacement).value,
                                 ctypes.c_bool(self.weights_as_sample_prob).value,
                                 ctypes.c_size_t(sample_size).value,
@@ -654,6 +664,7 @@ class IsolationForest:
                                                                    ctypes.c_size_t(self.ndim).value,
                                                                    ctypes.c_size_t(self.ntry).value,
                                                                    self.coefs,
+                                                                   ctypes.c_bool(self.coef_by_prop).value,
                                                                    ctypes.c_bool(self.sample_with_replacement).value,
                                                                    ctypes.c_bool(self.weights_as_sample_prob).value,
                                                                    ctypes.c_size_t(nrows).value,
@@ -1178,6 +1189,7 @@ class IsolationForest:
                                ctypes.c_size_t(self.ndim).value,
                                ctypes.c_size_t(self.ntry).value,
                                self.coefs,
+                               ctypes.c_bool(self.coef_by_prop).value,
                                ctypes.c_size_t(max_depth).value,
                                ctypes.c_bool(limit_depth).value,
                                ctypes.c_bool(self.penalize_range).value,
@@ -1430,6 +1442,7 @@ class IsolationForest:
             "min_imp_obs" : int(self.min_imp_obs),
             "random_seed" : self.random_seed,
             "all_perm" : self.all_perm,
+            "coef_by_prop" : self.coef_by_prop,
             "weights_as_sample_prob" : self.weights_as_sample_prob,
             "sample_with_replacement" : self.sample_with_replacement,
             "penalize_range" : self.penalize_range,
@@ -1471,6 +1484,7 @@ class IsolationForest:
         self.min_imp_obs = metadata["params"]["min_imp_obs"]
         self.random_seed = metadata["params"]["random_seed"]
         self.all_perm = metadata["params"]["all_perm"]
+        self.coef_by_prop = metadata["params"]["coef_by_prop"]
         self.weights_as_sample_prob = metadata["params"]["weights_as_sample_prob"]
         self.sample_with_replacement = metadata["params"]["sample_with_replacement"]
         self.penalize_range = metadata["params"]["penalize_range"]

@@ -491,6 +491,12 @@ typedef struct Imputer {
 *       systems, this means no column can have more than 20 different categories if using 'all_perm=true',
 *       but note that this is not checked within the function.
 *       Ignored when not using categorical variables or not doing splits by pooled gain or using 'ndim>1'.
+* - coef_by_prop
+*       In the extended model, whether to sort the randomly-generated coefficients for categories
+*       according to their relative frequency in the tree node. This might provide better results when using
+*       categorical variables with too many categories, but is not recommended, and not reflective of
+*       real "categorical-ness". Ignored for the regular model ('ndim=1') and/or when not using categorical
+*       variables.
 * - imputer (out)
 *       Pointer to already-allocated imputer object, which can be used to produce missing value imputations
 *       in new data. Pass NULL if no missing value imputations are required. Note that this is not related to
@@ -687,6 +693,9 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Cannot be changed from
 *       what was originally passed to 'fit_iforest'.
 * - all_perm
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
+* - coef_by_prop
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
 * - impute_nodes

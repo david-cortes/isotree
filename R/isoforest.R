@@ -49,7 +49,9 @@
 #' Recommended value in references [1], [2], [3], [4] is 256, while the default value in the author's code in reference [5] is
 #' `NROW(df)` (same as in here).
 #' @param ntrees Number of binary trees to build for the model. Recommended value in reference [1] is 100, while the
-#' default value in the author's code in reference [5] is 10.
+#' default value in the author's code in reference [5] is 10. In general, the number of trees required for good results
+#' is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
+#' categories, (d) you are using large `ndim`.
 #' @param ndim Number of columns to combine to produce a split. If passing 1, will produce the single-variable model described
 #' in references [1] and [2], while if passing values greater than 1, will produce the extended model described in
 #' references [3] and [4].
@@ -143,6 +145,11 @@
 #' category in a separate branch, so not evaluating all  permutations (passing `FALSE`) will make it
 #' possible to select other splits that respect the sorted frequency order.
 #' Ignored when not using categorical variables or not doing splits by pooled gain or using `ndim>1`.
+#' @param coef_by_prop In the extended model, whether to sort the randomly-generated coefficients for categories
+#' according to their relative frequency in the tree node. This might provide better results when using
+#' categorical variables with too many categories, but is not recommended, and not reflective of
+#' real "categorical-ness". Ignored for the regular model (`ndim=1`) and/or when not using categorical
+#' variables.
 #' @param weights_as_sample_prob If passing `sample_weights` argument, whether to consider those weights as row
 #' sampling weights (i.e. the higher the weights, the more likely the observation will end up included
 #' in each tree sub-sample), or as distribution density weights (i.e. putting a weight of two is the same
@@ -434,7 +441,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                              prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
                              min_gain = 0, missing_action = ifelse(ndim > 1, "impute", "divide"),
                              new_categ_action = ifelse(ndim > 1, "impute", "weighted"),
-                             categ_split_type = "subset", all_perm = FALSE,
+                             categ_split_type = "subset", all_perm = FALSE, coef_by_prop = FALSE,
                              weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
                              penalize_range = TRUE, weigh_by_kurtosis = FALSE,
                              coefs = "normal", assume_full_distr = TRUE,
@@ -471,6 +478,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
     check.is.prob(prob_split_pooled_gain,  "prob_split_pooled_gain")
     
     check.is.bool(all_perm,                 "all_perm")
+    check.is.bool(coef_by_prop,             "coef_by_prop")
     check.is.bool(weights_as_sample_prob,   "weights_as_sample_prob")
     check.is.bool(sample_with_replacement,  "sample_with_replacement")
     check.is.bool(penalize_range,           "penalize_range")
@@ -583,6 +591,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
     min_gain                 <-  as.numeric(min_gain)
     
     all_perm                 <-  as.logical(all_perm)
+    coef_by_prop             <-  as.logical(coef_by_prop)
     weights_as_sample_prob   <-  as.logical(weights_as_sample_prob)
     sample_with_replacement  <-  as.logical(sample_with_replacement)
     penalize_range           <-  as.logical(penalize_range)
@@ -608,7 +617,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                              pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
                              pdata$sample_weights, pdata$column_weights,
                              pdata$nrows, pdata$ncols_num, pdata$ncols_cat, ndim, ntry,
-                             coefs, sample_with_replacement, weights_as_sample_prob,
+                             coefs, coef_by_prop, sample_with_replacement, weights_as_sample_prob,
                              sample_size, ntrees,  max_depth, FALSE,
                              penalize_range, output_dist, TRUE, square_dist,
                              output_score, TRUE, weigh_by_kurtosis,
@@ -634,7 +643,8 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
             prob_split_pooled_gain = prob_split_pooled_gain,
             min_gain = min_gain, missing_action = missing_action,
             new_categ_action = new_categ_action,
-            categ_split_type = categ_split_type, all_perm = all_perm,
+            categ_split_type = categ_split_type,
+            all_perm = all_perm, coef_by_prop = coef_by_prop,
             weights_as_sample_prob = weights_as_sample_prob,
             sample_with_replacement = sample_with_replacement,
             penalize_range = penalize_range,
@@ -944,7 +954,9 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
                                              pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
                                              sample_weights, column_weights,
                                              pdata$nrows, model$metadata$ncols_num, model$metadata$ncols_cat,
-                                             model$params$ndim, model$params$ntry, model$params$coefs, model$params$max_depth,
+                                             model$params$ndim, model$params$ntry,
+                                             model$params$coefs, model$params$coef_by_prop,
+                                             model$params$max_depth,
                                              FALSE, model$params$penalize_range,
                                              model$params$weigh_by_kurtosis,
                                              model$params$prob_pick_avg_gain, model$params$prob_split_avg_gain,

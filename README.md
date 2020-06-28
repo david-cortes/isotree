@@ -3,8 +3,8 @@
 Fast and multi-threaded implementation of Extended Isolation Forest, Fair-Cut Forest, SCiForest (a.k.a. Split-Criterion iForest), and regular Isolation Forest, for outlier/anomaly detection, plus additions for imputation of missing values, distance/similarity calculation between observations, and handling of categorical data. Written in C++ with interfaces for Python and R.
 
 The new concepts in this software are described in:
-* [Imputing missing values with unsupervised random trees](https://arxiv.org/abs/1911.06646)
 * [Distance approximation using Isolation Forests](https://arxiv.org/abs/1910.12362)
+* [Imputing missing values with unsupervised random trees](https://arxiv.org/abs/1911.06646)
 
 # Description
 
@@ -15,8 +15,6 @@ Note that this is a black-box model that will not produce explanations or import
 ![image](image/density_regions.png "density regions")
 
 _(Code to produce these plots can be found in the R examples in the documentation)_
-
-![image](image/covtype_table.png "imputer")
 
 
 # Distance / similarity calculations
@@ -65,6 +63,12 @@ Alternatively, you can define an environmental variable `ENABLE_OMP=1`, and then
 ```
 export ENABLE_OMP=1
 pip install isotree
+```
+or
+```
+export ENABLE_OMP=1
+python setup.py sdist
+pip install dist/isotree-*
 ```
 
 * R:

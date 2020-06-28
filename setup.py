@@ -37,6 +37,9 @@ class build_ext_subclass( build_ext ):
                 # e.extra_compile_args = ["-std=c++11", "-fsanitize=address", "-static-libasan", "-ggdb"]
                 # e.extra_link_args    = ["-fsanitize=address", "-static-libasan"]
 
+                ### when testing for oneself
+                # e.extra_compile_args += ["-Wno-sign-compare", "-Wno-switch", "-Wno-maybe-uninitialized"]
+
         ## Note: apple will by default alias 'gcc' to 'clang', and will ship its own "special"
         ## 'clang' which has no OMP support and nowadays will purposefully fail to compile when passed
         ## '-fopenmp' flags. If you are using mac, and have an OMP-capable compiler,

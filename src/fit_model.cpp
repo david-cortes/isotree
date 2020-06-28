@@ -255,6 +255,12 @@ bool interrupt_switch;
 *       systems, this means no column can have more than 20 different categories if using 'all_perm=true',
 *       but note that this is not checked within the function.
 *       Ignored when not using categorical variables or not doing splits by pooled gain or using 'ndim>1'.
+* - coef_by_prop
+*       In the extended model, whether to sort the randomly-generated coefficients for categories
+*       according to their relative frequency in the tree node. This might provide better results when using
+*       categorical variables with too many categories, but is not recommended, and not reflective of
+*       real "categorical-ness". Ignored for the regular model ('ndim=1') and/or when not using categorical
+*       variables.
 * - imputer (out)
 *       Pointer to already-allocated imputer object, which can be used to produce missing value imputations
 *       in new data. Pass NULL if no missing value imputations are required. Note that this is not related to
@@ -318,7 +324,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 double numeric_data[],  size_t ncols_numeric,
                 int    categ_data[],    size_t ncols_categ,    int ncat[],
                 double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                size_t ndim, size_t ntry, CoefType coef_type,
+                size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
                 double sample_weights[], bool with_replacement, bool weight_as_sample,
                 size_t nrows, size_t sample_size, size_t ntrees, size_t max_depth,
                 bool   limit_depth, bool penalize_range,
@@ -357,7 +363,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 prob_pick_by_gain_pl,  (model_outputs == NULL)? 0 : prob_split_by_gain_pl,
                                 min_gain, cat_split_type, new_cat_action, missing_action, all_perm,
                                 (model_outputs != NULL)? 0 : ndim, (model_outputs != NULL)? 0 : ntry,
-                                coef_type, calc_dist, (bool)(output_depths != NULL), impute_at_fit,
+                                coef_type, coef_by_prop, calc_dist, (bool)(output_depths != NULL), impute_at_fit,
                                 depth_imp, weigh_imp_rows, min_imp_obs};
 
     /* if using weights as sampling probability, build a binary tree for faster sampling */
@@ -649,6 +655,9 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - all_perm
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
+* - coef_by_prop
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
 * - impute_nodes
 *       Pointer to already-allocated imputation nodes for the tree that will be built. Note that the number of
 *       entries in the imputation object must match the number of fitted trees when it is used.  Pass
@@ -663,7 +672,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              double numeric_data[],  size_t ncols_numeric,
              int    categ_data[],    size_t ncols_categ,    int ncat[],
              double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-             size_t ndim, size_t ntry, CoefType coef_type,
+             size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
              double sample_weights[], size_t nrows, size_t max_depth,
              bool   limit_depth,   bool penalize_range,
              double col_weights[], bool weigh_by_kurt,
@@ -692,7 +701,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 prob_pick_by_gain_pl,  (model_outputs == NULL)? 0 : prob_split_by_gain_pl,
                                 min_gain, cat_split_type, new_cat_action, missing_action, all_perm,
                                 (model_outputs != NULL)? 0 : ndim, (model_outputs != NULL)? 0 : ntry,
-                                coef_type, false, false, false, depth_imp, weigh_imp_rows, min_imp_obs};
+                                coef_type, coef_by_prop, false, false, false, depth_imp, weigh_imp_rows, min_imp_obs};
 
     std::unique_ptr<WorkerMemory> workspace = std::unique_ptr<WorkerMemory>(new WorkerMemory);
 

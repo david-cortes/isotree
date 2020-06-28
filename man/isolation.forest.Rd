@@ -22,6 +22,7 @@ isolation.forest(
   new_categ_action = ifelse(ndim > 1, "impute", "weighted"),
   categ_split_type = "subset",
   all_perm = FALSE,
+  coef_by_prop = FALSE,
   weights_as_sample_prob = TRUE,
   sample_with_replacement = FALSE,
   penalize_range = TRUE,
@@ -67,7 +68,9 @@ Recommended value in references [1], [2], [3], [4] is 256, while the default val
 `NROW(df)` (same as in here).}
 
 \item{ntrees}{Number of binary trees to build for the model. Recommended value in reference [1] is 100, while the
-default value in the author's code in reference [5] is 10.}
+default value in the author's code in reference [5] is 10. In general, the number of trees required for good results
+is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
+categories, (d) you are using large `ndim`.}
 
 \item{ndim}{Number of columns to combine to produce a split. If passing 1, will produce the single-variable model described
 in references [1] and [2], while if passing values greater than 1, will produce the extended model described in
@@ -173,6 +176,12 @@ a given column (minus 2). For averaged gain, the best split is always to put the
 category in a separate branch, so not evaluating all  permutations (passing `FALSE`) will make it
 possible to select other splits that respect the sorted frequency order.
 Ignored when not using categorical variables or not doing splits by pooled gain or using `ndim>1`.}
+
+\item{coef_by_prop}{In the extended model, whether to sort the randomly-generated coefficients for categories
+according to their relative frequency in the tree node. This might provide better results when using
+categorical variables with too many categories, but is not recommended, and not reflective of
+real "categorical-ness". Ignored for the regular model (`ndim=1`) and/or when not using categorical
+variables.}
 
 \item{weights_as_sample_prob}{If passing `sample_weights` argument, whether to consider those weights as row
 sampling weights (i.e. the higher the weights, the more likely the observation will end up included

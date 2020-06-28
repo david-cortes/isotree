@@ -602,6 +602,29 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
                     for (int cat = 0; cat < input_data.ncat[workspace.col_chosen]; cat++)
                         workspace.ext_cat_coef[workspace.ntaken][cat] = workspace.coef_norm(workspace.rnd_generator);
 
+                    if (model_params.coef_by_prop)
+                    {
+                        int ncat = input_data.ncat[workspace.col_chosen];
+                        size_t *restrict counts = workspace.buffer_szt.data();
+                        size_t *restrict sorted_ix = workspace.buffer_szt.data() + ncat;
+                        /* calculate counts and sort by them */
+                        std::fill(counts, counts + ncat, (size_t)0);
+                        for (size_t ix = workspace.st; ix <= workspace.end; ix++)
+                            if (input_data.categ_data[workspace.col_chosen * input_data.nrows + ix] >= 0)
+                                counts[input_data.categ_data[workspace.col_chosen * input_data.nrows + ix]]++;
+                        std::iota(sorted_ix, sorted_ix + ncat, (size_t)0);
+                        std::sort(sorted_ix, sorted_ix + ncat,
+                                  [&counts](const size_t a, const size_t b){return counts[a] < counts[b];});
+                        /* now re-order the coefficients accordingly */
+                        std::sort(workspace.ext_cat_coef[workspace.ntaken].begin(),
+                                  workspace.ext_cat_coef[workspace.ntaken].begin() + ncat);
+                        std::copy(workspace.ext_cat_coef[workspace.ntaken].begin(),
+                                  workspace.ext_cat_coef[workspace.ntaken].begin() + ncat,
+                                  workspace.buffer_dbl.begin());
+                        for (size_t ix = 0; ix < ncat; ix++)
+                            workspace.ext_cat_coef[workspace.ntaken][ix] = workspace.buffer_dbl[sorted_ix[ix]];
+                    }
+
                     add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                     input_data.categ_data + workspace.col_chosen * input_data.nrows,
                                     input_data.ncat[workspace.col_chosen],

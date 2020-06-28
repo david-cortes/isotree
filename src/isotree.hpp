@@ -419,6 +419,7 @@ typedef struct {
     size_t ndim;        /* only for extended model */
     size_t ntry;        /* only for extended model */
     CoefType coef_type; /* only for extended model */
+    bool coef_by_prop;  /* only for extended model */
 
     bool calc_dist;     /* checkbox for calculating distances on-the-fly */
     bool calc_depth;    /* checkbox for calculating depths on-the-fly */
@@ -552,7 +553,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 double numeric_data[],  size_t ncols_numeric,
                 int    categ_data[],    size_t ncols_categ,    int ncat[],
                 double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                size_t ndim, size_t ntry, CoefType coef_type,
+                size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
                 double sample_weights[], bool with_replacement, bool weight_as_sample,
                 size_t nrows, size_t sample_size, size_t ntrees, size_t max_depth,
                 bool   limit_depth, bool penalize_range,
@@ -570,7 +571,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              double numeric_data[],  size_t ncols_numeric,
              int    categ_data[],    size_t ncols_categ,    int ncat[],
              double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-             size_t ndim, size_t ntry, CoefType coef_type,
+             size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
              double sample_weights[], size_t nrows, size_t max_depth,
              bool   limit_depth,   bool penalize_range,
              double col_weights[], bool weigh_by_kurt,
