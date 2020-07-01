@@ -755,7 +755,7 @@ predict.isolation_forest <- function(object, newdata, type = "score", square_mat
         object$cpp_obj <- obj_new
     }
     
-    allowed_type <- c("score", "avg_path", "dist", "avg_sep", "tree_num", "impute")
+    allowed_type <- c("score", "avg_depth", "dist", "avg_sep", "tree_num", "impute")
     check.str.option(type, "type", allowed_type)
     check.is.bool(square_mat)
     if (!NROW(newdata)) stop("'newdata' must be a data.frame, matrix, or sparse matrix.")
@@ -772,7 +772,7 @@ predict.isolation_forest <- function(object, newdata, type = "score", square_mat
     if (type %in% "impute" && (is.null(object$params$build_imputer) || !(object$params$build_imputer)))
         stop("Cannot impute missing values with model that was built with 'build_imputer' =  'FALSE'.")
     
-    pdata <- process.data.new(newdata, object$metadata, type %in% c("score", "avg_path"), type != "impute")
+    pdata <- process.data.new(newdata, object$metadata, type %in% c("score", "avg_depth"), type != "impute")
     
     square_mat   <-  as.logical(square_mat)
     score_array  <-  get.empty.vector()
@@ -789,7 +789,7 @@ predict.isolation_forest <- function(object, newdata, type = "score", square_mat
         if (type == "tree_num") tree_num <- vector("integer", pdata$nrows * object$params$ntrees)
     }
     
-    if (type %in% c("score", "avg_path", "tree_num")) {
+    if (type %in% c("score", "avg_depth", "tree_num")) {
         predict_iso(object$cpp_obj$ptr, score_array, tree_num, object$params$ndim > 1,
                     pdata$X_num, pdata$X_cat,
                     pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,

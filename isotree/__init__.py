@@ -584,9 +584,9 @@ class IsolationForest:
             If passing None, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
             Note that, if passing a DataFrame with both numeric and categorical columns, the column names must
             not be repeated, otherwise the column weights passed here will not end up matching.
-        output_outlierness : None or str in ["score", "avg_path"]
+        output_outlierness : None or str in ["score", "avg_depth"]
             Desired type of outlierness output. If passing "score", will output standardized outlier score.
-            If passing "avg_path" will output average isolation path without standardizing.
+            If passing "avg_depth" will output average isolation depth without standardizing.
             If passing 'None', will skip outlierness calculations.
         output_distance : None or str in ["dist", "avg_sep"]
             Type of distance output to produce. If passing "dist", will standardize the average separation
@@ -619,7 +619,7 @@ class IsolationForest:
             raise ValueError("Must pass at least one of 'output_outlierness' or 'output_distance'.")
 
         if output_outlierness is not None:
-            assert output_outlierness in ["score", "avg_path"]
+            assert output_outlierness in ["score", "avg_depth"]
 
         if output_distance is not None:
             assert output_distance in ["dist", "avg_sep"]
@@ -956,11 +956,11 @@ class IsolationForest:
         Parameters
         ----------
         X : array or array-like (n_samples, n_features)
-            Observations for which to predict outlierness or average isolation path. Can pass
+            Observations for which to predict outlierness or average isolation depth. Can pass
             a NumPy array, Pandas DataFrame, or SciPy sparse CSC or CSR matrix.
-        output : str, one of "score", "avg_path", "tree_num"
+        output : str, one of "score", "avg_depth", "tree_num"
             Desired type of output. If passing "score", will output standardized outlier score.
-            If passing "avg_path" will output average isolation path without standardizing. If
+            If passing "avg_depth" will output average isolation depth without standardizing. If
             passing "tree_num", will output the index of the terminal node under each tree in
             the model.
 
@@ -971,7 +971,7 @@ class IsolationForest:
             average isolation depth, or terminal node indices).
         """
         assert self.is_fitted_
-        assert output in ["score", "avg_path", "tree_num"]
+        assert output in ["score", "avg_depth", "tree_num"]
         X_num, X_cat, nrows = self._process_data_new(X)
         if output == "tree_num":
             if self.missing_action == "divide":
@@ -987,7 +987,7 @@ class IsolationForest:
                                                  ctypes.c_bool(output == "score").value,
                                                  ctypes.c_bool(output == "tree_num").value)
 
-        if output in ["score", "avg_path"]:
+        if output in ["score", "avg_depth"]:
             return depths
         else:
             return tree_num
