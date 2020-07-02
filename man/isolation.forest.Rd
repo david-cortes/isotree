@@ -415,7 +415,7 @@ plot.space(Z4, "Fair-Cut Forest")
 par(oldpar)
 
 
-### Example3: calculating pairwise distances,
+### Example 3: calculating pairwise distances,
 ### with a short validation against euclidean dist.
 library(isotree)
 
