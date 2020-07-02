@@ -29,8 +29,8 @@ predict_iso <- function(model_R_ptr, outp, tree_num, is_extended, X_num, X_cat, 
     invisible(.Call(`_isotree_predict_iso`, model_R_ptr, outp, tree_num, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, Xr, Xr_ind, Xr_indptr, nrows, nthreads, standardize))
 }
 
-dist_iso <- function(model_R_ptr, tmat, dmat, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, assume_full_distr, standardize_dist, sq_dist) {
-    invisible(.Call(`_isotree_dist_iso`, model_R_ptr, tmat, dmat, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, assume_full_distr, standardize_dist, sq_dist))
+dist_iso <- function(model_R_ptr, tmat, dmat, rmat, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, assume_full_distr, standardize_dist, sq_dist, n_from) {
+    invisible(.Call(`_isotree_dist_iso`, model_R_ptr, tmat, dmat, rmat, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, assume_full_distr, standardize_dist, sq_dist, n_from))
 }
 
 impute_iso <- function(model_R_ptr, imputer_R_ptr, is_extended, X_num, X_cat, Xr, Xr_ind, Xr_indptr, nrows, nthreads) {

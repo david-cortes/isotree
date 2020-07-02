@@ -471,7 +471,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         gather_sim_result(NULL, &worker_memory,
                           NULL, &input_data,
                           model_outputs, model_outputs_ext,
-                          tmat, model_params.ntrees, false,
+                          tmat, NULL, 0,
+                          model_params.ntrees, false,
                           standardize_dist, nthreads);
 
     /* same for depths */
@@ -566,9 +567,10 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Pass NULL if there are no categorical columns. The encoding must be the same as was used
 *       in the data to which the model was fit.
 *       Each category should be represented as an integer, and these integers must start at zero and
-*       be in consecutive order - i.e. if category '3' is present, category '2' must also be present
-*       (note that they are not treated as being ordinal, this is just an encoding). Missing values
-*       should be encoded as negative numbers such as (-1).
+*       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
+*       present when the model was fit (note that they are not treated as being ordinal, this is just
+*       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
+*       must be the same as was used in the data to which the model was fit.
 *       If the model from 'fit_iforest' was fit to categorical data, must pass categorical data with the same number
 *       of columns and the same category encoding.
 * - ncols_categ

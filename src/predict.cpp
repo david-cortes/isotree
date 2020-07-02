@@ -60,10 +60,10 @@
 *       and the column order must be the same as in the data that was used to fit the model.
 *       Pass NULL if there are no categorical columns.
 *       Each category should be represented as an integer, and these integers must start at zero and
-*       be in consecutive order - i.e. if category '3' is present, category '2' must also be present
-*       (note that they are not treated as being ordinal, this is just an encoding). Missing values
-*       should be encoded as negative numbers such as (-1). The encoding must be the same as was used
-*       in the data to which the model was fit.
+*       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
+*       present when the model was fit (note that they are not treated as being ordinal, this is just
+*       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
+*       must be the same as was used in the data to which the model was fit.
 * - Xc[nnz]
 *       Pointer to numeric data in sparse numeric matrix in CSC format (column-compressed).
 *       Pass NULL if there are no sparse numeric columns.

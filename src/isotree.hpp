@@ -529,6 +529,8 @@ typedef struct WorkerForSimilarity {
     std::vector<double> weights_arr;
     std::vector<double> comb_val;
     std::vector<double> tmat_sep;
+    std::vector<double> rmat;
+    size_t              n_from;
     bool                assume_full_distr; /* doesn't need to have one copy per worker */
 } WorkerForSimilarity;
 
@@ -656,7 +658,8 @@ void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *restrict n_nodes, spa
 void calc_similarity(double numeric_data[], int categ_data[],
                      double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
-                     IsoForest *model_outputs, ExtIsoForest *model_outputs_ext, double tmat[]);
+                     IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                     double tmat[], double rmat[], size_t n_from);
 void traverse_tree_sim(WorkerForSimilarity   &workspace,
                        PredictionData        &prediction_data,
                        IsoForest             &model_outputs,
@@ -671,12 +674,14 @@ void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
                        std::vector<WorkerMemory> *worker_memory_m,
                        PredictionData *prediction_data, InputData *input_data,
                        IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                       double *restrict tmat, size_t ntrees, bool assume_full_distr,
+                       double *restrict tmat, double *restrict rmat, size_t n_from,
+                       size_t ntrees, bool assume_full_distr,
                        bool standardize_dist, int nthreads);
 void initialize_worker_for_sim(WorkerForSimilarity  &workspace,
                                PredictionData       &prediction_data,
                                IsoForest            *model_outputs,
                                ExtIsoForest         *model_outputs_ext,
+                               size_t                n_from,
                                bool                  assume_full_distr);
 
 /* impute.cpp */
@@ -770,6 +775,10 @@ void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
                            double *restrict counter, double *restrict weights, double exp_remainder);
 void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
                            double counter[], std::unordered_map<size_t, double> &weights, double exp_remainder);
+void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, size_t split_ix, size_t n,
+                                     double counter[], double exp_remainder);
+void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, size_t split_ix, size_t n,
+                                     double *restrict counter, double *restrict weights, double exp_remainder);
 void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool diag_to_one);
 double calc_sd_raw(size_t cnt, long double sum, long double sum_sq);
 long double calc_sd_raw_l(size_t cnt, long double sum, long double sum_sq);

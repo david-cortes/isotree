@@ -606,9 +606,10 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Pass NULL if there are no categorical columns. The encoding must be the same as was used
 *       in the data to which the model was fit.
 *       Each category should be represented as an integer, and these integers must start at zero and
-*       be in consecutive order - i.e. if category '3' is present, category '2' must also be present
-*       (note that they are not treated as being ordinal, this is just an encoding). Missing values
-*       should be encoded as negative numbers such as (-1).
+*       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
+*       present when the model was fit (note that they are not treated as being ordinal, this is just
+*       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
+*       must be the same as was used in the data to which the model was fit.
 *       If the model from 'fit_iforest' was fit to categorical data, must pass categorical data with the same number
 *       of columns and the same category encoding.
 * - ncols_categ
@@ -741,10 +742,10 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       and the column order must be the same as in the data that was used to fit the model.
 *       Pass NULL if there are no categorical columns.
 *       Each category should be represented as an integer, and these integers must start at zero and
-*       be in consecutive order - i.e. if category '3' is present, category '2' must also be present
-*       (note that they are not treated as being ordinal, this is just an encoding). Missing values
-*       should be encoded as negative numbers such as (-1). The encoding must be the same as was used
-*       in the data to which the model was fit.
+*       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
+*       present when the model was fit (note that they are not treated as being ordinal, this is just
+*       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
+*       must be the same as was used in the data to which the model was fit.
 * - Xc[nnz]
 *       Pointer to numeric data in sparse numeric matrix in CSC format (column-compressed).
 *       Pass NULL if there are no sparse numeric columns.
@@ -814,6 +815,8 @@ void predict_iforest(double numeric_data[], int categ_data[],
 *       Pointer to numeric data for which to make calculations. Must be ordered by columns like Fortran,
 *       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
 *       and the column order must be the same as in the data that was used to fit the model.
+*       If making calculations between two sets of observations/rows (see documentation for 'rmat'),
+*       the first group is assumed to be the earlier rows here.
 *       Pass NULL if there are no dense numeric columns.
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - categ_data[nrows * ncols_categ]
@@ -822,10 +825,12 @@ void predict_iforest(double numeric_data[], int categ_data[],
 *       and the column order must be the same as in the data that was used to fit the model.
 *       Pass NULL if there are no categorical columns.
 *       Each category should be represented as an integer, and these integers must start at zero and
-*       be in consecutive order - i.e. if category '3' is present, category '2' must also be present
-*       (note that they are not treated as being ordinal, this is just an encoding). Missing values
-*       should be encoded as negative numbers such as (-1). The encoding must be the same as was used
-*       in the data to which the model was fit.
+*       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
+*       present when the model was fit (note that they are not treated as being ordinal, this is just
+*       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
+*       must be the same as was used in the data to which the model was fit.
+*       If making calculations between two sets of observations/rows (see documentation for 'rmat'),
+*       the first group is assumed to be the earlier rows here.
 * - Xc[nnz]
 *       Pointer to numeric data in sparse numeric matrix in CSC format (column-compressed).
 *       Pass NULL if there are no sparse numeric columns.
@@ -837,6 +842,8 @@ void predict_iforest(double numeric_data[], int categ_data[],
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
 *       start and at entry [col + 1] where does column 'col' end.
 *       Pass NULL if there are no sparse numeric columns in CSC format.
+*       If making calculations between two sets of observations/rows (see documentation for 'rmat'),
+*       the first group is assumed to be the earlier rows here.
 * - nrows
 *       Number of rows in 'numeric_data', 'Xc', 'Xr, 'categ_data'.
 * - nthreads
@@ -871,11 +878,29 @@ void predict_iforest(double numeric_data[], int categ_data[],
 *           p(i,j) = (i * (n - (i+1)/2) + j - i - 1).
 *       Can be converted to a dense square matrix through function 'tmat_to_dense'.
 *       The array must already be initialized to zeros.
+*       If calculating distance/separation from a group of points to another group of points,
+*       pass NULL here and use 'rmat' instead.
+* - rmat[nrows1 * nrows2] (out)
+*       Pointer to array where to write the distances or separation depths between each row in
+*       one set of observations and each row in a different set of observations. If doing these
+*       calculations for all pairs of observations/rows, pass 'rmat' instead.
+*       Will take the first group of observations as the rows in this matrix, and the second
+*       group as the columns. The groups are assumed to be in the same data arrays, with the
+*       first group corresponding to the earlier rows there.
+*       This matrix will be used in row-major order (i.e. entries 1..n_from contain the first row).
+*       Must be already initialized to zeros.
+*       Ignored when 'tmat' is passed.
+* - n_from
+*       When calculating distances between two groups of points, this indicates the number of
+*       observations/rows belonging to the first group (the rows in 'rmat'), which will be
+*       assumed to be the first 'n_from' rows.
+*       Ignored when 'tmat' is passed.
 */
 void calc_similarity(double numeric_data[], int categ_data[],
                      double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
-                     IsoForest *model_outputs, ExtIsoForest *model_outputs_ext, double tmat[]);
+                     IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                     double tmat[], double rmat[], size_t n_from);
 
 
 /* Impute missing values in new data
@@ -891,16 +916,16 @@ void calc_similarity(double numeric_data[], int categ_data[],
 *       Imputations will overwrite values in this same array.
 * - ncols_numeric
 *       Number of numeric columns in the data (whether they come in a sparse matrix or dense array).
-* - categ_data[nrows * ncols_categ] (in, out)
+* - categ_data[nrows * ncols_categ]
 *       Pointer to categorical data in which missing values will be imputed. Must be ordered by columns like Fortran,
 *       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
 *       and the column order must be the same as in the data that was used to fit the model.
 *       Pass NULL if there are no categorical columns.
 *       Each category should be represented as an integer, and these integers must start at zero and
-*       be in consecutive order - i.e. if category '3' is present, category '2' must also be present
-*       (note that they are not treated as being ordinal, this is just an encoding). Missing values
-*       should be encoded as negative numbers such as (-1). The encoding must be the same as was used
-*       in the data to which the model was fit.
+*       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
+*       present when the model was fit (note that they are not treated as being ordinal, this is just
+*       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
+*       must be the same as was used in the data to which the model was fit.
 *       Imputations will overwrite values in this same array.
 * - ncols_categ
 *       Number of categorical columns in the data.

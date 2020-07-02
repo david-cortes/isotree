@@ -4,21 +4,28 @@
 \alias{predict.isolation_forest}
 \title{Predict method for Isolation Forest}
 \usage{
-\method{predict}{isolation_forest}(object, newdata, type = "score", square_mat = FALSE, ...)
+\method{predict}{isolation_forest}(
+  object,
+  newdata,
+  type = "score",
+  square_mat = FALSE,
+  refdata = NULL,
+  ...
+)
 }
 \arguments{
 \item{object}{An Isolation Forest object as returned by `isolation.forest`.}
 
-\item{newdata}{A data.frame, matrix, or sparse matrix (from package `Matrix` or `SparseM`, CSC format for distance and outlierness,
+\item{newdata}{A `data.frame`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC format for distance and outlierness,
 or CSR format for outlierness and imputations) for which to predict outlierness, distance, or imputations of missing values.
-Note that when passing `type` = `"impute"` and newdata is a sparse matrix, under some situations it might get modified in-place.}
+Note that when passing `type` = `"impute"` and `newdata` is a sparse matrix, under some situations it might get modified in-place.}
 
 \item{type}{Type of prediction to output. Options are:
 \itemize{
   \item `"score"` for the standardized outlier score, where values closer to 1 indicate more outlierness, while values
   closer to 0.5 indicate average outlierness, and close to 0 more averageness (harder to isolate).
   \item `"avg_depth"` for  the non-standardized average isolation depth.
-  \item `"dist"` for approximate pairwise distances (must pass more than 1 row) - these are
+  \item `"dist"` for approximate pairwise or between-points distances (must pass more than 1 row) - these are
   standardized in the same way as outlierness, values closer to zero indicate nearer points,
   closer to one further away points, and closer to 0.5 average distance.
   \item `"avg_sep"` for the non-standardized average separation depth.
@@ -28,24 +35,32 @@ Note that when passing `type` = `"impute"` and newdata is a sparse matrix, under
   \item `"impute"` for imputation of missing values in `newdata`.
 }}
 
-\item{square_mat}{When passing `type` = `"dist` or `"avg_sep"`, whether to return a full square matrix or
+\item{square_mat}{When passing `type` = `"dist` or `"avg_sep"` with no `refdata`, whether to return a full square matrix or
 just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
-p(i, j) = ((i - 1) * (n - i/2) + j - i).}
+p(i, j) = ((i - 1) * (n - i/2) + j - i).
+Ignored when not predicting distance/separation or when passing `refdata`.}
+
+\item{refdata}{If passing this and calculating distance or average separation depth, will calculate distances
+between each point in `newdata` and each point in `refdata`, outputing a matrix in which points in `newdata`
+correspond to rows and points in `refdata` correspond to columns. Must be of the same type as `newdata` (e.g.
+`data.frame`, `matrix`, `dgCMatrix`, etc.). If this is not passed, and type is `"dist"`
+or `"avg_sep"`, will calculate pairwise distances/separation between the points in `newdata`.}
 
 \item{...}{Not used.}
 }
 \value{
 The requested prediction type, which can be a vector with one entry per row in `newdata`
 (for output types `"score"`, `"avg_depth"`, `"tree_num"`), a square matrix or vector with the upper triangular
-part of a square matrix (for output types `"dist"`, `"avg_sep"`), or the same type as the input `newdata`
-(for output type `"impute"`).
+part of a square matrix (for output types `"dist"`, `"avg_sep"`, with no `refdata`), a matrix with points in
+`newdata` as rows and points in `refdata` as columns (for output types `"dist"`, `"avg_sep"`, with `refdata`),
+or the same type as the input `newdata` (for output type `"impute"`).
 }
 \description{
 Predict method for Isolation Forest
 }
 \details{
 The more threads that are set for the model, the higher the memory requirement will be as each
-thread will allocate an array with one entry per row (ourlierness) or combination (distance).
+thread will allocate an array with one entry per row (outlierness) or combination (distance).
 
 Outlierness predictions for sparse data will be much slower than for dense data. Not recommended to pass
 sparse matrices unless they are too big to fit in memory.
@@ -54,9 +69,13 @@ Note that after loading a serialized object from `isolation.forest` through `rea
 it will only de-serialize the underlying C++ object upon running `predict`, `print`, or `summary`, so the
 first run will  be slower, while subsequent runs will be faster as the C++ object will already be in-memory.
 
-In order to save memory when fitting and serializing models, the functionality for outputing
+In order to save memory when fitting and serializing models, the functionality for outputting
 terminal node numbers will generate index mappings on the fly for all tree nodes, even if passing only
 1 row, so it's only recommended for batch predictions.
+
+The outlier scores/depth predict functionality is optimized for making predictions on one or a
+few rows at a time - for making large batches of predictions, it might be faster to use the
+`output_score=TRUE` in `isolation.forest`.
 }
 \seealso{
 \link{isolation.forest} \link{unpack.isolation.forest}

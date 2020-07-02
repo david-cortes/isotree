@@ -1,5 +1,5 @@
 import numpy as np, pandas as pd
-from scipy.sparse import csc_matrix, csr_matrix, issparse, isspmatrix_csc, isspmatrix_csr
+from scipy.sparse import csc_matrix, csr_matrix, issparse, isspmatrix_csc, isspmatrix_csr, vstack as sp_vstack
 import warnings
 import multiprocessing
 import ctypes
@@ -952,6 +952,12 @@ class IsolationForest:
         In order to save memory when fitting and serializing models, the functionality for outputting
         terminal node number will generate index mappings on the fly for all tree nodes, even if passing only
         1 row, so it's only recommended for batch predictions.
+
+        Note
+        ----
+        The outlier scores/depth predict functionality is optimized for making predictions on one or a
+        few rows at a time - for making large batches of predictions, it might be faster to use the
+        'fit_predict' functionality.
         
         Parameters
         ----------
@@ -992,11 +998,12 @@ class IsolationForest:
         else:
             return tree_num
 
-    def predict_distance(self, X, output = "dist", square_mat = False):
+    def predict_distance(self, X, output = "dist", square_mat = False, X_ref = None):
         """
-        Predict approximate pairwise distances
+        Predict approximate distances between points
 
-        Predict approximate pairwise distances between points based on how many
+        Predict approximate pairwise distances between points or individual distances between
+        two sets of points based on how many
         splits it takes to separate them. Can output either the average number of paths,
         or a standardized metric (in the same way as the outlier score) in which values closer
         to zero indicate nearer points, closer to one further away points, and closer to 0.5
@@ -1010,22 +1017,29 @@ class IsolationForest:
         Parameters
         ----------
         X : array or array-like (n_samples, n_features)
-            Observations for which to calculate approximate pairwise distances. Can pass
+            Observations for which to calculate approximate pairwise distances,
+            or first group for distances between sets of points. Can pass
             a NumPy array, Pandas DataFrame, or SciPy sparse CSC matrix.
         output : str, one of "dist", "avg_sep"
             Type of output to produce. If passing "dist", will standardize the average separation
             depths. If passing "avg_sep", will output the average separation depth without standardizing it
             (note that lower separation depth means furthest distance).
         square_mat : bool
-            Whether to produce a full square matrix with the distances. If passing 'False', will output
+            Whether to produce a full square matrix with the pairwise distances. If passing 'False', will output
             only the upper triangular part as a 1-d array in which entry (i,j) with 0 <= i < j < n is located at
             position p(i,j) = (i * (n - (i+1)/2) + j - i - 1).
+            Ignored when passing ``X_ref``.
+        X_ref : array or array-like (n_ref, n_features)
+            Second group of observations. If passing it, will calculate distances between each point in
+            ``X`` and each point in ``X_ref``. If passing ``None`` (the default), will calculate
+            pairwise distances between the points in ``X``.
+            Must be of the same type as ``X`` (e.g. array, DataFrame, CSC).
 
         Returns
         -------
-        dist : array(n_samples * (n_samples - 1) / 2,) or array(n_samples, n_samples)
-            Approximate pairwise distances or average separation depth, according to
-            parameter 'output'. Shape and size depends on paramnter 'square_mat'.
+        dist : array(n_samples * (n_samples - 1) / 2,) or array(n_samples, n_samples) or array(n_samples, n_ref)
+            Approximate distances or average separation depth between points, according to
+            parameter 'output'. Shape and size depends on parameter ``square_mat``, or ``X_ref`` if passed.
         """
         assert self.is_fitted_
         if not self._is_extended_:
@@ -1035,19 +1049,35 @@ class IsolationForest:
                 msg += "if 'missing_action' != 'divide'."
                 raise ValueError(msg)
         assert output in ["dist", "avg_sep"]
-        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False)
 
+        if X_ref is None:
+            nobs_group1 = 0
+        else:
+            if X.__class__ != X_ref.__class__:
+                raise ValueError("'X' and 'X_ref' must be of the same class.")
+            nobs_group1 = X.shape[0]
+            if X.__class__.__name__ == "DataFrame":
+                X = X.append(X_ref, ignore_index = True)
+            elif issparse(X):
+                X = sp_vstack([X, X_ref])
+            else:
+                X = np.vstack([X, X_ref])
+
+        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False)
         if nrows == 1:
             raise ValueError("Cannot calculate pairwise distances for only 1 row.")
 
-        tmat, dmat = self._cpp_obj.dist(X_num, X_cat, self._is_extended_,
-                                        ctypes.c_size_t(nrows).value,
-                                        ctypes.c_int(self.nthreads).value,
-                                        ctypes.c_bool(self.assume_full_distr).value,
-                                        ctypes.c_bool(output == "dist").value,
-                                        ctypes.c_bool(square_mat).value)
+        tmat, dmat, rmat = self._cpp_obj.dist(X_num, X_cat, self._is_extended_,
+                                              ctypes.c_size_t(nrows).value,
+                                              ctypes.c_int(self.nthreads).value,
+                                              ctypes.c_bool(self.assume_full_distr).value,
+                                              ctypes.c_bool(output == "dist").value,
+                                              ctypes.c_bool(square_mat).value,
+                                              ctypes.c_size_t(nobs_group1).value)
         
-        if square_mat:
+        if X_ref is not None:
+            return rmat
+        elif square_mat:
             return dmat
         else:
             return tmat

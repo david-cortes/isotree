@@ -173,13 +173,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // dist_iso
-void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericVector dmat, bool is_extended, Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist, bool sq_dist);
-RcppExport SEXP _isotree_dist_iso(SEXP model_R_ptrSEXP, SEXP tmatSEXP, SEXP dmatSEXP, SEXP is_extendedSEXP, SEXP X_numSEXP, SEXP X_catSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP nrowsSEXP, SEXP nthreadsSEXP, SEXP assume_full_distrSEXP, SEXP standardize_distSEXP, SEXP sq_distSEXP) {
+void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericVector dmat, Rcpp::NumericVector rmat, bool is_extended, Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist, bool sq_dist, size_t n_from);
+RcppExport SEXP _isotree_dist_iso(SEXP model_R_ptrSEXP, SEXP tmatSEXP, SEXP dmatSEXP, SEXP rmatSEXP, SEXP is_extendedSEXP, SEXP X_numSEXP, SEXP X_catSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP nrowsSEXP, SEXP nthreadsSEXP, SEXP assume_full_distrSEXP, SEXP standardize_distSEXP, SEXP sq_distSEXP, SEXP n_fromSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type tmat(tmatSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type dmat(dmatSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type rmat(rmatSEXP);
     Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type X_num(X_numSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type X_cat(X_catSEXP);
@@ -191,7 +192,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type assume_full_distr(assume_full_distrSEXP);
     Rcpp::traits::input_parameter< bool >::type standardize_dist(standardize_distSEXP);
     Rcpp::traits::input_parameter< bool >::type sq_dist(sq_distSEXP);
-    dist_iso(model_R_ptr, tmat, dmat, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, assume_full_distr, standardize_dist, sq_dist);
+    Rcpp::traits::input_parameter< size_t >::type n_from(n_fromSEXP);
+    dist_iso(model_R_ptr, tmat, dmat, rmat, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, assume_full_distr, standardize_dist, sq_dist, n_from);
     return R_NilValue;
 END_RCPP
 }
@@ -252,7 +254,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_fit_model", (DL_FUNC) &_isotree_fit_model, 44},
     {"_isotree_fit_tree", (DL_FUNC) &_isotree_fit_tree, 35},
     {"_isotree_predict_iso", (DL_FUNC) &_isotree_predict_iso, 15},
-    {"_isotree_dist_iso", (DL_FUNC) &_isotree_dist_iso, 14},
+    {"_isotree_dist_iso", (DL_FUNC) &_isotree_dist_iso, 16},
     {"_isotree_impute_iso", (DL_FUNC) &_isotree_impute_iso, 10},
     {"_isotree_get_n_nodes", (DL_FUNC) &_isotree_get_n_nodes, 3},
     {"_isotree_append_trees_from_other", (DL_FUNC) &_isotree_append_trees_from_other, 5},

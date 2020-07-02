@@ -19,11 +19,11 @@ _(Code to produce these plots can be found in the R examples in the documentatio
 
 # Distance / similarity calculations
 
-General idea was extended to produce distance (alternatively, similarity) between observations according to how many random splits it takes to separate them - idea is described in [Distance approximation using Isolation Forests](https://arxiv.org/abs/1910.12362).
+General idea was extended to produce distance (alternatively, similarity) between observations according to how many random splits it takes to separate them - idea is described in ["Distance approximation using Isolation Forests"](https://arxiv.org/abs/1910.12362).
 
 # Imputation of missing values
 
-The model can also be used to impute missing values in a similar fashion as kNN, by taking the values from observations in the terminal nodes of each tree in which an observation with missing values falls at prediction time, combining the non-missing values of the other observations as a weighted average according to the depth of the node and the number of observations that fall there. This is not related to how the model handles missing values internally, but is rather meant as a faster way of imputing by similarity. Quality is usually not as good as chained equations, but the method is a lot faster and more scalable. Recommended to use non-random splits when used as an imputer. Details are described in [Imputing missing values with unsupervised random trees](https://arxiv.org/abs/1911.06646).
+The model can also be used to impute missing values in a similar fashion as kNN, by taking the values from observations in the terminal nodes of each tree in which an observation with missing values falls at prediction time, combining the non-missing values of the other observations as a weighted average according to the depth of the node and the number of observations that fall there. This is not related to how the model handles missing values internally, but is rather meant as a faster way of imputing by similarity. Quality is usually not as good as chained equations, but the method is a lot faster and more scalable. Recommended to use non-random splits when used as an imputer. Details are described in ["Imputing missing values with unsupervised random trees"](https://arxiv.org/abs/1911.06646).
 
 # Highlights
 

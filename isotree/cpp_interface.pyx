@@ -195,10 +195,11 @@ cdef extern from "isotree.hpp":
 
     void tmat_to_dense(double *tmat, double *dmat, size_t n, bool_t diag_to_one)
 
-    void calc_similarity(double *numeric_data, int *categ_data,
-                         double *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr,
+    void calc_similarity(double numeric_data[], int categ_data[],
+                         double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                          size_t nrows, int nthreads, bool_t assume_full_distr, bool_t standardize_dist,
-                         IsoForest *model_outputs, ExtIsoForest *model_outputs_ext, double *tmat)
+                         IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                         double tmat[], double rmat[], size_t n_from)
 
     void impute_missing_values(double *numeric_data, int *categ_data,
                                double *Xr, sparse_ix *Xr_ind, sparse_ix *Xr_indptr,
@@ -572,7 +573,8 @@ cdef class isoforest_cpp_obj:
 
     def dist(self, X_num, X_cat, is_extended,
              size_t nrows, int nthreads, bool_t assume_full_distr,
-             bool_t standardize_dist,    bool_t sq_dist):
+             bool_t standardize_dist,    bool_t sq_dist,
+             size_t n_from):
 
         cdef double*     numeric_data_ptr  =  NULL
         cdef int*        categ_data_ptr    =  NULL
@@ -592,14 +594,20 @@ cdef class isoforest_cpp_obj:
 
         cdef np.ndarray[double, ndim = 1]  tmat    =  np.empty(0, dtype = ctypes.c_double)
         cdef np.ndarray[double, ndim = 2]  dmat    =  np.empty((0, 0), dtype = ctypes.c_double)
+        cdef np.ndarray[double, ndim = 2]  rmat    =  np.empty((0, 0), dtype = ctypes.c_double)
         cdef double*  tmat_ptr    =  NULL
         cdef double*  dmat_ptr    =  NULL
+        cdef double*  rmat_ptr    =  NULL
 
-        tmat      =  np.zeros(int((nrows * (nrows - 1)) / 2), dtype = ctypes.c_double)
-        tmat_ptr  =  &tmat[0]
-        if sq_dist:
-            dmat      =  np.zeros((nrows, nrows), dtype = ctypes.c_double, order = 'F')
-            dmat_ptr  =  &dmat[0, 0]
+        if n_from == 0:
+            tmat      =  np.zeros(int((nrows * (nrows - 1)) / 2), dtype = ctypes.c_double)
+            tmat_ptr  =  &tmat[0]
+            if sq_dist:
+                dmat      =  np.zeros((nrows, nrows), dtype = ctypes.c_double, order = 'F')
+                dmat_ptr  =  &dmat[0, 0]
+        else:
+            rmat = np.zeros((n_from, nrows - n_from), dtype = ctypes.c_double)
+            rmat_ptr = &rmat[0, 0]
 
         cdef IsoForest*     model_ptr      =  NULL
         cdef ExtIsoForest*  ext_model_ptr  =  NULL
@@ -611,12 +619,13 @@ cdef class isoforest_cpp_obj:
         calc_similarity(numeric_data_ptr, categ_data_ptr,
                         Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
                         nrows, nthreads, assume_full_distr, standardize_dist,
-                        model_ptr, ext_model_ptr, tmat_ptr)
+                        model_ptr, ext_model_ptr,
+                        tmat_ptr, rmat_ptr, n_from)
 
-        if (sq_dist):
+        if (sq_dist) and (n_from == 0):
             tmat_to_dense(tmat_ptr, dmat_ptr, nrows, <bool_t>(not standardize_dist))
 
-        return tmat, dmat
+        return tmat, dmat, rmat
 
     def impute(self, X_num, X_cat, bool_t is_extended, size_t nrows, int nthreads):
         cdef double*     numeric_data_ptr  =  NULL

@@ -568,11 +568,12 @@ void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector
 }
 
 // [[Rcpp::export]]
-void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericVector dmat, bool is_extended,
+void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericVector dmat,
+              Rcpp::NumericVector rmat, bool is_extended,
               Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat,
               Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
               size_t nrows, int nthreads, bool assume_full_distr,
-              bool standardize_dist, bool sq_dist)
+              bool standardize_dist, bool sq_dist, size_t n_from)
 {
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
@@ -598,8 +599,9 @@ void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericVector dm
         Xc_indptr_ptr  =  &Xc_indptr[0];
     }
 
-    double*  tmat_ptr    =  &tmat[0];
-    double*  dmat_ptr    =  sq_dist? &dmat[0] : NULL;
+    double*  tmat_ptr    =  n_from? (double*)NULL : &tmat[0];
+    double*  dmat_ptr    =  (sq_dist & !n_from)? &dmat[0] : NULL;
+    double*  rmat_ptr    =  n_from? &rmat[0] : NULL;
 
     IsoForest*     model_ptr      =  NULL;
     ExtIsoForest*  ext_model_ptr  =  NULL;
@@ -623,9 +625,10 @@ void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericVector dm
     calc_similarity(numeric_data_ptr, categ_data_ptr,
                     Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
                     nrows, nthreads, assume_full_distr, standardize_dist,
-                    model_ptr, ext_model_ptr, tmat_ptr);
+                    model_ptr, ext_model_ptr,
+                    tmat_ptr, rmat_ptr, n_from);
 
-    if (sq_dist)
+    if (sq_dist & !n_from)
         tmat_to_dense(tmat_ptr, dmat_ptr, nrows, !standardize_dist);
 }
 

@@ -284,6 +284,7 @@ void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
         }
 }
 
+/* Note to self: don't try merge this into a template with the one above, as the other one has 'restrict' qualifier */
 void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
                            double counter[], std::unordered_map<size_t, double> &weights, double exp_remainder)
 {
@@ -310,6 +311,54 @@ void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
                 counter[ix_comb(i, j, n, ncomb)] += weights[i] * weights[j] * exp_remainder;
             }
         }
+}
+
+void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, size_t split_ix, size_t n,
+                                     double counter[], double exp_remainder)
+{
+    size_t n_group = 0;
+    for (size_t ix = st; ix <= end; ix++)
+        if (ix_arr[ix] < split_ix)
+            n_group++;
+        else
+            break;
+
+    n = n - split_ix;
+
+    if (exp_remainder <= 1)
+        for (size_t ix1 = st; ix1 < st + n_group; ix1++)
+            for (size_t ix2 = st + n_group; ix2 <= end; ix2++)
+                counter[ix_arr[ix1] * n + ix_arr[ix2] - split_ix]++;
+    else
+        for (size_t ix1 = st; ix1 < st + n_group; ix1++)
+            for (size_t ix2 = st + n_group; ix2 <= end; ix2++)
+                counter[ix_arr[ix1] * n + ix_arr[ix2] - split_ix] += exp_remainder;
+}
+
+void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, size_t split_ix, size_t n,
+                                     double *restrict counter, double *restrict weights, double exp_remainder)
+{
+    size_t n_group = 0;
+    for (size_t ix = st; ix <= end; ix++)
+        if (ix_arr[ix] < split_ix)
+            n_group++;
+        else
+            break;
+
+    n = n - split_ix;
+
+    if (exp_remainder <= 1)
+        for (size_t ix1 = st; ix1 < st + n_group; ix1++)
+            for (size_t ix2 = st + n_group; ix2 <= end; ix2++)
+                counter[ix_arr[ix1] * n + ix_arr[ix2] - split_ix]
+                    +=
+                weights[ix_arr[ix1]] * weights[ix_arr[ix2]];
+    else
+        for (size_t ix1 = st; ix1 < st + n_group; ix1++)
+            for (size_t ix2 = st + n_group; ix2 <= end; ix2++)
+                counter[ix_arr[ix1] * n + ix_arr[ix2] - split_ix]
+                    +=
+                weights[ix_arr[ix1]] * weights[ix_arr[ix2]] * exp_remainder;
 }
 
 void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool diag_to_one)

@@ -697,15 +697,15 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
 
 #' @title Predict method for Isolation Forest
 #' @param object An Isolation Forest object as returned by `isolation.forest`.
-#' @param newdata A data.frame, matrix, or sparse matrix (from package `Matrix` or `SparseM`, CSC format for distance and outlierness,
+#' @param newdata A `data.frame`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC format for distance and outlierness,
 #' or CSR format for outlierness and imputations) for which to predict outlierness, distance, or imputations of missing values.
-#' Note that when passing `type` = `"impute"` and newdata is a sparse matrix, under some situations it might get modified in-place.
+#' Note that when passing `type` = `"impute"` and `newdata` is a sparse matrix, under some situations it might get modified in-place.
 #' @param type Type of prediction to output. Options are:
 #' \itemize{
 #'   \item `"score"` for the standardized outlier score, where values closer to 1 indicate more outlierness, while values
 #'   closer to 0.5 indicate average outlierness, and close to 0 more averageness (harder to isolate).
 #'   \item `"avg_depth"` for  the non-standardized average isolation depth.
-#'   \item `"dist"` for approximate pairwise distances (must pass more than 1 row) - these are
+#'   \item `"dist"` for approximate pairwise or between-points distances (must pass more than 1 row) - these are
 #'   standardized in the same way as outlierness, values closer to zero indicate nearer points,
 #'   closer to one further away points, and closer to 0.5 average distance.
 #'   \item `"avg_sep"` for the non-standardized average separation depth.
@@ -714,16 +714,23 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
 #'   `score` and `tree_num`, respectively.
 #'   \item `"impute"` for imputation of missing values in `newdata`.
 #' }
-#' @param square_mat When passing `type` = `"dist` or `"avg_sep"`, whether to return a full square matrix or
+#' @param square_mat When passing `type` = `"dist` or `"avg_sep"` with no `refdata`, whether to return a full square matrix or
 #' just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 #' p(i, j) = ((i - 1) * (n - i/2) + j - i).
+#' Ignored when not predicting distance/separation or when passing `refdata`.
+#' @param refdata If passing this and calculating distance or average separation depth, will calculate distances
+#' between each point in `newdata` and each point in `refdata`, outputing a matrix in which points in `newdata`
+#' correspond to rows and points in `refdata` correspond to columns. Must be of the same type as `newdata` (e.g.
+#' `data.frame`, `matrix`, `dgCMatrix`, etc.). If this is not passed, and type is `"dist"`
+#' or `"avg_sep"`, will calculate pairwise distances/separation between the points in `newdata`.
 #' @param ... Not used.
 #' @return The requested prediction type, which can be a vector with one entry per row in `newdata`
 #' (for output types `"score"`, `"avg_depth"`, `"tree_num"`), a square matrix or vector with the upper triangular
-#' part of a square matrix (for output types `"dist"`, `"avg_sep"`), or the same type as the input `newdata`
-#' (for output type `"impute"`).
+#' part of a square matrix (for output types `"dist"`, `"avg_sep"`, with no `refdata`), a matrix with points in
+#' `newdata` as rows and points in `refdata` as columns (for output types `"dist"`, `"avg_sep"`, with `refdata`),
+#' or the same type as the input `newdata` (for output type `"impute"`).
 #' @details The more threads that are set for the model, the higher the memory requirement will be as each
-#' thread will allocate an array with one entry per row (ourlierness) or combination (distance).
+#' thread will allocate an array with one entry per row (outlierness) or combination (distance).
 #' 
 #' Outlierness predictions for sparse data will be much slower than for dense data. Not recommended to pass
 #' sparse matrices unless they are too big to fit in memory.
@@ -732,12 +739,16 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
 #' it will only de-serialize the underlying C++ object upon running `predict`, `print`, or `summary`, so the
 #' first run will  be slower, while subsequent runs will be faster as the C++ object will already be in-memory.
 #' 
-#' In order to save memory when fitting and serializing models, the functionality for outputing
+#' In order to save memory when fitting and serializing models, the functionality for outputting
 #' terminal node numbers will generate index mappings on the fly for all tree nodes, even if passing only
 #' 1 row, so it's only recommended for batch predictions.
+#' 
+#' The outlier scores/depth predict functionality is optimized for making predictions on one or a
+#' few rows at a time - for making large batches of predictions, it might be faster to use the
+#' `output_score=TRUE` in `isolation.forest`.
 #' @seealso \link{isolation.forest} \link{unpack.isolation.forest}
 #' @export
-predict.isolation_forest <- function(object, newdata, type = "score", square_mat = FALSE, ...) {
+predict.isolation_forest <- function(object, newdata, type="score", square_mat=FALSE, refdata=NULL, ...) {
     if (check_null_ptr_model(object$cpp_obj$ptr)) {
         obj_new <- object$cpp_obj
         if (object$params$ndim == 1)
@@ -772,18 +783,30 @@ predict.isolation_forest <- function(object, newdata, type = "score", square_mat
     if (type %in% "impute" && (is.null(object$params$build_imputer) || !(object$params$build_imputer)))
         stop("Cannot impute missing values with model that was built with 'build_imputer' =  'FALSE'.")
     
+    if (is.null(refdata) && (type %in% c("dist", "avg_sep"))) {
+        nobs_group1 <- 0L
+    } else {
+        nobs_group1 <- NROW(newdata)
+        newdata     <- rbind(newdata, refdata)
+    }
+    
     pdata <- process.data.new(newdata, object$metadata, type %in% c("score", "avg_depth"), type != "impute")
     
     square_mat   <-  as.logical(square_mat)
     score_array  <-  get.empty.vector()
     dist_tmat    <-  get.empty.vector()
     dist_dmat    <-  get.empty.vector()
+    dist_rmat    <-  get.empty.vector()
     tree_num     <-  get.empty.int.vector()
     
     if (type %in% c("dist", "avg_sep")) {
         if (NROW(newdata) == 1) stop("Need more than 1 data point for distance predictions.")
-        dist_tmat <- vector("numeric", (pdata$nrows * (pdata$nrows - 1L)) / 2L)
-        if (square_mat) dist_dmat <- vector("numeric", pdata$nrows ^ 2)
+        if (is.null(refdata)) {
+            dist_tmat <- vector("numeric", (pdata$nrows * (pdata$nrows - 1L)) / 2L)
+            if (square_mat) dist_dmat <- vector("numeric", pdata$nrows ^ 2)
+        } else {
+            dist_rmat <- vector("numeric", nobs_group1 * (pdata$nrows - nobs_group1))
+        }
     } else {
         score_array <- vector("numeric", pdata$nrows)
         if (type == "tree_num") tree_num <- vector("integer", pdata$nrows * object$params$ntrees)
@@ -800,12 +823,15 @@ predict.isolation_forest <- function(object, newdata, type = "score", square_mat
         else
             return(score_array)
     } else if (type != "impute") {
-        dist_iso(object$cpp_obj$ptr, dist_tmat, dist_dmat, object$params$ndim > 1,
+        dist_iso(object$cpp_obj$ptr, dist_tmat, dist_dmat, dist_rmat,
+                 object$params$ndim > 1,
                  pdata$X_num, pdata$X_cat,
                  pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
                  pdata$nrows, object$nthreads, object$params$assume_full_distr,
-                 type == "dist", square_mat)
-        if (square_mat)
+                 type == "dist", square_mat, nobs_group1)
+        if (!is.null(refdata))
+            return(t(matrix(dist_rmat, ncol = nobs_group1)))
+        else if (square_mat)
             return(matrix(dist_dmat, nrow = pdata$nrows, ncol = pdata$nrows))
         else
             return(dist_tmat)
