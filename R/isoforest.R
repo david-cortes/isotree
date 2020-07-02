@@ -150,6 +150,11 @@
 #' categorical variables with too many categories, but is not recommended, and not reflective of
 #' real "categorical-ness". Ignored for the regular model (`ndim=1`) and/or when not using categorical
 #' variables.
+#' @param recode_categ Whether to re-encode categorical variables even in case they are already passed
+#' as factors. This is recommended as it will eliminate potentially redundant categorical levels if
+#' they have no observations, but if the categorical variables are already of type `factor` with only
+#' the levels that are present, it can be skipped for slightly faster fitting times. You'll likely
+#' want to pass `FALSE` here if merging several models into one through \link{append.trees}.
 #' @param weights_as_sample_prob If passing `sample_weights` argument, whether to consider those weights as row
 #' sampling weights (i.e. the higher the weights, the more likely the observation will end up included
 #' in each tree sub-sample), or as distribution density weights (i.e. putting a weight of two is the same
@@ -441,7 +446,8 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                              prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
                              min_gain = 0, missing_action = ifelse(ndim > 1, "impute", "divide"),
                              new_categ_action = ifelse(ndim > 1, "impute", "weighted"),
-                             categ_split_type = "subset", all_perm = FALSE, coef_by_prop = FALSE,
+                             categ_split_type = "subset", all_perm = FALSE,
+                             coef_by_prop = FALSE, recode_categ = TRUE,
                              weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
                              penalize_range = TRUE, weigh_by_kurtosis = FALSE,
                              coefs = "normal", assume_full_distr = TRUE,
@@ -478,6 +484,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
     check.is.prob(prob_split_pooled_gain,  "prob_split_pooled_gain")
     
     check.is.bool(all_perm,                 "all_perm")
+    check.is.bool(recode_categ,             "recode_categ")
     check.is.bool(coef_by_prop,             "coef_by_prop")
     check.is.bool(weights_as_sample_prob,   "weights_as_sample_prob")
     check.is.bool(sample_with_replacement,  "sample_with_replacement")
@@ -599,7 +606,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
     assume_full_distr        <-  as.logical(assume_full_distr)
     
     ### split column types
-    pdata <- process.data(df, sample_weights, column_weights)
+    pdata <- process.data(df, sample_weights, column_weights, recode_categ)
     
     ### extra check for potential integer overflow
     if (all_perm && (ndim == 1) &&
@@ -1107,13 +1114,16 @@ get.num.nodes <- function(model)  {
 #' @title Append isolation trees from one model into another
 #' @description This function is intended for merging models \bold{that use the same hyperparameters} but
 #' were fitted to different subsets of data.
-#' In order for this work, both models must have been fit to data in the same format - 
-#' that is, same number of columns, same order of the columns, and same types. This will
-#' only work for numeric types - if the input data contains categorical columns, this is
-#' likely to fail as the categories are internally re-indexed, and will give wrong results
-#' unless both have the exact same factors appearing in the same order in the data (you can
-#' check this through the results from `factor(data$col)`, which this library uses internally).
-#' Using `factor` types with the same levels will \bold{not} make it work.
+#' 
+#' In order for this to work, both models must have been fit to data in the same format - 
+#' that is, same number of columns, same order of the columns, and same column types, although
+#' not necessarily same object classes (e.g. can mix `base::matrix` and `Matrix::dgCMatrix`).
+#' 
+#' If the data has categorical variables, the models should have been built with parameter
+#' `recode_categ=FALSE` in the call to \link{isolation.forest} (which is \bold{not} the
+#' default), and the categorical columns passed as type `factor` with the same `levels` -
+#' otherwise different models might be using different encodings for each categorical column,
+#' which will not be preserved as only the trees will be appended without any associated metadata.
 #' 
 #' Note that this function will not perform any checks on the inputs, and passing two incompatible
 #' models (e.g. fit to different numbers of columns) will result in wrong results and
@@ -1124,7 +1134,7 @@ get.num.nodes <- function(model)  {
 #' @param model An Isolation Forest model (as returned by function \link{isolation.forest})
 #' to which trees from `other` (another Isolation Forest model) will be appended into.
 #' @param other Another Isolation Forest model, from which trees will be appended into
-#' `model`.
+#' `model`. It will not be modified during the call to this function.
 #' @return The updated `model` object, to which `model` needs to be reassigned
 #' (i.e. you need to use it as follows: `model <- append.trees(model, other)`).
 #' @examples 

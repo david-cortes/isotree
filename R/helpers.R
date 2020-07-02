@@ -67,7 +67,7 @@ get.types.spmat <- function(allow_csr = FALSE, allow_csc = TRUE) {
     return(outp)
 }
 
-process.data <- function(df, sample_weights = NULL, column_weights = NULL) {
+process.data <- function(df, sample_weights = NULL, column_weights = NULL, recode_categ = TRUE) {
     df  <-  cast.df.alike(df)
     dmatrix_types     <-  get.types.dmat()
     spmatrix_types    <-  get.types.spmat()
@@ -148,7 +148,12 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL) {
             is_cat          <-  unname(as.logical(sapply(df, function(x) any(class(x) %in% dtypes_cat))))
             outp$cols_cat   <-  names(df)[is_cat]
             outp$ncols_cat  <-  as.integer(sum(is_cat))
-            outp$X_cat      <-  as.data.frame(lapply(df[, is_cat, drop = FALSE], factor))
+            if (recode_categ) {
+                outp$X_cat  <-  as.data.frame(lapply(df[, is_cat, drop = FALSE], factor))
+            } else {
+                outp$X_cat  <-  as.data.frame(lapply(df[, is_cat, drop = FALSE],
+                                                     function(x) if("factor" %in% class(x)) x else factor(x)))
+            }
             outp$cat_levs   <-  lapply(outp$X_cat, levels)
             outp$ncat       <-  sapply(outp$cat_levs, NROW)
             outp$X_cat      <-  as.data.frame(lapply(outp$X_cat, function(x) ifelse(is.na(x), -1L, as.integer(x) - 1L)))

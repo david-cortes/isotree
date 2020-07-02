@@ -23,6 +23,7 @@ isolation.forest(
   categ_split_type = "subset",
   all_perm = FALSE,
   coef_by_prop = FALSE,
+  recode_categ = TRUE,
   weights_as_sample_prob = TRUE,
   sample_with_replacement = FALSE,
   penalize_range = TRUE,
@@ -182,6 +183,12 @@ according to their relative frequency in the tree node. This might provide bette
 categorical variables with too many categories, but is not recommended, and not reflective of
 real "categorical-ness". Ignored for the regular model (`ndim=1`) and/or when not using categorical
 variables.}
+
+\item{recode_categ}{Whether to re-encode categorical variables even in case they are already passed
+as factors. This is recommended as it will eliminate potentially redundant categorical levels if
+they have no observations, but if the categorical variables are already of type `factor` with only
+the levels that are present, it can be skipped for slightly faster fitting times. You'll likely
+want to pass `FALSE` here if merging several models into one through \link{append.trees}.}
 
 \item{weights_as_sample_prob}{If passing `sample_weights` argument, whether to consider those weights as row
 sampling weights (i.e. the higher the weights, the more likely the observation will end up included

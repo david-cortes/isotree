@@ -11,7 +11,7 @@ append.trees(model, other)
 to which trees from `other` (another Isolation Forest model) will be appended into.}
 
 \item{other}{Another Isolation Forest model, from which trees will be appended into
-`model`.}
+`model`. It will not be modified during the call to this function.}
 }
 \value{
 The updated `model` object, to which `model` needs to be reassigned
@@ -20,13 +20,16 @@ The updated `model` object, to which `model` needs to be reassigned
 \description{
 This function is intended for merging models \bold{that use the same hyperparameters} but
 were fitted to different subsets of data.
-In order for this work, both models must have been fit to data in the same format - 
-that is, same number of columns, same order of the columns, and same types. This will
-only work for numeric types - if the input data contains categorical columns, this is
-likely to fail as the categories are internally re-indexed, and will give wrong results
-unless both have the exact same factors appearing in the same order in the data (you can
-check this through the results from `factor(data$col)`, which this library uses internally).
-Using `factor` types with the same levels will \bold{not} make it work.
+
+In order for this to work, both models must have been fit to data in the same format - 
+that is, same number of columns, same order of the columns, and same column types, although
+not necessarily same object classes (e.g. can mix `base::matrix` and `Matrix::dgCMatrix`).
+
+If the data has categorical variables, the models should have been built with parameter
+`recode_categ=FALSE` in the call to \link{isolation.forest} (which is \bold{not} the
+default), and the categorical columns passed as type `factor` with the same `levels` -
+otherwise different models might be using different encodings for each categorical column,
+which will not be preserved as only the trees will be appended without any associated metadata.
 
 Note that this function will not perform any checks on the inputs, and passing two incompatible
 models (e.g. fit to different numbers of columns) will result in wrong results and

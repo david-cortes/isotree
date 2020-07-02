@@ -188,6 +188,12 @@ class IsolationForest:
         categorical variables with too many categories, but is not recommended, and not reflective of
         real "categorical-ness". Ignored for the regular model (``ndim=1``) and/or when not using categorical
         variables.
+    recode_categ : bool
+        Whether to re-encode categorical variables even in case they are already passed
+        as ``pd.Categorical``. This is recommended as it will eliminate potentially redundant categorical levels if
+        they have no observations, but if the categorical variables are already of type ``pd.Categorical`` with only
+        the levels that are present, it can be skipped for slightly faster fitting times. You'll likely
+        want to pass ``False`` here if merging several models into one through ``append_trees``.
     weights_as_sample_prob : bool
         If passing sample (row) weights when fitting the model, whether to consider those weights as row
         sampling weights (i.e. the higher the weights, the more likely the observation will end up included
@@ -289,7 +295,8 @@ class IsolationForest:
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
                  prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
-                 categ_split_type = "subset", all_perm = False, coef_by_prop = False,
+                 categ_split_type = "subset", all_perm = False,
+                 coef_by_prop = False, recode_categ = True,
                  weights_as_sample_prob = True, sample_with_replacement = False,
                  penalize_range = True, weigh_by_kurtosis = False,
                  coefs = "normal", assume_full_distr = True,
@@ -404,6 +411,7 @@ class IsolationForest:
         self.nthreads                =  nthreads
 
         self.all_perm                =  bool(all_perm)
+        self.recode_categ            =  bool(recode_categ)
         self.coef_by_prop            =  bool(coef_by_prop)
         self.weights_as_sample_prob  =  bool(weights_as_sample_prob)
         self.sample_with_replacement =  bool(sample_with_replacement)
@@ -745,7 +753,11 @@ class IsolationForest:
             if X_cat is not None:
                 self._cat_mapping = [None for cl in range(X_cat.shape[1])]
                 for cl in range(X_cat.shape[1]):
-                    X_cat[X_cat.columns[cl]], self._cat_mapping[cl] = pd.factorize(X_cat[X_cat.columns[cl]])
+                    if (not self.recode_categ) and (X_cat[X_cat.columns[cl]].dtype.name == "category"):
+                        self._cat_mapping[cl] = np.array(X_cat[X_cat.columns[cl]].cat.categories)
+                        X_cat[X_cat.columns[cl]] = X_cat[X_cat.columns[cl]].cat.codes
+                    else:
+                        X_cat[X_cat.columns[cl]], self._cat_mapping[cl] = pd.factorize(X_cat[X_cat.columns[cl]])
                     if (self.all_perm
                         and (self.ndim == 1)
                         and (self.prob_pick_pooled_gain or self.prob_split_pooled_gain)
@@ -1265,13 +1277,16 @@ class IsolationForest:
 
         This function is intended for merging models **that use the same hyperparameters** but
         were fitted to different subsets of data.
-        In order for this work, both models must have been fit to data in the same format -
-        that is, same number of columns, same order of the columns, and same types. This will
-        only work for numeric types - if the input data contains categorical columns, this is
-        likely to fail as the categories are internally re-indexed, and will give wrong results
-        unless both have the exact same factors appearing in the same order in the data (you can
-        check this through the results from ``pd.factorize``, which this library uses internally).
-        Using ``pd.Categorical`` with the same codes will **not** make it work.
+
+        In order for this to work, both models must have been fit to data in the same format - 
+        that is, same number of columns, same order of the columns, and same column types, although
+        not necessarily same object classes (e.g. can mix ``np.array`` and ``scipy.sparse.csc_matrix``).
+
+        If the data has categorical variables, the models should have been built with parameter
+        ``recode_categ=False`` in the class constructor (which is **not** the
+        default), and the categorical columns passed as type ``pd.Categorical`` with the same encoding -
+        otherwise different models might be using different encodings for each categorical column,
+        which will not be preserved as only the trees will be appended without any associated metadata.
 
         Note
         ----
@@ -1283,6 +1298,7 @@ class IsolationForest:
         ----------
         other : IsolationForest
             Another Isolation Forest model from which trees will be appended to this model.
+            It will not be modified during the call to this function.
 
         Returns
         -------
