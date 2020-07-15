@@ -81,7 +81,7 @@ SEXP deserialize_IsoForest(Rcpp::RawVector src)
     std::stringstream ss;
     ss.write(reinterpret_cast<char*>(&src[0]), src.size());
     ss.seekg(0, ss.beg);
-    std::unique_ptr<IsoForest> model_outputs = std::unique_ptr<IsoForest>(new IsoForest);
+    std::unique_ptr<IsoForest> model_outputs = std::unique_ptr<IsoForest>(new IsoForest());
     {
         cereal::BinaryInputArchive iarchive(ss);
         iarchive(*model_outputs);
@@ -95,7 +95,7 @@ SEXP deserialize_ExtIsoForest(Rcpp::RawVector src)
     std::stringstream ss;
     ss.write(reinterpret_cast<char*>(&src[0]), src.size());
     ss.seekg(0, ss.beg);
-    std::unique_ptr<ExtIsoForest> model_outputs = std::unique_ptr<ExtIsoForest>(new ExtIsoForest);
+    std::unique_ptr<ExtIsoForest> model_outputs = std::unique_ptr<ExtIsoForest>(new ExtIsoForest());
     {
         cereal::BinaryInputArchive iarchive(ss);
         iarchive(*model_outputs);
@@ -109,7 +109,7 @@ SEXP deserialize_Imputer(Rcpp::RawVector src)
     std::stringstream ss;
     ss.write(reinterpret_cast<char*>(&src[0]), src.size());
     ss.seekg(0, ss.beg);
-    std::unique_ptr<Imputer> imputer = std::unique_ptr<Imputer>(new Imputer);
+    std::unique_ptr<Imputer> imputer = std::unique_ptr<Imputer>(new Imputer());
     {
         cereal::BinaryInputArchive iarchive(ss);
         iarchive(*imputer);
@@ -278,12 +278,12 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     std::unique_ptr<Imputer>       imputer_ptr    =  std::unique_ptr<Imputer>();
 
     if (ndim == 1)
-        model_ptr      =  std::unique_ptr<IsoForest>(new IsoForest);
+        model_ptr      =  std::unique_ptr<IsoForest>(new IsoForest());
     else
-        ext_model_ptr  =  std::unique_ptr<ExtIsoForest>(new ExtIsoForest);
+        ext_model_ptr  =  std::unique_ptr<ExtIsoForest>(new ExtIsoForest());
 
     if (build_imputer)
-        imputer_ptr    =  std::unique_ptr<Imputer>(new Imputer);
+        imputer_ptr    =  std::unique_ptr<Imputer>(new Imputer());
 
     int ret_val = 
     fit_iforest(model_ptr.get(), ext_model_ptr.get(),

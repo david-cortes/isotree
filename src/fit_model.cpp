@@ -383,6 +383,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     if (model_outputs != NULL)
     {
         model_outputs->trees.resize(ntrees);
+        model_outputs->trees.shrink_to_fit();
         model_outputs->new_cat_action = new_cat_action;
         model_outputs->cat_split_type = cat_split_type;
         model_outputs->missing_action = missing_action;
@@ -394,6 +395,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     else
     {
         model_outputs_ext->hplanes.resize(ntrees);
+        model_outputs_ext->hplanes.shrink_to_fit();
         model_outputs_ext->new_cat_action = new_cat_action;
         model_outputs_ext->cat_split_type = cat_split_type;
         model_outputs_ext->missing_action = missing_action;
@@ -465,6 +467,11 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     /* check if the procedure got interrupted */
     if (interrupt_switch) return EXIT_FAILURE;
     interrupt_switch = false;
+
+    if ((model_outputs != NULL))
+        model_outputs->trees.shrink_to_fit();
+    else
+        model_outputs_ext->hplanes.shrink_to_fit();
 
     /* if calculating similarity/distance, now need to reduce and average */
     if (calc_dist)

@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.8)
-project (isotree VERSION 0.1.13)
+project (isotree VERSION 0.1.17)
 set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_CXX_STANDARD 11)

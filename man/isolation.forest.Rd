@@ -102,6 +102,7 @@ and calculate gain with those assumed standard deviations. For the extended mode
 probability that the split point in the chosen linear combination of variables will be decided by this averaged gain
 criterion. Compared to a pooled average, this tends to result in more cases in which a single observation or very few
 of them are put into one branch. Recommended to use sub-samples (parameter `sample_size`) when passing this parameter.
+Note that, since this will created isolated nodes faster, the resulting object will be lighter (use less memory).
 When splits are not made according to any of `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_split_avg_gain`,
 `prob_split_pooled_gain`, both the column and the split point are decided at random. Default setting for 
 references [1], [2], [3] is zero, and default for reference [4] is 1. This is the randomization parameter
@@ -120,7 +121,9 @@ groups when they are smaller. Recommended to pass higher values when used for im
 When used for outlier detection, higher values of this parameter result in models that are able to better flag
 outliers in the training data, but generalize poorly to outliers in new data and to values of variables
 outside of the ranges from the training data. Passing small `sample_size` and high values of this parameter will
-tend to flag too many outliers. When splits are not made according to any of `prob_pick_avg_gain`,
+tend to flag too many outliers.
+Note that, since this makes the trees more even and thus it takes more steps to produce isolated nodes,
+the resulting object will be heavier (use more memory). When splits are not made according to any of `prob_pick_avg_gain`,
 `prob_pick_pooled_gain`, `prob_split_avg_gain`, `prob_split_pooled_gain`, both the column and the split point
 are decided at random. Note that, if passing value = 1 with no sub-sampling and using the single-variable model,
 every single tree will have the exact same splits.}

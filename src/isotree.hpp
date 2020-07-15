@@ -199,8 +199,9 @@ typedef struct IsoTree {
             this->remainder
             );
     }
-    IsoTree() {};
     #endif
+
+    IsoTree() = default;
 
 } IsoTree;
 
@@ -244,8 +245,9 @@ typedef struct IsoHPlane {
             this->remainder
             );
     }
-    IsoHPlane() {};
     #endif
+
+    IsoHPlane() = default;
 } IsoHPlane;
 
 /* Note: don't use long doubles in the outside outputs or there will be issues with MINGW in windows */
@@ -274,8 +276,9 @@ typedef struct IsoForest {
             this->orig_sample_size
             );
     }
-    IsoForest() {};
     #endif
+
+    IsoForest() = default;
 } IsoForest;
 
 typedef struct ExtIsoForest {
@@ -301,8 +304,9 @@ typedef struct ExtIsoForest {
             this->orig_sample_size
             );
     }
-    ExtIsoForest() {};
     #endif
+
+    ExtIsoForest() = default;
 } ExtIsoForest;
 
 typedef struct ImputeNode {
@@ -325,7 +329,7 @@ typedef struct ImputeNode {
             );
     }
     #endif
-    ImputeNode() {};
+    ImputeNode() = default;
 
     ImputeNode(size_t parent)
     {
@@ -357,7 +361,7 @@ typedef struct Imputer {
     }
     #endif
 
-    Imputer() {};
+    Imputer() = default;
 
 } Imputer;
 
