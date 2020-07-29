@@ -76,7 +76,14 @@ void deserialize_obj(T &output, std::string &serialized, bool move_str)
     if (move_str)
         ss.str(std::move(serialized));
     else
-        ss = std::stringstream(serialized);
+        /* Bug with GCC4 not implementing the move method for stringsreams
+           https://stackoverflow.com/questions/50926506/deleted-function-std-basic-stringstream-in-linux-with-g
+           https://github.com/david-cortes/isotree/issues/7 */
+        // ss = std::stringstream(serialized); /* <- fails with GCC4, CRAN complains */
+        {
+            std::string str_copy = serialized;
+            ss.str(str_copy);
+        }
     deserialize_obj(output, ss);
 }
 
