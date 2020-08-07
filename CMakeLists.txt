@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.9)
 project (isotree VERSION 0.1.17)
 set(CMAKE_BUILD_TYPE Release)
 
@@ -24,11 +24,10 @@ set_target_properties(isotree PROPERTIES PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/inc
 
 add_compile_definitions(_USE_MERSENNE_TWISTER)
 
-## https://stackoverflow.com/questions/12399422/how-to-set-linker-flags-for-openmp-in-cmakes-try-compile-function
+## https://cliutils.gitlab.io/modern-cmake/chapters/packages/OpenMP.html
 find_package(OpenMP)
-if (OPENMP_FOUND)
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(isotree PUBLIC OpenMP::OpenMP_CXX)
 else()
 	message(STATUS "OpenMP not found - will compile without multi-threading support")
 endif()
