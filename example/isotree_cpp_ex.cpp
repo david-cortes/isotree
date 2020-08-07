@@ -17,7 +17,7 @@ g++ -o test isotree_cpp_ex.cpp $(ls ../src | grep ^[^R] | grep cpp | perl \
      sudo make install
      sudo ldconfig
   Then compile this single file and link to the shared library:
-    g++ -o test isotree_cpp_ex.cpp -lisotree
+    g++ -o test isotree_cpp_ex.cpp -lisotree -std=c++11
   Then run with './test'
 */
 
@@ -55,7 +55,7 @@ int main()
                 X.data(),  ncol,
                 NULL,    0,    NULL,
                 NULL, NULL, NULL,
-                2, 3, Normal,
+                2, 3, Normal, false,
                 NULL, false, false,
                 nrow, nrow, 500, 0,
                 true, true,
