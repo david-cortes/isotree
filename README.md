@@ -62,12 +62,6 @@ pip install isotree
 
 * R:
 
-Latest version (recommended):
-```r
-devtools::install_github("david-cortes/isotree")
-```
-
-Older version from CRAN:
 ```r
 install.packages("isotree")
 ```
