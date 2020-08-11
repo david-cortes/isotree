@@ -1,6 +1,6 @@
 # IsoTree
 
-Fast and multi-threaded implementation of Extended Isolation Forest, Fair-Cut Forest, SCiForest (a.k.a. Split-Criterion iForest), and regular Isolation Forest, for outlier/anomaly detection, plus additions for imputation of missing values, distance/similarity calculation between observations, and handling of categorical data. Written in C++ with interfaces for Python and R.
+Fast and multi-threaded implementation of Extended Isolation Forest, Fair-Cut Forest, SCiForest (a.k.a. Split-Criterion iForest), and regular Isolation Forest, for outlier/anomaly detection, plus additions for imputation of missing values, distance/similarity calculation between observations, and handling of categorical data. Written in C++ with interfaces for Python and R. An additional wrapper for Ruby can be found [here](https://github.com/ankane/isotree).
 
 The new concepts in this software are described in:
 * [Distance approximation using Isolation Forests](https://arxiv.org/abs/1910.12362)
@@ -81,6 +81,10 @@ sudo ldconfig
 ```
 
 (Will build as a shared object - linkage is then done with `-lisotree`)
+
+* Ruby
+
+See [external repository with wrapper](https://github.com/ankane/isotree).
 
 # Sample usage
 
