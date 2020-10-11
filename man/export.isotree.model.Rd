@@ -60,7 +60,7 @@ encoded in the same order - e.g. the model might encode `TRUE` as zero and `FALS
 as one - you need to look at the metadata for this.
 }
 \references{
-\url{https://uscilab.github.io/cereal}
+\url{https://uscilab.github.io/cereal/}
 }
 \seealso{
 \link{load.isotree.model} \link{writeBin} \link{unpack.isolation.forest}

@@ -1238,7 +1238,7 @@ append.trees <- function(model, other) {
 #' extra parameters if passing files between different CPU architectures or similar.
 #' @return No return value.
 #' @seealso \link{load.isotree.model} \link{writeBin} \link{unpack.isolation.forest}
-#' @references \url{https://uscilab.github.io/cereal}
+#' @references \url{https://uscilab.github.io/cereal/}
 #' @export
 export.isotree.model <- function(model, file, ...) {
     if (!("isolation_forest" %in% class(model)))
