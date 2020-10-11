@@ -16,9 +16,14 @@
 \arguments{
 \item{object}{An Isolation Forest object as returned by `isolation.forest`.}
 
-\item{newdata}{A `data.frame`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC/dgCMatrix format for distance and outlierness,
-or CSR/dgRMatrix format for outlierness and imputations) for which to predict outlierness, distance, or imputations of missing values.
-Note that when passing `type` = `"impute"` and `newdata` is a sparse matrix, under some situations it might get modified in-place.}
+\item{newdata}{A `data.frame`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`,
+CSC/dgCMatrix format for distance and outlierness, or CSR/dgRMatrix format for outlierness and imputations)
+for which to predict outlierness, distance, or imputations of missing values.
+
+Note that when passing `type` = `"impute"` and `newdata` is a sparse matrix, under some situations it might get modified in-place.
+
+Note also that, if using sparse matrices from package `Matrix`, converting to `dgRMatrix` might require using
+`as(m, "RsparseMatrix")` instead of `dgRMatrix` directly.}
 
 \item{type}{Type of prediction to output. Options are:
 \itemize{
@@ -49,11 +54,13 @@ or `"avg_sep"`, will calculate pairwise distances/separation between the points 
 \item{...}{Not used.}
 }
 \value{
-The requested prediction type, which can be a vector with one entry per row in `newdata`
-(for output types `"score"`, `"avg_depth"`, `"tree_num"`), a square matrix or vector with the upper triangular
-part of a square matrix (for output types `"dist"`, `"avg_sep"`, with no `refdata`), a matrix with points in
-`newdata` as rows and points in `refdata` as columns (for output types `"dist"`, `"avg_sep"`, with `refdata`),
-or the same type as the input `newdata` (for output type `"impute"`).
+The requested prediction type, which can be: \itemize{
+\item A vector with one entry per row in `newdata` (for output types `"score"`, `"avg_depth"`, `"tree_num"`).
+\item A square matrix or vector with the upper triangular part of a square matrix
+(for output types `"dist"`, `"avg_sep"`, with no `refdata`)
+\item A matrix with points in `newdata` as rows and points in `refdata` as columns
+(for output types `"dist"`, `"avg_sep"`, with `refdata`).
+\item The same type as the input `newdata` (for output type `"impute"`).}
 }
 \description{
 Predict method for Isolation Forest
