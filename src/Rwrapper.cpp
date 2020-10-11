@@ -42,6 +42,7 @@
 *     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#ifdef _FOR_R
 
 #include <Rcpp.h>
 // [[Rcpp::plugins(cpp11)]]
@@ -760,3 +761,5 @@ Rcpp::List append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
 
     return out;
 }
+
+#endif /* _FOR_R */
