@@ -44,7 +44,7 @@ isolation.forest(
 }
 \arguments{
 \item{df}{Data to which to fit the model. Can pass a `data.frame`, `matrix`, or sparse matrix (in CSC format,
-either from package `Matrix` or from package `SparseM`). If passing a data.frame, will assume that columns are:
+either from package `Matrix` or from package `SparseM`). If passing a `data.frame`, will assume that columns are:
 \itemize{
   \item Numerical, if they are of types `numeric`, `integer`, `Date`, `POSIXct`.
   \item Categorical, if they are of type `character`, `factor`, `bool`.

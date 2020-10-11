@@ -16,8 +16,8 @@
 \arguments{
 \item{object}{An Isolation Forest object as returned by `isolation.forest`.}
 
-\item{newdata}{A `data.frame`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC format for distance and outlierness,
-or CSR format for outlierness and imputations) for which to predict outlierness, distance, or imputations of missing values.
+\item{newdata}{A `data.frame`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC/dgCMatrix format for distance and outlierness,
+or CSR/dgRMatrix format for outlierness and imputations) for which to predict outlierness, distance, or imputations of missing values.
 Note that when passing `type` = `"impute"` and `newdata` is a sparse matrix, under some situations it might get modified in-place.}
 
 \item{type}{Type of prediction to output. Options are:

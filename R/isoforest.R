@@ -28,7 +28,7 @@
 #' in the original data.
 #' 
 #' @param df Data to which to fit the model. Can pass a `data.frame`, `matrix`, or sparse matrix (in CSC format,
-#' either from package `Matrix` or from package `SparseM`). If passing a data.frame, will assume that columns are:
+#' either from package `Matrix` or from package `SparseM`). If passing a `data.frame`, will assume that columns are:
 #' \itemize{
 #'   \item Numerical, if they are of types `numeric`, `integer`, `Date`, `POSIXct`.
 #'   \item Categorical, if they are of type `character`, `factor`, `bool`.
@@ -565,9 +565,9 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
         stop("Cannot impute missing values when passing 'missing_action' = 'fail'.")
     
     if (output_imputations && NROW(intersect(class(df), c("dgCMatrix", "matrix.csc"))))
-        warning(paste0("Imputing missing values from CSC matrix on-the-fly can be very slow, ",
+        warning(paste0("Imputing missing values from CSC/dgCMatrix matrix on-the-fly can be very slow, ",
                        "it's recommended if possible to fit the model first and then pass the ",
-                       "same matrix as CSR to 'predict'."))
+                       "same matrix as CSR/dgRMatrix to 'predict'."))
     
     if (output_imputations && !is.null(sample_weights) && !weights_as_sample_prob)
         stop(paste0("Cannot impute missing values on-the-fly when using sample weights",
@@ -707,8 +707,8 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
 
 #' @title Predict method for Isolation Forest
 #' @param object An Isolation Forest object as returned by `isolation.forest`.
-#' @param newdata A `data.frame`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC format for distance and outlierness,
-#' or CSR format for outlierness and imputations) for which to predict outlierness, distance, or imputations of missing values.
+#' @param newdata A `data.frame`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC/dgCMatrix format for distance and outlierness,
+#' or CSR/dgRMatrix format for outlierness and imputations) for which to predict outlierness, distance, or imputations of missing values.
 #' Note that when passing `type` = `"impute"` and `newdata` is a sparse matrix, under some situations it might get modified in-place.
 #' @param type Type of prediction to output. Options are:
 #' \itemize{
@@ -784,7 +784,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
         stop("'newdata' has fewer columns than the original data.")
     }
     if (type %in% c("dist", "avg_sep")) {
-        if (object$params$new_categ_action == "weighted" && object$params$missing_action == "divide") {
+        if (object$params$new_categ_action == "weighted" && object$params$missing_action != "divide") {
             stop(paste0("Cannot predict distances when using ",
                         "'new_categ_action' = 'weighted' ",
                         "if 'missing_action' != 'divide'."))
@@ -800,7 +800,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
         newdata     <- rbind(newdata, refdata)
     }
     
-    pdata <- process.data.new(newdata, object$metadata, type %in% c("score", "avg_depth"), type != "impute")
+    pdata <- process.data.new(newdata, object$metadata, !(type %in% c("dist", "avg_sep")), type != "impute")
     
     square_mat   <-  as.logical(square_mat)
     score_array  <-  get.empty.vector()

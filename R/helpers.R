@@ -61,9 +61,9 @@ get.types.dmat <- function() {
 }
 
 get.types.spmat <- function(allow_csr = FALSE, allow_csc = TRUE) {
-    outp <- c("dgCMatrix") ### if no CSC, will transpose it later
-    if (allow_csc) outp <- c(outp, "matrix.csc")
-    if (allow_csr) outp <- c(outp, "matrix.csr")
+    outp <- character()
+    if (allow_csc) outp <- c(outp, "dgCMatrix", "matrix.csc")
+    if (allow_csr) outp <- c(outp, "dgRMatrix", "matrix.csr")
     return(outp)
 }
 
@@ -183,7 +183,7 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
     dmatrix_types     <-  get.types.dmat()
     spmatrix_types    <-  get.types.spmat(allow_csr = allow_csr, allow_csc = allow_csc)
     supported_dtypes  <-  c("data.frame", dmatrix_types, spmatrix_types)
-    
+
     if (!NROW(intersect(class(df), supported_dtypes)))
         stop(paste0("Invalid input data. Supported types are: ", paste(supported_dtypes, collapse = ", ")))
     
@@ -251,6 +251,11 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
                     outp$Xr_ind     <-  as.integer(df@i)
                     outp$Xr_indptr  <-  as.integer(df@p)
                 }
+            } else if ("dgRMatrix" %in% class(df)) {
+                ### From package 'Matrix'
+                outp$Xr         <-  as.numeric(df@x)
+                outp$Xr_ind     <-  as.integer(df@j)
+                outp$Xr_indptr  <-  as.integer(df@p)
             } else {
                 ### From package 'SparseM'
                 if ("matrix.csc" %in% class(df)) {
@@ -277,6 +282,10 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, df, model, trans_CSC=
         if (trans_CSC) outp <- Matrix::t(outp)
         outp@x   <-  imputed_num
         if (trans_CSC) outp <- Matrix::t(outp)
+        return(outp)
+    } else if ("dgRMatrix" %in% class(df)) {
+        outp     <-  df
+        outp@x   <-  imputed_num
         return(outp)
     } else if ( any(class(df) %in% c("matrix.csr", "matrix.csc")) ) {
         outp     <-  df
