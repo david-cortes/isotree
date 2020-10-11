@@ -280,7 +280,7 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
 
 
     /* divide according to tree */
-    if (prediction_data.Xc != NULL && !workspace.tmat_sep.size())
+    if (prediction_data.Xc != NULL && workspace.tmat_sep.size())
         std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
     size_t st_NA, end_NA, split_ix;
     switch(trees[curr_tree].col_type)
@@ -477,7 +477,7 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
                                             prediction_data.nrows, workspace.rmat.data(), -1.);
     }
 
-    if (prediction_data.Xc != NULL && !workspace.tmat_sep.size())
+    if (prediction_data.Xc != NULL && workspace.tmat_sep.size())
         std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
 
     /* reconstruct linear combination */
