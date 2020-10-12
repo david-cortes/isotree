@@ -420,7 +420,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     interrupt_switch = false;
     /* TODO: find a better way of handling interrupt signals when calling in Python/R.
        The following will still change the behavior of interrupts when called through e.g. Flask */
-    #if !defined(_WIN32) && !defined(_WIN64) && !defined(_MSC_VER)
+    #if !defined(_WIN32) && !defined(_WIN64) && !defined(_MSC_VER) && !defined(_FOR_R)
     struct sigaction sig_handle;
     sig_handle.sa_flags = SA_RESETHAND;
     sig_handle.sa_handler = set_interrup_global_variable;
@@ -468,7 +468,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         else
             model_outputs_ext->hplanes[tree].shrink_to_fit();
 
-        #if !defined(_WIN32) && !defined(_WIN64) && !defined(_MSC_VER)
+        #if !defined(_WIN32) && !defined(_WIN64) && !defined(_MSC_VER) && !defined(_FOR_R)
         sigaction(SIGINT, &sig_handle, NULL);
         #else
         signal(SIGINT, set_interrup_global_variable);
