@@ -2,7 +2,7 @@
 #' @importFrom stats predict
 #' @importFrom utils head
 
-#' @title Isolation Forest model
+#' @title Create Isolation Forest Model
 #' @description Isolation Forest is an algorithm originally developed for outlier detection that consists in splitting
 #' sub-samples of the data according to some attribute/feature/column at random. The idea is that, the rarer
 #' the observation, the more likely it is that a random uniform split on some feature would put outliers alone
@@ -641,6 +641,13 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
     
     if (cpp_outputs$err)
         stop("Procedure was interrupted.")
+    
+    has_int_overflow = (
+        !NROW(cpp_outputs$serialized_obj) ||
+        (build_imputer && !is.null(cpp_outputs$imputer_ser) && !NROW(cpp_outputs$imputer_ser))
+    )
+    if (has_int_overflow)
+        stop("Resulting model is too large for R to handle.")
     
     ### pack the outputs
     this <- list(

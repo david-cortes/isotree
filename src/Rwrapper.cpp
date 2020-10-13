@@ -70,7 +70,13 @@ Rcpp::RawVector serialize_cpp_obj(T *model_outputs)
         oarchive(*model_outputs);
     }
     ss.seekg(0, ss.end);
-    Rcpp::RawVector retval(ss.tellg());
+    /* Checking for potential integer overflows */
+    std::stringstream::pos_type vec_size = ss.tellg();
+    if (vec_size <= 0) {
+        Rcpp::Rcerr << "Error: model is too big to serialize, resulting object will not be usable.\n" << std::endl;
+        return Rcpp::RawVector();
+    }
+    Rcpp::RawVector retval((size_t) vec_size);
     ss.seekg(0, ss.beg);
     ss.read(reinterpret_cast<char*>(&retval[0]), retval.size());
     return retval;
