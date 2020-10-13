@@ -343,8 +343,6 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     if (build_imputer && !serialization_failed)
     {
         outp["imputer_ser"] =  serialize_cpp_obj(imputer_ptr.get());
-        outp["imputer_ptr"] =  Rcpp::XPtr<Imputer>(imputer_ptr.release(), true);
-
         if (!Rf_xlength(outp["imputer_ser"]))
         {
             serialization_failed = true;
@@ -353,9 +351,10 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                 model_ptr.reset();
             else
                 ext_model_ptr.reset();
-            outp["imputer_ptr"] = R_NilValue;
-            outp["model_ptr"] = R_NilValue;
-        }
+            outp["imputer_ptr"]  =  R_NilValue;
+            outp["model_ptr"]    =  R_NilValue;
+        } else
+            outp["imputer_ptr"] =  Rcpp::XPtr<Imputer>(imputer_ptr.release(), true);
     }
 
     if (output_imputations && !serialization_failed)
