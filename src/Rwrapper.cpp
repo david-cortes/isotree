@@ -310,11 +310,19 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     if (calc_dist && sq_dist)
         tmat_to_dense(tmat_ptr, dmat_ptr, nrows, !standardize_dist);
 
+    bool serialization_failed = false;
     Rcpp::RawVector serialized_obj;
     if (ndim == 1)
         serialized_obj  =  serialize_cpp_obj(model_ptr.get());
     else
         serialized_obj  =  serialize_cpp_obj(ext_model_ptr.get());
+    if (!serialized_obj.size()) serialization_failed = true;
+    if (serialization_failed) {
+        if (ndim == 1)
+            model_ptr.reset();
+        else
+            ext_model_ptr.reset();
+    }
 
     Rcpp::List outp = Rcpp::List::create(
                 Rcpp::_["serialized_obj"] = serialized_obj,
@@ -323,18 +331,34 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                 Rcpp::_["dmat"]      = dmat
         );
 
-    if (ndim == 1)
-        outp["model_ptr"]   =  Rcpp::XPtr<IsoForest>(model_ptr.release(), true);
-    else
-        outp["model_ptr"]   =  Rcpp::XPtr<ExtIsoForest>(ext_model_ptr.release(), true);
+    if (!serialization_failed)
+    {
+        if (ndim == 1)
+            outp["model_ptr"]   =  Rcpp::XPtr<IsoForest>(model_ptr.release(), true);
+        else
+            outp["model_ptr"]   =  Rcpp::XPtr<ExtIsoForest>(ext_model_ptr.release(), true);
+    } else
+        outp["model_ptr"] = R_NilValue;
 
-    if (build_imputer)
+    if (build_imputer && !serialization_failed)
     {
         outp["imputer_ser"] =  serialize_cpp_obj(imputer_ptr.get());
         outp["imputer_ptr"] =  Rcpp::XPtr<Imputer>(imputer_ptr.release(), true);
+
+        if (!Rf_xlength(outp["imputer_ser"]))
+        {
+            serialization_failed = true;
+            imputer_ptr.reset();
+            if (ndim == 1)
+                model_ptr.reset();
+            else
+                ext_model_ptr.reset();
+            outp["imputer_ptr"] = R_NilValue;
+            outp["model_ptr"] = R_NilValue;
+        }
     }
 
-    if (output_imputations)
+    if (output_imputations && !serialization_failed)
     {
         outp["imputed_num"] = Rcpp::NumericVector(Xcpp.begin(), Xcpp.end());
         outp["imputed_cat"] = X_cat;
