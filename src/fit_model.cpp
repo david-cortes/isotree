@@ -424,6 +424,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     struct sigaction sig_handle = {};
     sig_handle.sa_flags = SA_RESETHAND;
     sig_handle.sa_handler = set_interrup_global_variable;
+    sigemptyset(&sig_handle.sa_mask);
     #endif
 
     /* grow trees */

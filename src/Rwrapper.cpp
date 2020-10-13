@@ -514,7 +514,7 @@ void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector
 
     if (X_cat.size())
     {
-        categ_data_ptr   =  &X_cat[0];
+        categ_data_ptr    =  &X_cat[0];
     }
 
     if (Xc.size())
@@ -536,7 +536,7 @@ void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector
         tree_num_ptr = &tree_num[0];
     }
 
-    double* depths_ptr    =  &outp[0];
+    double* depths_ptr =  &outp[0];
 
     IsoForest*     model_ptr      =  NULL;
     ExtIsoForest*  ext_model_ptr  =  NULL;
@@ -678,7 +678,7 @@ Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
                           *imputer_ptr);
 
     return Rcpp::List::create(
-                Rcpp::_["X_num"] = Xr.size()? Xr : X_num,
+                Rcpp::_["X_num"] = (Xr.size())? (Xr) : (X_num),
                 Rcpp::_["X_cat"] = X_cat
             );
 }
