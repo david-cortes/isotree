@@ -136,7 +136,7 @@ double* set_R_nan_as_C_nan(double *x, size_t n, int nthreads)
     for (size_t_for i = 0; i < n; i++)
         if (isnan(x[i]))
             x[i] = NAN;
-    return &x[0];
+    return x;
 }
 
 // [[Rcpp::export]]
