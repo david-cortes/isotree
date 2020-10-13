@@ -82,46 +82,36 @@ Rcpp::RawVector serialize_cpp_obj(T *model_outputs)
     return retval;
 }
 
-// [[Rcpp::export]]
-SEXP deserialize_IsoForest(Rcpp::RawVector src)
+template <class T>
+SEXP deserialize_cpp_obj(Rcpp::RawVector src)
 {
     std::stringstream ss;
     ss.write(reinterpret_cast<char*>(&src[0]), src.size());
     ss.seekg(0, ss.beg);
-    std::unique_ptr<IsoForest> model_outputs = std::unique_ptr<IsoForest>(new IsoForest());
+    std::unique_ptr<T> model_outputs = std::unique_ptr<T>(new T());
     {
         cereal::BinaryInputArchive iarchive(ss);
         iarchive(*model_outputs);
     }
-    return Rcpp::XPtr<IsoForest>(model_outputs.release(), true);
+    return Rcpp::XPtr<T>(model_outputs.release(), true);
+}
+
+// [[Rcpp::export]]
+SEXP deserialize_IsoForest(Rcpp::RawVector src)
+{
+    return deserialize_cpp_obj<IsoForest>(src);
 }
 
 // [[Rcpp::export]]
 SEXP deserialize_ExtIsoForest(Rcpp::RawVector src)
 {
-    std::stringstream ss;
-    ss.write(reinterpret_cast<char*>(&src[0]), src.size());
-    ss.seekg(0, ss.beg);
-    std::unique_ptr<ExtIsoForest> model_outputs = std::unique_ptr<ExtIsoForest>(new ExtIsoForest());
-    {
-        cereal::BinaryInputArchive iarchive(ss);
-        iarchive(*model_outputs);
-    }
-    return Rcpp::XPtr<ExtIsoForest>(model_outputs.release(), true);
+    return deserialize_cpp_obj<ExtIsoForest>(src);
 }
 
 // [[Rcpp::export]]
 SEXP deserialize_Imputer(Rcpp::RawVector src)
 {
-    std::stringstream ss;
-    ss.write(reinterpret_cast<char*>(&src[0]), src.size());
-    ss.seekg(0, ss.beg);
-    std::unique_ptr<Imputer> imputer = std::unique_ptr<Imputer>(new Imputer());
-    {
-        cereal::BinaryInputArchive iarchive(ss);
-        iarchive(*imputer);
-    }
-    return Rcpp::XPtr<Imputer>(imputer.release(), true);
+    return deserialize_cpp_obj<Imputer>(src);
 }
 
 // [[Rcpp::export]]

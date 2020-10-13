@@ -2,7 +2,7 @@
 % Please edit documentation in R/isoforest.R
 \name{isolation.forest}
 \alias{isolation.forest}
-\title{Isolation Forest model}
+\title{Create Isolation Forest Model}
 \usage{
 isolation.forest(
   df,
