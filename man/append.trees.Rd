@@ -8,7 +8,9 @@ append.trees(model, other)
 }
 \arguments{
 \item{model}{An Isolation Forest model (as returned by function \link{isolation.forest})
-to which trees from `other` (another Isolation Forest model) will be appended into.}
+to which trees from `other` (another Isolation Forest model) will be appended into.
+The result of this function must be reassigned to `model`, and the old `model` should
+not be used any further.}
 
 \item{other}{Another Isolation Forest model, from which trees will be appended into
 `model`. It will not be modified during the call to this function.}
@@ -35,8 +37,18 @@ Note that this function will not perform any checks on the inputs, and passing t
 models (e.g. fit to different numbers of columns) will result in wrong results and
 potentially crashing the R process when using it.
 
+Also be aware that the result \bold{must} be reassigned to the first input, as the first
+input will no longer work correctly after appending more trees to it.
+
 \bold{Important:} the result of this function must be reassigned to `model` in order for it
 to work properly - e.g. `model <- append.trees(model, other)`.
+}
+\details{
+Important: this function will modify the model object in-place, but this modification will only affect the R
+object in the environment in which it was called. If trying to use the same model object in e.g. its parent environment,
+it will lead to issues due to the C++ object being modified but the R object remaining the same, so if this method is used
+inside a function, make sure to output the newly-modified R object and have it replace the old R object outside the calling
+function too.
 }
 \examples{
 library(isotree)
@@ -56,7 +68,7 @@ iso2 <- isolation.forest(X2, ntrees=2, nthreads=1)
 nodes1 <- predict(iso1, head(X1, 3), type="tree_num")
 nodes2 <- predict(iso2, head(X1, 3), type="tree_num")
 
-### Append the trees from 'iso1' into 'iso1'
+### Append the trees from 'iso2' into 'iso1'
 iso1 <- append.trees(iso1, iso2)
 
 ### Check that it predicts the same as the two models

@@ -27,13 +27,20 @@
 #' to flag values outside of the variables' ranges and fewer ghost regions, at the expense of fewer flagged outliers
 #' in the original data.
 #' 
-#' @param df Data to which to fit the model. Can pass a `data.frame`, `matrix`, or sparse matrix (in CSC format,
-#' either from package `Matrix` or from package `SparseM`). If passing a `data.frame`, will assume that columns are:
+#' @param df Data to which to fit the model. Supported inputs type are:\itemize{
+#' \item A `data.frame`, also accepted as `data.table` or `tibble`.
+#' \item A `matrix` object from base R.
+#' \item A sparse matrix in CSC format, either from package `Matrix` (class `dgCMatrix`) or
+#' from package `SparseM` (class `matrix.csc`).
+#' }
+#' 
+#' If passing a `data.frame`, will assume that columns are:
 #' \itemize{
 #'   \item Numerical, if they are of types `numeric`, `integer`, `Date`, `POSIXct`.
 #'   \item Categorical, if they are of type `character`, `factor`, `bool`.
 #' }
-#' Other column types are not supported.
+#' Other column types are not supported. Note that it does not support inputs with a number of rows or number of columns
+#' above that of `.Machine$integer.max` (typically 2^31-1).
 #' @param sample_weights Sample observation weights for each row of `df`, with higher weights indicating either higher sampling
 #' probability (i.e. the observation has a larger effect on the fitted model, if using sub-samples), or
 #' distribution density (i.e. if the weight is two, it has the same effect of including the same data
@@ -714,7 +721,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
 
 #' @title Predict method for Isolation Forest
 #' @param object An Isolation Forest object as returned by `isolation.forest`.
-#' @param newdata A `data.frame`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`,
+#' @param newdata A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`,
 #' CSC/dgCMatrix format for distance and outlierness, or CSR/dgRMatrix format for outlierness and imputations)
 #' for which to predict outlierness, distance, or imputations of missing values.
 #' 
@@ -934,7 +941,8 @@ summary.isolation_forest <- function(object, ...) {
 #' @description Adds a single tree fit to the full (non-subsampled) data passed here. Must
 #' have the same columns as previously-fitted data.
 #' @param model An Isolation Forest object as returned by `isolation.forest`, to which an additional tree will be added.
-#' @param df A data.frame, matrix, or sparse matrix (from package `Matrix` or `SparseM`, CSC format)
+#' The result of this function must be reassigned to `model`, and the old `model` should not be used any further.
+#' @param df A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC format)
 #' to which to fit the new tree.
 #' @param sample_weights Sample observation weights for each row of 'X', with higher weights indicating
 #' distribution density (i.e. if the weight is two, it has the same effect of including the same data
@@ -944,7 +952,7 @@ summary.isolation_forest <- function(object, ...) {
 #' @return No return value. The model is modified in-place.
 #' @details Important: this function will modify the model object in-place, but this modification will only affect the R
 #' object in the environment in which it was called. If trying to use the same model object in e.g. its parent environment,
-#' it will lead to issues due to the C++ object being modified but the R oject remaining the asme, so if this method is used
+#' it will lead to issues due to the C++ object being modified but the R object remaining the same, so if this method is used
 #' inside a function, make sure to output the newly-modified R object and have it replace the old R object outside the calling
 #' function too.
 #' @seealso \link{isolation.forest} \link{unpack.isolation.forest}
@@ -1146,14 +1154,24 @@ get.num.nodes <- function(model)  {
 #' models (e.g. fit to different numbers of columns) will result in wrong results and
 #' potentially crashing the R process when using it.
 #' 
+#' Also be aware that the result \bold{must} be reassigned to the first input, as the first
+#' input will no longer work correctly after appending more trees to it.
+#' 
 #' \bold{Important:} the result of this function must be reassigned to `model` in order for it
 #' to work properly - e.g. `model <- append.trees(model, other)`.
 #' @param model An Isolation Forest model (as returned by function \link{isolation.forest})
 #' to which trees from `other` (another Isolation Forest model) will be appended into.
+#' The result of this function must be reassigned to `model`, and the old `model` should
+#' not be used any further.
 #' @param other Another Isolation Forest model, from which trees will be appended into
 #' `model`. It will not be modified during the call to this function.
 #' @return The updated `model` object, to which `model` needs to be reassigned
 #' (i.e. you need to use it as follows: `model <- append.trees(model, other)`).
+#' @details Important: this function will modify the model object in-place, but this modification will only affect the R
+#' object in the environment in which it was called. If trying to use the same model object in e.g. its parent environment,
+#' it will lead to issues due to the C++ object being modified but the R object remaining the same, so if this method is used
+#' inside a function, make sure to output the newly-modified R object and have it replace the old R object outside the calling
+#' function too.
 #' @examples 
 #' library(isotree)
 #' 
@@ -1172,7 +1190,7 @@ get.num.nodes <- function(model)  {
 #' nodes1 <- predict(iso1, head(X1, 3), type="tree_num")
 #' nodes2 <- predict(iso2, head(X1, 3), type="tree_num")
 #' 
-#' ### Append the trees from 'iso1' into 'iso1'
+#' ### Append the trees from 'iso2' into 'iso1'
 #' iso1 <- append.trees(iso1, iso2)
 #' 
 #' ### Check that it predicts the same as the two models

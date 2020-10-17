@@ -43,13 +43,20 @@ isolation.forest(
 )
 }
 \arguments{
-\item{df}{Data to which to fit the model. Can pass a `data.frame`, `matrix`, or sparse matrix (in CSC format,
-either from package `Matrix` or from package `SparseM`). If passing a `data.frame`, will assume that columns are:
+\item{df}{Data to which to fit the model. Supported inputs type are:\itemize{
+\item A `data.frame`, also accepted as `data.table` or `tibble`.
+\item A `matrix` object from base R.
+\item A sparse matrix in CSC format, either from package `Matrix` (class `dgCMatrix`) or
+from package `SparseM` (class `matrix.csc`).
+}
+
+If passing a `data.frame`, will assume that columns are:
 \itemize{
   \item Numerical, if they are of types `numeric`, `integer`, `Date`, `POSIXct`.
   \item Categorical, if they are of type `character`, `factor`, `bool`.
 }
-Other column types are not supported.}
+Other column types are not supported. Note that it does not support inputs with a number of rows or number of columns
+above that of `.Machine$integer.max` (typically 2^31-1).}
 
 \item{sample_weights}{Sample observation weights for each row of `df`, with higher weights indicating either higher sampling
 probability (i.e. the observation has a larger effect on the fitted model, if using sub-samples), or

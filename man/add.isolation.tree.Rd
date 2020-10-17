@@ -7,9 +7,10 @@
 add.isolation.tree(model, df, sample_weights = NULL, column_weights = NULL)
 }
 \arguments{
-\item{model}{An Isolation Forest object as returned by `isolation.forest`, to which an additional tree will be added.}
+\item{model}{An Isolation Forest object as returned by `isolation.forest`, to which an additional tree will be added.
+The result of this function must be reassigned to `model`, and the old `model` should not be used any further.}
 
-\item{df}{A data.frame, matrix, or sparse matrix (from package `Matrix` or `SparseM`, CSC format)
+\item{df}{A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC format)
 to which to fit the new tree.}
 
 \item{sample_weights}{Sample observation weights for each row of 'X', with higher weights indicating
@@ -29,7 +30,7 @@ have the same columns as previously-fitted data.
 \details{
 Important: this function will modify the model object in-place, but this modification will only affect the R
 object in the environment in which it was called. If trying to use the same model object in e.g. its parent environment,
-it will lead to issues due to the C++ object being modified but the R oject remaining the asme, so if this method is used
+it will lead to issues due to the C++ object being modified but the R object remaining the same, so if this method is used
 inside a function, make sure to output the newly-modified R object and have it replace the old R object outside the calling
 function too.
 }
