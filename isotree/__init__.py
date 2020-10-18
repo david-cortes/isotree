@@ -1329,10 +1329,10 @@ class IsolationForest:
         Export Isolation Forest model
 
         Save Isolation Forest model to a serialized file along with its
-        metadata, in order to be used in the R or the C++ versions of this package.
+        metadata, in order to be re-used in Python or in the R or the C++ versions of this package.
         
-        This function is not meant to be used for passing models to and from Pyton -
-        in such case, you can use ``pickle`` instead.
+        Although the model objects are always serializable through ``pickle``, this function
+        might provide a faster alternative and use less memory when the models to serialize are big.
         
         Note that, if the model was fitted to a ``DataFrame``, the column names must be
         something exportable as JSON, and must be something that R could
@@ -1359,7 +1359,7 @@ class IsolationForest:
         using ``ndim>1``, will be an object of class ``ExtIsoForest``. The imputer file, if produced, will
         be an object of class ``Imputer``.
         
-        The metadata is not used in the C++ version, but is necessary for the R version.
+        The metadata is not used in the C++ version, but is necessary for the R and Python versions.
 
         Note
         ----
@@ -1403,15 +1403,17 @@ class IsolationForest:
     @staticmethod
     def import_model(file, use_cpp = False):
         """
-        Load an Isolation Forest model exported from R
+        Load an Isolation Forest model exported from R or Python
 
         Loads a serialized Isolation Forest model as produced and exported
-        by the R version of this package. Note that the metadata must be something
+        by the function ``export_model`` or by the R version of this package.
+        Note that the metadata must be something
         importable in Python - e.g. column names must be valid for Pandas.
         It's recommended to visually inspect the ``.metadata`` file in any case.
         
-        This function is not meant to be used for passing models to and from Python -
-        in such case, you can use ``pickle`` instead.
+        While the model objects can be serialized through ``pickle``, using the
+        package's own functions might result in a faster and more memory-efficient
+        alternative.
 
         Note
         ----
