@@ -87,35 +87,44 @@ class IsolationForest:
         follows a similar process with expected value calculated as in [6]). Default setting for [1], [2], [3], [4] is "auto",
         but it's recommended to pass higher values if using the model for purposes other than outlier detection.
     prob_pick_avg_gain : float(0, 1)
-        Probability of making each split in the single-variable model by choosing a column and split point in that
-        same column as both the column and split point that gives the largest averaged gain (as proposed in [4]) across
-        all available columns and possible splits in each column. Note that this implies evaluating every single column
-        in the sample data when this type of split happens, which will potentially make the model fitting much slower,
-        but has no impact on prediction time. For categorical variables, will take the expected standard deviation that
-        would be gotten if the column were converted to numerical by assigning to each category a random number ~ Unif(0, 1)
-        and calculate gain with those assumed standard deviations. For the extended model, this parameter indicates the probability that the
-        split point in the chosen linear combination of variables will be decided by this averaged gain criterion. Compared to
-        a pooled average, this tends to result in more cases in which a single observation or very few of them are put into
-        one branch. Recommended to use sub-samples (parameter 'sample_size') when passing this parameter.
+        * For the single-variable model (``ndim=1``), this parameter indicates the probability
+          of making each split by choosing a column and split point in that
+          same column as both the column and split point that gives the largest averaged gain (as proposed in [4]) across
+          all available columns and possible splits in each column. Note that this implies evaluating every single column
+          in the sample data when this type of split happens, which will potentially make the model fitting much slower,
+          but has no impact on prediction time. For categorical variables, will take the expected standard deviation that
+          would be gotten if the column were converted to numerical by assigning to each category a random number ~ Unif(0, 1)
+          and calculate gain with those assumed standard deviations.
+        
+        * For the extended model, this parameter indicates the probability that the
+          split point in the chosen linear combination of variables will be decided by this averaged gain criterion.
+
+        Compared to a pooled average, this tends to result in more cases in which a single observation or very few of them
+        are put into one branch. Recommended to use sub-samples (parameter 'sample_size') when passing this parameter.
         Note that, since this will created isolated nodes faster, the resulting object will be lighter (use less memory).
         When splits are
         not made according to any of 'prob_pick_avg_gain', 'prob_pick_pooled_gain', 'prob_split_avg_gain',
         'prob_split_pooled_gain', both the column and the split point are decided at random. Default setting for [1], [2], [3] is
         zero, and default for [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5].
-        Note that, if passing value 1 (100%) with no sub-sampling and using the single-variable model, every single tree will have
+        Note that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable model, every single tree will have
         the exact same splits.
     prob_pick_pooled_gain : float(0, 1)
-        Probability of making each split in the single-variable model by choosing a column and split point in that
-        same column as both the column and split point that gives the largest pooled gain (as used in decision tree
-        classifiers such as C4.5 in [7]) across all available columns and possible splits in each column. Note
-        that this implies evaluating every single column in the sample data when this type of split happens, which
-        will potentially make the model fitting much slower, but has no impact on prediction time. For categorical
-        variables, will use shannon entropy instead (like in [7]). For the extended model, this parameter indicates the probability
-        that the split point in the chosen linear combination of variables will be decided by this pooled gain
-        criterion. Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
+        * For the single-variable model (``ndim=1``), this parameter indicates the probability
+          of making each split by choosing a column and split point in that
+          same column as both the column and split point that gives the largest pooled gain (as used in decision tree
+          classifiers such as C4.5 in [7]) across all available columns and possible splits in each column. Note
+          that this implies evaluating every single column in the sample data when this type of split happens, which
+          will potentially make the model fitting much slower, but has no impact on prediction time. For categorical
+          variables, will use shannon entropy instead (like in [7]).
+        
+        * For the extended model, this parameter indicates the probability
+          that the split point in the chosen linear combination of variables will be decided by this pooled gain
+          criterion.
+
+        Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
         groups when they are smaller. Recommended to pass higher values when used for imputation of missing values.
         When used for outlier detection, higher values of this parameter result in models that are able to better flag
-        outliers in the training data, but generalize poorly to outliers in new data and to values of variables
+        outliers in the training data of each tree, but generalize poorly to outliers in new data and to values of variables
         outside of the ranges from the training data. Passing small 'sample_size' and high values of this parameter will
         tend to flag too many outliers.
         Note that, since this makes the trees more even and thus it takes more steps to produce isolated nodes,
