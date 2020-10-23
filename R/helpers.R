@@ -60,10 +60,11 @@ get.types.dmat <- function() {
     return(c("matrix"))
 }
 
-get.types.spmat <- function(allow_csr = FALSE, allow_csc = TRUE) {
+get.types.spmat <- function(allow_csr = FALSE, allow_csc = TRUE, allow_vec = FALSE) {
     outp <- character()
     if (allow_csc) outp <- c(outp, "dgCMatrix", "matrix.csc")
     if (allow_csr) outp <- c(outp, "dgRMatrix", "matrix.csr")
+    if (allow_vec && allow_csr) outp <- c(outp, "dsparseVector")
     return(outp)
 }
 
@@ -173,15 +174,21 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL, recod
 
 process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) {
     if (!NROW(df)) stop("'df' contains zero rows.")
-    if ( NCOL(df) < (metadata$ncols_num + metadata$ncols_cat) )
-        stop(sprintf("Input data contains fewer columns than expected (%d vs. %d)",
-                     NCOL(df), (metadata$ncols_num + metadata$ncols_cat)))
+    if (!("dsparseVector" %in% class(df))) {
+        if ( NCOL(df) < (metadata$ncols_num + metadata$ncols_cat) )
+            stop(sprintf("Input data contains fewer columns than expected (%d vs. %d)",
+                         NCOL(df), (metadata$ncols_num + metadata$ncols_cat)))
+    } else {
+        if (df@length != metadata$ncols_num)
+            stop(sprintf("Input data contains different columns than expected (%d vs. %d)",
+                         df@length, (metadata$ncols_num)))
+    }
     df  <-  cast.df.alike(df)
     if (metadata$ncols_cat > 0 && !("data.frame" %in% class(df)))
         stop("Model was fit to categorical data, must pass a data.frame with new data.")
     
     dmatrix_types     <-  get.types.dmat()
-    spmatrix_types    <-  get.types.spmat(allow_csr = allow_csr, allow_csc = allow_csc)
+    spmatrix_types    <-  get.types.spmat(allow_csr = allow_csr, allow_csc = allow_csc, TRUE)
     supported_dtypes  <-  c("data.frame", dmatrix_types, spmatrix_types)
 
     if (!NROW(intersect(class(df), supported_dtypes)))
@@ -231,7 +238,15 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
             
         }
         
+    } else if ("dsparseVector" %in% class(df)) {
+        outp$Xr         <-  as.numeric(df@x)
+        outp$Xr_ind     <-  as.integer(df@i)
+        outp$Xr_indptr  <-  as.integer(c(0L, NROW(df@x)-1L))
+        outp$nrows      <-  1L
     } else {
+        
+        if ("numeric" %in% class(df) && is.null(dim(df)))
+            df <- matrix(df, nrow = 1)
         
         if (NCOL(df) != (metadata$ncols_num + metadata$ncols_cat))
             stop(sprintf("Input data has %d columns, but model was fit to data with %d columns.",
@@ -283,7 +298,7 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, df, model, trans_CSC=
         outp@x   <-  imputed_num
         if (trans_CSC) outp <- Matrix::t(outp)
         return(outp)
-    } else if ("dgRMatrix" %in% class(df)) {
+    } else if (("dgRMatrix" %in% class(df)) || ("dsparseVector" %in% class(df))) {
         outp     <-  df
         outp@x   <-  imputed_num
         return(outp)

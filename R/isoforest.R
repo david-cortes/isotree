@@ -810,8 +810,19 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
     check.str.option(type, "type", allowed_type)
     check.is.bool(square_mat)
     if (!NROW(newdata)) stop("'newdata' must be a data.frame, matrix, or sparse matrix.")
+    if ((object$metadata$ncols_cat > 0) && NROW(intersect(class(newdata), get.types.spmat(TRUE, TRUE, TRUE)))) {
+        stop("Cannot pass sparse inputs if the model was fit to categorical variables.")
+    }
+    if ("numeric" %in% class(newdata) && is.null(dim(newdata))) {
+        newdata <- matrix(newdata, nrow=1)
+    }
     if (NCOL(newdata) < (object$metadata$ncols_num + object$metadata$ncols_cat)) {
-        stop("'newdata' has fewer columns than the original data.")
+        if ("dsparseVector" %in% class(newdata)) {
+            if (NROW(newdata) != object$metadata$ncols_num)
+                stop("'newdata' has different number of columns than the original data.")
+        } else {
+            stop("'newdata' has fewer columns than the original data.")
+        }
     }
     if (type %in% c("dist", "avg_sep")) {
         if (object$params$new_categ_action == "weighted" && object$params$missing_action != "divide") {
@@ -823,7 +834,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
     if (type %in% "impute" && (is.null(object$params$build_imputer) || !(object$params$build_imputer)))
         stop("Cannot impute missing values with model that was built with 'build_imputer' =  'FALSE'.")
     
-    if (is.null(refdata) && (type %in% c("dist", "avg_sep"))) {
+    if (is.null(refdata) || !(type %in% c("dist", "avg_sep"))) {
         nobs_group1 <- 0L
     } else {
         nobs_group1 <- NROW(newdata)
