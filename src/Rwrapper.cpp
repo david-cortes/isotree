@@ -540,18 +540,22 @@ void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector
         categ_data_ptr    =  &X_cat[0];
     }
 
-    if (Xc.size())
+    if (Xc_indptr.size())
     {
-        Xc_ptr         =  &Xc[0];
-        Xc_ind_ptr     =  &Xc_ind[0];
-        Xc_indptr_ptr  =  &Xc_indptr[0];
+        if (Xc.size())
+            Xc_ptr         =  &Xc[0];
+        if (Xc_ind.size())
+            Xc_ind_ptr     =  &Xc_ind[0];
+        Xc_indptr_ptr      =  &Xc_indptr[0];
     }
 
-    if (Xr.size())
+    if (Xr_indptr.size())
     {
-        Xr_ptr         =  &Xr[0];
-        Xr_ind_ptr     =  &Xr_ind[0];
-        Xr_indptr_ptr  =  &Xr_indptr[0];
+        if (Xr.size())
+            Xr_ptr         =  &Xr[0];
+        if (Xr_ind.size())
+            Xr_ind_ptr     =  &Xr_ind[0];
+        Xr_indptr_ptr      =  &Xr_indptr[0];
     }
 
     if (tree_num.size())
@@ -612,10 +616,12 @@ void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericVector dm
         categ_data_ptr    =  &X_cat[0];
     }
 
-    if (Xc.size())
+    if (Xc_indptr.size())
     {
-        Xc_ptr         =  &Xc[0];
-        Xc_ind_ptr     =  &Xc_ind[0];
+        if (Xc.size())
+            Xc_ptr         =  &Xc[0];
+        if (Xc_ind.size())
+            Xc_ind_ptr     =  &Xc_ind[0];
         Xc_indptr_ptr  =  &Xc_indptr[0];
     }
 
@@ -674,10 +680,12 @@ Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
         categ_data_ptr    =  &X_cat[0];
     }
 
-    if (Xr.size())
+    if (Xr_indptr.size())
     {
-        Xr_ptr         =  &Xr[0];
-        Xr_ind_ptr     =  &Xr_ind[0];
+        if (Xr.size())
+            Xr_ptr         =  &Xr[0];
+        if (Xr_ind.size())
+            Xr_ind_ptr     =  &Xr_ind[0];
         Xr_indptr_ptr  =  &Xr_indptr[0];
     }
 

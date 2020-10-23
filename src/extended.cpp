@@ -60,7 +60,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     /* calculate imputation statistics if desired */
     if (impute_nodes != NULL)
     {
-        if (input_data.Xc != NULL)
+        if (input_data.Xc_indptr != NULL)
             std::sort(workspace.ix_arr.begin() + workspace.st,
                       workspace.ix_arr.begin() + workspace.end + 1);
         build_impute_node(impute_nodes->back(), workspace,
@@ -85,7 +85,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         goto terminal_statistics;
 
     /* for sparse matrices, need to sort the indices */
-    if (input_data.Xc != NULL && impute_nodes == NULL)
+    if (input_data.Xc_indptr != NULL && impute_nodes == NULL)
         std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
 
     /* pick column to split according to criteria */
@@ -370,7 +370,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
             {
                 case Numeric:
                 {
-                    if (input_data.Xc == NULL)
+                    if (input_data.Xc_indptr == NULL)
                     {
                         add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                         input_data.numeric_data + hplanes.back().col_num[col] * input_data.nrows,
@@ -551,7 +551,7 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
                 }
             }
 
-            if (input_data.Xc == NULL)
+            if (input_data.Xc_indptr == NULL)
             {
                 calc_mean_and_sd(workspace.ix_arr.data(), workspace.st, workspace.end,
                                  input_data.numeric_data + workspace.col_chosen * input_data.nrows,

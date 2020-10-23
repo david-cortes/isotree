@@ -137,7 +137,7 @@ void predict_iforest(double numeric_data[], int categ_data[],
         if (
             model_outputs->missing_action == Fail &&
             (model_outputs->new_cat_action != Weighted || prediction_data.categ_data == NULL) &&
-            prediction_data.Xc == NULL && prediction_data.Xr == NULL
+            prediction_data.Xc_indptr == NULL && prediction_data.Xr_indptr == NULL
             )
         {
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, model_outputs, prediction_data, output_depths, tree_num)
@@ -180,8 +180,8 @@ void predict_iforest(double numeric_data[], int categ_data[],
         if (
             model_outputs_ext->missing_action == Fail &&
             prediction_data.categ_data == NULL &&
-            prediction_data.Xc == NULL &&
-            prediction_data.Xr == NULL
+            prediction_data.Xc_indptr == NULL &&
+            prediction_data.Xr_indptr == NULL
             )
         {
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, model_outputs_ext, prediction_data, output_depths, tree_num)
@@ -381,7 +381,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
     double range_penalty = 0;
 
     sparse_ix *row_st = NULL, *row_end = NULL;
-    if (prediction_data.Xr != NULL)
+    if (prediction_data.Xr_indptr != NULL)
     {
         row_st  = prediction_data.Xr_ind + prediction_data.Xr_indptr[row];
         row_end = prediction_data.Xr_ind + prediction_data.Xr_indptr[row + 1];
@@ -406,12 +406,12 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                 case Numeric:
                 {
 
-                    if (prediction_data.Xc == NULL && prediction_data.Xr == NULL)
+                    if (prediction_data.Xc_indptr == NULL && prediction_data.Xr_indptr == NULL)
                         xval = prediction_data.numeric_data[row +  tree[curr_lev].col_num * prediction_data.nrows];
-                    else if (row_st != NULL)
-                        xval = extract_spR(prediction_data, row_st, row_end, tree[curr_lev].col_num);
-                    else
+                    else if (prediction_data.Xc_indptr != NULL)
                         xval = extract_spC(prediction_data, row, tree[curr_lev].col_num);
+                    else
+                        xval = extract_spR(prediction_data, row_st, row_end, tree[curr_lev].col_num);
 
                     if (isnan(xval))
                     {
@@ -682,7 +682,7 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
     size_t ncols_numeric, ncols_categ;
 
     sparse_ix *row_st = NULL, *row_end = NULL;
-    if (prediction_data.Xr != NULL)
+    if (prediction_data.Xr_indptr != NULL)
     {
         row_st  = prediction_data.Xr_ind + prediction_data.Xr_indptr[row];
         row_end = prediction_data.Xr_ind + prediction_data.Xr_indptr[row + 1];
@@ -712,12 +712,12 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
                 {
                     case Numeric:
                     {
-                        if (prediction_data.Xc == NULL && prediction_data.Xr == NULL)
+                        if (prediction_data.Xc_indptr == NULL && prediction_data.Xr_indptr == NULL)
                             xval = prediction_data.numeric_data[row +  hplane[curr_lev].col_num[col] * prediction_data.nrows];
-                        else if (row_st != NULL)
-                            xval = extract_spR(prediction_data, row_st, row_end, hplane[curr_lev].col_num[col]);
-                        else
+                        else if (prediction_data.Xc_indptr != NULL)
                             xval = extract_spC(prediction_data, row, hplane[curr_lev].col_num[col]);
+                        else
+                            xval = extract_spR(prediction_data, row_st, row_end, hplane[curr_lev].col_num[col]);
 
                         if (is_na_or_inf(xval))
                         {
@@ -805,16 +805,18 @@ double extract_spC(PredictionData &prediction_data, size_t row, size_t col_num)
             ||
         *search_res != row
         )
-        return 0;
+        return 0.;
     else
         return prediction_data.Xc[search_res - prediction_data.Xc_ind];
 }
 
 double extract_spR(PredictionData &prediction_data, sparse_ix *row_st, sparse_ix *row_end, size_t col_num)
 {
+    if (row_end == row_st)
+        return 0.;
     sparse_ix *search_res = std::lower_bound(row_st, row_end, (sparse_ix) col_num);
     if (search_res == row_end || *search_res != (sparse_ix)col_num)
-        return 0;
+        return 0.;
     else
         return prediction_data.Xr[search_res - prediction_data.Xr_ind];
 }

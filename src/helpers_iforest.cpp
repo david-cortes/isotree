@@ -91,7 +91,7 @@ void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams
 {
     if (tree.col_type == Numeric)
     {
-        if (input_data.Xc == NULL)
+        if (input_data.Xc_indptr == NULL)
             get_range(workspace.ix_arr.data(), input_data.numeric_data + input_data.nrows * tree.col_num,
                       workspace.st, workspace.end, model_params.missing_action,
                       workspace.xmin, workspace.xmax, workspace.unsplittable);
@@ -114,7 +114,7 @@ void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams
 {
     if (workspace.col_type == Numeric)
     {
-        if (input_data.Xc == NULL)
+        if (input_data.Xc_indptr == NULL)
             get_range(workspace.ix_arr.data(), input_data.numeric_data + input_data.nrows * workspace.col_chosen,
                       workspace.st, workspace.end, model_params.missing_action,
                       workspace.xmin, workspace.xmax, workspace.unsplittable);

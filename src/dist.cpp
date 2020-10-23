@@ -280,14 +280,14 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
 
 
     /* divide according to tree */
-    if (prediction_data.Xc != NULL && workspace.tmat_sep.size())
+    if (prediction_data.Xc_indptr != NULL && workspace.tmat_sep.size())
         std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
     size_t st_NA, end_NA, split_ix;
     switch(trees[curr_tree].col_type)
     {
         case Numeric:
         {
-            if (prediction_data.Xc == NULL)
+            if (prediction_data.Xc_indptr == NULL)
                 divide_subset_split(workspace.ix_arr.data(),
                                     prediction_data.numeric_data + prediction_data.nrows * trees[curr_tree].col_num,
                                     workspace.st, workspace.end, trees[curr_tree].num_split,
@@ -477,14 +477,14 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
                                             prediction_data.nrows, workspace.rmat.data(), -1.);
     }
 
-    if (prediction_data.Xc != NULL && workspace.tmat_sep.size())
+    if (prediction_data.Xc_indptr != NULL && workspace.tmat_sep.size())
         std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
 
     /* reconstruct linear combination */
     size_t ncols_numeric = 0;
     size_t ncols_categ   = 0;
     std::fill(workspace.comb_val.begin(), workspace.comb_val.begin() + (workspace.end - workspace.st + 1), 0);
-    if (prediction_data.categ_data != NULL || prediction_data.Xc != NULL)
+    if (prediction_data.categ_data != NULL || prediction_data.Xc_indptr != NULL)
     {
         for (size_t col = 0; col < hplanes[curr_tree].col_num.size(); col++)
         {
@@ -492,7 +492,7 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
             {
                 case Numeric:
                 {
-                    if (prediction_data.Xc == NULL)
+                    if (prediction_data.Xc_indptr == NULL)
                         add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                         prediction_data.numeric_data + prediction_data.nrows * hplanes[curr_tree].col_num[col],
                                         hplanes[curr_tree].coef[ncols_numeric], (double)0, hplanes[curr_tree].mean[ncols_numeric],

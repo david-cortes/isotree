@@ -973,7 +973,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                 min_size_chr = input_data.max_categ;
         }
 
-        if (input_data.Xc != NULL && gain)
+        if (input_data.Xc_indptr != NULL && gain)
         {
             min_size_szt = std::max(min_size_szt, model_params.sample_size);
             min_size_dbl = std::max(min_size_dbl, model_params.sample_size);
@@ -1028,7 +1028,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     {
         std::vector<double> kurt_weights(input_data.ncols_numeric + input_data.ncols_categ);
 
-        if (input_data.Xc == NULL)
+        if (input_data.Xc_indptr == NULL)
         {
             for (size_t col = 0; col < input_data.ncols_numeric; col++)
                 kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,

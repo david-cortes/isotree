@@ -226,7 +226,7 @@ void initialize_imputer(Imputer &imputer, InputData &input_data, size_t ntrees, 
         }
     }
 
-    else if (input_data.Xc != NULL)
+    else if (input_data.Xc_indptr != NULL)
     {
         #pragma omp parallel for schedule(dynamic) num_threads(nthreads) private(cnt) shared(input_data, imputer)
         for (size_t_for col = 0; col < input_data.ncols_numeric; col++)
@@ -304,7 +304,7 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
     double  weight;
     size_t  ix;
 
-    if ((input_data.Xc == NULL && input_data.ncols_numeric) || input_data.ncols_categ)
+    if ((input_data.Xc_indptr == NULL && input_data.ncols_numeric) || input_data.ncols_categ)
     {
         if (!has_weights)
         {
@@ -401,7 +401,7 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
         }
     }
 
-    if (input_data.Xc != NULL) /* sparse numeric */
+    if (input_data.Xc_indptr != NULL) /* sparse numeric */
     {
         size_t *ix_arr = workspace.ix_arr.data();
         size_t st_col, end_col, ind_end_col, curr_pos;
@@ -802,7 +802,7 @@ void apply_imputation_results(imp_arr    &impute_vec,
 {
     size_t col;
 
-    if (input_data.Xc != NULL)
+    if (input_data.Xc_indptr != NULL)
     {
         std::vector<size_t> row_pos(input_data.nrows, 0);
         size_t row;
@@ -950,7 +950,7 @@ void initialize_impute_calc(ImputedData &imp, InputData &input_data, size_t row)
         imp.num_weight.assign(imp.n_missing_num, 0);
     }
 
-    else if (input_data.Xc != NULL)
+    else if (input_data.Xc_indptr != NULL)
     {
         imp.missing_sp.resize(input_data.ncols_numeric);
         sparse_ix *res;
@@ -1105,7 +1105,7 @@ void check_for_missing(InputData &input_data,
 {
     input_data.has_missing.assign(input_data.nrows, false);
 
-    if (input_data.Xc != NULL)
+    if (input_data.Xc_indptr != NULL)
     {
         for (size_t col = 0; col < input_data.ncols_numeric; col++)
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(col, input_data)

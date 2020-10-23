@@ -530,12 +530,16 @@ cdef class isoforest_cpp_obj:
                 numeric_data_ptr   =  get_ptr_dbl_mat(X_num)
             else:
                 if isspmatrix_csc(X_num):
-                    Xc_ptr         =  get_ptr_dbl_vec(X_num.data)
-                    Xc_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
+                    if X_num.data.shape[0]:
+                        Xc_ptr         =  get_ptr_dbl_vec(X_num.data)
+                    if X_num.indices.shape[0]:
+                        Xc_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
                     Xc_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
                 else:
-                    Xr_ptr         =  get_ptr_dbl_vec(X_num.data)
-                    Xr_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
+                    if X_num.data.shape[0]:
+                        Xr_ptr         =  get_ptr_dbl_vec(X_num.data)
+                    if X_num.indices.shape[0]:
+                        Xr_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
                     Xr_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
 
         if X_cat is not None:
@@ -586,8 +590,10 @@ cdef class isoforest_cpp_obj:
             if not issparse(X_num):
                 numeric_data_ptr  =  get_ptr_dbl_mat(X_num)
             else:
-                Xc_ptr         =  get_ptr_dbl_vec(X_num.data)
-                Xc_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
+                if X_num.data.shape[0]:
+                    Xc_ptr         =  get_ptr_dbl_vec(X_num.data)
+                if X_num.indices.shape[0]:
+                    Xc_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
                 Xc_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
         if X_cat is not None:
             categ_data_ptr     =  get_ptr_int_mat(X_cat)
@@ -638,8 +644,10 @@ cdef class isoforest_cpp_obj:
             if not issparse(X_num):
                 numeric_data_ptr  =  get_ptr_dbl_mat(X_num)
             else:
-                Xr_ptr         =  get_ptr_dbl_vec(X_num.data)
-                Xr_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
+                if X_num.data.shape[0]:
+                    Xr_ptr         =  get_ptr_dbl_vec(X_num.data)
+                if X_num.indices.shape[0]:
+                    Xr_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
                 Xr_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
         if X_cat is not None:
             categ_data_ptr     =  get_ptr_int_mat(X_cat)

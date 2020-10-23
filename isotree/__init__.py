@@ -796,6 +796,8 @@ class IsolationForest:
                 else:
                     warnings.warn("Sparse matrices are only supported in CSC format, will be converted.")
                     X = csc_matrix(X)
+                if X.nnz == 0:
+                    raise ValueError("'X' has no non-zero entries")
                 X.data    = X.data.astype(ctypes.c_double)
                 X.indices = X.indices.astype(ctypes.c_size_t)
                 X.indptr  = X.indptr.astype(ctypes.c_size_t)

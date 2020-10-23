@@ -56,7 +56,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
     /* calculate imputation statistics if desired */
     if (impute_nodes != NULL)
     {
-        if (input_data.Xc != NULL)
+        if (input_data.Xc_indptr != NULL)
             std::sort(workspace.ix_arr.begin() + workspace.st,
                       workspace.ix_arr.begin() + workspace.end + 1);
         build_impute_node(impute_nodes->back(), workspace,
@@ -81,7 +81,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         goto terminal_statistics;
 
     /* for sparse matrices, need to sort the indices */
-    if (input_data.Xc != NULL && impute_nodes == NULL)
+    if (input_data.Xc_indptr != NULL && impute_nodes == NULL)
         std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
 
     /* pick column to split according to criteria */
@@ -108,7 +108,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
         /* evaluate gain for all columns */
         trees.back().score = -HUGE_VAL; /* this is used to track the best gain */
-        if (input_data.Xc == NULL)
+        if (input_data.Xc_indptr == NULL)
         {
             for (size_t col = 0; col < input_data.ncols_numeric; col++)
             {
@@ -291,7 +291,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             if (workspace.unsplittable)
             {
                 workspace.ncols_tried = 0; /* note: this is used here as a counter for the number of still splittable columns */
-                if (input_data.Xc == NULL)
+                if (input_data.Xc_indptr == NULL)
                 {
                     for (size_t col = 0; col < input_data.ncols_numeric; col++)
                     {
@@ -406,7 +406,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
                 default:
                 {
-                    if (input_data.Xc == NULL)
+                    if (input_data.Xc_indptr == NULL)
                     {
                         eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
                                          input_data.numeric_data + trees.back().col_num * input_data.nrows,
@@ -441,7 +441,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             }
         }
         
-        if (input_data.Xc == NULL)
+        if (input_data.Xc_indptr == NULL)
             divide_subset_split(workspace.ix_arr.data(), input_data.numeric_data + input_data.nrows * trees.back().col_num,
                                 workspace.st, workspace.end, trees.back().num_split, model_params.missing_action,
                                 workspace.st_NA, workspace.end_NA, workspace.split_ix);
