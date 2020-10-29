@@ -48,7 +48,7 @@
    https://stackoverflow.com/questions/2589096/find-most-significant-bit-left-most-that-is-set-in-a-bit-array
    https://stackoverflow.com/questions/11376288/fast-computing-of-log2-for-64-bit-integers  */
 #if SIZE_MAX == UINT32_MAX /* 32-bit systems */
-    #ifdef __builtin_clz
+    #ifdef __GNUG__
         size_t log2ceil(size_t x) {return (unsigned) (1 + (8*sizeof (uint32_t) - __builtin_clz(x-1) - 1));}
     #else
         static const int MultiplyDeBruijnBitPosition[32] =
@@ -70,7 +70,7 @@
         }
     #endif
 #elif SIZE_MAX == UINT64_MAX /* 64-bit systems */
-    #ifdef __builtin_clzl
+    #ifdef __GNUG__
         size_t log2ceil(size_t x) {return (unsigned) (1 + (8*sizeof (uint64_t) - __builtin_clzl(x-1) - 1));}
     #else
         static const uint64_t tab64[64] = {
