@@ -281,17 +281,17 @@ void backup_recursion_state(WorkerMemory &workspace, RecursionState &recursion_s
     /* for the extended model, it's not necessary to copy everything */
     if (!workspace.comb_val.size())
     {
-        recursion_state.ix_arr = std::vector<size_t>(workspace.ix_arr.begin() + workspace.st,
+        recursion_state.ix_arr = std::vector<size_t>(workspace.ix_arr.begin() + workspace.st_NA,
                                                      workspace.ix_arr.begin() + workspace.end + 1);
-        size_t tot = workspace.end - workspace.st + 1;
+        size_t tot = workspace.end - workspace.st_NA + 1;
         if (workspace.weights_arr.size() || workspace.weights_map.size())
             recursion_state.weights_arr = std::unique_ptr<double[]>(new double[tot]);
         if (workspace.weights_arr.size())
             for (size_t ix = 0; ix < tot; ix++)
-                recursion_state.weights_arr[ix] = workspace.weights_arr[workspace.ix_arr[ix + workspace.st]];
+                recursion_state.weights_arr[ix] = workspace.weights_arr[workspace.ix_arr[ix + workspace.st_NA]];
         else if (workspace.weights_map.size())
             for (size_t ix = 0; ix < tot; ix++)
-                recursion_state.weights_arr[ix] = workspace.weights_map[workspace.ix_arr[ix + workspace.st]];
+                recursion_state.weights_arr[ix] = workspace.weights_map[workspace.ix_arr[ix + workspace.st_NA]];
         
 
     }
@@ -312,13 +312,13 @@ void restore_recursion_state(WorkerMemory &workspace, RecursionState &recursion_
     {
         std::copy(recursion_state.ix_arr.begin(),
                   recursion_state.ix_arr.end(),
-                  workspace.ix_arr.begin() + recursion_state.st);
-        size_t tot = workspace.end - workspace.st + 1;
+                  workspace.ix_arr.begin() + recursion_state.st_NA);
+        size_t tot = workspace.end - workspace.st_NA + 1;
         if (workspace.weights_arr.size())
             for (size_t ix = 0; ix < tot; ix++)
-                workspace.weights_arr[workspace.ix_arr[ix + workspace.st]] = recursion_state.weights_arr[ix];
+                workspace.weights_arr[workspace.ix_arr[ix + workspace.st_NA]] = recursion_state.weights_arr[ix];
         else if (workspace.weights_map.size())
             for (size_t ix = 0; ix < tot; ix++)
-                workspace.weights_map[workspace.ix_arr[ix + workspace.st]] = recursion_state.weights_arr[ix];
+                workspace.weights_map[workspace.ix_arr[ix + workspace.st_NA]] = recursion_state.weights_arr[ix];
     }
 }
