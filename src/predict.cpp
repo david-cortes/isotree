@@ -252,6 +252,8 @@ void predict_iforest(double numeric_data[], int categ_data[],
 }
 
 
+/* TODO: these functions would be faster if done with row-major order,
+   should at least give the option of taking arrays as row-major. */
 void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                                IsoForest             &model_outputs,
                                PredictionData        &prediction_data,

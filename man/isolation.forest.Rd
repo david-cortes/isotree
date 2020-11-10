@@ -334,8 +334,8 @@ data beforehand.
 When using sparse matrices, calculations such as standard deviations, gain, and kurtosis, will use procedures
 that rely on calculating sums of squared numbers. This is not a problem if most of the entries are zero and the
 numbers are small, but if you pass dense matrices as sparse and/or the entries in the sparse matrices have values
-in wildly different orders of magnitude (e.g. 0.0001 and 10000000), the calculations might fail due to loss of
-numeric precision, and the results might not make sense. For dense matrices it uses more numerically-robust
+in wildly different orders of magnitude (e.g. 0.0001 and 10000000), the calculations might be incorrect due to loss of
+numeric precision, and the results might not be as good. For dense matrices it uses more numerically-robust
 techniques (which would add a large computational overhead in sparse matrices), so it's not a problem to have values
 with different orders of magnitude.
 }
