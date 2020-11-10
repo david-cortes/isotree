@@ -545,9 +545,8 @@ typedef struct {
     size_t  split_ix;
     size_t  end;
     std::vector<size_t> ix_arr;
-    std::unordered_map<size_t, double> weights_map;
-    std::vector<double> weights_arr;
     std::vector<bool>   cols_possible;
+    std::unique_ptr<double[]> weights_arr;
     std::discrete_distribution<size_t> col_sampler;
 } RecursionState;
 
