@@ -39,8 +39,8 @@ class IsolationForest:
     ----
     The default parameters set up for this implementation will not scale to large datasets. In particular,
     if the amount of data is large, you might want to set a smaller sample size for each tree, and fit fewer of them.
-    If using the single-variable model, you might also want to set 'prob_pick_pooled_gain' = 0, or perhaps replace it
-    with 'prob_split_pooled_gain'. See the documentation of the parameters for more details.
+    As well, the default option for 'missing_action' might slow things down significantly.
+    See the documentation of the parameters for more details.
 
     Note
     ----

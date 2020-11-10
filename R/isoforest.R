@@ -16,7 +16,7 @@
 #' trees beyond balanced-tree limit. Offers options to vary between randomized and deterministic splits too.
 #' 
 #' Note that the default parameters set up for this implementation will not scale to large datasets. In particular,
-#' if the amount of data is large, you might want to set a smaller sample size for each tree, and fit fewer of them.
+#' if the amount of data is large, you might want to set a smaller sample size for each tree, and fit fewer of them. As well, the default option for `missing_action` might slow things down significantly.
 #' 
 #' The model offers many tunable parameters. The most likely candidate to tune is `prob_pick_pooled_gain`, for
 #' which higher values tend to result in a better ability to flag outliers in the training data (`df`)
