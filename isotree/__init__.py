@@ -1555,4 +1555,5 @@ class IsolationForest:
         self.assume_full_distr = metadata["params"]["assume_full_distr"]
 
         self.is_fitted_ = True
+        self._is_extended_ = self.ndim > 1
         return self
