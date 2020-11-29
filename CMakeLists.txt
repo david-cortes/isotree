@@ -18,6 +18,7 @@ set(SRC_FILES ${PROJECT_SOURCE_DIR}/src/crit.cpp
               ${PROJECT_SOURCE_DIR}/src/merge_models.cpp
               ${PROJECT_SOURCE_DIR}/src/serialize.cpp
               ${PROJECT_SOURCE_DIR}/src/utils.cpp)
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 add_library(isotree SHARED ${SRC_FILES})
 target_include_directories(isotree PRIVATE ${PROJECT_SOURCE_DIR}/src)
 set_target_properties(isotree PROPERTIES PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/isotree.hpp)
