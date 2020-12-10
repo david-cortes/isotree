@@ -1451,6 +1451,23 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
     if (!("isolation_forest" %in% class(model)))
         stop("'model' must be an isolation forest model.")
     
+    if (check_null_ptr_model(model$cpp_obj$ptr)) {
+        obj_new <- model$cpp_obj
+        if (model$params$ndim == 1)
+            ptr_new <- deserialize_IsoForest(model$cpp_obj$serialized)
+        else
+            ptr_new <- deserialize_ExtIsoForest(model$cpp_obj$serialized)
+        obj_new$ptr <- ptr_new
+        
+        if (model$params$build_imputer) {
+            imp_new <- deserialize_Imputer(model$cpp_obj$imp_ser)
+            obj_new$imp_ptr <- imp_new
+        }
+        
+        eval.parent(substitute(model$cpp_obj <- obj_new))
+        model$cpp_obj <- obj_new
+    }
+    
     allowed_enclose <- c("doublequotes", "squarebraces", "none")
     if (NROW(enclose) != 1L)
         stop("'enclose' must be a character variable.")
