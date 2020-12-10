@@ -11,7 +11,8 @@ unpack.isolation.forest(model)
 file through `readRDS`, `load`, or a session restart.}
 }
 \value{
-No return value. Object is modified in-place.
+The same model object that was passed as input. Object is modified in-place
+however, so it does not need to be re-assigned.
 }
 \description{
 After persisting an isolation forest model object through `saveRDS`, `save`, or restarting a session, the

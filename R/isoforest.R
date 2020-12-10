@@ -916,7 +916,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
 #' @details Note that after loading a serialized object from `isolation.forest` through `readRDS` or `load`,
 #' it will only de-serialize the underlying C++ object upon running `predict`, `print`, or `summary`,
 #' so the first run will be slower, while subsequent runs will be faster as the C++ object will already be in-memory.
-#' @return No return value.
+#' @return The same model that was passed as input.
 #' @seealso \link{isolation.forest}
 #' @export
 print.isolation_forest <- function(x, ...) {
@@ -950,6 +950,7 @@ print.isolation_forest <- function(x, ...) {
     cat(sprintf("Consisting of %d trees\n", x$params$ntrees))
     if (x$metadata$ncols_num  > 0)  cat(sprintf("Numeric columns: %d\n",     x$metadata$ncols_num))
     if (x$metadata$ncols_cat  > 0)  cat(sprintf("Categorical columns: %d\n", x$metadata$ncols_cat))
+    return(invisible(x))
 }
 
 
@@ -1081,7 +1082,8 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
 #' in the same way as `predict` or `print`, but without producing any outputs or messages.
 #' @param model An Isolation Forest object as returned by `isolation.forest`, which has been just loaded from a disk
 #' file through `readRDS`, `load`, or a session restart.
-#' @return No return value. Object is modified in-place.
+#' @return The same model object that was passed as input. Object is modified in-place
+#' however, so it does not need to be re-assigned.
 #' @examples 
 #' ### Warning: this example will generate a temporary .Rds
 #' ### file in your temp folder, and will then delete it
@@ -1133,7 +1135,7 @@ unpack.isolation.forest <- function(model)  {
         model$cpp_obj <- obj_new
     }
     
-    return(invisible(NULL))
+    return(invisible(model))
 }
 
 #' @title Get Number of Nodes per Tree

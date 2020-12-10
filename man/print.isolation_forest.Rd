@@ -12,7 +12,7 @@
 \item{...}{Not used.}
 }
 \value{
-No return value.
+The same model that was passed as input.
 }
 \description{
 Displays the most general characteristics of an isolation forest model (same as `summary`).
