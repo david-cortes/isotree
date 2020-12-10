@@ -16,7 +16,7 @@
 #' trees beyond balanced-tree limit. Offers options to vary between randomized and deterministic splits too.
 #' 
 #' Note that the default parameters set up for this implementation will not scale to large datasets. In particular,
-#' if the amount of data is large, you might want to set a smaller sample size for each tree, and fit fewer of them. As well, the default option for `missing_action` might slow things down significantly.
+#' if the amount of data is large, it's avised to want to set a smaller sample size for each tree, and fit fewer of them. As well, the default option for `missing_action` might slow things down significantly.
 #' 
 #' The model offers many tunable parameters. The most likely candidate to tune is `prob_pick_pooled_gain`, for
 #' which higher values tend to result in a better ability to flag outliers in the training data (`df`)
@@ -58,7 +58,7 @@
 #' @param ntrees Number of binary trees to build for the model. Recommended value in reference [1] is 100, while the
 #' default value in the author's code in reference [5] is 10. In general, the number of trees required for good results
 #' is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
-#' categories, (d) you are using large `ndim`.
+#' categories, (d) `ndim` is high.
 #' @param ndim Number of columns to combine to produce a split. If passing 1, will produce the single-variable model described
 #' in references [1] and [2], while if passing values greater than 1, will produce the extended model described in
 #' references [3] and [4].
@@ -266,9 +266,9 @@
 #' ### (Random data from a standard normal distribution)
 #' library(isotree)
 #' set.seed(1)
-#' n <- 100
-#' m <- 2
-#' X <- matrix(rnorm(n * m), nrow = n)
+#' m <- 100
+#' n <- 2
+#' X <- matrix(rnorm(m * n), nrow = m)
 #' 
 #' ### Will now add obvious outlier point (3, 3) to the data
 #' X <- rbind(X, c(3, 3))
@@ -369,9 +369,9 @@
 #' 
 #' ### Generate random data with 3 dimensions
 #' set.seed(1)
-#' n <- 100
-#' m <- 3
-#' X <- matrix(rnorm(n * m), nrow=n, ncol=m)
+#' m <- 100
+#' n <- 3
+#' X <- matrix(rnorm(m * n), nrow=m, ncol=n)
 #' 
 #' ### Fit isolation forest model
 #' iso <- isolation.forest(X, ntrees=100, nthreads=1)
@@ -452,7 +452,7 @@
 #' 
 #' When using sparse matrices, calculations such as standard deviations, gain, and kurtosis, will use procedures
 #' that rely on calculating sums of squared numbers. This is not a problem if most of the entries are zero and the
-#' numbers are small, but if you pass dense matrices as sparse and/or the entries in the sparse matrices have values
+#' numbers are small, but if passing dense matrices as sparse and/or the entries in the sparse matrices have values
 #' in wildly different orders of magnitude (e.g. 0.0001 and 10000000), the calculations might be incorrect due to loss of
 #' numeric precision, and the results might not be as good. For dense matrices it uses more numerically-robust
 #' techniques (which would add a large computational overhead in sparse matrices), so it's not a problem to have values
@@ -1062,11 +1062,11 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
 #' 
 #' But due to R's environments system (as opposed to other systems such as Python which can use pass-by-reference), they will
 #' only be re-constructed in the environment that is calling `predict`, `print`, etc. and not in higher-up environments
-#' (i.e. if you call `predict` on the object from inside different functions, each function will have to reconstruct the
+#' (i.e. if calling `predict` on the object from inside different functions, each function will have to reconstruct the
 #' C++ objects independently and they will only live within the function that called `predict`).
 #' 
 #' This function serves as an environment-level unpacker that will reconstruct the C++ object in the environment in which
-#' it is called (i.e. if you need to call `predict` from inside multiple functions, use this function before passing the
+#' it is called (i.e. if it's desired to call `predict` from inside multiple functions, use this function before passing the
 #' freshly-loaded model object to those other functions, and then they will not need to reconstruct the C++ objects anymore),
 #' in the same way as `predict` or `print`, but without producing any outputs or messages.
 #' @param model An Isolation Forest object as returned by `isolation.forest`, which has been just loaded from a disk
@@ -1315,7 +1315,7 @@ export.isotree.model <- function(model, file, ...) {
 #' 
 #' This function is not meant to be used for passing models to and from R -
 #' in such case, you can use `saveRDS` and `readRDS` instead.
-#' @param file Path to the saved isolation forest model along with its metadata file,.
+#' @param file Path to the saved isolation forest model along with its metadata file,
 #' and imputer file if produced. Must be a file path, not a file connection.
 #' @details Internally, this function uses `readr::read_file_raw` (from the `readr` package)
 #' and `jsonlite::fromJSON` (from the `jsonlite` package). Be sure to have those installed
@@ -1353,4 +1353,195 @@ load.isotree.model <- function(file) {
     
     class(this) <- "isolation_forest"
     return(this)
+}
+
+#' @title Generate SQL statements from Isolation Forest model
+#' @description Generate SQL statements - either separately per tree (the default),
+#' for a single tree if needed (if passing `tree`), or for all trees
+#' concatenated together (if passing `table_from`). Can also be made
+#' to output terminal node numbers (numeration starting at one).
+#' 
+#' Some important considerations:\itemize{
+#' \item Making predictions through SQL is much less efficient than from the model
+#' itself, as each terminal node will have to check all of the conditions
+#' that lead to it instead of passing observations down a tree.
+#' \item If constructed with the default arguments, the model will not perform any
+#' sub-sampling, which can lead to very big trees. If it was fit to a large
+#' dataset, the generated SQL might consist of gigabytes of text, and might
+#' lay well beyond the character limit of commands accepted by SQL vendors.
+#' \item The generated SQL statements will not include range penalizations, thus
+#' predictions might differ from calls to `predict` when using
+#' `penalize_range=TRUE` (which is the default).
+#' \item The generated SQL statements will only include handling of missing values
+#' when using `missing_action="impute"`. When using the single-variable
+#' model with categorical variables + subset splits, the rule buckets might be
+#' incomplete due to not including categories that were not present in a given
+#' node - this last point can be avoided by using `new_categ_action="smallest"`,
+#' `new_categ_action="random"`, or `missing_action="impute"` (in the latter
+#' case will treat them as missing, but the `predict` function might treat
+#' them differently).
+#' \item The resulting statements will include all the tree conditions as-is,
+#' with no simplification. Thus, there might be lots of redundant conditions
+#' in a given terminal node (e.g. "X > 2" and "X > 1", the second of which is
+#' redundant).
+#' }
+#' @param model An Isolation Forest object as returned by \link{isolation.forest}.
+#' @param enclose With which symbols to enclose the column names in the select statement
+#' so as to make them SQL compatible in case they include characters like dots.
+#' Options are:\itemize{
+#' \item `"doublequotes"`, which will enclose them as `"column_name"` - this will
+#' work for e.g. PostgreSQL.
+#' \item `"squarebraces"`, which will enclose them as `[column_name]` - this will
+#' work for e.g. SQL Server.
+#' \item `"none"`, which will output the column names as-is (e.g. `column_name`)
+#' }
+#' @param output_tree_num Whether to make the statements return the terminal node number
+#' instead of the isolation depth. The numeration will start at one.
+#' @param tree Tree for which to generate SQL statements. If passed, will generate
+#' the statements only for that single tree. If passing `NULL`, will
+#' generate statements for all trees in the model.
+#' @param table_from If passing this, will generate a single select statement for the
+#' outlier score from all trees, selecting the data from the table
+#' name passed here. In this case, will always output the outlier
+#' score, regardless of what is passed under `output_tree_num`.
+#' @param select_as Alias to give to the generated outlier score in the select statement.
+#' Ignored when not passing `table_from`.
+#' @param column_names Column names to use for the \bold{numeric} columns.
+#' If not passed and the model was fit to a `data.frame`, will use the column
+#' names from that `data.frame`, which can be found under `model$metadata$cols_num`.
+#' If not passing it and the model was fit to data in a format other than
+#' `data.frame`, the columns will be named `column_N` in the resulting
+#' SQL statement. Note that the names will be taken verbatim - this function will
+#' not do any checks for whether they constitute valid SQL or not, and will not
+#' escape characters such as double quotation marks.
+#' @param column_names_categ Column names to use for the \bold{categorical} columns.
+#' If not passed, will use the column names from the `data.frame` to which the
+#' model was fit. These can be found under `model$metadata$cols_cat`.
+#' @return \itemize{
+#' \item If passing neither `tree` nor `table_from`, will return a list
+#' of `character` objects, containing at each entry the SQL statement
+#' for the corresponding tree.
+#' \item If passing `tree`, will return a single `character` object with
+#' the SQL statement representing that tree.
+#' \item If passing `table_from`, will return a single `character` object with
+#' the full SQL select statement for the outlier score, selecting the columns
+#' from the table name passed under `table_from`.
+#' }
+#' @examples 
+#' library(isotree)
+#' data(iris)
+#' set.seed(1)
+#' iso <- isolation.forest(iris, ntrees=2, sample_size=16, ndim=1, nthreads=1)
+#' sql_forest <- isotree.to.sql(iso, table_from="my_iris_table")
+#' cat(sql_forest)
+#' @export
+isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALSE, tree = NULL,
+                           table_from = NULL, select_as = "outlier_score",
+                           column_names = NULL, column_names_categ = NULL) {
+    if (!("isolation_forest" %in% class(model)))
+        stop("'model' must be an isolation forest model.")
+    
+    allowed_enclose <- c("doublequotes", "squarebraces", "none")
+    if (NROW(enclose) != 1L)
+        stop("'enclose' must be a character variable.")
+    if (!(enclose %in% allowed_enclose))
+        stop(sprintf("'enclose' must be one of the following: %s",
+                     paste(allowed_enclose, sep=",")))
+    
+    if (NROW(output_tree_num) != 1L)
+        stop("'output_tree_num' must be a single logical/boolean.")
+    output_tree_num <- as.logical(output_tree_num)
+    if (is.na(output_tree_num))
+        stop("Invalid 'output_tree_num'.")
+    
+    single_tree <- !is.null(tree)
+    if (single_tree) {
+        if (NROW(tree) != 1L)
+            stop("'tree' must be a single integer.")
+        tree <- as.integer(tree)
+        if (is.na(tree) || (tree < 1L) || (tree > model$params$ntrees))
+            stop("Invalid tree number.")
+    } else {
+        tree <- 0L
+    }
+    
+    if (!is.null(table_from)) {
+        if ((NROW(table_from) != 1L) || !("character" %in% class(table_from)))
+            stop("'table_from' must be a single character variable.")
+        if (is.na(table_from))
+            stop("Invalid 'table_from'.")
+        
+        if ((NROW(select_as) != 1L) || !("character" %in% class(select_as)))
+            stop("'select_as' must be a single character variable.")
+        if (is.na(select_as))
+            stop("Invalid 'select_as'.")
+        
+        single_tree <- FALSE
+        tree <- 0L
+        output_tree_num <- FALSE
+    }
+    
+    if (model$metadata$ncols_num) {
+        if (!is.null(column_names)) {
+            if (NROW(column_names) != model$metadata$ncols_num)
+                stop(sprintf("'column_names' must have length %d", model$metadata$ncols_num))
+            if (!("character" %in% class(column_names)))
+                stop("'column_names' must be a character vector.")
+            cols_num <- column_names
+        } else {
+            if (NROW(model$metadata$cols_num)) {
+                cols_num <- model$metadata$cols_num
+            } else {
+                cols_num <- paste0("column_", seq(1L, model$metadata$ncols_num))
+            }
+        }
+    } else {
+        cols_num <- character()
+    }
+    
+    if (model$metadata$ncols_cat) {
+        if (!is.null(column_names_categ)) {
+            if (NROW(column_names_categ) != model$metadata$ncols_cat)
+                stop(sprintf("'column_names_categ' must have length %d", model$metadata$ncols_cat))
+            if (!("character" %in% class(column_names_categ)))
+                stop("'column_names_categ' must be a character vector.")
+            cols_cat <- column_names_categ
+        } else {
+            cols_cat <- model$metadata$cols_cat
+        }
+        
+        cat_levels <- model$metadata$cat_levs
+    } else {
+        cols_cat <- character()
+        cat_levels <- list()
+    }
+    
+    if (enclose != "none") {
+        enclose_left <- ifelse(enclose == "doublequotes", '"', '[')
+        enclose_right <- ifelse(enclose == "doublequotes", '"', ']')
+        if (NROW(cols_num))
+            cols_num <- paste0(enclose_left, cols_num, enclose_right)
+        if (NROW(cols_cat))
+            cols_cat <- paste0(enclose_left, cols_cat, enclose_right)
+    }
+    
+    is_extended <- model$params$ndim > 1L
+    
+    if (is.null(table_from)) {
+        out <- model_to_sql(model$cpp_obj$ptr, is_extended,
+                            cols_num, cols_cat, cat_levels,
+                            output_tree_num, single_tree, tree,
+                            model$nthreads)
+        if (single_tree) {
+            return(out[[1L]])
+        } else {
+            return(out)
+        }
+    } else {
+        return(model_to_sql_with_select_from(model$cpp_obj$ptr, is_extended,
+                                             cols_num, cols_cat, cat_levels,
+                                             table_from,
+                                             select_as,
+                                             model$nthreads))
+    }
 }

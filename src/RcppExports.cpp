@@ -245,6 +245,43 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// model_to_sql
+Rcpp::ListOf<Rcpp::CharacterVector> model_to_sql(SEXP model_R_ptr, bool is_extended, Rcpp::CharacterVector numeric_colanmes, Rcpp::CharacterVector categ_colnames, Rcpp::ListOf<Rcpp::CharacterVector> categ_levels, bool output_tree_num, bool single_tree, size_t tree_num, int nthreads);
+RcppExport SEXP _isotree_model_to_sql(SEXP model_R_ptrSEXP, SEXP is_extendedSEXP, SEXP numeric_colanmesSEXP, SEXP categ_colnamesSEXP, SEXP categ_levelsSEXP, SEXP output_tree_numSEXP, SEXP single_treeSEXP, SEXP tree_numSEXP, SEXP nthreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
+    Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
+    Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type numeric_colanmes(numeric_colanmesSEXP);
+    Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type categ_colnames(categ_colnamesSEXP);
+    Rcpp::traits::input_parameter< Rcpp::ListOf<Rcpp::CharacterVector> >::type categ_levels(categ_levelsSEXP);
+    Rcpp::traits::input_parameter< bool >::type output_tree_num(output_tree_numSEXP);
+    Rcpp::traits::input_parameter< bool >::type single_tree(single_treeSEXP);
+    Rcpp::traits::input_parameter< size_t >::type tree_num(tree_numSEXP);
+    Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(model_to_sql(model_R_ptr, is_extended, numeric_colanmes, categ_colnames, categ_levels, output_tree_num, single_tree, tree_num, nthreads));
+    return rcpp_result_gen;
+END_RCPP
+}
+// model_to_sql_with_select_from
+Rcpp::CharacterVector model_to_sql_with_select_from(SEXP model_R_ptr, bool is_extended, Rcpp::CharacterVector numeric_colanmes, Rcpp::CharacterVector categ_colnames, Rcpp::ListOf<Rcpp::CharacterVector> categ_levels, Rcpp::CharacterVector table_from, Rcpp::CharacterVector select_as, int nthreads);
+RcppExport SEXP _isotree_model_to_sql_with_select_from(SEXP model_R_ptrSEXP, SEXP is_extendedSEXP, SEXP numeric_colanmesSEXP, SEXP categ_colnamesSEXP, SEXP categ_levelsSEXP, SEXP table_fromSEXP, SEXP select_asSEXP, SEXP nthreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
+    Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
+    Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type numeric_colanmes(numeric_colanmesSEXP);
+    Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type categ_colnames(categ_colnamesSEXP);
+    Rcpp::traits::input_parameter< Rcpp::ListOf<Rcpp::CharacterVector> >::type categ_levels(categ_levelsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type table_from(table_fromSEXP);
+    Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type select_as(select_asSEXP);
+    Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(model_to_sql_with_select_from(model_R_ptr, is_extended, numeric_colanmes, categ_colnames, categ_levels, table_from, select_as, nthreads));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_isotree_deserialize_IsoForest", (DL_FUNC) &_isotree_deserialize_IsoForest, 1},
@@ -258,6 +295,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_impute_iso", (DL_FUNC) &_isotree_impute_iso, 10},
     {"_isotree_get_n_nodes", (DL_FUNC) &_isotree_get_n_nodes, 3},
     {"_isotree_append_trees_from_other", (DL_FUNC) &_isotree_append_trees_from_other, 5},
+    {"_isotree_model_to_sql", (DL_FUNC) &_isotree_model_to_sql, 9},
+    {"_isotree_model_to_sql_with_select_from", (DL_FUNC) &_isotree_model_to_sql_with_select_from, 8},
     {NULL, NULL, 0}
 };
 

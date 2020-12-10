@@ -42,7 +42,8 @@ There's already many available implementations of isolation forests for both Pyt
 * Uses exact formula (not approximation as others do) for harmonic numbers at lower sample and remainder sizes.
 * Can fit trees incrementally to user-provided data samples.
 * Produces serializable model objects with reasonable file sizes.
-* Fast and multi-threaded C++ code. Can be wrapped in languages other than Python and R.
+* Can translate the generated trees into SQL statements.
+* Fast and multi-threaded C++ code. Can be wrapped in languages other than Python/R/Ruby.
 
 (Note that categoricals, NAs, and density-like sample weights, are treated heuristically with different options as there is no single logical extension of the original idea to them, and having them present might degrade performance/accuracy for regular numerical non-missing observations)
 
@@ -62,12 +63,6 @@ pip install isotree
 
 * R:
 
-Latest version (recommended):
-```r
-remotes::install_github("david-cortes/isotree")
-```
-
-Older version from CRAN:
 ```r
 install.packages("isotree")
 ```

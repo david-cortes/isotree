@@ -7,7 +7,7 @@
 load.isotree.model(file)
 }
 \arguments{
-\item{file}{Path to the saved isolation forest model along with its metadata file,.
+\item{file}{Path to the saved isolation forest model along with its metadata file,
 and imputer file if produced. Must be a file path, not a file connection.}
 }
 \value{

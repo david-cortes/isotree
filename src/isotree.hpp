@@ -213,7 +213,7 @@ typedef struct IsoHPlane {
     std::vector<std::vector<double>> cat_coef;
     std::vector<int>      chosen_cat;
     std::vector<double>   fill_val;
-    std::vector<double>   fill_new;
+    std::vector<double>   fill_new; /* <- when using single categ, coef will be here */
 
     double   split_point;
     size_t   hplane_left;
@@ -921,6 +921,29 @@ void deserialize_imputer(Imputer &output_obj, const wchar_t *input_file_path);
 #endif /* _MSC_VER */
 bool has_msvc();
 #endif /* _ENABLE_CEREAL */
+
+/* sql.cpp */
+std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                                      std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
+                                      std::vector<std::vector<std::string>> &categ_levels,
+                                      bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
+                                      int nthreads);
+std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                                          std::string &table_from, std::string &select_as,
+                                          std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
+                                          std::vector<std::vector<std::string>> &categ_levels,
+                                          bool index1, int nthreads);
+void generate_tree_rules(std::vector<IsoTree> *trees, std::vector<IsoHPlane> *hplanes, bool output_score,
+                         size_t curr_ix, bool index1, std::string &prev_cond, std::vector<std::string> &node_rules,
+                         std::vector<std::string> &conditions_left, std::vector<std::string> &conditions_right);
+void extract_cond_isotree(IsoForest &model, IsoTree &tree,
+                          std::string &cond_left, std::string &cond_right,
+                          std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
+                          std::vector<std::vector<std::string>> &categ_levels);
+void extract_cond_ext_isotree(ExtIsoForest &model, IsoHPlane &hplane,
+                              std::string &cond_left, std::string &cond_right,
+                              std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
+                              std::vector<std::vector<std::string>> &categ_levels);
 
 /* dealloc.cpp */
 void dealloc_IsoForest(IsoForest &model_outputs);

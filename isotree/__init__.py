@@ -38,7 +38,7 @@ class IsolationForest:
     Note
     ----
     The default parameters set up for this implementation will not scale to large datasets. In particular,
-    if the amount of data is large, you might want to set a smaller sample size for each tree, and fit fewer of them.
+    if the amount of data is large, it's advised to set a smaller sample size for each tree, and fit fewer of them.
     As well, the default option for 'missing_action' might slow things down significantly.
     See the documentation of the parameters for more details.
 
@@ -51,7 +51,7 @@ class IsolationForest:
     ----
     When using sparse matrices, calculations such as standard deviations, gain, and kurtosis, will use procedures
     that rely on calculating sums of squared numbers. This is not a problem if most of the entries are zero and the
-    numbers are small, but if you pass dense matrices as sparse and/or the entries in the sparse matrices have values
+    numbers are small, but if passing dense matrices as sparse and/or the entries in the sparse matrices have values
     in wildly different orders of magnitude (e.g. 0.0001 and 10000000), the calculations might be incorrect due to loss of
     numeric precision, and the results might not be as good. For dense matrices it uses more numerically-robust
     techniques (which would add a large computational overhead in sparse matrices), so it's not a problem to have values
@@ -67,7 +67,7 @@ class IsolationForest:
         Number of binary trees to build for the model. Recommended value in [1] is 100, while the default value in the
         author's code in [5] is 10. In general, the number of trees required for good results
         is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
-        categories, (d) you are using large `ndim`.
+        categories, (d) `ndim` is high.
     ndim : int
         Number of columns to combine to produce a split. If passing 1, will produce the single-variable model described
         in [1] and [2], while if passing values greater than 1, will produce the extended model described in [3] and [4].
@@ -82,7 +82,7 @@ class IsolationForest:
         in a terminal node or until no further split is possible. If using "auto", will limit it to the corresponding
         depth of a balanced binary tree with number of terminal nodes corresponding to the sub-sample size (the reason
         being that, if trying to detect outliers, an outlier will only be so if it turns out to be isolated with shorter average
-        depth than usual, which corresponds to a balanced tree depth) When a terminal node has more than 1 observation, the
+        depth than usual, which corresponds to a balanced tree depth). When a terminal node has more than 1 observation, the
         remaining isolation depth for them is estimated assuming the data and splits are both uniformly random (separation depth
         follows a similar process with expected value calculated as in [6]). Default setting for [1], [2], [3], [4] is "auto",
         but it's recommended to pass higher values if using the model for purposes other than outlier detection.
@@ -1458,6 +1458,156 @@ class IsolationForest:
         obj._take_metadata(metadata)
         obj._cpp_obj.deserialize_obj(file, obj.ndim > 1, use_cpp)
         return obj
+
+    def generate_sql(self, enclose="doublequotes", output_tree_num = False, tree = None,
+                     table_from = None, select_as = "outlier_score",
+                     column_names = None, column_names_categ = None):
+        """
+        Generate SQL statements representing the model prediction function
+
+        Generate SQL statements - either separately per tree (the default),
+        for a single tree if needed (if passing ``tree``), or for all trees
+        concatenated together (if passing ``table_from``). Can also be made
+        to output terminal node numbers (numeration starting at zero).
+
+        Note
+        ----
+        Making predictions through SQL is much less efficient than from the model
+        itself, as each terminal node will have to check all of the conditions
+        that lead to it instead of passing observations down a tree.
+
+        Note
+        ----
+        If constructed with the default arguments, the model will not perform any
+        sub-sampling, which can lead to very big trees. If it was fit to a large
+        dataset, the generated SQL might consist of gigabytes of text, and might
+        lay well beyond the character limit of commands accepted by SQL vendors.
+
+        Note
+        ----
+        The generated SQL statements will not include range penalizations, thus
+        predictions might differ from calls to ``predict`` when using
+        ``penalize_range=True`` (which is the default).
+
+        Note
+        ----
+        The generated SQL statements will only include handling of missing values
+        when using ``missing_action="impute"``. When using the single-variable
+        model with categorical variables + subset splits, the rule buckets might be
+        incomplete due to not including categories that were not present in a given
+        node - this last point can be avoided by using ``new_categ_action="smallest"``,
+        ``new_categ_action="random"``, or ``missing_action="impute"`` (in the latter
+        case will treat them as missing, but the ``predict`` function might treat
+        them differently).
+
+        Note
+        ----
+        The resulting statements will include all the tree conditions as-is,
+        with no simplification. Thus, there might be lots of redundant conditions
+        in a given terminal node (e.g. "X > 2" and "X > 1", the second of which is
+        redundant).
+
+        Parameters
+        ----------
+        enclose : str
+            With which symbols to enclose the column names in the select statement
+            so as to make them SQL compatible in case they include characters like dots.
+            Options are:
+
+            ``"doublequotes"``:
+                Will enclose them as ``"column_name"`` - this will work for e.g. PostgreSQL.
+
+            ``"squarebraces"``:
+                Will enclose them as ``[column_name]`` - this will work for e.g. SQL Server.
+
+            ``"none"``:
+                Will output the column names as-is (e.g. ``column_name``)
+        output_tree_num : bool
+            Whether to make the statements return the terminal node number
+            instead of the isolation depth. The numeration will start at zero.
+        tree : int or None
+            Tree for which to generate SQL statements. If passed, will generate
+            the statements only for that single tree. If passing 'None', will
+            generate statements for all trees in the model.
+        table_from : str or None
+            If passing this, will generate a single select statement for the
+            outlier score from all trees, selecting the data from the table
+            name passed here. In this case, will always output the outlier
+            score, regardless of what is passed under ``output_tree_num``.
+        select_as : str
+            Alias to give to the generated outlier score in the select statement.
+            Ignored when not passing ``table_from``.
+        column_names : None or list[str]
+            Column names to use for the **numeric** columns.
+            If not passed and the model was fit to a ``DataFrame``, will use the column
+            names from that ``DataFrame``, which can be found under ``self.cols_numeric_``.
+            If not passing it and the model was fit to data in a format other than
+            ``DataFrame``, the columns will be named "column_N" in the resulting
+            SQL statement. Note that the names will be taken verbatim - this function will
+            not do any checks for whether they constitute valid SQL or not, and will not
+            escape characters such as double quotation marks.
+        column_names_categ : None or list[str]
+            Column names to use for the **categorical** columns.
+            If not passed, will use the column names from the ``DataFrame`` to which the
+            model was fit. These can be found under ``self.cols_categ_``.
+
+        Returns
+        -------
+        sql : list[str] or str
+            A list of SQL statements for each tree as strings, or the SQL statement
+            for a single tree if passing 'tree', or a single select-from SQL statement
+            with all the trees concatenated if passing ``table_from``.
+        """
+        assert self.is_fitted_
+        
+        single_tree = False
+        if tree is not None:
+            if isinstance(tree, float):
+                tree = int(tree)
+            assert isinstance(tree, int)
+            assert tree >= 0
+            assert tree < self.ntrees
+            single_tree = True
+        else:
+            tree = 0
+        output_tree_num = bool(output_tree_num)
+
+        if self._ncols_numeric:
+            if column_names is not None:
+                if len(column_names) != self._ncols_numeric:
+                    raise ValueError("'column_names' must have %d entries." % self._ncols_numeric)
+            else:
+                if self.cols_numeric_.shape[0]:
+                    column_names = self.cols_numeric_
+                else:
+                    column_names = ["column_" + str(cl) for cl in range(self._ncols_numeric)]
+        else:
+            column_names = []
+
+        if self.cols_categ_.shape[0]:
+            if column_names_categ is not None:
+                if len(column_names_categ) != self.cols_categ_.shape[0]:
+                    raise ValueError("'column_names_categ' must have %d entries." % self.cols_categ_.shape[0])
+            else:
+                column_names_categ = self.cols_categ_
+            categ_levels = [[str(lev) for lev in mp] for mp in self._cat_mapping]
+        else:
+            column_names_categ = []
+            categ_levels = []
+
+        assert enclose in ["doublequotes", "squarebraces", "none"]
+        if enclose != "none":
+            enclose_left  = '"' if (enclose == "doublequotes") else '['
+            enclose_right = '"' if (enclose == "doublequotes") else ']'
+            column_names = [enclose_left + cl + enclose_right for cl in column_names]
+            column_names_categ = [enclose_left + cl + enclose_right for cl in column_names_categ]
+
+        out = [s for s in self._cpp_obj.generate_sql(self.ndim > 1,
+                                                     column_names, column_names_categ, categ_levels,
+                                                     output_tree_num, single_tree, tree, self.nthreads)]
+        if single_tree:
+            return out[0]
+        return out
 
     def _denumpify_list(self, lst):
         return [int(el) if np.issubdtype(el.__class__, np.int) else el for el in lst]

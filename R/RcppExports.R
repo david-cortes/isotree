@@ -45,3 +45,11 @@ append_trees_from_other <- function(model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_
     .Call(`_isotree_append_trees_from_other`, model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, is_extended)
 }
 
+model_to_sql <- function(model_R_ptr, is_extended, numeric_colanmes, categ_colnames, categ_levels, output_tree_num, single_tree, tree_num, nthreads) {
+    .Call(`_isotree_model_to_sql`, model_R_ptr, is_extended, numeric_colanmes, categ_colnames, categ_levels, output_tree_num, single_tree, tree_num, nthreads)
+}
+
+model_to_sql_with_select_from <- function(model_R_ptr, is_extended, numeric_colanmes, categ_colnames, categ_levels, table_from, select_as, nthreads) {
+    .Call(`_isotree_model_to_sql_with_select_from`, model_R_ptr, is_extended, numeric_colanmes, categ_colnames, categ_levels, table_from, select_as, nthreads)
+}
+

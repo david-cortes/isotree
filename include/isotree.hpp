@@ -1094,4 +1094,99 @@ void deserialize_imputer(Imputer &output_obj, const wchar_t *input_file_path);
 bool has_msvc();
 #endif /* _ENABLE_CEREAL */
 
+
+/* Translate isolation forest model into a single SQL select statement
+* 
+* Parameters
+* ==========
+* - model_outputs
+*       Pointer to fitted single-variable model object from function 'fit_iforest'. Pass NULL
+*       if the predictions are to be made from an extended model. Can only pass one of
+*       'model_outputs' and 'model_outputs_ext'.
+* - model_outputs_ext
+*       Pointer to fitted extended model object from function 'fit_iforest'. Pass NULL
+*       if the predictions are to be made from a single-variable model. Can only pass one of
+*       'model_outputs' and 'model_outputs_ext'.
+* - table_from
+*       Table name from where the columns used in the model will be selected.
+* - select_as
+*       Alias to give to the outlier score in the select statement.
+* - numeric_colnames
+*       Names to use for the numerical columns.
+* - categ_colnames
+*       Names to use for the categorical columns.
+* - categ_levels
+*       Names to use for the levels/categories of each categorical column. These will be enclosed
+*       in single quotes.
+* - index1
+*       Whether to make the node numbers start their numeration at 1 instead of 0 in the
+*       resulting statement. If passing 'output_tree_num=false', this will only affect the
+*       commented lines which act as delimiters. If passing 'output_tree_num=true', will also
+*       affect the results (which will also start at 1).
+* - nthreads
+*       Number of parallel threads to use. Note that, the more threads, the more memory will be
+*       allocated, even if the thread does not end up being used. Ignored when not building with
+*       OpenMP support.
+* 
+* Returns
+* =======
+* A string with the corresponding SQL statement that will calculate the outlier score
+* from the model.
+*/
+std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                                          std::string &table_from, std::string &select_as,
+                                          std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
+                                          std::vector<std::vector<std::string>> &categ_levels,
+                                          bool index1, int nthreads);
+
+
+/* Translate model trees into SQL select statements
+* 
+* Parameters
+* ==========
+* - model_outputs
+*       Pointer to fitted single-variable model object from function 'fit_iforest'. Pass NULL
+*       if the predictions are to be made from an extended model. Can only pass one of
+*       'model_outputs' and 'model_outputs_ext'.
+* - model_outputs_ext
+*       Pointer to fitted extended model object from function 'fit_iforest'. Pass NULL
+*       if the predictions are to be made from a single-variable model. Can only pass one of
+*       'model_outputs' and 'model_outputs_ext'.
+* - numeric_colnames
+*       Names to use for the numerical columns.
+* - categ_colnames
+*       Names to use for the categorical columns.
+* - categ_levels
+*       Names to use for the levels/categories of each categorical column. These will be enclosed
+*       in single quotes.
+* - output_tree_num
+*       Whether to output the terminal node number instead of the separation depth at each node.
+* - index1
+*       Whether to make the node numbers start their numeration at 1 instead of 0 in the
+*       resulting statement. If passing 'output_tree_num=false', this will only affect the
+*       commented lines which act as delimiters. If passing 'output_tree_num=true', will also
+*       affect the results (which will also start at 1).
+* - single_tree
+*       Whether to generate the select statement for a single tree of the model instead of for
+*       all. The tree number to generate is to be passed under 'tree_num'.
+* - tree_num
+*       Tree number for which to generate an SQL select statement, if passing 'single_tree=true'.
+* - nthreads
+*       Number of parallel threads to use. Note that, the more threads, the more memory will be
+*       allocated, even if the thread does not end up being used. Ignored when not building with
+*       OpenMP support.
+* 
+* Returns
+* =======
+* A vector containing at each element the SQL statement for the corresponding tree in the model.
+* If passing 'single_tree=true', will contain only one element, corresponding to the tree given
+* in 'tree_num'. The statements will be node-by-node, with commented-out separators using '---'
+* as delimiters and including the node number as part of the comment.
+*/
+std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                                      std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
+                                      std::vector<std::vector<std::string>> &categ_levels,
+                                      bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
+                                      int nthreads);
+
 #endif /* #ifndef ISOTREE_H */

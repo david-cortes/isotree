@@ -24,11 +24,11 @@ freshly-loaded object from `readRDS` or `load`.
 
 But due to R's environments system (as opposed to other systems such as Python which can use pass-by-reference), they will
 only be re-constructed in the environment that is calling `predict`, `print`, etc. and not in higher-up environments
-(i.e. if you call `predict` on the object from inside different functions, each function will have to reconstruct the
+(i.e. if calling `predict` on the object from inside different functions, each function will have to reconstruct the
 C++ objects independently and they will only live within the function that called `predict`).
 
 This function serves as an environment-level unpacker that will reconstruct the C++ object in the environment in which
-it is called (i.e. if you need to call `predict` from inside multiple functions, use this function before passing the
+it is called (i.e. if it's desired to call `predict` from inside multiple functions, use this function before passing the
 freshly-loaded model object to those other functions, and then they will not need to reconstruct the C++ objects anymore),
 in the same way as `predict` or `print`, but without producing any outputs or messages.
 }

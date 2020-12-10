@@ -1,4 +1,6 @@
 #cython: auto_pickle=True
+#cython: language_level=3
+#cython: c_string_type=unicode, c_string_encoding=utf8
 
 #     Isolation forests and variations thereof, with adjustments for incorporation
 #     of categorical variables and missing values.
@@ -241,6 +243,16 @@ cdef extern from "isotree.hpp":
     void deserialize_imputer(Imputer &output, const char *input_file_path)
     void deserialize_imputer(Imputer &output, cpp_string &serialized, bool_t move_str)
     bool_t has_msvc()
+    vector[cpp_string] generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                                    vector[cpp_string] &numeric_colnames, vector[cpp_string] &categ_colnames,
+                                    vector[vector[cpp_string]] &categ_levels,
+                                    bool_t output_tree_num, bool_t index1, bool_t single_tree, size_t tree_num,
+                                    int nthreads)
+    cpp_string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                                             cpp_string &table_from, cpp_string &select_as,
+                                             vector[cpp_string] &numeric_colnames, vector[cpp_string] &categ_colnames,
+                                             vector[vector[cpp_string]] &categ_levels,
+                                             bool_t index1, int nthreads)
 
     void dealloc_IsoForest(IsoForest &model_outputs)
     void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext)
@@ -775,3 +787,22 @@ cdef class isoforest_cpp_obj:
                 obj_as_string = cpp_string(ptr_to_bytes, n_bytes)
                 del model_bytes
                 deserialize_imputer(self.imputer, obj_as_string, 1)
+
+    def generate_sql(self, is_extended,
+                     vector[cpp_string] numeric_colnames,
+                     vector[cpp_string] categ_colnames,
+                     vector[vector[cpp_string]] categ_levels,
+                     bool_t output_tree_num=False,
+                     bool_t single_tree=False, size_t tree_num=0,
+                     int nthreads=1):
+        cdef IsoForest*     model_ptr      =  NULL
+        cdef ExtIsoForest*  ext_model_ptr  =  NULL
+        if not is_extended:
+            model_ptr      =  &self.isoforest
+        else:
+            ext_model_ptr  =  &self.ext_isoforest
+
+        return generate_sql(model_ptr, ext_model_ptr,
+                            numeric_colnames, categ_colnames, categ_levels,
+                            output_tree_num, 0, single_tree, tree_num, nthreads)
+

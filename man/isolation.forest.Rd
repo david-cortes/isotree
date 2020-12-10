@@ -78,7 +78,7 @@ Recommended value in references [1], [2], [3], [4] is 256, while the default val
 \item{ntrees}{Number of binary trees to build for the model. Recommended value in reference [1] is 100, while the
 default value in the author's code in reference [5] is 10. In general, the number of trees required for good results
 is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
-categories, (d) you are using large `ndim`.}
+categories, (d) `ndim` is high.}
 
 \item{ndim}{Number of columns to combine to produce a split. If passing 1, will produce the single-variable model described
 in references [1] and [2], while if passing values greater than 1, will produce the extended model described in
@@ -316,7 +316,7 @@ distances by checking the depth after which two observations become separated, a
 trees beyond balanced-tree limit. Offers options to vary between randomized and deterministic splits too.
 
 Note that the default parameters set up for this implementation will not scale to large datasets. In particular,
-if the amount of data is large, you might want to set a smaller sample size for each tree, and fit fewer of them. As well, the default option for `missing_action` might slow things down significantly.
+if the amount of data is large, it's avised to want to set a smaller sample size for each tree, and fit fewer of them. As well, the default option for `missing_action` might slow things down significantly.
 
 The model offers many tunable parameters. The most likely candidate to tune is `prob_pick_pooled_gain`, for
 which higher values tend to result in a better ability to flag outliers in the training data (`df`)
@@ -333,7 +333,7 @@ data beforehand.
 
 When using sparse matrices, calculations such as standard deviations, gain, and kurtosis, will use procedures
 that rely on calculating sums of squared numbers. This is not a problem if most of the entries are zero and the
-numbers are small, but if you pass dense matrices as sparse and/or the entries in the sparse matrices have values
+numbers are small, but if passing dense matrices as sparse and/or the entries in the sparse matrices have values
 in wildly different orders of magnitude (e.g. 0.0001 and 10000000), the calculations might be incorrect due to loss of
 numeric precision, and the results might not be as good. For dense matrices it uses more numerically-robust
 techniques (which would add a large computational overhead in sparse matrices), so it's not a problem to have values
@@ -344,9 +344,9 @@ with different orders of magnitude.
 ### (Random data from a standard normal distribution)
 library(isotree)
 set.seed(1)
-n <- 100
-m <- 2
-X <- matrix(rnorm(n * m), nrow = n)
+m <- 100
+n <- 2
+X <- matrix(rnorm(m * n), nrow = m)
 
 ### Will now add obvious outlier point (3, 3) to the data
 X <- rbind(X, c(3, 3))
@@ -447,9 +447,9 @@ library(isotree)
 
 ### Generate random data with 3 dimensions
 set.seed(1)
-n <- 100
-m <- 3
-X <- matrix(rnorm(n * m), nrow=n, ncol=m)
+m <- 100
+n <- 3
+X <- matrix(rnorm(m * n), nrow=m, ncol=n)
 
 ### Fit isolation forest model
 iso <- isolation.forest(X, ntrees=100, nthreads=1)

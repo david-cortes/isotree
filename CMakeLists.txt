@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.9)
-project (isotree VERSION 0.1.23)
+project (isotree VERSION 0.1.24)
 set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -17,6 +17,7 @@ set(SRC_FILES ${PROJECT_SOURCE_DIR}/src/crit.cpp
               ${PROJECT_SOURCE_DIR}/src/predict.cpp
               ${PROJECT_SOURCE_DIR}/src/merge_models.cpp
               ${PROJECT_SOURCE_DIR}/src/serialize.cpp
+              ${PROJECT_SOURCE_DIR}/src/sql.cpp
               ${PROJECT_SOURCE_DIR}/src/utils.cpp)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 set(BUILD_SHARED_LIBS True)

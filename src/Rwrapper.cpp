@@ -789,4 +789,64 @@ Rcpp::List append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
     return out;
 }
 
+// [[Rcpp::export]]
+Rcpp::ListOf<Rcpp::CharacterVector> model_to_sql(SEXP model_R_ptr, bool is_extended,
+                                                 Rcpp::CharacterVector numeric_colanmes,
+                                                 Rcpp::CharacterVector categ_colnames,
+                                                 Rcpp::ListOf<Rcpp::CharacterVector> categ_levels,
+                                                 bool output_tree_num, bool single_tree, size_t tree_num,
+                                                 int nthreads)
+{
+    IsoForest*     model_ptr      =  NULL;
+    ExtIsoForest*  ext_model_ptr  =  NULL;
+    if (is_extended)
+        ext_model_ptr  =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+    else
+        model_ptr      =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+
+    std::vector<std::string> numeric_colanmes_cpp = Rcpp::as<std::vector<std::string>>(numeric_colanmes);
+    std::vector<std::string> categ_colanmes_cpp = Rcpp::as<std::vector<std::string>>(categ_colnames);
+    std::vector<std::vector<std::string>> categ_levels_cpp = Rcpp::as<std::vector<std::vector<std::string>>>(categ_levels);
+
+    std::vector<std::string> res = generate_sql(model_ptr, ext_model_ptr,
+                                                numeric_colanmes_cpp,
+                                                categ_colanmes_cpp,
+                                                categ_levels_cpp,
+                                                output_tree_num, true, single_tree, tree_num,
+                                                nthreads);
+    Rcpp::List out(res.size());
+    for (size_t ix = 0; ix < res.size(); ix++)
+        out[ix] = Rcpp::CharacterVector(res[ix]);
+    return out;
+}
+
+// [[Rcpp::export]]
+Rcpp::CharacterVector model_to_sql_with_select_from(SEXP model_R_ptr, bool is_extended,
+                                                    Rcpp::CharacterVector numeric_colanmes,
+                                                    Rcpp::CharacterVector categ_colnames,
+                                                    Rcpp::ListOf<Rcpp::CharacterVector> categ_levels,
+                                                    Rcpp::CharacterVector table_from,
+                                                    Rcpp::CharacterVector select_as,
+                                                    int nthreads)
+{
+    IsoForest*     model_ptr      =  NULL;
+    ExtIsoForest*  ext_model_ptr  =  NULL;
+    if (is_extended)
+        ext_model_ptr  =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+    else
+        model_ptr      =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+
+    std::vector<std::string> numeric_colanmes_cpp = Rcpp::as<std::vector<std::string>>(numeric_colanmes);
+    std::vector<std::string> categ_colanmes_cpp = Rcpp::as<std::vector<std::string>>(categ_colnames);
+    std::vector<std::vector<std::string>> categ_levels_cpp = Rcpp::as<std::vector<std::vector<std::string>>>(categ_levels);
+    std::string table_from_cpp = Rcpp::as<std::string>(table_from);
+    std::string select_as_cpp = Rcpp::as<std::string>(select_as);
+
+    return generate_sql_with_select_from(model_ptr, ext_model_ptr,
+                                         table_from_cpp, select_as_cpp,
+                                         numeric_colanmes_cpp, categ_colanmes_cpp,
+                                         categ_levels_cpp,
+                                         true, nthreads);
+}
+
 #endif /* _FOR_R */
