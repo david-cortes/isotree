@@ -48,53 +48,45 @@
    https://stackoverflow.com/questions/2589096/find-most-significant-bit-left-most-that-is-set-in-a-bit-array
    https://stackoverflow.com/questions/11376288/fast-computing-of-log2-for-64-bit-integers  */
 #if SIZE_MAX == UINT32_MAX /* 32-bit systems */
-    #ifdef __GNUG__
-        size_t log2ceil(size_t x) {return (unsigned) (1 + (8*sizeof (uint32_t) - __builtin_clz(x-1) - 1));}
-    #else
-        static const int MultiplyDeBruijnBitPosition[32] =
-            {
-                0, 9,  1,  10, 13, 21, 2, 29, 11, 14, 16, 18, 22, 25, 3, 30,
-                8, 12, 20, 28, 15, 17, 24, 7, 19, 27, 23, 6,  26, 5,  4, 31
-            };
-        size_t log2ceil( size_t v )
+    static const int MultiplyDeBruijnBitPosition[32] =
         {
+            0, 9,  1,  10, 13, 21, 2, 29, 11, 14, 16, 18, 22, 25, 3, 30,
+            8, 12, 20, 28, 15, 17, 24, 7, 19, 27, 23, 6,  26, 5,  4, 31
+        };
+    size_t log2ceil( size_t v )
+    {
 
-            v--;
-            v |= v >> 1; // first round down to one less than a power of 2
-            v |= v >> 2;
-            v |= v >> 4;
-            v |= v >> 8;
-            v |= v >> 16;
+        v--;
+        v |= v >> 1; // first round down to one less than a power of 2
+        v |= v >> 2;
+        v |= v >> 4;
+        v |= v >> 8;
+        v |= v >> 16;
 
-            return MultiplyDeBruijnBitPosition[( uint32_t )( v * 0x07C4ACDDU ) >> 27] + 1;
-        }
-    #endif
+        return MultiplyDeBruijnBitPosition[( uint32_t )( v * 0x07C4ACDDU ) >> 27] + 1;
+    }
 #elif SIZE_MAX == UINT64_MAX /* 64-bit systems */
-    #ifdef __GNUG__
-        size_t log2ceil(size_t x) {return (unsigned) (1 + (8*sizeof (uint64_t) - __builtin_clzl(x-1) - 1));}
-    #else
-        static const uint64_t tab64[64] = {
-            63,  0, 58,  1, 59, 47, 53,  2,
-            60, 39, 48, 27, 54, 33, 42,  3,
-            61, 51, 37, 40, 49, 18, 28, 20,
-            55, 30, 34, 11, 43, 14, 22,  4,
-            62, 57, 46, 52, 38, 26, 32, 41,
-            50, 36, 17, 19, 29, 10, 13, 21,
-            56, 45, 25, 31, 35, 16,  9, 12,
-            44, 24, 15,  8, 23,  7,  6,  5};
+    static const uint64_t tab64[64] = {
+        63,  0, 58,  1, 59, 47, 53,  2,
+        60, 39, 48, 27, 54, 33, 42,  3,
+        61, 51, 37, 40, 49, 18, 28, 20,
+        55, 30, 34, 11, 43, 14, 22,  4,
+        62, 57, 46, 52, 38, 26, 32, 41,
+        50, 36, 17, 19, 29, 10, 13, 21,
+        56, 45, 25, 31, 35, 16,  9, 12,
+        44, 24, 15,  8, 23,  7,  6,  5};
 
-        size_t log2ceil(size_t value)
-        {
-            value--;
-            value |= value >> 1;
-            value |= value >> 2;
-            value |= value >> 4;
-            value |= value >> 8;
-            value |= value >> 16;
-            value |= value >> 32;
-            return tab64[((uint64_t)((value - (value >> 1))*0x07EDD5E59A4E28C2)) >> 58] + 1;
-        }
-    #endif
+    size_t log2ceil(size_t value)
+    {
+        value--;
+        value |= value >> 1;
+        value |= value >> 2;
+        value |= value >> 4;
+        value |= value >> 8;
+        value |= value >> 16;
+        value |= value >> 32;
+        return tab64[((uint64_t)((value - (value >> 1))*0x07EDD5E59A4E28C2)) >> 58] + 1;
+    }
 #else /* other architectures - might not be entirely precise, and will be slower */
     size_t log2ceil(size_t x) {return (size_t)(ceill(log2l((long double) x)));}
 #endif
