@@ -270,6 +270,15 @@ class IsolationForest:
         NumPy random state object - if passed, will be used to generate an integer for 'random_seed', and
         the value that was originally passed to 'random_seed' will be ignored. This is only kept as
         a workaround for using this object in SciKit-Learn pipelines.
+    handle_interrupt : bool
+        Whether to handle interrupt signals in the C++ code. If passing "True",
+        when it receives an interrupt signal while fitting the model, will halt before the procedure
+        finishes, but this has unintended side effects such as setting the interrupt handle for the rest
+        of the Python session to this package's interrupt switch (which will print an error message), and
+        might cause trouble when interrupting the procedure from some REST framework such as fask.
+        If passing "False", the C++ code (which fits the model) will not react to interrupt signals,
+        thus interrupting it will not do anything until  the model is fitted and control goes back
+        to Python, but there will not be any side effects with respect to interrupt signals.
     nthreads : int
         Number of parallel threads to use. If passing a negative number, will use
         the maximum number of available threads in the system. Note that, the more threads,
@@ -315,7 +324,8 @@ class IsolationForest:
                  coefs = "normal", assume_full_distr = True,
                  build_imputer = False, min_imp_obs = 3,
                  depth_imp = "higher", weigh_imp_rows = "inverse",
-                 random_seed = 1, random_state = None, nthreads = -1):
+                 random_seed = 1, random_state = None, handle_interrupt = True,
+                 nthreads = -1):
         if sample_size is not None:
             assert sample_size > 0
             assert isinstance(sample_size, int)
@@ -432,6 +442,7 @@ class IsolationForest:
         self.weigh_by_kurtosis       =  bool(weigh_by_kurtosis)
         self.assume_full_distr       =  bool(assume_full_distr)
         self.build_imputer           =  bool(build_imputer)
+        self.handle_interrupt        =  bool(handle_interrupt)
 
         self._reset_obj()
 
@@ -565,6 +576,7 @@ class IsolationForest:
                                 ctypes.c_bool(self.build_imputer).value,
                                 ctypes.c_bool(False).value,
                                 ctypes.c_uint64(seed).value,
+                                ctypes.c_bool(self.handle_interrupt).value,
                                 ctypes.c_int(self.nthreads).value)
         self.is_fitted_ = True
         return self

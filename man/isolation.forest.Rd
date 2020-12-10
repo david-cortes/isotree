@@ -39,6 +39,7 @@ isolation.forest(
   output_dist = FALSE,
   square_dist = FALSE,
   random_seed = 1,
+  handle_interrupt = TRUE,
   nthreads = parallel::detectCores()
 )
 }
@@ -285,6 +286,15 @@ just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < 
 p(i, j) = ((i - 1) * (n - i/2) + j - i).}
 
 \item{random_seed}{Seed that will be used to generate random numbers used by the model.}
+
+\item{handle_interrupt}{Whether to handle interrupt signals in the C++ code. If passing `TRUE`,
+when it receives an interrupt signal while fitting the model, will halt before the procedure
+finishes, but this has unintended side effects such as setting the interrupt handle for the rest
+of the R session to this package's interrupt switch (which will print an error message), and
+might cause trouble when interrupting the procedure from some REST framework such as plumber.
+If passing `FALSE`, the C++ code (which fits the model) will not react to interrupt signals,
+thus interrupting it will not do anything until  the model is fitted and control goes back
+to R, but there will not be any side effects with respect to interrupt signals.}
 
 \item{nthreads}{Number of parallel threads to use. If passing a negative number, will use
 the maximum number of available threads in the system. Note that, the more threads,
