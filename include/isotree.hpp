@@ -1046,9 +1046,10 @@ void merge_models(IsoForest*     model,      IsoForest*     other,
 *       An output stream (any type will do) in which to save/persist/serialize the
 *       model or imputer object using the cereal library. In the functions that do not
 *       take this parameter, it will be returned as a string containing the raw bytes.
+*       Should be opened in binary mode.
 * - serialized (in)
 *       The input stream which contains the serialized/saved/persisted model or imputer object,
-*       which will be de-serialized into 'output'.
+*       which will be de-serialized into 'output'. Should be opened in binary mode.
 * - output_file_path
 *       File name into which to write the serialized model or imputer object as raw bytes.
 *       Note that, on Windows, passing non-ASCII characters will fail, and in such case,

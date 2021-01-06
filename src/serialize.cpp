@@ -105,9 +105,10 @@ void deserialize_obj(T &output, std::string &serialized, bool move_str)
 *       An output stream (any type will do) in which to save/persist/serialize the
 *       model or imputer object using the cereal library. In the functions that do not
 *       take this parameter, it will be returned as a string containing the raw bytes.
+*       Should be opened in binary mode.
 * - serialized (in)
 *       The input stream which contains the serialized/saved/persisted model or imputer object,
-*       which will be de-serialized into 'output'.
+*       which will be de-serialized into 'output'. Should be opened in binary mode.
 * - output_file_path
 *       File name into which to write the serialized model or imputer object as raw bytes.
 *       Note that, on Windows, passing non-ASCII characters will fail, and in such case,
@@ -133,7 +134,7 @@ void serialize_isoforest(IsoForest &model, std::ostream &output)
 }
 void serialize_isoforest(IsoForest &model, const char *output_file_path)
 {
-    std::ofstream output(output_file_path);
+    std::ofstream output(output_file_path, std::ios::binary);
     serialize_obj(model, output);
 }
 std::string serialize_isoforest(IsoForest &model)
@@ -146,7 +147,7 @@ void deserialize_isoforest(IsoForest &output_obj, std::istream &serialized)
 }
 void deserialize_isoforest(IsoForest &output_obj, const char *input_file_path)
 {
-    std::ifstream serialized(input_file_path);
+    std::ifstream serialized(input_file_path, std::ios::binary);
     deserialize_obj(output_obj, serialized);
 }
 void deserialize_isoforest(IsoForest &output_obj, std::string &serialized, bool move_str)
@@ -162,7 +163,7 @@ void serialize_ext_isoforest(ExtIsoForest &model, std::ostream &output)
 }
 void serialize_ext_isoforest(ExtIsoForest &model, const char *output_file_path)
 {
-    std::ofstream output(output_file_path);
+    std::ofstream output(output_file_path, std::ios::binary);
     serialize_obj(model, output);
 }
 std::string serialize_ext_isoforest(ExtIsoForest &model)
@@ -175,7 +176,7 @@ void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::istream &serialize
 }
 void deserialize_ext_isoforest(ExtIsoForest &output_obj, const char *input_file_path)
 {
-    std::ifstream serialized(input_file_path);
+    std::ifstream serialized(input_file_path, std::ios::binary);
     deserialize_obj(output_obj, serialized);
 }
 void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::string &serialized, bool move_str)
@@ -192,7 +193,7 @@ void serialize_imputer(Imputer &imputer, std::ostream &output)
 }
 void serialize_imputer(Imputer &imputer, const char *output_file_path)
 {
-    std::ofstream output(output_file_path);
+    std::ofstream output(output_file_path, std::ios::binary);
     serialize_obj(imputer, output);
 }
 std::string serialize_imputer(Imputer &imputer)
@@ -205,7 +206,7 @@ void deserialize_imputer(Imputer &output_obj, std::istream &serialized)
 }
 void deserialize_imputer(Imputer &output_obj, const char *input_file_path)
 {
-    std::ifstream serialized(input_file_path);
+    std::ifstream serialized(input_file_path, std::ios::binary);
     deserialize_obj(output_obj, serialized);
 }
 void deserialize_imputer(Imputer &output_obj, std::string &serialized, bool move_str)
@@ -217,32 +218,32 @@ void deserialize_imputer(Imputer &output_obj, std::string &serialized, bool move
 #ifdef _MSC_VER
 void serialize_isoforest(IsoForest &model, const wchar_t *output_file_path)
 {
-    std::ofstream output(output_file_path);
+    std::ofstream output(output_file_path, std::ios::binary);
     serialize_obj(model, output);
 }
 void deserialize_isoforest(IsoForest &output_obj, const wchar_t *input_file_path)
 {
-    std::ifstream serialized(input_file_path);
+    std::ifstream serialized(input_file_path, std::ios::binary);
     deserialize_obj(output_obj, serialized);
 }
 void serialize_ext_isoforest(ExtIsoForest &model, const wchar_t *output_file_path)
 {
-    std::ofstream output(output_file_path);
+    std::ofstream output(output_file_path, std::ios::binary);
     serialize_obj(model, output);
 }
 void deserialize_ext_isoforest(ExtIsoForest &output_obj, const wchar_t *input_file_path)
 {
-    std::ifstream serialized(input_file_path);
+    std::ifstream serialized(input_file_path, std::ios::binary);
     deserialize_obj(output_obj, serialized);
 }
 void serialize_imputer(Imputer &imputer, const wchar_t *output_file_path)
 {
-    std::ofstream output(output_file_path);
+    std::ofstream output(output_file_path, std::ios::binary);
     serialize_obj(imputer, output);
 }
 void deserialize_imputer(Imputer &output_obj, const wchar_t *input_file_path)
 {
-    std::ifstream serialized(input_file_path);
+    std::ifstream serialized(input_file_path, std::ios::binary);
     deserialize_obj(output_obj, serialized);
 }
 bool has_msvc()
@@ -258,5 +259,64 @@ bool has_msvc()
 
 #endif /* ifdef _MSC_VER */
 
+
+#ifdef _FOR_PYTHON
+void serialize_isoforest(IsoForest &model, void *output_file_path)
+{
+    #if !defined(_MSC_VER) || !defined(PY_GEQ_3_3)
+    serialize_isoforest(model, (char*)output_file_path);
+    #else
+    serialize_isoforest(model, (wchar_t*)output_file_path);
+    #endif
+}
+void deserialize_isoforest(IsoForest &output_obj, void *input_file_path)
+{
+    #if !defined(_MSC_VER) || !defined(PY_GEQ_3_3)
+    deserialize_isoforest(output_obj, (char*)input_file_path);
+    #else
+    deserialize_isoforest(output_obj, (wchar_t*)input_file_path);
+    #endif
+}
+void serialize_ext_isoforest(ExtIsoForest &model, void *output_file_path)
+{
+    #if !defined(_MSC_VER) || !defined(PY_GEQ_3_3)
+    serialize_ext_isoforest(model, (char*)output_file_path);
+    #else
+    serialize_ext_isoforest(model, (wchar_t*)output_file_path);
+    #endif
+}
+void deserialize_ext_isoforest(ExtIsoForest &output_obj, void *input_file_path)
+{
+    #if !defined(_MSC_VER) || !defined(PY_GEQ_3_3)
+    deserialize_ext_isoforest(output_obj, (char*)input_file_path);
+    #else
+    deserialize_ext_isoforest(output_obj, (wchar_t*)input_file_path);
+    #endif
+}
+void serialize_imputer(Imputer &imputer, void *output_file_path)
+{
+    #if !defined(_MSC_VER) || !defined(PY_GEQ_3_3)
+    serialize_imputer(imputer, (char*)output_file_path);
+    #else
+    serialize_imputer(imputer, (wchar_t*)output_file_path);
+    #endif
+}
+void deserialize_imputer(Imputer &output_obj, void *input_file_path)
+{
+    #if !defined(_MSC_VER) || !defined(PY_GEQ_3_3)
+    deserialize_imputer(output_obj, (char*)input_file_path);
+    #else
+    deserialize_imputer(output_obj, (wchar_t*)input_file_path);
+    #endif
+}
+bool py_should_use_char()
+{
+    #if !defined(_MSC_VER) || !defined(PY_GEQ_3_3)
+    return true;
+    #else
+    return false;
+    #endif
+}
+#endif /* _FOR_PYTHON */
 
 #endif /* _ENABLE_CEREAL */

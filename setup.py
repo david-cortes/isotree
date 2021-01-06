@@ -68,7 +68,7 @@ if platform[:3] != "dar":
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.1.24',
+    version = '0.1.25',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',
@@ -85,7 +85,11 @@ setup(
                                 language="c++",
                                 install_requires = ["numpy", "pandas>=0.24.0", "cython", "scipy"],
                                 define_macros = [("_USE_MERSENNE_TWISTER", None),
-                                                 ("_ENABLE_CEREAL", None)]
+                                                 ("_ENABLE_CEREAL", None),
+                                                 ("_FOR_PYTHON", None),
+                                                 ("PY_GEQ_3_3", None)
+                                                 if (sys.version_info[0] >= 3 and sys.version_info[1] >= 3) else
+                                                 ("PY_LT_3_3", None)]
                             )]
     )
 

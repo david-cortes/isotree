@@ -1347,7 +1347,7 @@ class IsolationForest:
 
         return self
 
-    def export_model(self, file, use_cpp = False):
+    def export_model(self, file, use_cpp = True):
         """
         Export Isolation Forest model
 
@@ -1402,7 +1402,8 @@ class IsolationForest:
         use_cpp : bool
             Whether to use C++ directly for IO. Using the C++ funcionality directly is faster, and
             will write directly to a file instead of first creating the file contents in-memory,
-            but in Windows OS, file paths that contain non-ASCII characters will faill to write
+            but in Windows, if the library was compiled with a compiler other than MSVC,
+            file paths that contain non-ASCII characters will faill to write
             and might crash the Python process along with it. If passing ``False``, it will at
             first create the file contents in-memory in a Python object, and then use a Python
             file handle to write such contents into a file.
@@ -1452,7 +1453,8 @@ class IsolationForest:
         use_cpp : bool
             Whether to use C++ directly for IO. Using the C++ funcionality directly is faster, and
             will read directly from a file into a model object instead of first reading the file
-            contents in-memory, but in Windows OS, file paths that contain non-ASCII characters will
+            contents in-memory, but in Windows, if the library was compiled with a compiler other than MSVC,
+            file paths that contain non-ASCII characters will
             faill to read and might crash the Python process along with it. If passing ``False``,
             it will at first read the file contents in-memory into a Python object, and then recreate
             the model from those bytes.

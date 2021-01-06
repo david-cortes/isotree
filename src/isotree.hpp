@@ -920,6 +920,15 @@ void serialize_imputer(Imputer &imputer, const wchar_t *output_file_path);
 void deserialize_imputer(Imputer &output_obj, const wchar_t *input_file_path);
 #endif /* _MSC_VER */
 bool has_msvc();
+#ifdef _FOR_PYTHON
+void serialize_isoforest(IsoForest &model, void *output_file_path);
+void deserialize_isoforest(IsoForest &output_obj, void *input_file_path);
+void serialize_ext_isoforest(ExtIsoForest &model, void *output_file_path);
+void deserialize_ext_isoforest(ExtIsoForest &output_obj, void *input_file_path);
+void serialize_imputer(Imputer &imputer, void *output_file_path);
+void deserialize_imputer(Imputer &output_obj, void *input_file_path);
+bool py_should_use_char();
+#endif /* _FOR_PYTHON */
 #endif /* _ENABLE_CEREAL */
 
 /* sql.cpp */
