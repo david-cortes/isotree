@@ -45,7 +45,9 @@
 #ifdef _FOR_R
 
 #include <Rcpp.h>
+#include <Rcpp/unwindProtect.h>
 // [[Rcpp::plugins(cpp11)]]
+// [[Rcpp::plugins(unwindProtect)]]
 
 /* This is to serialize the model objects */
 // [[Rcpp::depends(Rcereal)]]
@@ -56,6 +58,11 @@
 
 /* This is the package's header */
 #include "isotree.hpp"
+
+SEXP alloc_RawVec(void *data)
+{
+    return Rcpp::RawVector(*(size_t*)data);
+}
 
 /* for model serialization and re-usage in R */
 /* https://stackoverflow.com/questions/18474292/how-to-handle-c-internal-data-structure-in-r-in-order-to-allow-save-load */
@@ -76,7 +83,12 @@ Rcpp::RawVector serialize_cpp_obj(T *model_outputs)
         Rcpp::Rcerr << "Error: model is too big to serialize, resulting object will not be usable.\n" << std::endl;
         return Rcpp::RawVector();
     }
-    Rcpp::RawVector retval((size_t) vec_size);
+
+    Rcpp::RawVector retval;
+    size_t vec_size_ = (size_t)vec_size;
+    retval = Rcpp::unwindProtect(alloc_RawVec, (void*)&vec_size_);
+    if (!retval.size())
+        return retval;
     ss.seekg(0, ss.beg);
     ss.read(reinterpret_cast<char*>(&retval[0]), retval.size());
     return retval;
@@ -789,6 +801,16 @@ Rcpp::List append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
     return out;
 }
 
+SEXP alloc_List(void *data)
+{
+    return Rcpp::List(*(size_t*)data);
+}
+
+SEXP safe_CastString(void *data)
+{
+    return Rcpp::CharacterVector(*(std::string*)data);
+}
+
 // [[Rcpp::export]]
 Rcpp::ListOf<Rcpp::CharacterVector> model_to_sql(SEXP model_R_ptr, bool is_extended,
                                                  Rcpp::CharacterVector numeric_colanmes,
@@ -814,9 +836,10 @@ Rcpp::ListOf<Rcpp::CharacterVector> model_to_sql(SEXP model_R_ptr, bool is_exten
                                                 categ_levels_cpp,
                                                 output_tree_num, true, single_tree, tree_num,
                                                 nthreads);
-    Rcpp::List out(res.size());
+    size_t sz = res.size();
+    Rcpp::List out = Rcpp::unwindProtect(alloc_List, (void*)&sz);
     for (size_t ix = 0; ix < res.size(); ix++)
-        out[ix] = Rcpp::CharacterVector(res[ix]);
+        out[ix] = Rcpp::unwindProtect(safe_CastString, &(res[ix]));
     return out;
 }
 
@@ -842,11 +865,12 @@ Rcpp::CharacterVector model_to_sql_with_select_from(SEXP model_R_ptr, bool is_ex
     std::string table_from_cpp = Rcpp::as<std::string>(table_from);
     std::string select_as_cpp = Rcpp::as<std::string>(select_as);
 
-    return generate_sql_with_select_from(model_ptr, ext_model_ptr,
-                                         table_from_cpp, select_as_cpp,
-                                         numeric_colanmes_cpp, categ_colanmes_cpp,
-                                         categ_levels_cpp,
-                                         true, nthreads);
+    std::string out = generate_sql_with_select_from(model_ptr, ext_model_ptr,
+                                                    table_from_cpp, select_as_cpp,
+                                                    numeric_colanmes_cpp, categ_colanmes_cpp,
+                                                    categ_levels_cpp,
+                                                    true, nthreads);
+    return Rcpp::unwindProtect(safe_CastString, &out);
 }
 
 #endif /* _FOR_R */
