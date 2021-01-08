@@ -79,6 +79,7 @@
     #include <string>
     #include <fstream>
 #endif
+typedef void (*sig_t_)(int);
 
 /* By default, will use Mersenne-Twister for RNG, but can be switched to something faster */
 #ifdef _USE_MERSENNE_TWISTER
@@ -821,7 +822,7 @@ void set_interrup_global_variable(int s);
 class SignalSwitcher
 {
 public:
-    sig_t old_sig;
+    sig_t_ old_sig;
     SignalSwitcher();
     ~SignalSwitcher();
 };
