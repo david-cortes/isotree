@@ -108,25 +108,25 @@ SEXP deserialize_cpp_obj(Rcpp::RawVector src)
     return Rcpp::XPtr<T>(model_outputs.release(), true);
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 SEXP deserialize_IsoForest(Rcpp::RawVector src)
 {
     return deserialize_cpp_obj<IsoForest>(src);
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 SEXP deserialize_ExtIsoForest(Rcpp::RawVector src)
 {
     return deserialize_cpp_obj<ExtIsoForest>(src);
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 SEXP deserialize_Imputer(Rcpp::RawVector src)
 {
     return deserialize_cpp_obj<Imputer>(src);
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 Rcpp::LogicalVector check_null_ptr_model(SEXP ptr_model)
 {
     return Rcpp::LogicalVector(R_ExternalPtrAddr(ptr_model) == NULL);
@@ -151,7 +151,7 @@ double* set_R_nan_as_C_nan(double *x, size_t n, int nthreads)
     return x;
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat,
                      Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
                      Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights,
@@ -380,7 +380,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     return outp;
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 Rcpp::RawVector fit_tree(SEXP model_R_ptr, 
                          Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat,
                          Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
@@ -524,7 +524,7 @@ Rcpp::RawVector fit_tree(SEXP model_R_ptr,
         return serialize_cpp_obj(ext_model_ptr);
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector tree_num, bool is_extended,
                  Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat,
                  Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
@@ -603,7 +603,7 @@ void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector
                     depths_ptr, tree_num_ptr);
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericVector dmat,
               Rcpp::NumericVector rmat, bool is_extended,
               Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat,
@@ -670,7 +670,7 @@ void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericVector dm
         tmat_to_dense(tmat_ptr, dmat_ptr, nrows, !standardize_dist);
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
                       Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat,
                       Rcpp::NumericVector Xr, Rcpp::IntegerVector Xr_ind, Rcpp::IntegerVector Xr_indptr,
@@ -726,7 +726,7 @@ Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
             );
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 Rcpp::List get_n_nodes(SEXP model_R_ptr, bool is_extended, int nthreads)
 {
     size_t ntrees;
@@ -756,7 +756,7 @@ Rcpp::List get_n_nodes(SEXP model_R_ptr, bool is_extended, int nthreads)
             );
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 Rcpp::List append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
                                    SEXP imp_R_ptr, SEXP oimp_R_ptr,
                                    bool is_extended)
@@ -811,7 +811,7 @@ SEXP safe_CastString(void *data)
     return Rcpp::CharacterVector(*(std::string*)data);
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 Rcpp::ListOf<Rcpp::CharacterVector> model_to_sql(SEXP model_R_ptr, bool is_extended,
                                                  Rcpp::CharacterVector numeric_colanmes,
                                                  Rcpp::CharacterVector categ_colnames,
@@ -843,7 +843,7 @@ Rcpp::ListOf<Rcpp::CharacterVector> model_to_sql(SEXP model_R_ptr, bool is_exten
     return out;
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 Rcpp::CharacterVector model_to_sql_with_select_from(SEXP model_R_ptr, bool is_extended,
                                                     Rcpp::CharacterVector numeric_colanmes,
                                                     Rcpp::CharacterVector categ_colnames,
@@ -873,7 +873,7 @@ Rcpp::CharacterVector model_to_sql_with_select_from(SEXP model_R_ptr, bool is_ex
     return Rcpp::unwindProtect(safe_CastString, &out);
 }
 
-// [[Rcpp::export]]
+// [[Rcpp::export(rng = false)]]
 Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, bool has_imputer)
 {
     IsoForest*     model_ptr      =  NULL;
