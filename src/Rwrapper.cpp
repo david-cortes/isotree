@@ -166,7 +166,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                      Rcpp::CharacterVector missing_action, bool all_perm,
                      bool build_imputer, bool output_imputations, size_t min_imp_obs,
                      Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows,
-                     int random_seed, bool handle_interrupt, int nthreads)
+                     int random_seed, int nthreads)
 {
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
@@ -312,7 +312,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                 cat_split_type_C, new_cat_action_C,
                 all_perm, imputer_ptr.get(), min_imp_obs,
                 depth_imp_C, weigh_imp_rows_C, output_imputations,
-                (uint64_t) random_seed, handle_interrupt, nthreads);
+                (uint64_t) random_seed, nthreads);
 
     if (ret_val == EXIT_FAILURE)
     {

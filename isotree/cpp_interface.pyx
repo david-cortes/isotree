@@ -182,7 +182,7 @@ cdef extern from "isotree.hpp":
                     CategSplit cat_split_type, NewCategAction new_cat_action,
                     bool_t all_perm, Imputer *imputer, size_t min_imp_obs,
                     UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool_t impute_at_fit,
-                    uint64_t random_seed, bool_t handle_interrupt, int nthreads)
+                    uint64_t random_seed, int nthreads)
 
     void predict_iforest(double *numeric_data, int *categ_data,
                          double *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr,
@@ -315,7 +315,7 @@ cdef class isoforest_cpp_obj:
                   double min_gain, missing_action, cat_split_type, new_cat_action,
                   bool_t build_imputer, size_t min_imp_obs,
                   depth_imp, weigh_imp_rows, bool_t impute_at_fit,
-                  bool_t all_perm, uint64_t random_seed, bool_t handle_interrupt,
+                  bool_t all_perm, uint64_t random_seed,
                   int nthreads):
         cdef double*     numeric_data_ptr    =  NULL
         cdef int*        categ_data_ptr      =  NULL
@@ -424,7 +424,7 @@ cdef class isoforest_cpp_obj:
                     cat_split_type_C, new_cat_action_C,
                     all_perm, imputer_ptr, min_imp_obs,
                     depth_imp_C, weigh_imp_rows_C, impute_at_fit,
-                    random_seed, handle_interrupt, nthreads)
+                    random_seed, nthreads)
 
         if ret_val == return_EXIT_FAILURE():
             raise KeyboardInterrupt("Error: procedure was interrupted.")

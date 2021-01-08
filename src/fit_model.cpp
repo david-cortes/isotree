@@ -287,10 +287,6 @@ bool interrupt_switch;
 *       'categ_data', and 'Xc', will get overwritten with the imputations produced.
 * - random_seed
 *       Seed that will be used to generate random numbers used by the model.
-* - handle_interrupt
-*       Whether to handle interrupt signals while the process is running. Note that this will
-*       interfere with interrupt handles when the procedure is called from interpreted languages
-*       such as Python or R.
 * - nthreads
 *       Number of parallel threads to use. Note that, the more threads, the more memory will be
 *       allocated, even if the thread does not end up being used. Ignored when not building with
@@ -341,7 +337,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 CategSplit cat_split_type, NewCategAction new_cat_action,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
-                uint64_t random_seed, bool handle_interrupt, int nthreads)
+                uint64_t random_seed, int nthreads)
 {
     /* calculate maximum number of categories to use later */
     int max_categ = 0;
@@ -421,18 +417,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     #endif
 
     /* Global variable that determines if the procedure receives a stop signal */
-    interrupt_switch = false;
-    /* TODO: find a better way of handling interrupt signals when calling in Python/R.
-       The following will still change the behavior of interrupts when called through e.g. Flask */
-    #if !defined(_WIN32) && !defined(_WIN64) && !defined(_MSC_VER)
-    struct sigaction sig_handle = {};
-    if (handle_interrupt)
-    {
-        sig_handle.sa_flags = SA_RESETHAND;
-        sig_handle.sa_handler = set_interrup_global_variable;
-        sigemptyset(&sig_handle.sa_mask);
-    }
-    #endif
+    SignalSwitcher();
 
     /* grow trees */
     #pragma omp parallel for num_threads(nthreads) schedule(dynamic) shared(model_outputs, model_outputs_ext, worker_memory, input_data, model_params)
@@ -475,20 +460,10 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
             model_outputs->trees[tree].shrink_to_fit();
         else
             model_outputs_ext->hplanes[tree].shrink_to_fit();
-
-        if (handle_interrupt)
-        {
-            #if !defined(_WIN32) && !defined(_WIN64) && !defined(_MSC_VER)
-            sigaction(SIGINT, &sig_handle, NULL);
-            #else
-            signal(SIGINT, set_interrup_global_variable);
-            #endif
-        }
     }
 
     /* check if the procedure got interrupted */
     if (interrupt_switch) return EXIT_FAILURE;
-    interrupt_switch = false;
 
     if ((model_outputs != NULL))
         model_outputs->trees.shrink_to_fit();

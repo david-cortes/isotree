@@ -571,7 +571,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 CategSplit cat_split_type, NewCategAction new_cat_action,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
-                uint64_t random_seed, bool handle_interrupt, int nthreads);
+                uint64_t random_seed, int nthreads);
 int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              double numeric_data[],  size_t ncols_numeric,
              int    categ_data[],    size_t ncols_categ,    int ncat[],
@@ -818,6 +818,13 @@ void get_categs(size_t ix_arr[], int x[], size_t st, size_t end, int ncat,
 long double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
                                   std::vector<double> &weights_arr, std::unordered_map<size_t, double> &weights_map);
 void set_interrup_global_variable(int s);
+class SignalSwitcher
+{
+public:
+    sig_t old_sig;
+    SignalSwitcher();
+    ~SignalSwitcher();
+};
 int return_EXIT_SUCCESS();
 int return_EXIT_FAILURE();
 

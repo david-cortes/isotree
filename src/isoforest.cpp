@@ -51,6 +51,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                            std::vector<ImputeNode> *impute_nodes,
                            size_t                   curr_depth)
 {
+    if (interrupt_switch) return;
     long double sum_weight = -HUGE_VAL;
 
     /* calculate imputation statistics if desired */

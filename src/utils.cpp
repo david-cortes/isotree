@@ -1553,6 +1553,18 @@ void set_interrup_global_variable(int s)
     }
 }
 
+SignalSwitcher::SignalSwitcher()
+{
+    interrupt_switch = false;
+    this->old_sig = signal(SIGINT, set_interrup_global_variable);
+}
+
+SignalSwitcher::~SignalSwitcher()
+{
+    interrupt_switch = false;
+    signal(SIGINT, this->old_sig);
+}
+
 /* Return the #def'd constants from standard header. This is in order to determine if the return
    value from the 'fit_model' function is a success or failure within Cython, which does not
    allow importing #def'd macro values. */

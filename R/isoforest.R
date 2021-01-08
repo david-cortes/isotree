@@ -236,14 +236,6 @@
 #' just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 #' p(i, j) = ((i - 1) * (n - i/2) + j - i).
 #' @param random_seed Seed that will be used to generate random numbers used by the model.
-#' @param handle_interrupt Whether to handle interrupt signals in the C++ code. If passing `TRUE`,
-#' when it receives an interrupt signal while fitting the model, will halt before the procedure
-#' finishes, but this has unintended side effects such as setting the interrupt handle for the rest
-#' of the R session to this package's interrupt switch (which will print an error message), and
-#' might cause trouble when interrupting the procedure from some REST framework such as plumber.
-#' If passing `FALSE`, the C++ code (which fits the model) will not react to interrupt signals,
-#' thus interrupting it will not do anything until  the model is fitted and control goes back
-#' to R, but there will not be any side effects with respect to interrupt signals.
 #' @param nthreads Number of parallel threads to use. If passing a negative number, will use
 #' the maximum number of available threads in the system. Note that, the more threads,
 #' the more memory will be allocated, even if the thread does not end up being used.
@@ -481,8 +473,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                              build_imputer = FALSE, output_imputations = FALSE, min_imp_obs = 3,
                              depth_imp = "higher", weigh_imp_rows = "inverse",
                              output_score = FALSE, output_dist = FALSE, square_dist = FALSE,
-                             random_seed = 1, handle_interrupt = TRUE,
-                             nthreads = parallel::detectCores()) {
+                             random_seed = 1, nthreads = parallel::detectCores()) {
     ### validate inputs
     if (NROW(sample_size) != 1 || sample_size < 5) { stop("'sample_size' must be an integer >= 5.") }
     check.pos.int(ntrees,       "ntrees")
@@ -524,7 +515,6 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
     check.is.bool(square_dist,              "square_dist")
     check.is.bool(build_imputer,            "build_imputer")
     check.is.bool(output_imputations,       "output_imputations")
-    check.is.bool(handle_interrupt,         "handle_interrupt")
     
     s <- prob_pick_avg_gain + prob_pick_pooled_gain + prob_split_avg_gain + prob_split_pooled_gain
     if (s > 1) {
@@ -663,7 +653,7 @@ isolation.forest <- function(df, sample_weights = NULL, column_weights = NULL,
                              missing_action, all_perm,
                              build_imputer, output_imputations, min_imp_obs,
                              depth_imp, weigh_imp_rows,
-                             random_seed, handle_interrupt, nthreads)
+                             random_seed, nthreads)
     
     if (cpp_outputs$err)
         stop("Procedure was interrupted.")

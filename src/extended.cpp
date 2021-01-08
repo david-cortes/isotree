@@ -51,6 +51,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                             std::vector<ImputeNode> *impute_nodes,
                             size_t                   curr_depth)
 {
+    if (interrupt_switch) return;
     long double sum_weight = -HUGE_VAL;
     size_t hplane_from = hplanes.size() - 1;
     std::unique_ptr<RecursionState> recursion_state;
