@@ -1546,9 +1546,9 @@ void todense(size_t ix_arr[], size_t st, size_t end,
 /* Function to handle interrupt signals */
 void set_interrup_global_variable(int s)
 {
-    fprintf(stderr, "Error: procedure was interrupted\n");
     #pragma omp critical
     {
+        fprintf(stderr, "Error: procedure was interrupted\n");
         interrupt_switch = true;
     }
 }
