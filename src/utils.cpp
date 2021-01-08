@@ -1561,8 +1561,14 @@ SignalSwitcher::SignalSwitcher()
 
 SignalSwitcher::~SignalSwitcher()
 {
-    interrupt_switch = false;
     signal(SIGINT, this->old_sig);
+    if (interrupt_switch)
+    {
+        interrupt_switch = false;
+        #if !defined(_WIN32) && !defined(_WIN64) && !defined(_MSC_VER)
+        kill(getpid(), SIGINT);
+        #endif
+    }
 }
 
 /* Return the #def'd constants from standard header. This is in order to determine if the return
