@@ -463,7 +463,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     }
 
     /* check if the procedure got interrupted */
-    if (interrupt_switch) return EXIT_FAILURE;
+    if (interrupt_switch)
+        throw "Error: procedure was interrupted.\n";
 
     if ((model_outputs != NULL))
         model_outputs->trees.shrink_to_fit();
