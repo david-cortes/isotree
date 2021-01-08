@@ -1564,3 +1564,39 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
                                              model$nthreads))
     }
 }
+
+#' @title Deep-Copy an Isolation Forest Model Object
+#' @details Generates a deep copy of a model object, including the C++ objects inside it.
+#' This function is only meaningful if one intends to call a function that modifies the
+#' internal C++ objects - currently, the only such function is \link{add.isolation.tree} - as
+#' otherwise R's objects follow a copy-on-write logic.
+#' @param model An `isolation_forest` model object.
+#' @return A new `isolation_forest` object, with deep-copied C++ objects.
+#' @export
+deepcopy.isotree <- function(model) {
+    if (!("isolation_forest" %in% class(model)))
+        stop("'deepcopy.isotree' is only applicable for isolation forest model objects.")
+    if (check_null_ptr_model(model$cpp_obj$ptr)) {
+        obj_new <- model$cpp_obj
+        if (model$params$ndim == 1)
+            ptr_new <- deserialize_IsoForest(model$cpp_obj$serialized)
+        else
+            ptr_new <- deserialize_ExtIsoForest(model$cpp_obj$serialized)
+        obj_new$ptr <- ptr_new
+        
+        if (model$params$build_imputer) {
+            imp_new <- deserialize_Imputer(model$cpp_obj$imp_ser)
+            obj_new$imp_ptr <- imp_new
+        }
+        
+        eval.parent(substitute(model$cpp_obj <- obj_new))
+        model$cpp_obj <- obj_new
+    }
+    
+    new_pointers <- copy_cpp_objects(model$cpp_obj$ptr, model$params$ndim > 1,
+                                     model$cpp_obj$imputer_ptr, !is.null(model$cpp_obj$imputer_ptr))
+    new_model <- model
+    new_model$cpp_obj$ptr <- new_pointers$model_ptr
+    new_model$cpp_obj$imp_ptr <- new_pointers$imputer_ptr
+    return(new_model)
+}

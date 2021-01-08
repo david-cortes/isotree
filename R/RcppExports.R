@@ -53,3 +53,7 @@ model_to_sql_with_select_from <- function(model_R_ptr, is_extended, numeric_cola
     .Call(`_isotree_model_to_sql_with_select_from`, model_R_ptr, is_extended, numeric_colanmes, categ_colnames, categ_levels, table_from, select_as, nthreads)
 }
 
+copy_cpp_objects <- function(model_R_ptr, is_extended, imp_R_ptr, has_imputer) {
+    .Call(`_isotree_copy_cpp_objects`, model_R_ptr, is_extended, imp_R_ptr, has_imputer)
+}
+

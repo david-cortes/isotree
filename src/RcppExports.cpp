@@ -282,6 +282,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// copy_cpp_objects
+Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, bool has_imputer);
+RcppExport SEXP _isotree_copy_cpp_objects(SEXP model_R_ptrSEXP, SEXP is_extendedSEXP, SEXP imp_R_ptrSEXP, SEXP has_imputerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
+    Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type imp_R_ptr(imp_R_ptrSEXP);
+    Rcpp::traits::input_parameter< bool >::type has_imputer(has_imputerSEXP);
+    rcpp_result_gen = Rcpp::wrap(copy_cpp_objects(model_R_ptr, is_extended, imp_R_ptr, has_imputer));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_isotree_deserialize_IsoForest", (DL_FUNC) &_isotree_deserialize_IsoForest, 1},
@@ -297,6 +311,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_append_trees_from_other", (DL_FUNC) &_isotree_append_trees_from_other, 5},
     {"_isotree_model_to_sql", (DL_FUNC) &_isotree_model_to_sql, 9},
     {"_isotree_model_to_sql_with_select_from", (DL_FUNC) &_isotree_model_to_sql_with_select_from, 8},
+    {"_isotree_copy_cpp_objects", (DL_FUNC) &_isotree_copy_cpp_objects, 4},
     {NULL, NULL, 0}
 };
 

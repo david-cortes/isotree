@@ -873,4 +873,42 @@ Rcpp::CharacterVector model_to_sql_with_select_from(SEXP model_R_ptr, bool is_ex
     return Rcpp::unwindProtect(safe_CastString, &out);
 }
 
+// [[Rcpp::export]]
+Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, bool has_imputer)
+{
+    IsoForest*     model_ptr      =  NULL;
+    ExtIsoForest*  ext_model_ptr  =  NULL;
+    Imputer*       imputer_ptr    =  NULL;
+    if (is_extended)
+        ext_model_ptr  =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+    else
+        model_ptr      =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+    if (has_imputer)
+        imputer_ptr    =  static_cast<Imputer*>(R_ExternalPtrAddr(imp_R_ptr));
+
+    std::unique_ptr<IsoForest> copy_model(new IsoForest());
+    std::unique_ptr<ExtIsoForest> copy_ext_model(new ExtIsoForest());
+    std::unique_ptr<Imputer> copy_imputer(new Imputer());
+
+    if (model_ptr != NULL) 
+        *copy_model = *model_ptr;
+    if (ext_model_ptr != NULL)
+        *copy_ext_model = *ext_model_ptr;
+    if (imputer_ptr != NULL)
+        *copy_imputer = *imputer_ptr;
+
+    Rcpp::List out = Rcpp::List::create(
+        Rcpp::_["model_ptr"]    =  R_NilValue,
+        Rcpp::_["imputer_ptr"]  =  R_NilValue
+    );
+
+    if (is_extended)
+        out["model_ptr"]    =  Rcpp::XPtr<ExtIsoForest>(copy_ext_model.release(), true);
+    else
+        out["model_ptr"]    =  Rcpp::XPtr<IsoForest>(copy_model.release(), true);
+    if (has_imputer)
+        out["imputer_ptr"]  =  Rcpp::XPtr<Imputer>(copy_imputer.release(), true);
+    return out;
+}
+
 #endif /* _FOR_R */
