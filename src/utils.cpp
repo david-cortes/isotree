@@ -1556,19 +1556,14 @@ void check_interrupt_switch(SignalSwitcher &ss)
 {
     if (interrupt_switch)
     {
-        ss.~SignalSwitcher();
+        ss.restore_handle();
         fprintf(stderr, "Error: procedure was interrupted\n");
         #if !defined(_WIN32) && !defined(_WIN64) && !defined(_MSC_VER)
         kill(getpid(), SIGINT);
         #endif
         #ifdef _FOR_R
         Rcpp::checkUserInterrupt();
-        #endif
-        #ifdef _FOR_PYTHON
-        PyErr_SetInterrupt();
-        PyErr_CheckSignals();
-        interrupt_switch = true;
-        #else
+        #elif !defined(_FOR_PYTHON) && !defined(DONT_THROW_ON_INTERRUPT)
         throw "Error: procedure was interrupted.\n";
         #endif
     }
@@ -1590,12 +1585,26 @@ SignalSwitcher::SignalSwitcher()
 {
     interrupt_switch = false;
     this->old_sig = signal(SIGINT, set_interrup_global_variable);
+    this->is_active = true;
 }
 
 SignalSwitcher::~SignalSwitcher()
 {
-    signal(SIGINT, this->old_sig);
+    if (this->is_active)
+        signal(SIGINT, this->old_sig);
+    this->is_active = false;
+    #ifndef _FOR_PYTHON
     interrupt_switch = false;
+    #endif
+}
+
+void SignalSwitcher::restore_handle()
+{
+    if (this->is_active)
+    {
+        this->is_active = false;
+        signal(SIGINT, this->old_sig);
+    }
 }
 
 /* Return the #def'd constants from standard header. This is in order to determine if the return

@@ -55,7 +55,6 @@ from libc.stdint cimport uint64_t
 from libcpp.vector cimport vector
 from libcpp.string cimport string as cpp_string
 from libc.string cimport memcpy
-from cpython.exc cimport PyErr_CheckSignals, PyErr_SetInterrupt
 import ctypes
 import os
 
@@ -432,7 +431,7 @@ cdef class isoforest_cpp_obj:
 
         if cy_check_interrupt_switch():
             cy_tick_off_interrupt_switch()
-            raise KeyboardInterrupt("Error: procedure was interrupted.")
+            raise InterruptedError("Error: procedure was interrupted.")
 
         if ret_val == return_EXIT_FAILURE():
             raise ValueError("Error: something went wrong. Procedure failed.")
@@ -651,7 +650,7 @@ cdef class isoforest_cpp_obj:
 
         if cy_check_interrupt_switch():
             cy_tick_off_interrupt_switch()
-            raise KeyboardInterrupt("Error: procedure was interrupted.")
+            raise InterruptedError("Error: procedure was interrupted.")
 
         if (sq_dist) and (n_from == 0):
             tmat_to_dense(tmat_ptr, dmat_ptr, nrows, <bool_t>(not standardize_dist))

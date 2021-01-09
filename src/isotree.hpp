@@ -86,9 +86,7 @@ typedef void (*sig_t_)(int);
 #ifdef _FOR_R
     #include <Rcpp.h>
 #endif
-#ifdef _FOR_PYTHON
-    #include "Python.h"
-#endif
+
 
 /* By default, will use Mersenne-Twister for RNG, but can be switched to something faster */
 #ifdef _USE_MERSENNE_TWISTER
@@ -836,8 +834,10 @@ class SignalSwitcher
 {
 public:
     sig_t_ old_sig;
+    bool is_active;
     SignalSwitcher();
     ~SignalSwitcher();
+    void restore_handle();
 };
 void check_interrupt_switch(SignalSwitcher &ss);
 int return_EXIT_SUCCESS();
