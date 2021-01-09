@@ -417,7 +417,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     #endif
 
     /* Global variable that determines if the procedure receives a stop signal */
-    SignalSwitcher();
+    SignalSwitcher ss = SignalSwitcher();
 
     /* grow trees */
     #pragma omp parallel for num_threads(nthreads) schedule(dynamic) shared(model_outputs, model_outputs_ext, worker_memory, input_data, model_params)
@@ -463,8 +463,10 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     }
 
     /* check if the procedure got interrupted */
-    if (interrupt_switch)
-        throw "Error: procedure was interrupted.\n";
+    check_interrupt_switch(ss);
+    #ifdef _FOR_PYTHON
+    if (interrupt_switch) { interrupt_switch = false; return EXIT_FAILURE; }
+    #endif
 
     if ((model_outputs != NULL))
         model_outputs->trees.shrink_to_fit();
@@ -479,6 +481,11 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                           tmat, NULL, 0,
                           model_params.ntrees, false,
                           standardize_dist, nthreads);
+
+    check_interrupt_switch(ss);
+    #ifdef _FOR_PYTHON
+    if (interrupt_switch) { interrupt_switch = false; return EXIT_FAILURE; }
+    #endif
 
     /* same for depths */
     if (output_depths != NULL)
@@ -518,6 +525,11 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         }
     }
 
+    check_interrupt_switch(ss);
+    #ifdef _FOR_PYTHON
+    if (interrupt_switch) { interrupt_switch = false; return EXIT_FAILURE; }
+    #endif
+
     /* if imputing missing values, now need to reduce and write final values */
     if (model_params.impute_at_fit)
     {
@@ -537,6 +549,11 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 
         apply_imputation_results(impute_vec, impute_map, *imputer, input_data, nthreads);
     }
+
+    check_interrupt_switch(ss);
+    #ifdef _FOR_PYTHON
+    if (interrupt_switch) { interrupt_switch = false; return EXIT_FAILURE; }
+    #endif
 
     return EXIT_SUCCESS;
 }

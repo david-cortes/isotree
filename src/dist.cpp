@@ -157,7 +157,11 @@ void calc_similarity(double numeric_data[], int categ_data[],
     #endif
 
     /* Global variable that determines if the procedure receives a stop signal */
-    SignalSwitcher();
+    SignalSwitcher ss = SignalSwitcher();
+    check_interrupt_switch(ss);
+    #ifdef _FOR_PYTHON
+    if (interrupt_switch) { interrupt_switch = false; return; }
+    #endif
 
     if (model_outputs != NULL)
     {
@@ -188,6 +192,11 @@ void calc_similarity(double numeric_data[], int categ_data[],
                                 (size_t)0);
         }    
     }
+
+    check_interrupt_switch(ss);
+    #ifdef _FOR_PYTHON
+    if (interrupt_switch) { interrupt_switch = false; return; }
+    #endif
     
     /* gather and transform the results */
     gather_sim_result(&worker_memory, NULL,
@@ -197,8 +206,10 @@ void calc_similarity(double numeric_data[], int categ_data[],
                       ntrees, assume_full_distr,
                       standardize_dist, nthreads);
 
-    if (interrupt_switch)
-        throw "Error: procedure was interrupted.\n";
+    check_interrupt_switch(ss);
+    #ifdef _FOR_PYTHON
+    if (interrupt_switch) { interrupt_switch = false; return; }
+    #endif
 }
 
 void traverse_tree_sim(WorkerForSimilarity   &workspace,
