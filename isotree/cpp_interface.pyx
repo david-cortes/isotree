@@ -55,6 +55,7 @@ from libc.stdint cimport uint64_t
 from libcpp.vector cimport vector
 from libcpp.string cimport string as cpp_string
 from libc.string cimport memcpy
+from cpython.exc cimport PyErr_CheckSignals, PyErr_SetInterrupt
 import ctypes
 import os
 
