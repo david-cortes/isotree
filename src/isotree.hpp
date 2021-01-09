@@ -828,6 +828,10 @@ void get_categs(size_t ix_arr[], int x[], size_t st, size_t end, int ncat,
 long double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
                                   std::vector<double> &weights_arr, std::unordered_map<size_t, double> &weights_map);
 void set_interrup_global_variable(int s);
+#ifdef _FOR_PYTHON
+bool cy_check_interrupt_switch();
+void cy_tick_off_interrupt_switch();
+#endif
 class SignalSwitcher
 {
 public:

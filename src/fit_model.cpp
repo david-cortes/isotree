@@ -465,7 +465,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     /* check if the procedure got interrupted */
     check_interrupt_switch(ss);
     #ifdef _FOR_PYTHON
-    if (interrupt_switch) { interrupt_switch = false; return EXIT_FAILURE; }
+    if (interrupt_switch) return EXIT_FAILURE;
     #endif
 
     if ((model_outputs != NULL))
@@ -484,7 +484,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 
     check_interrupt_switch(ss);
     #ifdef _FOR_PYTHON
-    if (interrupt_switch) { interrupt_switch = false; return EXIT_FAILURE; }
+    if (interrupt_switch) return EXIT_FAILURE;
     #endif
 
     /* same for depths */
@@ -527,7 +527,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 
     check_interrupt_switch(ss);
     #ifdef _FOR_PYTHON
-    if (interrupt_switch) { interrupt_switch = false; return EXIT_FAILURE; }
+    if (interrupt_switch) return EXIT_FAILURE;
     #endif
 
     /* if imputing missing values, now need to reduce and write final values */
@@ -552,7 +552,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 
     check_interrupt_switch(ss);
     #ifdef _FOR_PYTHON
-    if (interrupt_switch) { interrupt_switch = false; return EXIT_FAILURE; }
+    if (interrupt_switch) return EXIT_FAILURE;
     #endif
 
     return EXIT_SUCCESS;

@@ -62,6 +62,9 @@ import os
 cdef extern from "isotree.hpp":
     ctypedef size_t sparse_ix
 
+    bool_t cy_check_interrupt_switch()
+    void cy_tick_off_interrupt_switch()
+
     ctypedef enum NewCategAction:
         Weighted
         Smallest
@@ -427,8 +430,12 @@ cdef class isoforest_cpp_obj:
                     depth_imp_C, weigh_imp_rows_C, impute_at_fit,
                     random_seed, nthreads)
 
-        if ret_val == return_EXIT_FAILURE():
+        if cy_check_interrupt_switch():
+            cy_tick_off_interrupt_switch()
             raise KeyboardInterrupt("Error: procedure was interrupted.")
+
+        if ret_val == return_EXIT_FAILURE():
+            raise ValueError("Error: something went wrong. Procedure failed.")
 
         if (calc_dist) and (sq_dist):
             tmat_to_dense(tmat_ptr, dmat_ptr, nrows, <bool_t>(not standardize_dist))
@@ -641,6 +648,10 @@ cdef class isoforest_cpp_obj:
                         nrows, nthreads, assume_full_distr, standardize_dist,
                         model_ptr, ext_model_ptr,
                         tmat_ptr, rmat_ptr, n_from)
+
+        if cy_check_interrupt_switch():
+            cy_tick_off_interrupt_switch()
+            raise KeyboardInterrupt("Error: procedure was interrupted.")
 
         if (sq_dist) and (n_from == 0):
             tmat_to_dense(tmat_ptr, dmat_ptr, nrows, <bool_t>(not standardize_dist))

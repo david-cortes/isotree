@@ -160,7 +160,7 @@ void calc_similarity(double numeric_data[], int categ_data[],
     SignalSwitcher ss = SignalSwitcher();
     check_interrupt_switch(ss);
     #ifdef _FOR_PYTHON
-    if (interrupt_switch) { interrupt_switch = false; return; }
+    if (interrupt_switch) return;
     #endif
 
     if (model_outputs != NULL)
@@ -195,7 +195,7 @@ void calc_similarity(double numeric_data[], int categ_data[],
 
     check_interrupt_switch(ss);
     #ifdef _FOR_PYTHON
-    if (interrupt_switch) { interrupt_switch = false; return; }
+    if (interrupt_switch) return;
     #endif
     
     /* gather and transform the results */
@@ -208,7 +208,7 @@ void calc_similarity(double numeric_data[], int categ_data[],
 
     check_interrupt_switch(ss);
     #ifdef _FOR_PYTHON
-    if (interrupt_switch) { interrupt_switch = false; return; }
+    if (interrupt_switch) return;
     #endif
 }
 

@@ -1574,6 +1574,18 @@ void check_interrupt_switch(SignalSwitcher &ss)
     }
 }
 
+#ifdef _FOR_PYTHON
+bool cy_check_interrupt_switch()
+{
+    return interrupt_switch;
+}
+
+void cy_tick_off_interrupt_switch()
+{
+    interrupt_switch = false;
+}
+#endif
+
 SignalSwitcher::SignalSwitcher()
 {
     interrupt_switch = false;
