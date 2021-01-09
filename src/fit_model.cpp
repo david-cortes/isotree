@@ -464,7 +464,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 
     /* check if the procedure got interrupted */
     check_interrupt_switch(ss);
-    #ifdef _FOR_PYTHON
+    #if defined(_FOR_PYTHON) || defined(DONT_THROW_ON_INTERRUPT)
     if (interrupt_switch) return EXIT_FAILURE;
     #endif
 
@@ -483,7 +483,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                           standardize_dist, nthreads);
 
     check_interrupt_switch(ss);
-    #ifdef _FOR_PYTHON
+    #if defined(_FOR_PYTHON) || defined(DONT_THROW_ON_INTERRUPT)
     if (interrupt_switch) return EXIT_FAILURE;
     #endif
 
@@ -526,7 +526,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     }
 
     check_interrupt_switch(ss);
-    #ifdef _FOR_PYTHON
+    #if defined(_FOR_PYTHON) || defined(DONT_THROW_ON_INTERRUPT)
     if (interrupt_switch) return EXIT_FAILURE;
     #endif
 
@@ -551,7 +551,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     }
 
     check_interrupt_switch(ss);
-    #ifdef _FOR_PYTHON
+    #if defined(_FOR_PYTHON) || defined(DONT_THROW_ON_INTERRUPT)
     if (interrupt_switch) return EXIT_FAILURE;
     #endif
 
