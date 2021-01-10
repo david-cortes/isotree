@@ -185,14 +185,14 @@ cdef extern from "isotree.hpp":
                     CategSplit cat_split_type, NewCategAction new_cat_action,
                     bool_t all_perm, Imputer *imputer, size_t min_imp_obs,
                     UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool_t impute_at_fit,
-                    uint64_t random_seed, int nthreads)
+                    uint64_t random_seed, int nthreads) except +
 
     void predict_iforest(double *numeric_data, int *categ_data,
                          double *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr,
                          double *Xr, sparse_ix *Xr_ind, sparse_ix *Xr_indptr,
                          size_t nrows, int nthreads, bool_t standardize,
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                         double *output_depths, size_t *tree_num)
+                         double *output_depths, size_t *tree_num) except +
 
     void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads)
 
@@ -204,13 +204,13 @@ cdef extern from "isotree.hpp":
                          double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                          size_t nrows, int nthreads, bool_t assume_full_distr, bool_t standardize_dist,
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                         double tmat[], double rmat[], size_t n_from)
+                         double tmat[], double rmat[], size_t n_from) except +
 
     void impute_missing_values(double *numeric_data, int *categ_data,
                                double *Xr, sparse_ix *Xr_ind, sparse_ix *Xr_indptr,
                                size_t nrows, int nthreads,
                                IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                               Imputer &imputer)
+                               Imputer &imputer) except +
 
     int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                  double *numeric_data,  size_t ncols_numeric,
@@ -227,35 +227,35 @@ cdef extern from "isotree.hpp":
                  CategSplit cat_split_type, NewCategAction new_cat_action,
                  UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
                  bool_t  all_perm, vector[ImputeNode] *impute_nodes, size_t min_imp_obs,
-                 uint64_t random_seed)
+                 uint64_t random_seed) except +
 
     void merge_models(IsoForest*     model,      IsoForest*     other,
                       ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
-                      Imputer*       imputer,    Imputer*       iother)
+                      Imputer*       imputer,    Imputer*       iother) except +
 
-    void serialize_isoforest(IsoForest &model, void *output_file_path)
-    cpp_string serialize_isoforest(IsoForest &model)
-    void deserialize_isoforest(IsoForest &output, void *input_file_path)
-    void deserialize_isoforest(IsoForest &output, cpp_string &serialized, bool_t move_str)
-    void serialize_ext_isoforest(ExtIsoForest &model, void *output_file_path)
-    cpp_string serialize_ext_isoforest(ExtIsoForest &model)
-    void deserialize_ext_isoforest(ExtIsoForest &output, void *input_file_path)
-    void deserialize_ext_isoforest(ExtIsoForest &output, cpp_string &serialized, bool_t move_str)
-    void serialize_imputer(Imputer &imputer, void *output_file_path)
-    cpp_string serialize_imputer(Imputer &imputer)
-    void deserialize_imputer(Imputer &output, void *input_file_path)
-    void deserialize_imputer(Imputer &output, cpp_string &serialized, bool_t move_str)
+    void serialize_isoforest(IsoForest &model, void *output_file_path) except +
+    cpp_string serialize_isoforest(IsoForest &model) except +
+    void deserialize_isoforest(IsoForest &output, void *input_file_path) except +
+    void deserialize_isoforest(IsoForest &output, cpp_string &serialized, bool_t move_str) except +
+    void serialize_ext_isoforest(ExtIsoForest &model, void *output_file_path) except +
+    cpp_string serialize_ext_isoforest(ExtIsoForest &model) except +
+    void deserialize_ext_isoforest(ExtIsoForest &output, void *input_file_path) except +
+    void deserialize_ext_isoforest(ExtIsoForest &output, cpp_string &serialized, bool_t move_str) except +
+    void serialize_imputer(Imputer &imputer, void *output_file_path) except +
+    cpp_string serialize_imputer(Imputer &imputer) except +
+    void deserialize_imputer(Imputer &output, void *input_file_path) except +
+    void deserialize_imputer(Imputer &output, cpp_string &serialized, bool_t move_str) except +
     bool_t py_should_use_char()
     vector[cpp_string] generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                     vector[cpp_string] &numeric_colnames, vector[cpp_string] &categ_colnames,
                                     vector[vector[cpp_string]] &categ_levels,
                                     bool_t output_tree_num, bool_t index1, bool_t single_tree, size_t tree_num,
-                                    int nthreads)
+                                    int nthreads) except +
     cpp_string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                              cpp_string &table_from, cpp_string &select_as,
                                              vector[cpp_string] &numeric_colnames, vector[cpp_string] &categ_colnames,
                                              vector[vector[cpp_string]] &categ_levels,
-                                             bool_t index1, int nthreads)
+                                             bool_t index1, int nthreads) except +
 
     void dealloc_IsoForest(IsoForest &model_outputs)
     void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext)

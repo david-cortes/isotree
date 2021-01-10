@@ -159,7 +159,7 @@ void calc_similarity(double numeric_data[], int categ_data[],
     /* Global variable that determines if the procedure receives a stop signal */
     SignalSwitcher ss = SignalSwitcher();
     check_interrupt_switch(ss);
-    #if defined(_FOR_PYTHON) || defined(DONT_THROW_ON_INTERRUPT)
+    #if defined(DONT_THROW_ON_INTERRUPT)
     if (interrupt_switch) return;
     #endif
 
@@ -194,7 +194,7 @@ void calc_similarity(double numeric_data[], int categ_data[],
     }
 
     check_interrupt_switch(ss);
-    #if defined(_FOR_PYTHON) || defined(DONT_THROW_ON_INTERRUPT)
+    #if defined(DONT_THROW_ON_INTERRUPT)
     if (interrupt_switch) return;
     #endif
     
@@ -207,7 +207,7 @@ void calc_similarity(double numeric_data[], int categ_data[],
                       standardize_dist, nthreads);
 
     check_interrupt_switch(ss);
-    #if defined(_FOR_PYTHON) || defined(DONT_THROW_ON_INTERRUPT)
+    #if defined(DONT_THROW_ON_INTERRUPT)
     if (interrupt_switch) return;
     #endif
 }

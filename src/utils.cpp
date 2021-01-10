@@ -1561,7 +1561,7 @@ void check_interrupt_switch(SignalSwitcher &ss)
         raise(SIGINT);
         #ifdef _FOR_R
         Rcpp::checkUserInterrupt();
-        #elif !defined(_FOR_PYTHON) && !defined(DONT_THROW_ON_INTERRUPT)
+        #elif !defined(DONT_THROW_ON_INTERRUPT)
         throw "Error: procedure was interrupted.\n";
         #endif
     }
