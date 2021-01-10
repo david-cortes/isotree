@@ -55,6 +55,7 @@ from libc.stdint cimport uint64_t
 from libcpp.vector cimport vector
 from libcpp.string cimport string as cpp_string
 from libc.string cimport memcpy
+from cython cimport boundscheck, nonecheck, wraparound
 import ctypes
 import os
 
@@ -185,14 +186,14 @@ cdef extern from "isotree.hpp":
                     CategSplit cat_split_type, NewCategAction new_cat_action,
                     bool_t all_perm, Imputer *imputer, size_t min_imp_obs,
                     UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool_t impute_at_fit,
-                    uint64_t random_seed, int nthreads) except +
+                    uint64_t random_seed, int nthreads) nogil except +
 
     void predict_iforest(double *numeric_data, int *categ_data,
                          double *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr,
                          double *Xr, sparse_ix *Xr_ind, sparse_ix *Xr_indptr,
                          size_t nrows, int nthreads, bool_t standardize,
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                         double *output_depths, size_t *tree_num) except +
+                         double *output_depths, size_t *tree_num) nogil except +
 
     void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads)
 
@@ -204,13 +205,13 @@ cdef extern from "isotree.hpp":
                          double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                          size_t nrows, int nthreads, bool_t assume_full_distr, bool_t standardize_dist,
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                         double tmat[], double rmat[], size_t n_from) except +
+                         double tmat[], double rmat[], size_t n_from) nogil except +
 
     void impute_missing_values(double *numeric_data, int *categ_data,
                                double *Xr, sparse_ix *Xr_ind, sparse_ix *Xr_indptr,
                                size_t nrows, int nthreads,
                                IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                               Imputer &imputer) except +
+                               Imputer &imputer) nogil except +
 
     int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                  double *numeric_data,  size_t ncols_numeric,
@@ -227,35 +228,35 @@ cdef extern from "isotree.hpp":
                  CategSplit cat_split_type, NewCategAction new_cat_action,
                  UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
                  bool_t  all_perm, vector[ImputeNode] *impute_nodes, size_t min_imp_obs,
-                 uint64_t random_seed) except +
+                 uint64_t random_seed) nogil except +
 
     void merge_models(IsoForest*     model,      IsoForest*     other,
                       ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
-                      Imputer*       imputer,    Imputer*       iother) except +
+                      Imputer*       imputer,    Imputer*       iother) nogil except +
 
-    void serialize_isoforest(IsoForest &model, void *output_file_path) except +
-    cpp_string serialize_isoforest(IsoForest &model) except +
-    void deserialize_isoforest(IsoForest &output, void *input_file_path) except +
-    void deserialize_isoforest(IsoForest &output, cpp_string &serialized, bool_t move_str) except +
-    void serialize_ext_isoforest(ExtIsoForest &model, void *output_file_path) except +
-    cpp_string serialize_ext_isoforest(ExtIsoForest &model) except +
-    void deserialize_ext_isoforest(ExtIsoForest &output, void *input_file_path) except +
-    void deserialize_ext_isoforest(ExtIsoForest &output, cpp_string &serialized, bool_t move_str) except +
-    void serialize_imputer(Imputer &imputer, void *output_file_path) except +
-    cpp_string serialize_imputer(Imputer &imputer) except +
-    void deserialize_imputer(Imputer &output, void *input_file_path) except +
-    void deserialize_imputer(Imputer &output, cpp_string &serialized, bool_t move_str) except +
+    void serialize_isoforest(IsoForest &model, void *output_file_path) nogil except +
+    cpp_string serialize_isoforest(IsoForest &model) nogil except +
+    void deserialize_isoforest(IsoForest &output, void *input_file_path) nogil except +
+    void deserialize_isoforest(IsoForest &output, cpp_string &serialized, bool_t move_str) nogil except +
+    void serialize_ext_isoforest(ExtIsoForest &model, void *output_file_path) nogil except +
+    cpp_string serialize_ext_isoforest(ExtIsoForest &model) nogil except +
+    void deserialize_ext_isoforest(ExtIsoForest &output, void *input_file_path) nogil except +
+    void deserialize_ext_isoforest(ExtIsoForest &output, cpp_string &serialized, bool_t move_str) nogil except +
+    void serialize_imputer(Imputer &imputer, void *output_file_path) nogil except +
+    cpp_string serialize_imputer(Imputer &imputer) nogil except +
+    void deserialize_imputer(Imputer &output, void *input_file_path) nogil except +
+    void deserialize_imputer(Imputer &output, cpp_string &serialized, bool_t move_str) nogil except +
     bool_t py_should_use_char()
     vector[cpp_string] generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                     vector[cpp_string] &numeric_colnames, vector[cpp_string] &categ_colnames,
                                     vector[vector[cpp_string]] &categ_levels,
                                     bool_t output_tree_num, bool_t index1, bool_t single_tree, size_t tree_num,
-                                    int nthreads) except +
+                                    int nthreads) nogil except +
     cpp_string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                              cpp_string &table_from, cpp_string &select_as,
                                              vector[cpp_string] &numeric_colnames, vector[cpp_string] &categ_colnames,
                                              vector[vector[cpp_string]] &categ_levels,
-                                             bool_t index1, int nthreads) except +
+                                             bool_t index1, int nthreads) nogil except +
 
     void dealloc_IsoForest(IsoForest &model_outputs)
     void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext)
@@ -409,25 +410,26 @@ cdef class isoforest_cpp_obj:
 
         cdef int ret_val = 0
 
-        ret_val = \
-        fit_iforest(model_ptr, ext_model_ptr,
-                    numeric_data_ptr,  ncols_numeric,
-                    categ_data_ptr,    ncols_categ,    ncat_ptr,
-                    Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
-                    ndim, ntry, coef_type_C, coef_by_prop,
-                    sample_weights_ptr, with_replacement, weight_as_sample,
-                    nrows, sample_size, ntrees, max_depth,
-                    limit_depth, penalize_range,
-                    standardize_dist, tmat_ptr,
-                    depths_ptr, standardize_depth,
-                    col_weights_ptr, weigh_by_kurt,
-                    prob_pick_by_gain_avg, prob_split_by_gain_avg,
-                    prob_pick_by_gain_pl,  prob_split_by_gain_pl,
-                    min_gain, missing_action_C,
-                    cat_split_type_C, new_cat_action_C,
-                    all_perm, imputer_ptr, min_imp_obs,
-                    depth_imp_C, weigh_imp_rows_C, impute_at_fit,
-                    random_seed, nthreads)
+        with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+            ret_val = \
+            fit_iforest(model_ptr, ext_model_ptr,
+                        numeric_data_ptr,  ncols_numeric,
+                        categ_data_ptr,    ncols_categ,    ncat_ptr,
+                        Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
+                        ndim, ntry, coef_type_C, coef_by_prop,
+                        sample_weights_ptr, with_replacement, weight_as_sample,
+                        nrows, sample_size, ntrees, max_depth,
+                        limit_depth, penalize_range,
+                        standardize_dist, tmat_ptr,
+                        depths_ptr, standardize_depth,
+                        col_weights_ptr, weigh_by_kurt,
+                        prob_pick_by_gain_avg, prob_split_by_gain_avg,
+                        prob_pick_by_gain_pl,  prob_split_by_gain_pl,
+                        min_gain, missing_action_C,
+                        cat_split_type_C, new_cat_action_C,
+                        all_perm, imputer_ptr, min_imp_obs,
+                        depth_imp_C, weigh_imp_rows_C, impute_at_fit,
+                        random_seed, nthreads)
 
         if cy_check_interrupt_switch():
             cy_tick_off_interrupt_switch()
@@ -517,21 +519,22 @@ cdef class isoforest_cpp_obj:
             self.imputer.imputer_tree.push_back(vector[ImputeNode]()) ### emplace back doesn't work in cython
             imputer_tree_ptr = &self.imputer.imputer_tree.back()
 
-        add_tree(model_ptr, ext_model_ptr,
-                 numeric_data_ptr,  ncols_numeric,
-                 categ_data_ptr,    ncols_categ,    ncat_ptr,
-                 Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
-                 ndim, ntry, coef_type_C, coef_by_prop,
-                 sample_weights_ptr,
-                 nrows, max_depth,
-                 limit_depth,  penalize_range,
-                 col_weights_ptr, weigh_by_kurt,
-                 prob_pick_by_gain_avg, prob_split_by_gain_avg,
-                 prob_pick_by_gain_pl,  prob_split_by_gain_pl,
-                 min_gain, missing_action_C,
-                 cat_split_type_C, new_cat_action_C,
-                 depth_imp_C, weigh_imp_rows_C,
-                 all_perm, imputer_tree_ptr, min_imp_obs, random_seed)
+        with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+            add_tree(model_ptr, ext_model_ptr,
+                     numeric_data_ptr,  ncols_numeric,
+                     categ_data_ptr,    ncols_categ,    ncat_ptr,
+                     Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
+                     ndim, ntry, coef_type_C, coef_by_prop,
+                     sample_weights_ptr,
+                     nrows, max_depth,
+                     limit_depth,  penalize_range,
+                     col_weights_ptr, weigh_by_kurt,
+                     prob_pick_by_gain_avg, prob_split_by_gain_avg,
+                     prob_pick_by_gain_pl,  prob_split_by_gain_pl,
+                     min_gain, missing_action_C,
+                     cat_split_type_C, new_cat_action_C,
+                     depth_imp_C, weigh_imp_rows_C,
+                     all_perm, imputer_tree_ptr, min_imp_obs, random_seed)
 
     def predict(self, X_num, X_cat, is_extended,
                 size_t nrows, int nthreads, bool_t standardize, bool_t output_tree_num):
@@ -585,12 +588,13 @@ cdef class isoforest_cpp_obj:
         else:
             ext_model_ptr  =  &self.ext_isoforest
         
-        predict_iforest(numeric_data_ptr, categ_data_ptr,
-                        Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
-                        Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
-                        nrows, nthreads, standardize,
-                        model_ptr, ext_model_ptr,
-                        depths_ptr, tree_num_ptr)
+        with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+            predict_iforest(numeric_data_ptr, categ_data_ptr,
+                            Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
+                            Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
+                            nrows, nthreads, standardize,
+                            model_ptr, ext_model_ptr,
+                            depths_ptr, tree_num_ptr)
 
         return depths, tree_num
 
@@ -642,11 +646,12 @@ cdef class isoforest_cpp_obj:
         else:
             ext_model_ptr  =  &self.ext_isoforest
         
-        calc_similarity(numeric_data_ptr, categ_data_ptr,
-                        Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
-                        nrows, nthreads, assume_full_distr, standardize_dist,
-                        model_ptr, ext_model_ptr,
-                        tmat_ptr, rmat_ptr, n_from)
+        with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+            calc_similarity(numeric_data_ptr, categ_data_ptr,
+                            Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
+                            nrows, nthreads, assume_full_distr, standardize_dist,
+                            model_ptr, ext_model_ptr,
+                            tmat_ptr, rmat_ptr, n_from)
 
         if cy_check_interrupt_switch():
             cy_tick_off_interrupt_switch()
@@ -683,11 +688,12 @@ cdef class isoforest_cpp_obj:
         else:
             ext_model_ptr  =  &self.ext_isoforest
 
-        impute_missing_values(numeric_data_ptr, categ_data_ptr,
-                              Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
-                              nrows, nthreads,
-                              model_ptr, ext_model_ptr,
-                              self.imputer)
+        with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+            impute_missing_values(numeric_data_ptr, categ_data_ptr,
+                                  Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
+                                  nrows, nthreads,
+                                  model_ptr, ext_model_ptr,
+                                  self.imputer)
 
         return X_num, X_cat
 
@@ -725,11 +731,12 @@ cdef class isoforest_cpp_obj:
         if other.imputer.imputer_tree.size():
             prt_iother = &other.imputer
 
-        merge_models(ptr_model, ptr_other,
-                     ptr_ext_model, ptr_ext_other,
-                     ptr_imp, prt_iother)
+        with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+            merge_models(ptr_model, ptr_other,
+                         ptr_ext_model, ptr_ext_other,
+                         ptr_imp, prt_iother)
 
-    def serialize_obj(self, str fpath, use_cpp=False, is_extended=False, has_imputer=False):
+    def serialize_obj(self, str fpath, bool_t use_cpp=False, bool_t is_extended=False, bool_t has_imputer=False):
         fpath_imputer = fpath + ".imputer"
         cdef char *fpath_as_char = NULL
         cdef char *fpath_imp_as_char = NULL
@@ -741,23 +748,27 @@ cdef class isoforest_cpp_obj:
             if py_should_use_char():
                 py_byte_string = fpath.encode()
                 fpath_as_char = py_byte_string
-                if is_extended:
-                    serialize_ext_isoforest(self.ext_isoforest, <void*>fpath_as_char)
-                else:
-                    serialize_isoforest(self.isoforest, <void*>fpath_as_char)
+                with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+                    if is_extended:
+                        serialize_ext_isoforest(self.ext_isoforest, <void*>fpath_as_char)
+                    else:
+                        serialize_isoforest(self.isoforest, <void*>fpath_as_char)
                 if has_imputer:
                     imp_bytes = fpath_imputer.encode()
                     fpath_imp_as_char = imp_bytes
-                    serialize_imputer(self.imputer, <void*>fpath_imp_as_char)
+                    with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+                        serialize_imputer(self.imputer, <void*>fpath_imp_as_char)
             else:
                 fpath_as_wchar = fpath
-                if is_extended:
-                    serialize_ext_isoforest(self.ext_isoforest, <void*>fpath_as_wchar)
-                else:
-                    serialize_isoforest(self.isoforest, <void*>fpath_as_wchar)
+                with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+                    if is_extended:
+                        serialize_ext_isoforest(self.ext_isoforest, <void*>fpath_as_wchar)
+                    else:
+                        serialize_isoforest(self.isoforest, <void*>fpath_as_wchar)
                 if has_imputer:
                     fpath_imp_as_wchar = fpath_imputer
-                    serialize_imputer(self.imputer, <void*>fpath_imp_as_wchar)
+                    with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+                        serialize_imputer(self.imputer, <void*>fpath_imp_as_wchar)
         else:
             if is_extended:
                 obj_as_bytes = serialize_ext_isoforest(self.ext_isoforest)
@@ -771,7 +782,7 @@ cdef class isoforest_cpp_obj:
                 with open(fpath_imputer, "wb") as of:
                     of.write(obj_as_bytes)
 
-    def deserialize_obj(self, fpath, is_extended=False, use_cpp=False):
+    def deserialize_obj(self, fpath, bool_t is_extended=False, bool_t use_cpp=False):
         fpath_imputer = fpath + ".imputer"
         has_imputer = os.path.isfile(fpath_imputer)
         cdef char *fpath_as_char = NULL
@@ -787,23 +798,27 @@ cdef class isoforest_cpp_obj:
             if py_should_use_char():
                 py_byte_string = fpath.encode()
                 fpath_as_char = py_byte_string
-                if is_extended:
-                    deserialize_ext_isoforest(self.ext_isoforest, <void*>fpath_as_char)
-                else:
-                    deserialize_isoforest(self.isoforest, <void*>fpath_as_char)
+                with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+                    if is_extended:
+                        deserialize_ext_isoforest(self.ext_isoforest, <void*>fpath_as_char)
+                    else:
+                        deserialize_isoforest(self.isoforest, <void*>fpath_as_char)
                 if has_imputer:
                     imp_bytes = fpath_imputer.encode()
                     fpath_imp_as_char = imp_bytes
-                    deserialize_imputer(self.imputer, <void*>fpath_imp_as_char)
+                    with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+                        deserialize_imputer(self.imputer, <void*>fpath_imp_as_char)
             else:
                 fpath_as_wchar = fpath
-                if is_extended:
-                    deserialize_ext_isoforest(self.ext_isoforest, <void*>fpath_as_wchar)
-                else:
-                    deserialize_isoforest(self.isoforest, <void*>fpath_as_wchar)
+                with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+                    if is_extended:
+                        deserialize_ext_isoforest(self.ext_isoforest, <void*>fpath_as_wchar)
+                    else:
+                        deserialize_isoforest(self.isoforest, <void*>fpath_as_wchar)
                 if has_imputer:
                     fpath_imp_as_wchar = fpath_imputer
-                    deserialize_imputer(self.imputer, <void*>fpath_imp_as_wchar)
+                    with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+                        deserialize_imputer(self.imputer, <void*>fpath_imp_as_wchar)
         else:
             with open(fpath, "rb") as ff:
                 model_bytes = ff.read()
@@ -812,10 +827,11 @@ cdef class isoforest_cpp_obj:
             ptr_to_bytes = model_bytes
             obj_as_string = cpp_string(ptr_to_bytes, n_bytes)
             model_bytes = b""
-            if is_extended:
-                deserialize_ext_isoforest(self.ext_isoforest, obj_as_string, 1)
-            else:
-                deserialize_isoforest(self.isoforest, obj_as_string, 1)
+            with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+                if is_extended:
+                    deserialize_ext_isoforest(self.ext_isoforest, obj_as_string, 1)
+                else:
+                    deserialize_isoforest(self.isoforest, obj_as_string, 1)
             if has_imputer:
                 obj_as_string.clear()
                 with open(fpath_imputer, "rb"):
@@ -824,7 +840,8 @@ cdef class isoforest_cpp_obj:
                 ptr_to_bytes = model_bytes
                 obj_as_string = cpp_string(ptr_to_bytes, n_bytes)
                 model_bytes = b""
-                deserialize_imputer(self.imputer, obj_as_string, 1)
+                with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+                    deserialize_imputer(self.imputer, obj_as_string, 1)
 
     def generate_sql(self, is_extended,
                      vector[cpp_string] numeric_colnames,
@@ -840,7 +857,10 @@ cdef class isoforest_cpp_obj:
         else:
             ext_model_ptr  =  &self.ext_isoforest
 
-        return generate_sql(model_ptr, ext_model_ptr,
-                            numeric_colnames, categ_colnames, categ_levels,
-                            output_tree_num, 0, single_tree, tree_num, nthreads)
+        cdef vector[cpp_string] res
+        with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+            res = generate_sql(model_ptr, ext_model_ptr,
+                               numeric_colnames, categ_colnames, categ_levels,
+                               output_tree_num, 0, single_tree, tree_num, nthreads)
+        return res
 
