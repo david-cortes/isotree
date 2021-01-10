@@ -1581,27 +1581,36 @@ void cy_tick_off_interrupt_switch()
 
 SignalSwitcher::SignalSwitcher()
 {
-    interrupt_switch = false;
-    this->old_sig = signal(SIGINT, set_interrup_global_variable);
-    this->is_active = true;
+    #pragma omp critical
+    {
+        interrupt_switch = false;
+        this->old_sig = signal(SIGINT, set_interrup_global_variable);
+        this->is_active = true;
+    }
 }
 
 SignalSwitcher::~SignalSwitcher()
 {
-    if (this->is_active)
-        signal(SIGINT, this->old_sig);
-    this->is_active = false;
-    #ifndef _FOR_PYTHON
-    interrupt_switch = false;
-    #endif
+    #pragma omp critical
+    {
+        if (this->is_active)
+            signal(SIGINT, this->old_sig);
+        this->is_active = false;
+        #ifndef _FOR_PYTHON
+        interrupt_switch = false;
+        #endif
+    }
 }
 
 void SignalSwitcher::restore_handle()
 {
-    if (this->is_active)
+    #pragma omp critical
     {
-        this->is_active = false;
-        signal(SIGINT, this->old_sig);
+        if (this->is_active)
+        {
+            signal(SIGINT, this->old_sig);
+            this->is_active = false;
+        }
     }
 }
 
