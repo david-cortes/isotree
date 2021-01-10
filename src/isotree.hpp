@@ -48,7 +48,6 @@
 #include <math.h>
 #include <limits.h>
 #include <string.h>
-#include <signal.h>
 #include <vector>
 #include <iterator>
 #include <numeric>
@@ -79,13 +78,11 @@
     #include <string>
     #include <fstream>
 #endif
-typedef void (*sig_t_)(int);
-#if !defined(_WIN32) && !defined(_WIN64) && !defined(_MSC_VER)
-    #include <unistd.h>
-#endif
 #ifdef _FOR_R
     #include <Rcpp.h>
 #endif
+#include <signal.h>
+typedef void (*sig_t_)(int);
 
 
 /* By default, will use Mersenne-Twister for RNG, but can be switched to something faster */
