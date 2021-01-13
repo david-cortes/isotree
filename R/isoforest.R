@@ -976,6 +976,9 @@ summary.isolation_forest <- function(object, ...) {
 #' it will lead to issues due to the C++ object being modified but the R object remaining the same, so if this method is used
 #' inside a function, make sure to output the newly-modified R object and have it replace the old R object outside the calling
 #' function too.
+#' 
+#' The model object can be deep copied (including the underlying C++ object) through
+#' function \link{deepcopy.isotree}.
 #' @seealso \link{isolation.forest} \link{unpack.isolation.forest}
 #' @export
 add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights = NULL) {
@@ -1194,6 +1197,9 @@ get.num.nodes <- function(model)  {
 #' it will lead to issues due to the C++ object being modified but the R object remaining the same, so if this method is used
 #' inside a function, make sure to output the newly-modified R object and have it replace the old R object outside the calling
 #' function too.
+#' 
+#' The model object can be deep copied (including the underlying C++ object) through
+#' function \link{deepcopy.isotree}.
 #' @examples 
 #' library(isotree)
 #' 
@@ -1568,8 +1574,8 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
 #' @title Deep-Copy an Isolation Forest Model Object
 #' @details Generates a deep copy of a model object, including the C++ objects inside it.
 #' This function is only meaningful if one intends to call a function that modifies the
-#' internal C++ objects - currently, the only such function is \link{add.isolation.tree} - as
-#' otherwise R's objects follow a copy-on-write logic.
+#' internal C++ objects - currently, the only such function are \link{add.isolation.tree}
+#' and \link{append.trees} - as otherwise R's objects follow a copy-on-write logic.
 #' @param model An `isolation_forest` model object.
 #' @return A new `isolation_forest` object, with deep-copied C++ objects.
 #' @export

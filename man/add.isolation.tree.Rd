@@ -33,6 +33,9 @@ object in the environment in which it was called. If trying to use the same mode
 it will lead to issues due to the C++ object being modified but the R object remaining the same, so if this method is used
 inside a function, make sure to output the newly-modified R object and have it replace the old R object outside the calling
 function too.
+
+The model object can be deep copied (including the underlying C++ object) through
+function \link{deepcopy.isotree}.
 }
 \seealso{
 \link{isolation.forest} \link{unpack.isolation.forest}

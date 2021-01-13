@@ -18,6 +18,6 @@ Deep-Copy an Isolation Forest Model Object
 \details{
 Generates a deep copy of a model object, including the C++ objects inside it.
 This function is only meaningful if one intends to call a function that modifies the
-internal C++ objects - currently, the only such function is \link{add.isolation.tree} - as
-otherwise R's objects follow a copy-on-write logic.
+internal C++ objects - currently, the only such function are \link{add.isolation.tree}
+and \link{append.trees} - as otherwise R's objects follow a copy-on-write logic.
 }
