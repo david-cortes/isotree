@@ -247,6 +247,7 @@ cdef extern from "isotree.hpp":
     void deserialize_imputer(Imputer &output, void *input_file_path) nogil except +
     void deserialize_imputer(Imputer &output, cpp_string &serialized, bool_t move_str) nogil except +
     bool_t py_should_use_char()
+    bool_t has_cereal()
     vector[cpp_string] generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                     vector[cpp_string] &numeric_colnames, vector[cpp_string] &categ_colnames,
                                     vector[vector[cpp_string]] &categ_levels,
@@ -744,6 +745,9 @@ cdef class isoforest_cpp_obj:
         cdef Py_UNICODE *fpath_imp_as_wchar = NULL
         cdef bytes obj_as_bytes
 
+        if not has_cereal():
+          raise ValueError("Error: library was built without serialization capabilities.")
+
         if use_cpp:
             if py_should_use_char():
                 py_byte_string = fpath.encode()
@@ -793,6 +797,9 @@ cdef class isoforest_cpp_obj:
         cdef char *ptr_to_bytes = NULL
         cdef size_t n_bytes = 0
         cdef bytes model_bytes = b""
+
+        if not has_cereal():
+          raise ValueError("Error: library was built without serialization capabilities.")
 
         if use_cpp:
             if py_should_use_char():

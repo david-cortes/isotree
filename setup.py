@@ -10,7 +10,15 @@ from Cython.Distutils import build_ext
 from sys import platform
 import sys, os, re
 from os import environ
-import cycereal
+
+has_cereal = True
+try:
+    import cycereal
+    cereal_dir = cycereal.get_cereal_include_dir()
+except:
+    has_cereal = False
+    cereal_dir = "." ## <- placeholder
+
 
 ## https://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
 class build_ext_subclass( build_ext ):
@@ -68,7 +76,7 @@ if platform[:3] != "dar":
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.1.28',
+    version = '0.1.28-1',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',
@@ -81,11 +89,11 @@ setup(
                                          "src/extended.cpp", "src/helpers_iforest.cpp", "src/predict.cpp", "src/utils.cpp",
                                          "src/crit.cpp", "src/dist.cpp", "src/impute.cpp", "src/mult.cpp", "src/dealloc.cpp",
                                          "src/merge_models.cpp", "src/serialize.cpp", "src/sql.cpp"],
-                                include_dirs=[np.get_include(), ".", "./src", cycereal.get_cereal_include_dir()],
+                                include_dirs=[np.get_include(), ".", "./src", cereal_dir],
                                 language="c++",
                                 install_requires = ["numpy", "pandas>=0.24.0", "cython", "scipy"],
                                 define_macros = [("_USE_MERSENNE_TWISTER", None),
-                                                 ("_ENABLE_CEREAL", None),
+                                                 ("_ENABLE_CEREAL", None) if has_cereal else ("NO_CEREAL", None),
                                                  ("_FOR_PYTHON", None),
                                                  ("PY_GEQ_3_3", None)
                                                  if (sys.version_info[0] >= 3 and sys.version_info[1] >= 3) else
@@ -101,3 +109,12 @@ if not use_omp:
     apple_msg += "Using 'python setup.py install enable-omp'. "
     apple_msg += "You'll also need an OpenMP-capable compiler.\n\n\n"
     warnings.warn(apple_msg)
+
+if not has_cereal:
+    import warnings
+    msg  = "\n\nWarning: cereal library not found. Package will be built "
+    msg += "without serialization (importing/exporting models) capabilities. "
+    msg += "In order to enable cereal, install package 'cycereal' and reinstall "
+    msg += "'isotree' by downloading the source files and running "
+    msg += "'python setup.py install'.\n"
+    warnings.warn(msg)

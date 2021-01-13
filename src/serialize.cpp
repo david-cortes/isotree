@@ -317,6 +317,84 @@ bool py_should_use_char()
     return false;
     #endif
 }
+
+bool has_cereal()
+{
+    return true;
+}
 #endif /* _FOR_PYTHON */
 
-#endif /* _ENABLE_CEREAL */
+#elif defined(_FOR_PYTHON) /* !defined(_ENABLE_CEREAL) */
+
+bool has_cereal()
+{
+    return false;
+}
+
+bool has_msvc()
+{
+    return false;
+}
+
+bool py_should_use_char()
+{
+    return false;
+}
+
+void serialize_isoforest(IsoForest &model, void *output_file_path)
+{
+    return;
+}
+void deserialize_isoforest(IsoForest &output_obj, void *input_file_path)
+{
+    return;
+}
+void serialize_ext_isoforest(ExtIsoForest &model, void *output_file_path)
+{
+    return;
+}
+void deserialize_ext_isoforest(ExtIsoForest &output_obj, void *input_file_path)
+{
+    return;
+}
+void serialize_imputer(Imputer &imputer, void *output_file_path)
+{
+    return;
+}
+void deserialize_imputer(Imputer &output_obj, void *input_file_path)
+{
+    return;
+}
+
+std::string serialize_isoforest(IsoForest &model)
+{
+    return std::string();
+}
+
+std::string serialize_ext_isoforest(ExtIsoForest &model)
+{
+    return std::string();
+}
+
+std::string serialize_imputer(Imputer &imputer)
+{
+    return std::string();
+}
+
+void deserialize_isoforest(IsoForest &output_obj, std::string &serialized, bool move_str)
+{
+    return;
+}
+
+void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::string &serialized, bool move_str)
+{
+    return;
+}
+
+void deserialize_imputer(Imputer &output_obj, std::string &serialized, bool move_str)
+{
+    return;
+}
+
+
+#endif /* _ENABLE_CEREAL && _FOR_PYTHON */

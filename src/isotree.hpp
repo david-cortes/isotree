@@ -910,7 +910,7 @@ void merge_models(IsoForest*     model,      IsoForest*     other,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                   Imputer*       imputer,    Imputer*       iother);
 
-#ifdef _ENABLE_CEREAL
+#if defined(_ENABLE_CEREAL) || defined(_FOR_PYTHON)
 /* serialize.cpp */
 void serialize_isoforest(IsoForest &model, std::ostream &output);
 void serialize_isoforest(IsoForest &model, const char *output_file_path);
@@ -947,8 +947,9 @@ void deserialize_ext_isoforest(ExtIsoForest &output_obj, void *input_file_path);
 void serialize_imputer(Imputer &imputer, void *output_file_path);
 void deserialize_imputer(Imputer &output_obj, void *input_file_path);
 bool py_should_use_char();
+bool has_cereal();
 #endif /* _FOR_PYTHON */
-#endif /* _ENABLE_CEREAL */
+#endif /* _ENABLE_CEREAL || _FOR_PYTON */
 
 /* sql.cpp */
 std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
