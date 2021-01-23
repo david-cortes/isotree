@@ -282,7 +282,7 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                     xval = prediction_data.numeric_data[row +  tree[curr_lev].col_num * prediction_data.nrows];
                     curr_lev = (xval <= tree[curr_lev].num_split)?
                                 tree[curr_lev].tree_left : tree[curr_lev].tree_right;
-                    output_depth += (xval < tree[curr_lev].range_low) || (xval > tree[curr_lev].range_high);
+                    output_depth -= (xval < tree[curr_lev].range_low) || (xval > tree[curr_lev].range_high);
                     break;
                 }
 
@@ -398,7 +398,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
             if (imputed_data != NULL)
                 add_from_impute_node((*impute_nodes)[curr_lev], *imputed_data, curr_weight);
 
-            return tree[curr_lev].score + range_penalty;
+            return tree[curr_lev].score - range_penalty;
         }
 
         else
@@ -430,7 +430,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                                         * traverse_itree(tree, model_outputs, prediction_data,
                                                          impute_nodes, imputed_data, curr_weight * (1 - tree[curr_lev].pct_tree_left),
                                                          row, NULL, tree[curr_lev].tree_right)
-                                    + range_penalty;
+                                    - range_penalty;
                             }
 
                             case Impute:
@@ -474,7 +474,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                                         * traverse_itree(tree, model_outputs, prediction_data,
                                                          impute_nodes, imputed_data, curr_weight * (1 - tree[curr_lev].pct_tree_left),
                                                          row, NULL, tree[curr_lev].tree_right)
-                                    + range_penalty;
+                                    - range_penalty;
                             }
 
                             case Impute:
@@ -541,7 +541,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                                                         * traverse_itree(tree, model_outputs, prediction_data,
                                                                          impute_nodes, imputed_data, curr_weight * (1 - tree[curr_lev].pct_tree_left),
                                                                          row, NULL, tree[curr_lev].tree_right)
-                                                    + range_penalty;
+                                                    - range_penalty;
                                             }
                                         }
                                     }
@@ -603,7 +603,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                                                         * traverse_itree(tree, model_outputs, prediction_data,
                                                                          impute_nodes, imputed_data, curr_weight * (1 - tree[curr_lev].pct_tree_left),
                                                                          row, NULL, tree[curr_lev].tree_right)
-                                                    + range_penalty;
+                                                    - range_penalty;
                                             }
 
                                             else
@@ -659,7 +659,7 @@ void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
                          - hplane[curr_lev].mean[col]) * hplane[curr_lev].coef[col];
         }
 
-        output_depth += (hval < hplane[curr_lev].range_low) ||
+        output_depth -= (hval < hplane[curr_lev].range_low) ||
                         (hval > hplane[curr_lev].range_high);
         curr_lev      = (hval <= hplane[curr_lev].split_point)?
                          hplane[curr_lev].hplane_left : hplane[curr_lev].hplane_right;
@@ -789,7 +789,7 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
 
             }
 
-            output_depth += (hval < hplane[curr_lev].range_low) ||
+            output_depth -= (hval < hplane[curr_lev].range_low) ||
                             (hval > hplane[curr_lev].range_high);
             curr_lev       = (hval <= hplane[curr_lev].split_point)?
                              hplane[curr_lev].hplane_left : hplane[curr_lev].hplane_right;

@@ -326,6 +326,7 @@
 #'     X, ndim=1,
 #'     ntrees=100,
 #'     nthreads=1,
+#'     penalize_range=FALSE,
 #'     prob_pick_pooled_gain=0,
 #'     prob_pick_avg_gain=0)
 #' Z1 <- predict(iso_simple, space_d)
@@ -336,6 +337,7 @@
 #'      X, ndim=2,
 #'      ntrees=100,
 #'      nthreads=1,
+#'      penalize_range=FALSE,
 #'      prob_pick_pooled_gain=0,
 #'      prob_pick_avg_gain=0)
 #' Z2 <- predict(iso_ext, space_d)
@@ -346,6 +348,7 @@
 #'      X, ndim=2,
 #'      ntrees=100,
 #'      nthreads=1,
+#'      penalize_range=TRUE,
 #'      prob_pick_pooled_gain=0,
 #'      prob_pick_avg_gain=1)
 #' Z3 <- predict(iso_sci, space_d)
@@ -356,6 +359,7 @@
 #'      X, ndim=2,
 #'      ntrees=100,
 #'      nthreads=1,
+#'      penalize_range=FALSE,
 #'      prob_pick_pooled_gain=1,
 #'      prob_pick_avg_gain=0)
 #' Z4 <- predict(iso_fcf, space_d)
