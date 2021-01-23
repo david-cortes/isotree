@@ -181,7 +181,7 @@
 #' is only used when sub-sampling data for each tree, which is not the default in this implementation.
 #' @param sample_with_replacement Whether to sample rows with replacement or not (not recommended).
 #' Note that distance calculations, if desired, don't work when there are duplicate rows.
-#' @param penalize_range Whether to penalize (add +1 to the terminal depth) observations at prediction time that have a value
+#' @param penalize_range Whether to penalize (add -1 to the terminal depth) observations at prediction time that have a value
 #' of the chosen split variable (linear combination in extended model) that falls outside of a pre-determined
 #' reasonable range in the data being split (given by `2 * range` in data and centered around the split point),
 #' as proposed in reference [4] and implemented in the authors' original code in reference [5]. Not used in single-variable model

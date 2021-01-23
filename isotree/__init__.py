@@ -217,7 +217,7 @@ class IsolationForest:
         Whether to sample rows with replacement or not (not recommended). Note that distance calculations,
         if desired, don't work well with duplicate rows.
     penalize_range : bool
-        Whether to penalize (add +1 to the terminal depth) observations at prediction time that have a value
+        Whether to penalize (add -1 to the terminal depth) observations at prediction time that have a value
         of the chosen split variable (linear combination in extended model) that falls outside of a pre-determined
         reasonable range in the data being split (given by 2 * range in data and centered around the split point),
         as proposed in [4] and implemented in the authors' original code in [5]. Not used in single-variable model
