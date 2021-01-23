@@ -221,7 +221,8 @@ class IsolationForest:
         of the chosen split variable (linear combination in extended model) that falls outside of a pre-determined
         reasonable range in the data being split (given by 2 * range in data and centered around the split point),
         as proposed in [4] and implemented in the authors' original code in [5]. Not used in single-variable model
-        when splitting by categorical variables.
+        when splitting by categorical variables. Note that this can make a very large difference in the results
+        when using ``prob_pick_pooled_gain``.
     weigh_by_kurtosis : bool
         Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
         for each tree as briefly proposed in [1]. Note that this is only done at the beginning of each tree

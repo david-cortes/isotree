@@ -222,7 +222,8 @@ Note that distance calculations, if desired, don't work when there are duplicate
 of the chosen split variable (linear combination in extended model) that falls outside of a pre-determined
 reasonable range in the data being split (given by `2 * range` in data and centered around the split point),
 as proposed in reference [4] and implemented in the authors' original code in reference [5]. Not used in single-variable model
-when splitting by categorical variables.}
+when splitting by categorical variables. Note that this can make a very large difference in the results
+when using `prob_pick_pooled_gain`.}
 
 \item{weigh_by_kurtosis}{Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
 for each tree as briefly proposed in reference [1]. Note that this is only done at the beginning of each tree
@@ -423,7 +424,7 @@ plot.space(Z2, "Extended Isolation Forest")
 
 ### SCiForest
 iso_sci = isolation.forest(
-     X, ndim=2,
+     X, ndim=2, ntry=10,
      ntrees=100,
      nthreads=1,
      penalize_range=TRUE,
