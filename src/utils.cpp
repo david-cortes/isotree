@@ -643,16 +643,16 @@ void WeightedColSampler::initialize(double weights[], size_t n)
     this->n_available = this->n;
     this->tree_levels = log2ceil(n);
     if (!this->tree_weights.size())
-        this->tree_weights.resize(this->tree_levels, 0);
+        this->tree_weights.resize(pow2(this->tree_levels + 1), 0);
     else {
-        if (this->tree_weights.size() != this->tree_levels)
+        if (this->tree_weights.size() != pow2(this->tree_levels + 1))
             this->tree_weights.resize(this->tree_levels);
         std::fill(this->tree_weights.begin(), this->tree_weights.end(), 0.);
     }
 
     /* compute sums for the tree leaves at each node */
     this->offset = pow2(this->tree_levels) - 1;
-    for (size_t ix = 0; ix < n; ix++) {
+    for (size_t ix = 0; ix < this->n; ix++) {
         this->tree_weights[ix + this->offset] = weights[ix];
     }
     for (size_t ix = pow2(this->tree_levels+1) - 1; ix > 0; ix--) {
@@ -697,7 +697,7 @@ void WeightedColSampler::shuffle_cols(std::vector<size_t> &out, RNG_engine &rnd_
 {
     std::vector<size_t> mapping(this->n);
     std::vector<double> curr_weight(this->n);
-    size_t n_available;
+    size_t n_available = 0;
     for (size_t col = 0; col < this->n; col++)
     {
         if (this->tree_weights[col + this->offset] > 0.)
