@@ -912,4 +912,11 @@ Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, 
     return out;
 }
 
+// [[Rcpp::export(rng = false)]]
+void call_sort_csc_indices(Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr)
+{
+    size_t ncols_numeric = Xc_indptr.size() - 1;
+    sort_csc_indices(REAL(Xc), INTEGER(Xc_ind), INTEGER(Xc_indptr), ncols_numeric);
+}
+
 #endif /* _FOR_R */

@@ -382,7 +382,8 @@ group2 <- data.frame(x = rnorm(1000, +1, .2),
 X = rbind(group1, group2)
 
 ### Add an obvious outlier which is within the 1d ranges
-### (As an interesting test, remove and see what happens)
+### (As an interesting test, remove and see what happens,
+###  or check how its score changes when using sub-sampling)
 X = rbind(X, c(-1, 1))
 
 ### Produce heatmaps

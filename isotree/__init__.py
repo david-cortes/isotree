@@ -4,7 +4,7 @@ import warnings
 import multiprocessing
 import ctypes
 import json
-from ._cpp_interface import isoforest_cpp_obj
+from ._cpp_interface import isoforest_cpp_obj, _sort_csc_indices
 
 __all__ = ["IsolationForest"]
 
@@ -796,7 +796,10 @@ class IsolationForest:
                 X = np.asfortranarray(X).astype(ctypes.c_double)
             elif issparse(X):
                 if isspmatrix_csc(X):
-                    X.sort_indices()
+                    if X.indptr.dtype == ctypes.c_size_t:
+                        _sort_csc_indices(X)
+                    else:
+                        X.sort_indices()
                 else:
                     warnings.warn("Sparse matrices are only supported in CSC format, will be converted.")
                     X = csc_matrix(X)
@@ -824,7 +827,7 @@ class IsolationForest:
             raise ValueError("Input data has too few rows.")
         elif self.sample_size is not None:
             if self.sample_size > nrows:
-                warnings.warn("Input data has fewer rows than sample_size, will increase sample_size.")
+                warnings.warn("Input data has fewer rows than sample_size, will decrease sample_size.")
                 self.sample_size = None
 
         if X_cat is not None:
@@ -918,7 +921,10 @@ class IsolationForest:
                     warnings.warn(msg)
                     X = csc_matrix(X)
                 else:
-                    X.sort_indices()
+                    if X.indptr.dtype == ctypes.c_size_t:
+                        _sort_csc_indices(X)
+                    else:
+                        X.sort_indices()
 
                 X = X.copy() ### avoid modifying it in-place
                 X.data    = X.data.astype(ctypes.c_double)

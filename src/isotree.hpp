@@ -752,7 +752,7 @@ void decide_column(size_t ncols_numeric, size_t ncols_categ, size_t &col_chosen,
                    std::discrete_distribution<size_t> &col_sampler);
 void add_unsplittable_col(WorkerMemory &workspace, IsoTree &tree, InputData &input_data);
 void add_unsplittable_col(WorkerMemory &workspace, InputData &input_data);
-bool check_is_not_unsplittable_col(WorkerMemory &workspace, IsoTree &tree, InputData &input_data);
+bool check_is_splittable_col(WorkerMemory &workspace, IsoTree &tree, InputData &input_data);
 void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params, IsoTree &tree);
 void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params);
 int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size_t col_num);
@@ -849,6 +849,8 @@ size_t center_NAs(size_t *restrict ix_arr, size_t st_left, size_t st, size_t cur
 void todense(size_t ix_arr[], size_t st, size_t end,
              size_t col_num, double *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
              double *restrict buffer_arr);
+bool check_indices_are_sorted(sparse_ix indices[], size_t n);
+void sort_csc_indices(double *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr, size_t ncols_numeric);
 
 /* mult.cpp */
 void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x,

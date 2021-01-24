@@ -114,17 +114,18 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL, recod
             ### From package 'Matrix'
             if (NROW(df@x) == 0)
                 stop("'df' has no non-zero entries.")
-            outp$Xc         <-  as.numeric(df@x)
-            outp$Xc_ind     <-  as.integer(df@i)
-            outp$Xc_indptr  <-  as.integer(df@p)
+            outp$Xc         <-  df@x
+            outp$Xc_ind     <-  df@i
+            outp$Xc_indptr  <-  df@p
         } else {
             ### From package 'SparseM'
             if (NROW(df@ra) == 0)
                 stop("'df' has no non-zero entries.")
-            outp$Xc         <-  as.numeric(df@ra)
-            outp$Xc_ind     <-  as.integer(df@ia - 1L)
-            outp$Xc_indptr  <-  as.integer(df@ja - 1L)
+            outp$Xc         <-  df@ra
+            outp$Xc_ind     <-  df@ia - 1L
+            outp$Xc_indptr  <-  df@ja - 1L
         }
+        call_sort_csc_indices(outp$Xc, outp$Xc_ind, outp$Xc_indptr)
         
         return(outp)
     }
@@ -244,7 +245,7 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
         
     } else if ("dsparseVector" %in% class(df)) {
         outp$Xr         <-  as.numeric(df@x)
-        outp$Xr_ind     <-  as.integer(df@i) - 1L
+        outp$Xr_ind     <-  df@i - 1L
         outp$Xr_indptr  <-  as.integer(c(0L, NROW(df@x)))
         outp$nrows      <-  1L
     } else {
@@ -261,30 +262,35 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
             if ("dgCMatrix" %in% class(df)) {
                 ### From package 'Matrix'
                 if (allow_csc) {
-                    outp$Xc         <-  as.numeric(df@x)
-                    outp$Xc_ind     <-  as.integer(df@i)
-                    outp$Xc_indptr  <-  as.integer(df@p)
+                    outp$Xc         <-  df@x
+                    outp$Xc_ind     <-  df@i
+                    outp$Xc_indptr  <-  df@p
+                    call_sort_csc_indices(outp$Xc, outp$Xc_ind, outp$Xc_indptr)
                 } else {
                     df <- Matrix::t(df)
-                    outp$Xr         <-  as.numeric(df@x)
-                    outp$Xr_ind     <-  as.integer(df@i)
-                    outp$Xr_indptr  <-  as.integer(df@p)
+                    outp$Xr         <-  df@x
+                    outp$Xr_ind     <-  df@i
+                    outp$Xr_indptr  <-  df@p
+                    call_sort_csc_indices(outp$Xr, outp$Xr_ind, outp$Xr_indptr)
                 }
             } else if ("dgRMatrix" %in% class(df)) {
                 ### From package 'Matrix'
-                outp$Xr         <-  as.numeric(df@x)
-                outp$Xr_ind     <-  as.integer(df@j)
-                outp$Xr_indptr  <-  as.integer(df@p)
+                outp$Xr         <-  df@x
+                outp$Xr_ind     <-  df@j
+                outp$Xr_indptr  <-  df@p
+                call_sort_csc_indices(outp$Xr, outp$Xr_ind, outp$Xr_indptr)
             } else {
                 ### From package 'SparseM'
                 if ("matrix.csc" %in% class(df)) {
-                    outp$Xc         <-  as.numeric(df@ra)
-                    outp$Xc_ind     <-  as.integer(df@ia - 1L)
-                    outp$Xc_indptr  <-  as.integer(df@ja - 1L)
+                    outp$Xc         <-  df@ra
+                    outp$Xc_ind     <-  df@ia - 1L
+                    outp$Xc_indptr  <-  df@ja - 1L
+                    call_sort_csc_indices(outp$Xc, outp$Xc_ind, outp$Xc_indptr)
                 } else {
-                    outp$Xr         <-  as.numeric(df@ra)
-                    outp$Xr_ind     <-  as.integer(df@ia - 1L)
-                    outp$Xr_indptr  <-  as.integer(df@ja - 1L)
+                    outp$Xr         <-  df@ra
+                    outp$Xr_ind     <-  df@ia - 1L
+                    outp$Xr_indptr  <-  df@ja - 1L
+                    call_sort_csc_indices(outp$Xr, outp$Xr_ind, outp$Xr_indptr)
                 }
             }
         }

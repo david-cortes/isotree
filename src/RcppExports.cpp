@@ -282,6 +282,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// call_sort_csc_indices
+void call_sort_csc_indices(Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr);
+RcppExport SEXP _isotree_call_sort_csc_indices(SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP) {
+BEGIN_RCPP
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type Xc(XcSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type Xc_ind(Xc_indSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type Xc_indptr(Xc_indptrSEXP);
+    call_sort_csc_indices(Xc, Xc_ind, Xc_indptr);
+    return R_NilValue;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_isotree_deserialize_IsoForest", (DL_FUNC) &_isotree_deserialize_IsoForest, 1},
@@ -298,6 +309,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_model_to_sql", (DL_FUNC) &_isotree_model_to_sql, 9},
     {"_isotree_model_to_sql_with_select_from", (DL_FUNC) &_isotree_model_to_sql_with_select_from, 8},
     {"_isotree_copy_cpp_objects", (DL_FUNC) &_isotree_copy_cpp_objects, 4},
+    {"_isotree_call_sort_csc_indices", (DL_FUNC) &_isotree_call_sort_csc_indices, 3},
     {NULL, NULL, 0}
 };
 

@@ -78,7 +78,7 @@ void add_unsplittable_col(WorkerMemory &workspace, InputData &input_data)
         workspace.cols_possible[workspace.col_chosen + input_data.ncols_numeric] = false;
 }
 
-bool check_is_not_unsplittable_col(WorkerMemory &workspace, IsoTree &tree, InputData &input_data)
+bool check_is_splittable_col(WorkerMemory &workspace, IsoTree &tree, InputData &input_data)
 {
     if (tree.col_type == Numeric)
         return workspace.cols_possible[tree.col_num];

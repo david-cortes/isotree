@@ -234,6 +234,8 @@ cdef extern from "isotree.hpp":
                       ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                       Imputer*       imputer,    Imputer*       iother) nogil except +
 
+    void sort_csc_indices(double *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr, size_t ncols_numeric) nogil except +
+
     void serialize_isoforest(IsoForest &model, void *output_file_path) nogil except +
     cpp_string serialize_isoforest(IsoForest &model) nogil except +
     void deserialize_isoforest(IsoForest &output, void *input_file_path) nogil except +
@@ -281,6 +283,17 @@ cdef double* get_ptr_dbl_mat(np.ndarray[double, ndim = 2] a):
 
 cdef int* get_ptr_int_mat(np.ndarray[int, ndim = 2] a):
     return &a[0, 0]
+
+def _sort_csc_indices(Xcsc):
+    cdef double *ptr_Xc = NULL
+    cdef sparse_ix *ptr_Xc_ind = NULL
+    cdef sparse_ix *ptr_Xc_indptr = get_ptr_szt_vec(Xcsc.indptr)
+    cdef size_t ncols_numeric = Xcsc.shape[1]
+    if Xcsc.indptr.shape[0] > 1:
+        ptr_Xc = get_ptr_dbl_vec(Xcsc.data)
+        ptr_Xc_ind = get_ptr_szt_vec(Xcsc.indices)
+        with nogil:
+            sort_csc_indices(ptr_Xc, ptr_Xc_ind, ptr_Xc_indptr, ncols_numeric)
 
 
 # @cython.auto_pickle(True)

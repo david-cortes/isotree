@@ -57,3 +57,7 @@ copy_cpp_objects <- function(model_R_ptr, is_extended, imp_R_ptr, has_imputer) {
     .Call(`_isotree_copy_cpp_objects`, model_R_ptr, is_extended, imp_R_ptr, has_imputer)
 }
 
+call_sort_csc_indices <- function(Xc, Xc_ind, Xc_indptr) {
+    invisible(.Call(`_isotree_call_sort_csc_indices`, Xc, Xc_ind, Xc_indptr))
+}
+

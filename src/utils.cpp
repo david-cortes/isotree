@@ -768,6 +768,7 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                         st++;
                     }
                     if (curr_pos == end_col && row < ix_arr + end)
+                    {
                         for (size_t *r = row + 1; r <= ix_arr + end; r++)
                         {
                             temp       = ix_arr[st];
@@ -775,6 +776,7 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                             *r         = temp;
                             st++;
                         }
+                    }
                     if (row == ix_arr + end || curr_pos == end_col) break;
                     curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *(++row)) - Xc_ind;
                 }
@@ -1539,6 +1541,52 @@ void todense(size_t ix_arr[], size_t st, size_t end,
                 row = std::lower_bound(row + 1, ix_arr + end + 1, Xc_ind[curr_pos]);
             else
                 curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
+        }
+    }
+}
+
+/* TODO: remove this once SciPy implements it for 'size_t' */
+bool check_indices_are_sorted(sparse_ix indices[], size_t n)
+{
+    if (n <= 1)
+        return true;
+    if (indices[n-1] < indices[0])
+        return false;
+    for (size_t ix = 1; ix < n; ix++)
+        if (indices[ix] < indices[ix-1])
+            return false;
+    return true;
+}
+
+void sort_csc_indices(double *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr, size_t ncols_numeric)
+{
+    std::vector<double> buffer_sorted_vals;
+    std::vector<sparse_ix> buffer_sorted_ix;
+    std::vector<size_t> argsorted;
+    size_t n_this;
+    size_t ix1, ix2;
+    for (size_t col = 0; col < ncols_numeric; col++)
+    {
+        ix1 = Xc_indptr[col];
+        ix2 = Xc_indptr[col+1];
+        n_this = ix2 - ix1;
+        if (n_this && !check_indices_are_sorted(Xc_ind + ix1, n_this))
+        {
+            if (buffer_sorted_vals.size() < n_this)
+            {
+                buffer_sorted_vals.resize(n_this);
+                buffer_sorted_ix.resize(n_this);
+                argsorted.resize(n_this);
+            }
+            std::iota(argsorted.begin(), argsorted.begin() + n_this, ix1);
+            std::sort(argsorted.begin(), argsorted.begin() + n_this,
+                      [&Xc_ind](const size_t a, const size_t b){return Xc_ind[a] < Xc_ind[b];});
+            for (size_t ix = 0; ix < n_this; ix++)
+                buffer_sorted_ix[ix] = Xc_ind[argsorted[ix]];
+            std::copy(buffer_sorted_ix.begin(), buffer_sorted_ix.begin() + n_this, Xc_ind + ix1);
+            for (size_t ix = 0; ix < n_this; ix++)
+                buffer_sorted_vals[ix] = Xc[argsorted[ix]];
+            std::copy(buffer_sorted_vals.begin(), buffer_sorted_vals.begin() + n_this, Xc + ix1);
         }
     }
 }
