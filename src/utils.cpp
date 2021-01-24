@@ -667,6 +667,7 @@ void WeightedColSampler::drop_col(size_t col)
         size_t curr_ix = col + this->offset;
         if (this->tree_weights[curr_ix] > 0)
         {
+            this->tree_weights[curr_ix] = 0.;
             for (size_t lev = 0; lev < this->tree_levels; lev++)
             {
                 curr_ix = ix_parent(curr_ix);
