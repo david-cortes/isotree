@@ -635,6 +635,97 @@ void weighted_shuffle(size_t *restrict outp, size_t n, double *restrict weights,
 
 }
 
+/* This one samples with replacement. Algorithm is the same as above but keeps
+   the weights after taking each sample. */
+void WeightedColSampler::initialize(double weights[], size_t n)
+{
+    this->n = n;
+    this->n_available = this->n;
+    this->tree_levels = log2ceil(n);
+    if (!this->tree_weights.size())
+        this->tree_weights.resize(this->tree_levels, 0);
+    else {
+        if (this->tree_weights.size() != this->tree_levels)
+            this->tree_weights.resize(this->tree_levels);
+        std::fill(this->tree_weights.begin(), this->tree_weights.end(), 0.);
+    }
+
+    /* compute sums for the tree leaves at each node */
+    this->offset = pow2(this->tree_levels) - 1;
+    for (size_t ix = 0; ix < n; ix++) {
+        this->tree_weights[ix + this->offset] = weights[ix];
+    }
+    for (size_t ix = pow2(this->tree_levels+1) - 1; ix > 0; ix--) {
+        this->tree_weights[ix_parent(ix)] += tree_weights[ix];
+    }
+}
+
+void WeightedColSampler::drop_col(size_t col)
+{
+    if (this->is_initialized())
+    {
+        size_t curr_ix = col + this->offset;
+        if (this->tree_weights[curr_ix] > 0)
+        {
+            for (size_t lev = 0; lev < this->tree_levels; lev++)
+            {
+                curr_ix = ix_parent(curr_ix);
+                this->tree_weights[curr_ix] =   this->tree_weights[ix_child(curr_ix)]
+                                              + this->tree_weights[ix_child(curr_ix) + 1];
+            }
+        }
+    }
+}
+
+size_t WeightedColSampler::sample_col(RNG_engine &rnd_generator)
+{
+    size_t curr_ix = 0;
+    double rnd_subrange, w_left;
+    double curr_subrange = this->tree_weights[0];
+    for (size_t lev = 0; lev < tree_levels; lev++)
+    {
+        rnd_subrange = std::uniform_real_distribution<double>(0., curr_subrange)(rnd_generator);
+        w_left = this->tree_weights[ix_child(curr_ix)];
+        curr_ix = ix_child(curr_ix) + (rnd_subrange >= w_left);
+        curr_subrange = this->tree_weights[curr_ix];
+    }
+
+    return curr_ix - this->offset;
+}
+
+void WeightedColSampler::shuffle_cols(std::vector<size_t> &out, RNG_engine &rnd_generator)
+{
+    std::vector<size_t> mapping(this->n);
+    std::vector<double> curr_weight(this->n);
+    size_t n_available;
+    for (size_t col = 0; col < this->n; col++)
+    {
+        if (this->tree_weights[col + this->offset] > 0.)
+        {
+            mapping[n_available] = col;
+            curr_weight[n_available] = this->tree_weights[col + this->offset];
+            n_available++;
+        }
+    }
+    this->n_available = n_available;
+
+    if (n_available)
+    {
+        out.reserve(this->n);
+        out.resize(n_available);
+        std::vector<double> buffer_arr(pow2(log2ceil(n_available) + 1));
+        weighted_shuffle(out.data(), n_available, curr_weight.data(),
+                         buffer_arr.data(), rnd_generator);
+        for (size_t col = 0; col < n_available; col++)
+            out[col] = mapping[out[col]];
+    }
+}
+
+bool WeightedColSampler::is_initialized()
+{
+    return this->tree_weights.size() > 0;
+}
+
 /* For hyperplane intersections */
 size_t divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, double split_point)
 {

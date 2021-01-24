@@ -460,6 +460,23 @@ typedef struct ImputedData {
 
 } ImputedData;
 
+/* Helper when passing column weights */
+class WeightedColSampler
+{
+public:
+    std::vector<double> tree_weights;
+    size_t n;
+    size_t tree_levels;
+    size_t offset;
+    size_t n_available;
+    void initialize(double weights[], size_t n);
+    void drop_col(size_t col);
+    size_t sample_col(RNG_engine &rnd_generator);
+    void shuffle_cols(std::vector<size_t> &out, RNG_engine &rnd_generator);
+    bool is_initialized();
+    WeightedColSampler() = default;
+};
+
 typedef struct {
     std::vector<size_t>  ix_arr;
     std::vector<size_t>  ix_all;
@@ -483,7 +500,7 @@ typedef struct {
     int                  ncat_tried;
     std::vector<bool>    cols_possible;
     std::vector<double>  btree_weights;  /* only when using weights for sampling */
-    std::discrete_distribution<size_t> col_sampler; /* columns can get eliminated, keep a copy for each thread */
+    WeightedColSampler   col_sampler; /* columns can get eliminated, keep a copy for each thread */
 
     /* for split criterion */
     std::vector<double>  buffer_dbl;
@@ -551,8 +568,8 @@ typedef struct {
     size_t  end;
     std::vector<size_t> ix_arr;
     std::vector<bool>   cols_possible;
+    WeightedColSampler  col_sampler;
     std::unique_ptr<double[]> weights_arr;
-    std::discrete_distribution<size_t> col_sampler;
 } RecursionState;
 
 /* Function prototypes */
@@ -749,14 +766,13 @@ size_t check_for_missing(PredictionData  &prediction_data,
 /* helpers_iforest.cpp */
 void decide_column(size_t ncols_numeric, size_t ncols_categ, size_t &col_chosen, ColType &col_type,
                    RNG_engine &rnd_generator, std::uniform_int_distribution<size_t> &runif,
-                   std::discrete_distribution<size_t> &col_sampler);
+                   WeightedColSampler &col_sampler);
 void add_unsplittable_col(WorkerMemory &workspace, IsoTree &tree, InputData &input_data);
 void add_unsplittable_col(WorkerMemory &workspace, InputData &input_data);
 bool check_is_splittable_col(WorkerMemory &workspace, IsoTree &tree, InputData &input_data);
 void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params, IsoTree &tree);
 void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params);
 int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size_t col_num);
-void update_col_sampler(WorkerMemory &workspace, InputData &input_data);
 bool is_col_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
                   InputData &input_data, size_t col_num, ColType col_type);
 void set_col_as_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,

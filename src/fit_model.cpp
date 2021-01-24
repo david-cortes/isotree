@@ -777,8 +777,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                                        input_data.btree_weights_init.end());
     workspace.rnd_generator.seed(model_params.random_seed + tree_num);
     if (input_data.col_weights != NULL)
-        workspace.col_sampler = std::discrete_distribution<size_t>(input_data.col_weights,
-                                                                   input_data.col_weights + input_data.ncols_numeric + input_data.ncols_categ);
+    	workspace.col_sampler.initialize(input_data.col_weights, input_data.ncols_tot);
     workspace.runif = std::uniform_int_distribution<size_t>(0, input_data.ncols_tot - 1);
     workspace.rbin  = std::uniform_real_distribution<double>(0, 1);
     sample_random_rows(workspace.ix_arr, input_data.nrows, model_params.with_replacement,
@@ -1059,7 +1058,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
             if (kurt_weights[col] <= 0 || is_na_or_inf(kurt_weights[col]))
                 workspace.cols_possible[col] = false;
 
-        workspace.col_sampler = std::discrete_distribution<size_t>(kurt_weights.begin(), kurt_weights.end());
+        workspace.col_sampler.initialize(kurt_weights.data(), kurt_weights.size());
     }
 
     if (tree_root != NULL)

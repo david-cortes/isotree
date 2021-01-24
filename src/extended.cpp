@@ -134,7 +134,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                   (double)0);
 
         workspace.tried_all = false;
-        if (model_params.ndim < input_data.ncols_tot / 2 || workspace.col_sampler.max())
+        if (model_params.ndim < input_data.ncols_tot / 2 || workspace.col_sampler.is_initialized())
         {
             while(workspace.ncols_tried < std::max(input_data.ncols_tot / 2, model_params.ndim))
             {
@@ -171,7 +171,6 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 
             if (workspace.ntaken < model_params.ndim)
             {
-                update_col_sampler(workspace, input_data);
                 goto probe_all;
             }
         }
@@ -180,12 +179,14 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         {
             probe_all:
                 workspace.tried_all = true;
-                std::iota(workspace.cols_shuffled.begin(), workspace.cols_shuffled.end(), (size_t)0);
                 if (model_params.ndim < input_data.ncols_tot)
                 {
 
-                    if (!workspace.col_sampler.max())
+                    if (!workspace.col_sampler.is_initialized())
                     {
+                        if (workspace.cols_shuffled.size() != input_data.ncols_tot)
+                            workspace.cols_shuffled.resize(input_data.ncols_tot);
+                        std::iota(workspace.cols_shuffled.begin(), workspace.cols_shuffled.end(), (size_t)0);
                         std::shuffle(workspace.cols_shuffled.begin(),
                                      workspace.cols_shuffled.end(),
                                      workspace.rnd_generator);
@@ -193,55 +194,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 
                     else
                     {
-                        if (!model_params.weigh_by_kurt)
-                        {
-                            weighted_shuffle(workspace.cols_shuffled.data(), input_data.ncols_tot, input_data.col_weights,
-                                             workspace.buffer_dbl.data(), workspace.rnd_generator);
-                        }
-
-                        else
-                        {
-                            std::vector<double> col_weights = workspace.col_sampler.probabilities();
-                            /* sampler will fail if passed weights of zero, so need to discard those first and then remap */
-                            std::iota(workspace.buffer_szt.begin(), workspace.buffer_szt.begin() + input_data.ncols_tot, (size_t)0);
-                            long st = input_data.ncols_tot - 1;
-                            for (long col = st; col >= 0; col--)
-                            {
-                                if (col_weights[col] <= 0)
-                                {
-                                    std::swap(col_weights[st], col_weights[col]);
-                                    std::swap(workspace.buffer_szt[st], workspace.buffer_szt[col]);
-                                    st--;
-                                }
-                            }
-
-                            if ((size_t)st == input_data.ncols_tot - 1)
-                            {
-                                weighted_shuffle(workspace.cols_shuffled.data(), input_data.ncols_tot, col_weights.data(),
-                                                 workspace.buffer_dbl.data(), workspace.rnd_generator);
-                            }
-
-                            else if (st < 0)
-                            {
-                                goto terminal_statistics;
-                            }
-
-                            else if (st == 0)
-                            {
-                                std::copy(workspace.buffer_szt.begin(),
-                                          workspace.buffer_szt.begin() + input_data.ncols_tot,
-                                          workspace.cols_shuffled.begin());
-                            }
-
-                            else
-                            {
-                                weighted_shuffle(workspace.buffer_szt.data(), (size_t) ++st, col_weights.data(),
-                                                 workspace.buffer_dbl.data(), workspace.rnd_generator);
-                                std::copy(workspace.buffer_szt.begin(),
-                                          workspace.buffer_szt.begin() + input_data.ncols_tot,
-                                          workspace.cols_shuffled.begin());
-                            }
-                        }
+                        workspace.col_sampler.shuffle_cols(workspace.cols_shuffled, workspace.rnd_generator);
                     }
                 }
 
@@ -253,7 +206,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                         (workspace.ntaken
                             &&
                          is_col_taken(col_is_taken, col_is_taken_s, input_data,
-                                       (col < input_data.ncols_numeric)? col : col - input_data.ncols_numeric,
+                                       (col < input_data.ncols_numeric)? (col) : (col - input_data.ncols_numeric),
                                        (col < input_data.ncols_numeric)? Numeric : Categorical)
                          )
                         )
@@ -284,9 +237,6 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                             break;
                     }
                 }
-
-                if (model_params.weigh_by_kurt)
-                    update_col_sampler(workspace, input_data);
         }
     
         /* evaluate gain if necessary */

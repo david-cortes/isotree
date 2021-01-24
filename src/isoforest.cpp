@@ -292,22 +292,17 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             if (workspace.unsplittable)
             {
 
-                if (workspace.cols_shuffled.size() < input_data.ncols_numeric + input_data.ncols_categ)
-                    workspace.cols_shuffled.resize(input_data.ncols_numeric + input_data.ncols_categ);
-
-                if (!workspace.col_sampler.max())
+                if (!workspace.col_sampler.is_initialized())
                 {
+                    if (workspace.cols_shuffled.size() < input_data.ncols_tot)
+                        workspace.cols_shuffled.resize(input_data.ncols_tot);
                     std::iota(workspace.cols_shuffled.begin(), workspace.cols_shuffled.end(), (size_t)0);
                     std::shuffle(workspace.cols_shuffled.begin(), workspace.cols_shuffled.end(), workspace.rnd_generator);
                 }
 
                 else
                 {
-                    std::vector<double> weights = workspace.col_sampler.probabilities();
-                    if (workspace.buffer_dbl.size() < pow2(log2ceil(workspace.cols_shuffled.size()) + 1))
-                        workspace.buffer_dbl.resize(pow2(log2ceil(workspace.cols_shuffled.size()) + 1));
-                    weighted_shuffle(workspace.cols_shuffled.data(), workspace.cols_shuffled.size(),
-                                     weights.data(), workspace.buffer_dbl.data(), workspace.rnd_generator);
+                    workspace.col_sampler.shuffle_cols(workspace.cols_shuffled, workspace.rnd_generator);
                 }
                 
                 for (size_t col : workspace.cols_shuffled)
@@ -333,8 +328,13 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                    model_params.missing_action, workspace.categs.data(), workspace.npresent, workspace.unsplittable);
                     }
 
-                    workspace.cols_possible[col] = !workspace.unsplittable;
-                    if (!workspace.unsplittable)
+                    if (workspace.unsplittable)
+                    {
+                        workspace.cols_possible[col] = !workspace.unsplittable;
+                        workspace.col_sampler.drop_col(col);
+                    }
+
+                    else
                     {
                         if (col < input_data.ncols_numeric)
                         {
@@ -356,8 +356,6 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
             /* finally, check the range if needed, and later decide on the split point */
             picked_col:
-            if (workspace.col_sampler.max())
-                update_col_sampler(workspace, input_data);
             if (workspace.criterion == NoCrit)
                 get_split_range(workspace, input_data, model_params, trees.back());
         }
@@ -554,7 +552,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         size_t tree_from = trees.size() - 1;
         size_t ix2, ix3;
         std::unique_ptr<std::vector<bool>> cols_possible_ptr;
-        std::unique_ptr<std::discrete_distribution<size_t>> col_sampler_ptr;
+        std::unique_ptr<WeightedColSampler> col_sampler_ptr;
         trees.back().score = -1;
 
         /* compute statistics for NAs and remember recursion indices/weights */
@@ -604,9 +602,9 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             ix3 = workspace.end;
             cols_possible_ptr  = std::unique_ptr<std::vector<bool>>(new std::vector<bool>);
             *cols_possible_ptr = workspace.cols_possible;
-            if (workspace.col_sampler.max())
+            if (workspace.col_sampler.is_initialized())
             {
-                col_sampler_ptr  = std::unique_ptr<std::discrete_distribution<size_t>>(new std::discrete_distribution<size_t>);
+                col_sampler_ptr  = std::unique_ptr<WeightedColSampler>(new WeightedColSampler());
                 *col_sampler_ptr = workspace.col_sampler;
             }
             workspace.end = workspace.split_ix - 1;

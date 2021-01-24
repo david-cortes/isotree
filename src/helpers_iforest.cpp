@@ -46,12 +46,12 @@
 
 void decide_column(size_t ncols_numeric, size_t ncols_categ, size_t &col_chosen, ColType &col_type,
                    RNG_engine &rnd_generator, std::uniform_int_distribution<size_t> &runif,
-                   std::discrete_distribution<size_t> &col_sampler)
+                   WeightedColSampler &col_sampler)
 {
-    if (!col_sampler.max())
+    if (!col_sampler.is_initialized())
         col_chosen = runif(rnd_generator);
     else
-        col_chosen = col_sampler(rnd_generator);
+        col_chosen = col_sampler.sample_col(rnd_generator);
 
     if (col_chosen >= ncols_numeric)
     {
@@ -64,18 +64,26 @@ void decide_column(size_t ncols_numeric, size_t ncols_categ, size_t &col_chosen,
 
 void add_unsplittable_col(WorkerMemory &workspace, IsoTree &tree, InputData &input_data)
 {
-    if (tree.col_type == Numeric)
+    if (tree.col_type == Numeric) {
         workspace.cols_possible[tree.col_num] = false;
-    else
+        workspace.col_sampler.drop_col(tree.col_num);
+    }
+    else {
         workspace.cols_possible[tree.col_num + input_data.ncols_numeric] = false;
+        workspace.col_sampler.drop_col(tree.col_num + input_data.ncols_numeric);
+    }
 }
 
 void add_unsplittable_col(WorkerMemory &workspace, InputData &input_data)
 {
-    if (workspace.col_type == Numeric)
+    if (workspace.col_type == Numeric) {
         workspace.cols_possible[workspace.col_chosen] = false;
-    else
+        workspace.col_sampler.drop_col(workspace.col_chosen);
+    }
+    else {
         workspace.cols_possible[workspace.col_chosen + input_data.ncols_numeric] = false;
+        workspace.col_sampler.drop_col(workspace.col_chosen + input_data.ncols_numeric);
+    }
 }
 
 bool check_is_splittable_col(WorkerMemory &workspace, IsoTree &tree, InputData &input_data)
@@ -150,21 +158,6 @@ int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size
     }
 
     return -1; /* this will never be reached, but CRAN complains otherwise */
-}
-
-void update_col_sampler(WorkerMemory &workspace, InputData &input_data)
-{
-    if (!workspace.col_sampler.max())
-        return;
-
-    std::vector<double> col_weights = workspace.col_sampler.probabilities();
-    for (size_t col = 0; col < input_data.ncols_numeric; col++)
-        if (!workspace.cols_possible[col])
-            col_weights[col] = 0;
-    for (size_t col = 0; col < input_data.ncols_categ; col++)
-        if (!workspace.cols_possible[col + input_data.ncols_numeric])
-            col_weights[col + input_data.ncols_numeric] = 0;
-    workspace.col_sampler = std::discrete_distribution<size_t>(col_weights.begin(), col_weights.end());
 }
 
 bool is_col_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
