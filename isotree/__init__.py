@@ -796,6 +796,11 @@ class IsolationForest:
                 X = np.asfortranarray(X).astype(ctypes.c_double)
             elif issparse(X):
                 if isspmatrix_csc(X):
+                    if ((X.indptr.dtype != ctypes.c_size_t) or
+                        (X.indices.dtype != ctypes.c_size_t) or
+                        (X.data.dtype != ctypes.c_double)
+                    ):
+                        X = X.copy()
                     if X.indptr.dtype == ctypes.c_size_t:
                         _sort_csc_indices(X)
                     else:
@@ -921,6 +926,11 @@ class IsolationForest:
                     warnings.warn(msg)
                     X = csc_matrix(X)
                 else:
+                    if ((X.indptr.dtype != ctypes.c_size_t) or
+                        (X.indices.dtype != ctypes.c_size_t) or
+                        (X.data.dtype != ctypes.c_double)
+                    ):
+                        X = X.copy()
                     if X.indptr.dtype == ctypes.c_size_t:
                         _sort_csc_indices(X)
                     else:
