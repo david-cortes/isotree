@@ -138,11 +138,14 @@ When used for outlier detection, higher values of this parameter result in model
 outliers in the training data, but generalize poorly to outliers in new data and to values of variables
 outside of the ranges from the training data. Passing small `sample_size` and high values of this parameter will
 tend to flag too many outliers.
+
 Note that, since this makes the trees more even and thus it takes more steps to produce isolated nodes,
 the resulting object will be heavier (use more memory). When splits are not made according to any of `prob_pick_avg_gain`,
 `prob_pick_pooled_gain`, `prob_split_avg_gain`, `prob_split_pooled_gain`, both the column and the split point
 are decided at random. Note that, if passing value = 1 (100\%) with no sub-sampling and using the single-variable model,
-every single tree will have the exact same splits.}
+every single tree will have the exact same splits.
+
+Be aware that `penalize_range` can also have a large impact when using `prob_pick_pooled_gain`.}
 
 \item{prob_split_avg_gain}{Probability of making each split by selecting a column at random and determining the split point as
 that which gives the highest averaged gain. Not supported for the extended model as the splits are on

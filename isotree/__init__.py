@@ -132,6 +132,8 @@ class IsolationForest:
         'prob_pick_pooled_gain', 'prob_split_avg_gain', 'prob_split_pooled_gain', both the column and the split point
         are decided at random. Note that, if passing value 1 (100%) with no sub-sampling and using the single-variable model,
         every single tree will have the exact same splits.
+
+        Be aware that ``penalize_range`` can also have a large impact when using ``prob_pick_pooled_gain``.
     prob_split_avg_gain : float(0, 1)
         Probability of making each split by selecting a column at random and determining the split point as
         that which gives the highest averaged gain. Not supported for the extended model as the splits are on
