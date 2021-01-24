@@ -244,6 +244,9 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
         }
         
     } else if ("dsparseVector" %in% class(df)) {
+        df@x   <-  df@x[order(df@i)]
+        df@i   <-  df@i[order(df@i)]
+
         outp$Xr         <-  as.numeric(df@x)
         outp$Xr_ind     <-  df@i - 1L
         outp$Xr_indptr  <-  as.integer(c(0L, NROW(df@x)))
