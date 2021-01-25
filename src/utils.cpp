@@ -640,7 +640,6 @@ void weighted_shuffle(size_t *restrict outp, size_t n, double *restrict weights,
 void WeightedColSampler::initialize(double weights[], size_t n)
 {
     this->n = n;
-    this->n_available = this->n;
     this->tree_levels = log2ceil(n);
     if (!this->tree_weights.size())
         this->tree_weights.resize(pow2(this->tree_levels + 1), 0);
@@ -696,30 +695,47 @@ size_t WeightedColSampler::sample_col(RNG_engine &rnd_generator)
 
 void WeightedColSampler::shuffle_cols(std::vector<size_t> &out, RNG_engine &rnd_generator)
 {
-    std::vector<size_t> mapping(this->n);
-    std::vector<double> curr_weight(this->n);
+    out.reserve(this->n);
+    out.resize(this->n);
+    std::vector<double> curr_weight = this->tree_weights;
     size_t n_available = 0;
-    for (size_t col = 0; col < this->n; col++)
-    {
-        if (this->tree_weights[col + this->offset] > 0.)
-        {
-            mapping[n_available] = col;
-            curr_weight[n_available] = this->tree_weights[col + this->offset];
-            n_available++;
-        }
-    }
-    this->n_available = n_available;
+    double rnd_subrange, w_left;
+    double curr_subrange;
+    int curr_ix;
 
-    if (n_available)
+    for (size_t el = 0; el < this->n; el++)
     {
-        out.reserve(this->n);
-        out.resize(n_available);
-        std::vector<double> buffer_arr(pow2(log2ceil(n_available) + 1));
-        weighted_shuffle(out.data(), n_available, curr_weight.data(),
-                         buffer_arr.data(), rnd_generator);
-        for (size_t col = 0; col < n_available; col++)
-            out[col] = mapping[out[col]];
+        /* go down the tree by drawing a random number and
+           checking if it falls in the left or right sub-ranges */
+        curr_ix = 0;
+        curr_subrange = curr_weight[0];
+        if (curr_subrange == 0)
+            break;
+
+        for (size_t lev = 0; lev < this->tree_levels; lev++)
+        {
+            rnd_subrange = std::uniform_real_distribution<double>(0., curr_subrange)(rnd_generator);
+            w_left = curr_weight[ix_child(curr_ix)];
+            curr_ix = ix_child(curr_ix) + (rnd_subrange >= w_left);
+            curr_subrange = curr_weight[curr_ix];
+        }
+
+        /* finally, add element from this iteration */
+        out[el] = curr_ix - this->offset;
+
+        /* now remove the weight of the chosen element */
+        curr_weight[curr_ix] = 0;
+        for (size_t lev = 0; lev < this->tree_levels; lev++)
+        {
+            curr_ix = ix_parent(curr_ix);
+            curr_weight[curr_ix] =   curr_weight[ix_child(curr_ix)]
+                                   + curr_weight[ix_child(curr_ix) + 1];
+        }
+
+        n_available++;
     }
+
+    out.resize(n_available);
 }
 
 bool WeightedColSampler::is_initialized()
@@ -1371,8 +1387,8 @@ void get_range(size_t ix_arr[], double x[], size_t st, size_t end,
     {
         for (size_t row = st; row <= end; row++)
         {
-            xmin = fmin(xmin, x[ix_arr[row]]);
-            xmax = fmax(xmax, x[ix_arr[row]]);
+            xmin = std::fmin(xmin, x[ix_arr[row]]);
+            xmax = std::fmax(xmax, x[ix_arr[row]]);
         }
     }
 
@@ -1449,8 +1465,8 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
             if (Xc_ind[curr_pos] == *row)
             {
                 nmatches++;
-                xmin = fmin(xmin, Xc[curr_pos]);
-                xmax = fmax(xmax, Xc[curr_pos]);
+                xmin = std::fmin(xmin, Xc[curr_pos]);
+                xmax = std::fmax(xmax, Xc[curr_pos]);
                 if (row == ix_arr + end || curr_pos == end_col) break;
                 curr_pos = std::lower_bound(Xc_ind + curr_pos, Xc_ind + end_col + 1, *(++row)) - Xc_ind;
             }
@@ -1468,8 +1484,8 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 
     if (nmatches < (end - st + 1))
     {
-        xmin = fmin(xmin, 0);
-        xmax = fmax(xmax, 0);
+        xmin = std::fmin(xmin, 0);
+        xmax = std::fmax(xmax, 0);
     }
     unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL);
 

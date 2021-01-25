@@ -261,57 +261,68 @@ void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_
     }
 }
 
-void backup_recursion_state(WorkerMemory &workspace, RecursionState &recursion_state)
+RecursionState::RecursionState(WorkerMemory &workspace, bool full_state)
 {
-    recursion_state.st            = workspace.st;
-    recursion_state.st_NA         = workspace.st_NA;
-    recursion_state.end_NA        = workspace.end_NA;
-    recursion_state.split_ix      = workspace.split_ix;
-    recursion_state.end           = workspace.end;
-    recursion_state.cols_possible = workspace.cols_possible;
-    recursion_state.col_sampler   = workspace.col_sampler;
+    this->full_state = full_state;
 
-    /* for the extended model, it's not necessary to copy everything */
-    if (!workspace.comb_val.size())
+    this->split_ix         =  workspace.split_ix;
+    this->end              =  workspace.end;
+    this->cols_possible    =  workspace.cols_possible;
+    this->go_to_shuffle    =  workspace.go_to_shuffle;
+    if (workspace.col_sampler.is_initialized())
+        this->col_sampler  =  workspace.col_sampler;
+
+    if (this->full_state)
     {
-        recursion_state.ix_arr = std::vector<size_t>(workspace.ix_arr.begin() + workspace.st_NA,
-                                                     workspace.ix_arr.begin() + workspace.end + 1);
-        size_t tot = workspace.end - workspace.st_NA + 1;
-        if (workspace.weights_arr.size() || workspace.weights_map.size())
-            recursion_state.weights_arr = std::unique_ptr<double[]>(new double[tot]);
-        if (workspace.weights_arr.size())
-            for (size_t ix = 0; ix < tot; ix++)
-                recursion_state.weights_arr[ix] = workspace.weights_arr[workspace.ix_arr[ix + workspace.st_NA]];
-        else if (workspace.weights_map.size())
-            for (size_t ix = 0; ix < tot; ix++)
-                recursion_state.weights_arr[ix] = workspace.weights_map[workspace.ix_arr[ix + workspace.st_NA]];
-        
+        this->st            = workspace.st;
+        this->st_NA         = workspace.st_NA;
+        this->end_NA        = workspace.end_NA;
 
+        /* for the extended model, it's not necessary to copy everything */
+        if (!workspace.comb_val.size())
+        {
+            this->ix_arr = std::vector<size_t>(workspace.ix_arr.begin() + workspace.st_NA,
+                                                         workspace.ix_arr.begin() + workspace.end + 1);
+            size_t tot = workspace.end - workspace.st_NA + 1;
+            if (workspace.weights_arr.size() || workspace.weights_map.size())
+                this->weights_arr = std::unique_ptr<double[]>(new double[tot]);
+            if (workspace.weights_arr.size())
+                for (size_t ix = 0; ix < tot; ix++)
+                    this->weights_arr[ix] = workspace.weights_arr[workspace.ix_arr[ix + workspace.st_NA]];
+            else if (workspace.weights_map.size())
+                for (size_t ix = 0; ix < tot; ix++)
+                    this->weights_arr[ix] = workspace.weights_map[workspace.ix_arr[ix + workspace.st_NA]];
+        }
     }
 }
 
 
-void restore_recursion_state(WorkerMemory &workspace, RecursionState &recursion_state)
+void RecursionState::restore_state(WorkerMemory &workspace)
 {
-    workspace.st            = recursion_state.st;
-    workspace.st_NA         = recursion_state.st_NA;
-    workspace.end_NA        = recursion_state.end_NA;
-    workspace.split_ix      = recursion_state.split_ix;
-    workspace.end           = recursion_state.end;
-    workspace.cols_possible = std::move(recursion_state.cols_possible);
-    workspace.col_sampler   = std::move(recursion_state.col_sampler);
+    workspace.split_ix       =  this->split_ix;
+    workspace.end            =  this->end;
+    workspace.cols_possible  =  std::move(this->cols_possible);
+    workspace.col_sampler    =  std::move(this->col_sampler);
+    workspace.go_to_shuffle  =  this->go_to_shuffle;
 
-    if (!workspace.comb_val.size())
+    if (this->full_state)
     {
-        std::copy(recursion_state.ix_arr.begin(),
-                  recursion_state.ix_arr.end(),
-                  workspace.ix_arr.begin() + recursion_state.st_NA);
-        size_t tot = workspace.end - workspace.st_NA + 1;
-        if (workspace.weights_arr.size())
-            for (size_t ix = 0; ix < tot; ix++)
-                workspace.weights_arr[workspace.ix_arr[ix + workspace.st_NA]] = recursion_state.weights_arr[ix];
-        else if (workspace.weights_map.size())
-            for (size_t ix = 0; ix < tot; ix++)
-                workspace.weights_map[workspace.ix_arr[ix + workspace.st_NA]] = recursion_state.weights_arr[ix];
+        workspace.st            = this->st;
+        workspace.st_NA         = this->st_NA;
+        workspace.end_NA        = this->end_NA;
+
+        if (!workspace.comb_val.size())
+        {
+            std::copy(this->ix_arr.begin(),
+                      this->ix_arr.end(),
+                      workspace.ix_arr.begin() + this->st_NA);
+            size_t tot = workspace.end - workspace.st_NA + 1;
+            if (workspace.weights_arr.size())
+                for (size_t ix = 0; ix < tot; ix++)
+                    workspace.weights_arr[workspace.ix_arr[ix + workspace.st_NA]] = this->weights_arr[ix];
+            else if (workspace.weights_map.size())
+                for (size_t ix = 0; ix < tot; ix++)
+                    workspace.weights_map[workspace.ix_arr[ix + workspace.st_NA]] = this->weights_arr[ix];
+        }
     }
 }

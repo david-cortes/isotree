@@ -252,6 +252,9 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         else
             workspace.criterion = NoCrit;
 
+        if (workspace.go_to_shuffle)
+            goto probe_all;
+
 
         /* pick column at random */
         decide_column(input_data.ncols_numeric, input_data.ncols_categ,
@@ -291,7 +294,8 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             /* if that didn't work, try to check all columns in random order */
             if (workspace.unsplittable)
             {
-
+                probe_all:
+                workspace.go_to_shuffle = true;
                 if (!workspace.col_sampler.is_initialized())
                 {
                     if (workspace.cols_shuffled.size() < input_data.ncols_tot)
@@ -550,18 +554,13 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             add_separation_step(workspace, input_data, (double)(-1));
         
         size_t tree_from = trees.size() - 1;
-        size_t ix2, ix3;
-        std::unique_ptr<std::vector<bool>> cols_possible_ptr;
-        std::unique_ptr<WeightedColSampler> col_sampler_ptr;
+        std::unique_ptr<RecursionState>
+        recursion_state(new RecursionState(workspace, model_params.missing_action != Fail));
         trees.back().score = -1;
 
         /* compute statistics for NAs and remember recursion indices/weights */
-        std::unique_ptr<RecursionState> recursion_state;
         if (model_params.missing_action != Fail)
         {
-            recursion_state = std::unique_ptr<RecursionState>(new RecursionState);
-            backup_recursion_state(workspace, *recursion_state);
-
             trees.back().pct_tree_left = (long double)(workspace.st_NA - workspace.st)
                                             /
                                          (long double)(workspace.end - workspace.st + 1 - (workspace.end_NA - workspace.st_NA));
@@ -597,16 +596,6 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             trees.back().pct_tree_left = (long double) (workspace.split_ix - workspace.st)
                                             /
                                          (long double) (workspace.end - workspace.st + 1);
-
-            ix2 = workspace.split_ix;
-            ix3 = workspace.end;
-            cols_possible_ptr  = std::unique_ptr<std::vector<bool>>(new std::vector<bool>);
-            *cols_possible_ptr = workspace.cols_possible;
-            if (workspace.col_sampler.is_initialized())
-            {
-                col_sampler_ptr  = std::unique_ptr<WeightedColSampler>(new WeightedColSampler());
-                *col_sampler_ptr = workspace.col_sampler;
-            }
             workspace.end = workspace.split_ix - 1;
         }
 
@@ -637,10 +626,9 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
 
         /* right branch */
+        recursion_state->restore_state(workspace);
         if (model_params.missing_action != Fail)
         {
-            restore_recursion_state(workspace, *recursion_state);
-
             switch(model_params.missing_action)
             {
                 case Impute:
@@ -668,11 +656,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
         else
         {
-            workspace.st  = ix2;
-            workspace.end = ix3;
-            workspace.cols_possible = std::move(*cols_possible_ptr);
-            if (col_sampler_ptr)
-                workspace.col_sampler = std::move(*col_sampler_ptr);
+            workspace.st = workspace.split_ix;
         }
 
         trees[tree_from].tree_right = trees.size();

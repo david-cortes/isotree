@@ -1061,6 +1061,8 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         workspace.col_sampler.initialize(kurt_weights.data(), kurt_weights.size());
     }
 
+    workspace.go_to_shuffle = false;
+
     if (tree_root != NULL)
         split_itree_recursive(*tree_root,
                               workspace,

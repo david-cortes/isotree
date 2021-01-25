@@ -132,7 +132,7 @@ typedef void (*sig_t_)(int);
 #endif
 
 
-/*    Apple at some point decided to drop OMP library and headersfrom its compiler distribution
+/*   Apple at some point decided to drop OMP library and headers from its compiler distribution
 *    and to alias 'gcc' to 'clang', which work differently when given flags they cannot interpret,
 *    causing installation issues with pretty much all scientific software due to OMP headers that
 *    would normally do nothing. This piece of code is to allow compilation without OMP header. */
@@ -468,7 +468,6 @@ public:
     size_t n;
     size_t tree_levels;
     size_t offset;
-    size_t n_available;
     void initialize(double weights[], size_t n);
     void drop_col(size_t col);
     size_t sample_col(RNG_engine &rnd_generator);
@@ -488,6 +487,7 @@ typedef struct {
     size_t               st_NA;
     size_t               end_NA;
     size_t               split_ix;
+    bool                 go_to_shuffle;
     std::unordered_map<size_t, double> weights_map;
     std::vector<double>  weights_arr;    /* when not ignoring NAs and when using weights as density */
     double               xmin;
@@ -560,17 +560,24 @@ typedef struct WorkerForSimilarity {
     bool                assume_full_distr; /* doesn't need to have one copy per worker */
 } WorkerForSimilarity;
 
-typedef struct {
+class RecursionState {
+public:
     size_t  st;
     size_t  st_NA;
     size_t  end_NA;
     size_t  split_ix;
     size_t  end;
+    bool    go_to_shuffle;
+    bool    full_state;
     std::vector<size_t> ix_arr;
     std::vector<bool>   cols_possible;
     WeightedColSampler  col_sampler;
     std::unique_ptr<double[]> weights_arr;
-} RecursionState;
+
+    RecursionState() = default;
+    RecursionState(WorkerMemory &workspace, bool full_state);
+    void restore_state(WorkerMemory &workspace);
+};
 
 /* Function prototypes */
 
@@ -781,8 +788,6 @@ void add_separation_step(WorkerMemory &workspace, InputData &input_data, double 
 void add_remainder_separation_steps(WorkerMemory &workspace, InputData &input_data, long double sum_weight);
 void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                           PredictionData &prediction_data, sparse_ix *restrict tree_num, int nthreads);
-void backup_recursion_state(WorkerMemory &workspace, RecursionState &recursion_state);
-void restore_recursion_state(WorkerMemory &workspace, RecursionState &recursion_state);
 
 
 /* utils.cpp */

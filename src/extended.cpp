@@ -134,6 +134,9 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                   (double)0);
 
         workspace.tried_all = false;
+        if (workspace.go_to_shuffle)
+            goto probe_all;
+
         if (model_params.ndim < input_data.ncols_tot / 2 || workspace.col_sampler.is_initialized())
         {
             while(workspace.ncols_tried < std::max(input_data.ncols_tot / 2, model_params.ndim))
@@ -178,6 +181,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         else /* probe all columns */
         {
             probe_all:
+                workspace.go_to_shuffle = true;
                 workspace.tried_all = true;
                 if (model_params.ndim < input_data.ncols_tot)
                 {
@@ -195,6 +199,15 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                     else
                     {
                         workspace.col_sampler.shuffle_cols(workspace.cols_shuffled, workspace.rnd_generator);
+                    }
+                }
+
+                else
+                {
+                    if (workspace.cols_shuffled.size() != input_data.ncols_tot)
+                    {
+                        workspace.cols_shuffled.resize(input_data.ncols_tot);
+                        std::iota(workspace.cols_shuffled.begin(), workspace.cols_shuffled.end(), (size_t)0);
                     }
                 }
 
@@ -406,8 +419,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     /* now split */
 
     /* back-up where it was */
-    recursion_state = std::unique_ptr<RecursionState>(new RecursionState);
-    backup_recursion_state(workspace, *recursion_state);
+    recursion_state = std::unique_ptr<RecursionState>(new RecursionState(workspace, true));
 
     /* follow left branch */
     hplanes[hplane_from].hplane_left = hplanes.size();
@@ -424,7 +436,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 
     /* follow right branch */
     hplanes[hplane_from].hplane_right = hplanes.size();
-    restore_recursion_state(workspace, *recursion_state);
+    recursion_state->restore_state(workspace);
     hplanes.emplace_back();
     if (impute_nodes != NULL) impute_nodes->emplace_back(hplane_from);
     workspace.st = workspace.split_ix;
