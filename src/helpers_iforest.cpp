@@ -274,9 +274,9 @@ RecursionState::RecursionState(WorkerMemory &workspace, bool full_state)
 
     if (this->full_state)
     {
-        this->st            = workspace.st;
-        this->st_NA         = workspace.st_NA;
-        this->end_NA        = workspace.end_NA;
+        this->st           = workspace.st;
+        this->st_NA        = workspace.st_NA;
+        this->end_NA       = workspace.end_NA;
 
         /* for the extended model, it's not necessary to copy everything */
         if (!workspace.comb_val.size())
@@ -307,9 +307,9 @@ void RecursionState::restore_state(WorkerMemory &workspace)
 
     if (this->full_state)
     {
-        workspace.st            = this->st;
-        workspace.st_NA         = this->st_NA;
-        workspace.end_NA        = this->end_NA;
+        workspace.st         =  this->st;
+        workspace.st_NA      =  this->st_NA;
+        workspace.end_NA     =  this->end_NA;
 
         if (!workspace.comb_val.size())
         {

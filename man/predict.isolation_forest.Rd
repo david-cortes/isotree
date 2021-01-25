@@ -66,6 +66,16 @@ The requested prediction type, which can be: \itemize{
 Predict method for Isolation Forest
 }
 \details{
+The standardized outlier score is calculated according to the original paper's formula:
+\eqn{  2^{ - \frac{\bar{d}}{c(n)}  }  }{2^(-avg(depth)/c(nobs))}, where
+\eqn{\bar{d}}{avg(depth)} is the average depth under each tree at which an observation
+becomes isolated (a remainder is extrapolated if the actual terminal node is not isolated),
+and \eqn{c(n)}{c(nobs)} is the expected isolation depth if observations were uniformly random
+(see references under \link{isolation.forest} for details). This distribution should be centered
+around 0.5, unless using non-random splits (parameters
+`prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_split_avg_gain`, `prob_split_pooled_gain`)
+and/or range penalizations (which are on by default).
+
 The more threads that are set for the model, the higher the memory requirement will be as each
 thread will allocate an array with one entry per row (outlierness) or combination (distance).
 

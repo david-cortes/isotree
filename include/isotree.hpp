@@ -377,7 +377,8 @@ typedef struct Imputer {
 *       of the chosen split variable (linear combination in extended model) that falls outside of a pre-determined
 *       reasonable range in the data being split (given by 2 * range in data and centered around the split point),
 *       as proposed in [4] and implemented in the authors' original code in [5]. Not used in single-variable model
-*       when splitting by categorical variables.
+*       when splitting by categorical variables. Note that this can make a very large difference in the results
+*       when using `prob_pick_pooled_gain`.
 * - standardize_dist
 *       If passing 'tmat' (see documentation for it), whether to standardize the resulting average separation
 *       depths in order to produce a distance metric or not, in the same way this is done for the outlier score.
@@ -426,6 +427,8 @@ typedef struct Imputer {
 *       Default setting for [1], [2], [3] is zero, and default for [4] is 1. This is the randomization parameter that can
 *       be passed to the author's original code in [5]. Note that, if passing value 1 (100%) with no sub-sampling and using the
 *       single-variable model, every single tree will have the exact same splits.
+*       Important detail: if using either 'prob_pick_avg_gain' or 'prob_pick_pooled_gain', the distribution of
+*       outlier scores is unlikely to be centered around 0.5.
 * - prob_split_by_gain_avg
 *       Probability of making each split by selecting a column at random and determining the split point as
 *       that which gives the highest averaged gain. Not supported for the extended model as the splits are on
@@ -447,6 +450,9 @@ typedef struct Imputer {
 *       'prob_pick_by_gain_pl', 'prob_split_by_gain_avg', 'prob_split_by_gain_pl', both the column and the split point
 *       are decided at random. Note that, if passing value 1 (100%) with no sub-sampling and using the single-variable model,
 *       every single tree will have the exact same splits.
+*       Be aware that 'penalize_range' can also have a large impact when using 'prob_pick_pooled_gain'.
+*       Important detail: if using either 'prob_pick_avg_gain' or 'prob_pick_pooled_gain', the distribution of
+*       outlier scores is unlikely to be centered around 0.5.
 * - prob_split_by_gain_pl
 *       Probability of making each split by selecting a column at random and determining the split point as
 *       that which gives the highest pooled gain. Not supported for the extended model as the splits are on

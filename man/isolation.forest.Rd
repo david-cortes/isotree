@@ -73,12 +73,20 @@ to `df`, will assume the column order is the same as in there, regardless of whe
 
 \item{sample_size}{Sample size of the data sub-samples with which each binary tree will be built.
 Recommended value in references [1], [2], [3], [4] is 256, while the default value in the author's code in reference [5] is
-`NROW(df)` (same as in here).}
+`NROW(df)` (same as in here).
+
+Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
+model needs more trees and/or bigger samples to reach convergence (unless using non-random
+splits, in which case the distribution is likely to be centered around a much lower number).}
 
 \item{ntrees}{Number of binary trees to build for the model. Recommended value in reference [1] is 100, while the
 default value in the author's code in reference [5] is 10. In general, the number of trees required for good results
 is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
-categories, (d) `ndim` is high.}
+categories, (d) `ndim` is high.
+
+Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
+model needs more trees and/or bigger samples to reach convergence (unless using non-random
+splits, in which case the distribution is likely to be centered around a much lower number).}
 
 \item{ndim}{Number of columns to combine to produce a split. If passing 1, will produce the single-variable model described
 in references [1] and [2], while if passing values greater than 1, will produce the extended model described in
@@ -118,7 +126,10 @@ When splits are not made according to any of `prob_pick_avg_gain`, `prob_pick_po
 `prob_split_pooled_gain`, both the column and the split point are decided at random. Default setting for 
 references [1], [2], [3] is zero, and default for reference [4] is 1. This is the randomization parameter
 that can be passed to the author's original code in [5]. Note that, if passing a value of 1 (100\%) with no sub-sampling and using the
-single-variable model, every single tree will have the exact same splits.}
+single-variable model, every single tree will have the exact same splits.
+
+Important detail: if using either `prob_pick_avg_gain` or `prob_pick_pooled_gain`, the distribution of
+outlier scores is unlikely to be centered around 0.5.}
 
 \item{prob_pick_pooled_gain}{\itemize{
 \item For the single-variable model (`ndim=1`), this parameter indicates the probability
@@ -145,7 +156,10 @@ the resulting object will be heavier (use more memory). When splits are not made
 are decided at random. Note that, if passing value = 1 (100\%) with no sub-sampling and using the single-variable model,
 every single tree will have the exact same splits.
 
-Be aware that `penalize_range` can also have a large impact when using `prob_pick_pooled_gain`.}
+Be aware that `penalize_range` can also have a large impact when using `prob_pick_pooled_gain`.
+
+Important detail: if using either `prob_pick_avg_gain` or `prob_pick_pooled_gain`, the distribution of
+outlier scores is unlikely to be centered around 0.5.}
 
 \item{prob_split_avg_gain}{Probability of making each split by selecting a column at random and determining the split point as
 that which gives the highest averaged gain. Not supported for the extended model as the splits are on
@@ -225,8 +239,12 @@ Note that distance calculations, if desired, don't work when there are duplicate
 of the chosen split variable (linear combination in extended model) that falls outside of a pre-determined
 reasonable range in the data being split (given by `2 * range` in data and centered around the split point),
 as proposed in reference [4] and implemented in the authors' original code in reference [5]. Not used in single-variable model
-when splitting by categorical variables. Note that this can make a very large difference in the results
-when using `prob_pick_pooled_gain`.}
+when splitting by categorical variables.
+
+Note that this can make a very large difference in the results when using `prob_pick_pooled_gain`.
+
+Be aware that this option can make the distribution of outlier scores a bit different
+(i.e. not centered around 0.5)}
 
 \item{weigh_by_kurtosis}{Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
 for each tree as briefly proposed in reference [1]. Note that this is only done at the beginning of each tree
@@ -546,6 +564,7 @@ if (require("outliertree")) {
 \item Quinlan, J. Ross. "C4. 5: programs for machine learning." Elsevier, 2014.
 \item Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 \item Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+\item \url{https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom}
 }
 }
 \seealso{

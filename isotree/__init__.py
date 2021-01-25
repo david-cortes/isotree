@@ -63,11 +63,19 @@ class IsolationForest:
         Sample size of the data sub-samples with which each binary tree will be built. If passing 'None', each
         tree will be built using the full data. Recommended value in [1], [2], [3] is 256, while
         the default value in the author's code in [5] is 'None' here.
+
+        Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
+        model needs more trees and/or bigger samples to reach convergence (unless using non-random
+        splits, in which case the distribution is likely to be centered around a much lower number).
     ntrees : int
         Number of binary trees to build for the model. Recommended value in [1] is 100, while the default value in the
         author's code in [5] is 10. In general, the number of trees required for good results
         is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
         categories, (d) `ndim` is high.
+
+        Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
+        model needs more trees and/or bigger samples to reach convergence (unless using non-random
+        splits, in which case the distribution is likely to be centered around a much lower number).
     ndim : int
         Number of columns to combine to produce a split. If passing 1, will produce the single-variable model described
         in [1] and [2], while if passing values greater than 1, will produce the extended model described in [3] and [4].
@@ -102,12 +110,17 @@ class IsolationForest:
         Compared to a pooled average, this tends to result in more cases in which a single observation or very few of them
         are put into one branch. Recommended to use sub-samples (parameter 'sample_size') when passing this parameter.
         Note that, since this will created isolated nodes faster, the resulting object will be lighter (use less memory).
+        
         When splits are
         not made according to any of 'prob_pick_avg_gain', 'prob_pick_pooled_gain', 'prob_split_avg_gain',
         'prob_split_pooled_gain', both the column and the split point are decided at random. Default setting for [1], [2], [3] is
         zero, and default for [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5].
+        
         Note that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable model, every single tree will have
         the exact same splits.
+
+        Important detail: if using either ``prob_pick_avg_gain`` or ``prob_pick_pooled_gain``, the distribution of
+        outlier scores is unlikely to be centered around 0.5.
     prob_pick_pooled_gain : float(0, 1)
         * For the single-variable model (``ndim=1``), this parameter indicates the probability
           of making each split by choosing a column and split point in that
@@ -127,6 +140,7 @@ class IsolationForest:
         outliers in the training data of each tree, but generalize poorly to outliers in new data and to values of variables
         outside of the ranges from the training data. Passing small 'sample_size' and high values of this parameter will
         tend to flag too many outliers.
+        
         Note that, since this makes the trees more even and thus it takes more steps to produce isolated nodes,
         the resulting object will be heavier. When splits are not made according to any of 'prob_pick_avg_gain',
         'prob_pick_pooled_gain', 'prob_split_avg_gain', 'prob_split_pooled_gain', both the column and the split point
@@ -134,6 +148,9 @@ class IsolationForest:
         every single tree will have the exact same splits.
 
         Be aware that ``penalize_range`` can also have a large impact when using ``prob_pick_pooled_gain``.
+
+        Important detail: if using either ``prob_pick_avg_gain`` or ``prob_pick_pooled_gain``, the distribution of
+        outlier scores is unlikely to be centered around 0.5.
     prob_split_avg_gain : float(0, 1)
         Probability of making each split by selecting a column at random and determining the split point as
         that which gives the highest averaged gain. Not supported for the extended model as the splits are on
@@ -223,8 +240,12 @@ class IsolationForest:
         of the chosen split variable (linear combination in extended model) that falls outside of a pre-determined
         reasonable range in the data being split (given by 2 * range in data and centered around the split point),
         as proposed in [4] and implemented in the authors' original code in [5]. Not used in single-variable model
-        when splitting by categorical variables. Note that this can make a very large difference in the results
-        when using ``prob_pick_pooled_gain``.
+        when splitting by categorical variables.
+
+        Note that this can make a very large difference in the results when using ``prob_pick_pooled_gain``.
+
+        Be aware that this option can make the distribution of outlier scores a bit different
+        (i.e. not centered around 0.5)
     weigh_by_kurtosis : bool
         Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
         for each tree as briefly proposed in [1]. Note that this is only done at the beginning of each tree
@@ -306,6 +327,7 @@ class IsolationForest:
            arXiv preprint arXiv:1910.12362 (2019).
     .. [9] Cortes, David. "Imputing missing values with unsupervised random trees."
            arXiv preprint arXiv:1911.06646 (2019).
+    .. [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
     """
     def __init__(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3, max_depth = "auto",
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
@@ -1005,7 +1027,13 @@ class IsolationForest:
         The outlier scores/depth predict functionality is optimized for making predictions on one or a
         few rows at a time - for making large batches of predictions, it might be faster to use the
         'fit_predict' functionality.
-        
+
+        Note
+        ----
+        If using non-random splits (parameters ``prob_pick_avg_gain``, ``prob_pick_pooled_gain``,
+        ``prob_split_avg_gain``, ``prob_split_pooled_gain``) and/or range penalizations
+        (which are on by default), the distribution of scores might not be centered around 0.5.
+
         Parameters
         ----------
         X : array or array-like (n_samples, n_features)
