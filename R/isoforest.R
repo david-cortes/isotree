@@ -834,7 +834,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
         }
     }
     if (type %in% c("dist", "avg_sep")) {
-        if (object$params$new_categ_action == "weighted" && object$params$missing_action != "divide") {
+        if (object$metadata$ncols_cat > 0 && object$params$new_categ_action == "weighted" && object$params$missing_action != "divide") {
             stop(paste0("Cannot predict distances when using ",
                         "'new_categ_action' = 'weighted' ",
                         "if 'missing_action' != 'divide'."))

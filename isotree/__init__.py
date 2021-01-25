@@ -1090,7 +1090,7 @@ class IsolationForest:
         """
         assert self.is_fitted_
         if not self._is_extended_:
-            if self.new_categ_action == "weighted" and self.missing_action != "divide":
+            if (self._ncols_categ) and (self.new_categ_action == "weighted") and (self.missing_action != "divide"):
                 msg  = "Cannot predict distances when using "
                 msg += "'new_categ_action' = 'weighted' "
                 msg += "if 'missing_action' != 'divide'."
