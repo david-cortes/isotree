@@ -207,8 +207,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                     if (workspace.cols_shuffled.size() != input_data.ncols_tot)
                     {
                         workspace.cols_shuffled.resize(input_data.ncols_tot);
-                        std::iota(workspace.cols_shuffled.begin(), workspace.cols_shuffled.end(), (size_t)0);
                     }
+                    std::iota(workspace.cols_shuffled.begin(), workspace.cols_shuffled.end(), (size_t)0);
                 }
 
                 for (size_t col : workspace.cols_shuffled)
