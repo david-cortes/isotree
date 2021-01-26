@@ -373,7 +373,7 @@ typedef struct Imputer {
 *       tree depth). Default setting for [1], [2], [3], [4] is 'true', but it's recommended to pass higher values if
 *       using the model for purposes other than outlier detection.
 * - penalize_range
-*       Whether to penalize (add +1 to the terminal depth) observations at prediction time that have a value
+*       Whether to penalize (add -1 to the terminal depth) observations at prediction time that have a value
 *       of the chosen split variable (linear combination in extended model) that falls outside of a pre-determined
 *       reasonable range in the data being split (given by 2 * range in data and centered around the split point),
 *       as proposed in [4] and implemented in the authors' original code in [5]. Not used in single-variable model

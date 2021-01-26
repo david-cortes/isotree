@@ -772,4 +772,3 @@ void initialize_worker_for_sim(WorkerForSimilarity  &workspace,
             std::fill(workspace.comb_val.begin(), workspace.comb_val.end(), 0);
     }
 }
-
