@@ -605,8 +605,8 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
     double xmin = HUGE_VAL, xmax = -HUGE_VAL;
     for (size_t row = workspace.st; row <= workspace.end; row++)
     {
-        xmin = fmin(xmin, workspace.comb_val[row - workspace.st]);
-        xmax = fmax(xmax, workspace.comb_val[row - workspace.st]);
+        xmin = std::fmin(xmin, workspace.comb_val[row - workspace.st]);
+        xmax = std::fmax(xmax, workspace.comb_val[row - workspace.st]);
     }
 }
 

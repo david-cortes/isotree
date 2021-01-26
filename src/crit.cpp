@@ -301,7 +301,7 @@ double expected_sd_cat(double p[], size_t n, size_t pos[])
         for (size_t cat2 = 0; cat2 < cat1; cat2++)
             cum_var -= p[pos[cat1]] * p[pos[cat2]] / 2.0;
     }
-    return sqrt(fmax(cum_var, 1e-8));
+    return sqrt(std::fmax(cum_var, 1e-8));
 }
 
 double expected_sd_cat(size_t counts[], double p[], size_t n, size_t pos[])

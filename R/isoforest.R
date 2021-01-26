@@ -1,6 +1,7 @@
 #' @importFrom parallel detectCores
 #' @importFrom stats predict
 #' @importFrom utils head
+#' @useDynLib isotree, .registration=TRUE
 
 #' @title Create Isolation Forest Model
 #' @description Isolation Forest is an algorithm originally developed for outlier detection that consists in splitting

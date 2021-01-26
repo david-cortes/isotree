@@ -382,7 +382,7 @@ double calc_sd_raw(size_t cnt, long double sum, long double sum_sq)
     if (cnt <= 1)
         return 0.;
     else
-        return sqrtl(fmax(SD_MIN, (sum_sq - (square(sum) / (long double)cnt)) / (long double)cnt ));
+        return sqrtl(fmaxl(SD_MIN, (sum_sq - (square(sum) / (long double)cnt)) / (long double)cnt ));
 }
 
 long double calc_sd_raw_l(size_t cnt, long double sum, long double sum_sq)
