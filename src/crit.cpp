@@ -49,12 +49,14 @@
 #define pw3(x) ((x) * (x) * (x))
 #define pw4(x) ((x) * (x) * (x) * (x))
 
+/* https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Higher-order_statistics */
 double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, double x[], MissingAction missing_action)
 {
     long double m = 0;
     long double M2 = 0, M3 = 0, M4 = 0;
     long double delta, delta_s, delta_div;
     long double diff, n;
+    long double out;
 
     if (missing_action == Fail)
     {
@@ -73,7 +75,8 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, double x[], Missing
             M2  +=  diff;
         }
 
-        return ( M4 / M2 ) * ( (long double)(end - st + 1) / M2 );
+        out = ( M4 / M2 ) * ( (long double)(end - st + 1) / M2 );
+        return (!is_na_or_inf(out) && out > 0.)? out : 0.;
     }
 
     else
@@ -98,11 +101,13 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, double x[], Missing
             }
         }
 
-        return ( M4 / M2 ) * ( (long double)cnt / M2 );
+        out = ( M4 / M2 ) * ( (long double)cnt / M2 );
+        return (!is_na_or_inf(out) && out > 0.)? out : 0.;
     }
 }
 
 
+/* TODO: make these compensated sums */
 double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                      double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      MissingAction missing_action)
@@ -191,8 +196,9 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, size_t col_num,
     long double cnt_l = (long double) cnt;
     long double sn = s1 / cnt_l;
     long double v  = s2 / cnt_l - pw2(sn);
-    if (v <= 0) return 0;
-    return (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt_l * pw4(sn)) / (cnt_l * pw2(v));
+    if (v <= 0) return 0.;
+    long double out =  (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt_l * pw4(sn)) / (cnt_l * pw2(v));
+    return (!is_na_or_inf(out) && out > 0.)? out : 0.;
 }
 
 
@@ -264,7 +270,7 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, int x[], int ncat, 
             if (!ntry)
                 return 0;
             else
-                return sum_kurt / (long double)ntry;
+                return ((!is_na_or_inf(sum_kurt) && sum_kurt > 0.)? sum_kurt : 0.) / (long double)ntry;
         }
 
         case SingleCateg:
@@ -282,7 +288,7 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, int x[], int ncat, 
             if (ncat_present <= 1)
                 return 0;
             else
-                return sum_kurt / (double) ncat_present;
+                return ((!is_na_or_inf(sum_kurt) && sum_kurt > 0.)? sum_kurt : 0.) / (double) ncat_present;
         }
     }
 
@@ -349,7 +355,7 @@ double expected_sd_cat_single(size_t counts[], double p[], size_t n, size_t pos[
     return sqrt(fmax(cum_var, 1e-8));
 }
 
-double numeric_gain(size_t cnt_left, size_t cnt_right,
+inline double numeric_gain(size_t cnt_left, size_t cnt_right,
                     long double sum_left, long double sum_right,
                     long double sum_sq_left, long double sum_sq_right,
                     double sd_full, long double cnt)
@@ -360,7 +366,7 @@ double numeric_gain(size_t cnt_left, size_t cnt_right,
     return 1 - residual / (cnt * sd_full);
 }
 
-double numeric_gain_no_div(size_t cnt_left, size_t cnt_right,
+inline double numeric_gain_no_div(size_t cnt_left, size_t cnt_right,
                            long double sum_left, long double sum_right,
                            long double sum_sq_left, long double sum_sq_right,
                            double sd_full, long double cnt)
@@ -371,7 +377,7 @@ double numeric_gain_no_div(size_t cnt_left, size_t cnt_right,
     return sd_full - residual / cnt;
 }
 
-double categ_gain(size_t cnt_left, size_t cnt_right,
+inline double categ_gain(size_t cnt_left, size_t cnt_right,
                   long double s_left, long double s_right,
                   long double base_info, long double cnt)
 {
@@ -602,6 +608,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *
         return best_gain;
 }
 
+/* TODO: implement algorithm that works with unsorted 'x' to use with sparse data */
 double eval_guided_crit(size_t ix_arr[], size_t st, size_t end,
                         size_t col_num, double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                         double buffer_arr[], size_t buffer_pos[],
