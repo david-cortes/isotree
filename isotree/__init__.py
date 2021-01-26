@@ -1457,7 +1457,7 @@ class IsolationForest:
         metadata = self._export_metadata()
         with open(file + ".metadata", "w") as of:
             json.dump(metadata, of, indent=4)
-        self._cpp_obj.serialize_obj(file, use_cpp, self.ndim > 1)
+        self._cpp_obj.serialize_obj(file, use_cpp, self.ndim > 1, has_imputer=self.build_imputer)
         return self
 
     @staticmethod
