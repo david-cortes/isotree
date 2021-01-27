@@ -717,6 +717,21 @@ void ColumnSampler::drop_col(size_t col)
 void ColumnSampler::init_full_pass()
 {
     this->curr_col = 0;
+
+    if (this->has_weights())
+    {
+        if (this->col_indices.size() < this->n_cols)
+            this->col_indices.resize(this->n_cols);
+        std::iota(this->col_indices.begin(), this->col_indices.end(), (size_t)0);
+        this->curr_pos = this->n_cols;
+        for (size_t col = 0; col < this->n_cols; col++)
+        {
+            if (this->tree_weights[col + this->offset] <= 0)
+            {
+                std::swap(this->col_indices[col], this->col_indices[--this->curr_pos]);
+            }
+        }
+    }
 }
 
 bool ColumnSampler::sample_col(size_t &col, RNG_engine &rnd_generator)
@@ -819,6 +834,12 @@ void ColumnSampler::shuffle_remainder(RNG_engine &rnd_generator)
 void ColumnSampler::drop_indices()
 {
     this->col_indices.clear();
+}
+
+void ColumnSampler::drop_weights()
+{
+    this->tree_weights.clear();
+    this->tree_weights.shrink_to_fit();
 }
 
 size_t ColumnSampler::get_curr_pos()

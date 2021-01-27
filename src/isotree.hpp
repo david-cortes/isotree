@@ -488,6 +488,7 @@ public:
     void drop_col(size_t col);
     void shuffle_remainder(RNG_engine &rnd_generator);
     void drop_indices();
+    void drop_weights();
     bool has_weights();
     size_t get_curr_pos();
     void restore_pos(size_t pos);

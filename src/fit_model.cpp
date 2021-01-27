@@ -1066,6 +1066,11 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     workspace.try_all = false;
     if (hplane_root != NULL && model_params.ndim < input_data.ncols_tot / 2)
     	workspace.col_sampler.drop_indices();
+    if (
+    		tree_root != NULL && model_params.ndim == 1 &&
+    		(model_params.prob_pick_by_gain_avg + model_params.prob_pick_by_gain_pl) >= 1
+    	)
+    	workspace.col_sampler.drop_weights();
 
     if (tree_root != NULL)
         split_itree_recursive(*tree_root,
