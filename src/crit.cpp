@@ -411,7 +411,7 @@ double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion, d
     if (n == 2)
     {
         split_point = avg_between(x[0], x[1]);
-        return 0;
+        return (square(x[0]) + square(x[1]) - 2.*x[0]*x[1]) / 4.; /* (x1^2+x2^2 - (x1+x2)^2/2)/2 */
     }
 
     /* sort in ascending order */
@@ -513,7 +513,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *
     {
         split_point = avg_between(x[ix_arr[st]], x[ix_arr[end]]);
         split_ix    = st;
-        return 0;
+        return (square(x[ix_arr[st]]) + square(x[ix_arr[end]]) - 2.*x[ix_arr[st]]*x[ix_arr[end]]) / 4.;;
     }
 
     /* sort in ascending order */

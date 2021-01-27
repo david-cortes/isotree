@@ -139,14 +139,14 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
             workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
 
         while (
-                (model_params.ndim < input_data.ncols_tot && !workspace.try_all)?
+                (!workspace.try_all && model_params.ndim < input_data.ncols_tot)?
                 workspace.col_sampler.sample_col(workspace.col_chosen, workspace.rnd_generator)
                     :
                 workspace.col_sampler.sample_col(workspace.col_chosen)
             )
         {
             workspace.ntried++;
-            if (workspace.ntried > input_data.ncols_tot / 2 && !workspace.try_all)
+            if (!workspace.try_all && workspace.ntried > input_data.ncols_tot / 2)
             {
                 workspace.try_all = true;
                 workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
