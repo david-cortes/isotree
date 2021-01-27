@@ -852,17 +852,6 @@ void ColumnSampler::drop_weights()
     this->initialize(this->n_cols);
 }
 
-size_t ColumnSampler::get_curr_pos()
-{
-    return this->curr_pos;
-}
-
-void ColumnSampler::restore_pos(size_t pos)
-{
-    this->curr_pos = pos;
-}
-
-
 
 /* For hyperplane intersections */
 size_t divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, double split_point)

@@ -490,8 +490,6 @@ public:
     void drop_indices();
     void drop_weights();
     bool has_weights();
-    size_t get_curr_pos();
-    void restore_pos(size_t pos);
     ColumnSampler() = default;
 };
 
@@ -585,10 +583,11 @@ public:
     size_t  end;
     size_t  sampler_pos;
     bool    go_to_shuffle;
+    size_t  col_sampler_pos;
     bool    full_state;
     std::vector<size_t> ix_arr;
     std::vector<bool>   cols_possible;
-    ColumnSampler       col_sampler;
+    std::vector<double> col_sampler_weights;
     std::unique_ptr<double[]> weights_arr;
 
     RecursionState() = default;
