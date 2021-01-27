@@ -665,7 +665,7 @@ void ColumnSampler::initialize(double weights[], size_t n_cols)
     this->offset = pow2(this->tree_levels) - 1;
     for (size_t ix = 0; ix < this->n_cols; ix++)
         this->tree_weights[ix + this->offset] = std::fmax(0., weights[ix]);
-    for (size_t ix = pow2(this->tree_levels+1) - 1; ix > 0; ix--)
+    for (size_t ix = this->tree_weights.size() - 1; ix > 0; ix--)
         this->tree_weights[ix_parent(ix)] += tree_weights[ix];
 
     /* if the weights are invalid, make it an unweighted sampler */
@@ -752,7 +752,7 @@ bool ColumnSampler::sample_col(size_t &col, RNG_engine &rnd_generator)
         size_t curr_ix = 0;
         double rnd_subrange, w_left;
         double curr_subrange = this->tree_weights[0];
-        if (curr_subrange == 0)
+        if (curr_subrange <= 0)
             return false;
 
         for (size_t lev = 0; lev < tree_levels; lev++)
