@@ -486,6 +486,8 @@ public:
     void init_full_pass();        /* when passing through all columns */
     bool sample_col(size_t &col); /* when passing through all columns */
     void drop_col(size_t col);
+    void shuffle_remainder(RNG_engine &rnd_generator);
+    void drop_indices();
     bool has_weights();
     size_t get_curr_pos();
     void restore_pos(size_t pos);
@@ -531,6 +533,8 @@ typedef struct {
     size_t   ntry;
     size_t   ntaken;
     size_t   ntaken_best;
+    size_t   ntried;
+    bool     try_all;
     size_t   col_chosen; /* also used as placeholder in the single-variable model */
     ColType  col_type;
     double   ext_sd;

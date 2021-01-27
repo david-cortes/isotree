@@ -128,20 +128,30 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         else
             col_is_taken_s.clear();
         workspace.ntaken = 0;
+        workspace.ntried = 0;
         std::fill(workspace.comb_val.begin(),
                   workspace.comb_val.begin() + (workspace.end - workspace.st + 1),
                   (double)0);
 
         if (model_params.ndim >= input_data.ncols_tot)
             workspace.col_sampler.init_full_pass();
+        else if (workspace.try_all)
+            workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
 
         while (
-                (model_params.ndim < input_data.ncols_tot)?
+                (model_params.ndim < input_data.ncols_tot && !workspace.try_all)?
                 workspace.col_sampler.sample_col(workspace.col_chosen, workspace.rnd_generator)
                     :
                 workspace.col_sampler.sample_col(workspace.col_chosen)
             )
         {
+            workspace.ntried++;
+            if (workspace.ntried > input_data.ncols_tot / 2 && !workspace.try_all)
+            {
+                workspace.try_all = true;
+                workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
+            }
+
             if (is_col_taken(col_is_taken, col_is_taken_s, input_data, workspace.col_chosen))
                 continue;
 

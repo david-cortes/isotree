@@ -455,6 +455,10 @@ void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_rep
        https://stackoverflow.com/questions/57599509/c-random-non-repeated-integers-with-weights */
     else if (sample_weights != NULL)
     {
+        /* TODO: here could instead generate only 1 random number from zero to the full weight,
+           and then subtract from it as it goes down every level. Would have less precision
+           but should still work fine. */
+
         double rnd_subrange, w_left;
         double curr_subrange;
         size_t curr_ix;
@@ -613,7 +617,7 @@ void weighted_shuffle(size_t *restrict outp, size_t n, double *restrict weights,
     /* sample according to uniform distribution */
     double rnd_subrange, w_left;
     double curr_subrange;
-    int curr_ix;
+    size_t curr_ix;
 
     for (size_t el = 0; el < n; el++)
     {
@@ -641,7 +645,6 @@ void weighted_shuffle(size_t *restrict outp, size_t n, double *restrict weights,
                                   + buffer_arr[ix_child(curr_ix) + 1];
         }
     }
-
 }
 
 /*  This one samples with replacement. When using weights, the algorithm is the
@@ -728,6 +731,9 @@ bool ColumnSampler::sample_col(size_t &col, RNG_engine &rnd_generator)
 
     else
     {
+        /* TODO: here could instead generate only 1 random number from zero to the full weight,
+           and then subtract from it as it goes down every level. Would have less precision
+           but should still work fine. */
         size_t curr_ix = 0;
         double rnd_subrange, w_left;
         double curr_subrange = this->tree_weights[0];
@@ -753,6 +759,66 @@ bool ColumnSampler::sample_col(size_t &col)
         return false;
     col = this->col_indices[this->curr_col++];
     return true;
+}
+
+void ColumnSampler::shuffle_remainder(RNG_engine &rnd_generator)
+{
+    if (!this->has_weights())
+    {
+        this->init_full_pass();
+        std::shuffle(this->col_indices.begin(),
+                     this->col_indices.begin() + this->curr_pos,
+                     rnd_generator);
+    }
+
+    else
+    {
+        std::vector<double> curr_weights = this->tree_weights;
+        this->curr_pos = 0;
+        this->curr_col = 0;
+        if (curr_weights[0] <= 0)
+            return;
+
+        if (this->col_indices.size() < this->n_cols)
+            this->col_indices.resize(this->n_cols);
+
+        double rnd_subrange, w_left;
+        double curr_subrange;
+        size_t curr_ix;
+
+        for (this->curr_pos = 0; this->curr_pos < this->n_cols; this->curr_pos++)
+        {
+            curr_ix = 0;
+            curr_subrange = curr_weights[0];
+            if (curr_subrange <= 0)
+                return;
+
+            for (size_t lev = 0; lev < this->tree_levels; lev++)
+            {
+                rnd_subrange = std::uniform_real_distribution<double>(0., curr_subrange)(rnd_generator);
+                w_left = curr_weights[ix_child(curr_ix)];
+                curr_ix = ix_child(curr_ix) + (rnd_subrange >= w_left);
+                curr_subrange = curr_weights[curr_ix];
+            }
+
+            /* finally, add element from this iteration */
+            this->col_indices[this->curr_pos] = curr_ix - this->offset;
+
+            /* now remove the weight of the chosen element */
+            curr_weights[curr_ix] = 0;
+            for (size_t lev = 0; lev < this->tree_levels; lev++)
+            {
+                curr_ix = ix_parent(curr_ix);
+                curr_weights[curr_ix] =   curr_weights[ix_child(curr_ix)]
+                                        + curr_weights[ix_child(curr_ix) + 1];
+            }
+        }
+    }
+}
+
+void ColumnSampler::drop_indices()
+{
+    this->col_indices.clear();
 }
 
 size_t ColumnSampler::get_curr_pos()

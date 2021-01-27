@@ -1063,6 +1063,9 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     }
 
     workspace.col_sampler.initialize(input_data.ncols_tot);
+    workspace.try_all = false;
+    if (hplane_root != NULL && model_params.ndim < input_data.ncols_tot / 2)
+    	workspace.col_sampler.drop_indices();
 
     if (tree_root != NULL)
         split_itree_recursive(*tree_root,
