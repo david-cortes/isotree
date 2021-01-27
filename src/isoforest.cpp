@@ -228,14 +228,28 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         else
             workspace.criterion = NoCrit;
 
-        while (workspace.col_sampler.sample_col(trees.back().col_num, workspace.rnd_generator))
+        if (workspace.try_all)
+            workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
+
+        workspace.ntried = 0;
+
+        while (
+                workspace.try_all?
+                workspace.col_sampler.sample_col(trees.back().col_num)
+                    :
+                workspace.col_sampler.sample_col(trees.back().col_num, workspace.rnd_generator)
+               )
         {
             get_split_range(workspace, input_data, model_params, trees.back());
             if (workspace.unsplittable)
             {
-                workspace.col_sampler.drop_col(trees.back().col_num
-                                                 +
-                                               (trees.back().col_type == Numeric)? 0 : input_data.ncols_numeric);
+                workspace.col_sampler.drop_col(trees.back().col_num + (trees.back().col_type == Numeric)? 0 : input_data.ncols_numeric);
+                workspace.ntried++;
+                if (!workspace.try_all && workspace.ntried > input_data.ncols_tot / 2)
+                {
+                    workspace.try_all = true;
+                    workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
+                }
             }
 
             else

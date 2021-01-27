@@ -229,6 +229,7 @@ RecursionState::RecursionState(WorkerMemory &workspace, bool full_state)
     this->end              =  workspace.end;
     if (workspace.col_sampler.has_weights())
         this->col_sampler  =  workspace.col_sampler;
+        // this->col_sampler.tree_weights = workspace.col_sampler.tree_weights;
     else
         this->sampler_pos  =  workspace.col_sampler.get_curr_pos();
 
@@ -263,6 +264,7 @@ void RecursionState::restore_state(WorkerMemory &workspace)
     workspace.end              =  this->end;
     if (workspace.col_sampler.has_weights())
         workspace.col_sampler  =  std::move(this->col_sampler);
+        // workspace.col_sampler.tree_weights = std::move(this->col_sampler.tree_weights);
     else
         workspace.col_sampler.restore_pos(this->sampler_pos);
 
