@@ -840,6 +840,7 @@ void ColumnSampler::drop_weights()
 {
     this->tree_weights.clear();
     this->tree_weights.shrink_to_fit();
+    this->initialize(this->n_cols);
 }
 
 size_t ColumnSampler::get_curr_pos()
