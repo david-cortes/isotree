@@ -531,8 +531,12 @@ typedef struct Imputer {
 *       Seed that will be used to generate random numbers used by the model.
 * - nthreads
 *       Number of parallel threads to use. Note that, the more threads, the more memory will be
-*       allocated, even if the thread does not end up being used. Ignored when not building with
-*       OpenMP support.
+*       allocated, even if the thread does not end up being used.
+*       Be aware that most of the operations are bound by memory bandwidth, which means that
+*       adding more threads will not result in a linear speed-up. For some types of data
+*       (e.g. large sparse matrices with small sample sizes), adding more threads might result
+*       in only a very modest speed up (e.g. 1.5x faster with 4x more threads),
+*       even if all threads look fully utilized.
 * 
 * Returns
 * =======

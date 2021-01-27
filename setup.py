@@ -76,7 +76,7 @@ if platform[:3] != "dar":
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.1.31',
+    version = '0.1.32',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',

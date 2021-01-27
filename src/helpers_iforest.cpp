@@ -44,61 +44,14 @@
 */
 #include "isotree.hpp"
 
-void decide_column(size_t ncols_numeric, size_t ncols_categ, size_t &col_chosen, ColType &col_type,
-                   RNG_engine &rnd_generator, std::uniform_int_distribution<size_t> &runif,
-                   WeightedColSampler &col_sampler)
-{
-    if (!col_sampler.is_initialized())
-        col_chosen = runif(rnd_generator);
-    else
-        col_chosen = col_sampler.sample_col(rnd_generator);
-
-    if (col_chosen >= ncols_numeric)
-    {
-        col_chosen -= ncols_numeric;
-        col_type    = Categorical;
-    }
-
-    else { col_type = Numeric; }
-}
-
-void add_unsplittable_col(WorkerMemory &workspace, IsoTree &tree, InputData &input_data)
-{
-    if (tree.col_type == Numeric) {
-        workspace.cols_possible[tree.col_num] = false;
-        workspace.col_sampler.drop_col(tree.col_num);
-    }
-    else {
-        workspace.cols_possible[tree.col_num + input_data.ncols_numeric] = false;
-        workspace.col_sampler.drop_col(tree.col_num + input_data.ncols_numeric);
-    }
-}
-
-void add_unsplittable_col(WorkerMemory &workspace, InputData &input_data)
-{
-    if (workspace.col_type == Numeric) {
-        workspace.cols_possible[workspace.col_chosen] = false;
-        workspace.col_sampler.drop_col(workspace.col_chosen);
-    }
-    else {
-        workspace.cols_possible[workspace.col_chosen + input_data.ncols_numeric] = false;
-        workspace.col_sampler.drop_col(workspace.col_chosen + input_data.ncols_numeric);
-    }
-}
-
-bool check_is_splittable_col(WorkerMemory &workspace, IsoTree &tree, InputData &input_data)
-{
-    if (tree.col_type == Numeric)
-        return workspace.cols_possible[tree.col_num];
-    else
-        return workspace.cols_possible[tree.col_num + input_data.ncols_numeric];
-}
 
 /* for use in regular model */
 void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params, IsoTree &tree)
 {
-    if (tree.col_type == Numeric)
+    if (tree.col_num < input_data.ncols_numeric)
     {
+        tree.col_type = Numeric;
+
         if (input_data.Xc_indptr == NULL)
             get_range(workspace.ix_arr.data(), input_data.numeric_data + input_data.nrows * tree.col_num,
                       workspace.st, workspace.end, model_params.missing_action,
@@ -111,6 +64,9 @@ void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams
 
     else
     {
+        tree.col_num -= input_data.ncols_numeric;
+        tree.col_type = Categorical;
+
         get_categs(workspace.ix_arr.data(), input_data.categ_data + input_data.nrows * tree.col_num,
                    workspace.st, workspace.end, input_data.ncat[tree.col_num],
                    model_params.missing_action, workspace.categs.data(), workspace.npresent, workspace.unsplittable);
@@ -120,8 +76,10 @@ void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams
 /* for use in extended model */
 void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params)
 {
-    if (workspace.col_type == Numeric)
+    if (workspace.col_chosen < input_data.ncols_numeric)
     {
+        workspace.col_type = Numeric;
+
         if (input_data.Xc_indptr == NULL)
             get_range(workspace.ix_arr.data(), input_data.numeric_data + input_data.nrows * workspace.col_chosen,
                       workspace.st, workspace.end, model_params.missing_action,
@@ -134,6 +92,9 @@ void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams
 
     else
     {
+        workspace.col_type = Categorical;
+        workspace.col_chosen -= input_data.ncols_numeric;
+
         get_categs(workspace.ix_arr.data(), input_data.categ_data + input_data.nrows * workspace.col_chosen,
                    workspace.st, workspace.end, input_data.ncat[workspace.col_chosen],
                    model_params.missing_action, workspace.categs.data(), workspace.npresent, workspace.unsplittable);
@@ -161,9 +122,8 @@ int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size
 }
 
 bool is_col_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
-                  InputData &input_data, size_t col_num, ColType col_type)
+                  InputData &input_data, size_t col_num)
 {
-    col_num += ((col_type == Categorical)? 0 : input_data.ncols_categ);
     if (col_is_taken.size())
         return col_is_taken[col_num];
     else
@@ -267,10 +227,10 @@ RecursionState::RecursionState(WorkerMemory &workspace, bool full_state)
 
     this->split_ix         =  workspace.split_ix;
     this->end              =  workspace.end;
-    this->cols_possible    =  workspace.cols_possible;
-    this->go_to_shuffle    =  workspace.go_to_shuffle;
-    if (workspace.col_sampler.is_initialized())
+    if (workspace.col_sampler.has_weights())
         this->col_sampler  =  workspace.col_sampler;
+    else
+        this->sampler_pos  =  workspace.col_sampler.get_curr_pos();
 
     if (this->full_state)
     {
@@ -299,11 +259,12 @@ RecursionState::RecursionState(WorkerMemory &workspace, bool full_state)
 
 void RecursionState::restore_state(WorkerMemory &workspace)
 {
-    workspace.split_ix       =  this->split_ix;
-    workspace.end            =  this->end;
-    workspace.cols_possible  =  std::move(this->cols_possible);
-    workspace.col_sampler    =  std::move(this->col_sampler);
-    workspace.go_to_shuffle  =  this->go_to_shuffle;
+    workspace.split_ix         =  this->split_ix;
+    workspace.end              =  this->end;
+    if (workspace.col_sampler.has_weights())
+        workspace.col_sampler  =  std::move(this->col_sampler);
+    else
+        workspace.col_sampler.restore_pos(this->sampler_pos);
 
     if (this->full_state)
     {

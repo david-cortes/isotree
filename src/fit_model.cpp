@@ -295,8 +295,13 @@ bool interrupt_switch;
 *       Seed that will be used to generate random numbers used by the model.
 * - nthreads
 *       Number of parallel threads to use. Note that, the more threads, the more memory will be
-*       allocated, even if the thread does not end up being used. Ignored when not building with
-*       OpenMP support.
+*       allocated, even if the thread does not end up being used.
+*       Be aware that most of the operations are bound by memory bandwidth, which means that
+*       adding more threads will not result in a linear speed-up. For some types of data
+*       (e.g. large sparse matrices with small sample sizes), adding more threads might result
+*       in only a very modest speed up (e.g. 1.5x faster with 4x more threads),
+*       even if all threads look fully utilized.
+*       Ignored when not building with OpenMP support.
 * 
 * Returns
 * =======
@@ -784,7 +789,6 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     workspace.rnd_generator.seed(model_params.random_seed + tree_num);
     if (input_data.col_weights != NULL)
     	workspace.col_sampler.initialize(input_data.col_weights, input_data.ncols_tot);
-    workspace.runif = std::uniform_int_distribution<size_t>(0, input_data.ncols_tot - 1);
     workspace.rbin  = std::uniform_real_distribution<double>(0, 1);
     sample_random_rows(workspace.ix_arr, input_data.nrows, model_params.with_replacement,
                        workspace.rnd_generator, workspace.ix_all,
@@ -793,10 +797,6 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                        workspace.is_repeated);
     workspace.st  = 0;
     workspace.end = model_params.sample_size - 1;
-    if (!workspace.cols_possible.size())
-        workspace.cols_possible.resize(input_data.ncols_tot, true);
-    else
-        workspace.cols_possible.assign(workspace.cols_possible.size(), true);
 
     /* set expected tree size and add root node */
     {
@@ -833,7 +833,6 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         if (model_params.coef_type == Uniform)
             workspace.coef_unif = std::uniform_real_distribution<double>(-1, 1);
 
-        workspace.cols_shuffled.resize(input_data.ncols_tot);
         workspace.comb_val.resize(model_params.sample_size);
         workspace.col_take.resize(model_params.ndim);
         workspace.col_take_type.resize(model_params.ndim);
@@ -1060,14 +1059,10 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                               workspace.buffer_szt.data(), workspace.buffer_dbl.data(),
                               model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator);
 
-        for (size_t col = 0; col < input_data.ncols_tot; col++)
-            if (kurt_weights[col] <= 0 || is_na_or_inf(kurt_weights[col]))
-                workspace.cols_possible[col] = false;
-
         workspace.col_sampler.initialize(kurt_weights.data(), kurt_weights.size());
     }
 
-    workspace.go_to_shuffle = false;
+    workspace.col_sampler.initialize(input_data.ncols_tot);
 
     if (tree_root != NULL)
         split_itree_recursive(*tree_root,

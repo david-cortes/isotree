@@ -16,17 +16,27 @@
 #' distances by checking the depth after which two observations become separated, and to approximate densities by fitting
 #' trees beyond balanced-tree limit. Offers options to vary between randomized and deterministic splits too.
 #' 
-#' Note that the default parameters set up for this implementation will not scale to large datasets. In particular,
-#' if the amount of data is large, it's avised to want to set a smaller sample size for each tree, and fit fewer of them. As well, the default option for `missing_action` might slow things down significantly.
+#' Important: The default parameters in this software do not correspond to the suggested parameters in
+#' any of the references.
+#' In particular, the following default values are likely to cause huge differences when compared to the
+#' defaults in other software: `ndim`, `sample_size`, `ntrees`, `penalize_range`. The defaults here are
+#' nevertheless more likely to result in better models.
 #' 
-#' The model offers many tunable parameters. The most likely candidate to tune is `prob_pick_pooled_gain`, for
-#' which higher values tend to result in a better ability to flag outliers in the training data (`df`)
-#' at the expense of hindered performance when making predictions on new data (calling function `predict`) and poorer
+#' Note that the default parameters set up for this implementation will not scale to large datasets. In particular,
+#' if the amount of data is large, it's avised to want to set a smaller sample size for each tree, and fit fewer of them.
+#' As well, the default option for `missing_action` might slow things down significantly.
+#' 
+#' The model offers many tunable parameters. Assuming that `ntrees` is high-enough for data,
+#' the most likely candidate to tune is `prob_pick_pooled_gain` (along with perhaps disabling
+#' `penalize_range` alongside this option), for which higher values tend to
+#' result in a better ability to flag outliers in the training data (`df`) at the expense of hindered
+#' performance when making predictions on new data (calling function `predict`) and poorer
 #' generalizability to inputs with values outside the variables' ranges to which the model was fit
-#' (see plots generated from the examples for a better idea of the difference). The next candidate to tune is
-#' `prob_pick_avg_gain` (along with `sample_size`), for which high values tend to result in models that are more likely
-#' to flag values outside of the variables' ranges and fewer ghost regions, at the expense of fewer flagged outliers
-#' in the original data.
+#' (see plots generated from the examples for a better idea of the difference). The next candidates to tune is
+#' `sample_size` - the default is to use all rows, but in some datasets introducing sub-sampling can help,
+#' especially for the single-variable model. After that, next candidate to tune is `prob_pick_avg_gain`,
+#' for which high values tend to result in models that are more likely to flag values outside of the variables'
+#' ranges and fewer ghost regions, at the expense of fewer flagged outliers in the original data.
 #' 
 #' @param df Data to which to fit the model. Supported inputs type are:\itemize{
 #' \item A `data.frame`, also accepted as `data.table` or `tibble`.
@@ -262,6 +272,11 @@
 #' @param nthreads Number of parallel threads to use. If passing a negative number, will use
 #' the maximum number of available threads in the system. Note that, the more threads,
 #' the more memory will be allocated, even if the thread does not end up being used.
+#' Be aware that most of the operations are bound by memory bandwidth, which means that
+#' adding more threads will not result in a linear speed-up. For some types of data
+#' (e.g. large sparse matrices with small sample sizes), adding more threads might result
+#' in only a very modest speed up (e.g. 1.5x faster with 4x more threads),
+#' even if all threads look fully utilized.
 #' @return If passing `output_score` = `FALSE`, `output_dist` = `FALSE`, and `output_imputations` = `FALSE` (the defaults),
 #' will output an `isolation_forest` object from which `predict` method can then be called on new data. If passing
 #' `TRUE` to any of the former options, will output a list with entries:

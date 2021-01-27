@@ -26,14 +26,25 @@ class IsolationForest:
 
     Note
     ----
-    The model offers many tunable parameters. The most likely candidate to tune is 'prob_pick_pooled_gain', for
-    which higher values tend to result in a better ability to flag outliers in the training data
-    at the expense of hindered performance when making predictions on new data (calling method 'predict') and poorer
+    The default parameters in this software do not correspond to the suggested parameters in
+    any of the references.
+    In particular, the following default values are likely to cause huge differences when compared to the
+    defaults in other software: ``ndim``, ``sample_size``, ``ntrees``, ``penalize_range``. The defaults here are
+    nevertheless more likely to result in better models.
+
+    Note
+    ----
+    The model offers many tunable parameters. Assuming that `ntrees` is high-enough for data,
+    the most likely candidate to tune is ``prob_pick_pooled_gain`` (along with perhaps disabling
+    ``penalize_range`` alongside this option), for which higher values tend to
+    result in a better ability to flag outliers in the training data at the expense of hindered
+    performance when making predictions on new data (calling method ``predict``) and poorer
     generalizability to inputs with values outside the variables' ranges to which the model was fit
-    (see plots generated from the examples in GitHub notebook for a better idea of the difference). The next candidate to tune is
-    'prob_pick_avg_gain' (along with 'sample_size'), for which high values tend to result in models that are more likely
-    to flag values outside of the variables' ranges and fewer ghost regions, at the expense of fewer flagged outliers
-    in the original data.
+    (see plots generated from the examples in GitHub notebook for a better idea of the difference). The next candidates to tune is
+    ``sample_size`` - the default is to use all rows, but in some datasets introducing sub-sampling can help,
+    especially for the single-variable model. After that, next candidate to tune is ``prob_pick_avg_gain``,
+    for which high values tend to result in models that are more likely to flag values outside of the variables'
+    ranges and fewer ghost regions, at the expense of fewer flagged outliers in the original data.
 
     Note
     ----
@@ -298,6 +309,11 @@ class IsolationForest:
         Number of parallel threads to use. If passing a negative number, will use
         the maximum number of available threads in the system. Note that, the more threads,
         the more memory will be allocated, even if the thread does not end up being used.
+        Be aware that most of the operations are bound by memory bandwidth, which means that
+        adding more threads will not result in a linear speed-up. For some types of data
+        (e.g. large sparse matrices with small sample sizes), adding more threads might result
+        in only a very modest speed up (e.g. 1.5x faster with 4x more threads),
+        even if all threads look fully utilized.
 
     Attributes
     ----------

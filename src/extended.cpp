@@ -128,130 +128,44 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         else
             col_is_taken_s.clear();
         workspace.ntaken = 0;
-        workspace.ncols_tried = 0;
         std::fill(workspace.comb_val.begin(),
                   workspace.comb_val.begin() + (workspace.end - workspace.st + 1),
                   (double)0);
 
-        workspace.tried_all = false;
-        if (workspace.go_to_shuffle)
-            goto probe_all;
+        if (model_params.ndim >= input_data.ncols_tot)
+            workspace.col_sampler.init_full_pass();
 
-        if (model_params.ndim < input_data.ncols_tot / 2 || workspace.col_sampler.is_initialized())
+        while (
+                (model_params.ndim < input_data.ncols_tot)?
+                workspace.col_sampler.sample_col(workspace.col_chosen, workspace.rnd_generator)
+                    :
+                workspace.col_sampler.sample_col(workspace.col_chosen)
+            )
         {
-            while(workspace.ncols_tried < std::max(input_data.ncols_tot / 2, model_params.ndim))
+            if (is_col_taken(col_is_taken, col_is_taken_s, input_data, workspace.col_chosen))
+                continue;
+
+            get_split_range(workspace, input_data, model_params);
+            if (workspace.unsplittable)
             {
-                workspace.ncols_tried++;
-                decide_column(input_data.ncols_numeric, input_data.ncols_categ,
-                              workspace.col_chosen, workspace.col_type,
-                              workspace.rnd_generator, workspace.runif,
-                              workspace.col_sampler);
-
-                if (
-                        (workspace.col_type == Numeric && !workspace.cols_possible[workspace.col_chosen])
-                            ||
-                        (workspace.col_type == Categorical && !workspace.cols_possible[workspace.col_chosen + input_data.ncols_numeric])
-                            ||
-                        is_col_taken(col_is_taken, col_is_taken_s, input_data, workspace.col_chosen, workspace.col_type)
-                    )
-                    continue;
-
-
-                get_split_range(workspace, input_data, model_params);
-                if (workspace.unsplittable)
-                {
-                    add_unsplittable_col(workspace, input_data);
-                }
-
-                else
-                {
-                    add_chosen_column(workspace, input_data, model_params, col_is_taken, col_is_taken_s);
-                    if (++workspace.ntaken >= model_params.ndim)
-                        break;
-                }
-
+                workspace.col_sampler.drop_col(workspace.col_chosen
+                                                 +
+                                               (workspace.col_type == Numeric)? 0 : input_data.ncols_numeric);
             }
 
-            if (workspace.ntaken < model_params.ndim)
+            else
             {
-                goto probe_all;
+                add_chosen_column(workspace, input_data, model_params, col_is_taken, col_is_taken_s);
+                if (++workspace.ntaken >= model_params.ndim)
+                    break;
             }
         }
 
-        else /* probe all columns */
-        {
-            probe_all:
-                workspace.go_to_shuffle = true;
-                workspace.tried_all = true;
-                if (model_params.ndim < input_data.ncols_tot)
-                {
+        if (!workspace.ntaken && !workspace.ntaken_best)
+            goto terminal_statistics;
+        else if (!workspace.ntaken)
+            break;
 
-                    if (!workspace.col_sampler.is_initialized())
-                    {
-                        if (workspace.cols_shuffled.size() != input_data.ncols_tot)
-                            workspace.cols_shuffled.resize(input_data.ncols_tot);
-                        std::iota(workspace.cols_shuffled.begin(), workspace.cols_shuffled.end(), (size_t)0);
-                        std::shuffle(workspace.cols_shuffled.begin(),
-                                     workspace.cols_shuffled.end(),
-                                     workspace.rnd_generator);
-                    }
-
-                    else
-                    {
-                        workspace.col_sampler.shuffle_cols(workspace.cols_shuffled, workspace.rnd_generator);
-                    }
-                }
-
-                else
-                {
-                    if (workspace.cols_shuffled.size() != input_data.ncols_tot)
-                    {
-                        workspace.cols_shuffled.resize(input_data.ncols_tot);
-                    }
-                    std::iota(workspace.cols_shuffled.begin(), workspace.cols_shuffled.end(), (size_t)0);
-                }
-
-                for (size_t col : workspace.cols_shuffled)
-                {
-                    if (
-                        !workspace.cols_possible[col]
-                            ||
-                        (workspace.ntaken
-                            &&
-                         is_col_taken(col_is_taken, col_is_taken_s, input_data,
-                                       (col < input_data.ncols_numeric)? (col) : (col - input_data.ncols_numeric),
-                                       (col < input_data.ncols_numeric)? Numeric : Categorical)
-                         )
-                        )
-                        continue;
-
-                    if (col < input_data.ncols_numeric)
-                    {
-                        workspace.col_chosen = col;
-                        workspace.col_type   = Numeric;
-                    }
-
-                    else
-                    {
-                        workspace.col_chosen = col - input_data.ncols_numeric;
-                        workspace.col_type   = Categorical;
-                    }
-
-                    get_split_range(workspace, input_data, model_params);
-                    if (workspace.unsplittable)
-                    {
-                        add_unsplittable_col(workspace, input_data);
-                    }
-
-                    else
-                    {
-                        add_chosen_column(workspace, input_data, model_params, col_is_taken, col_is_taken_s);
-                        if (++workspace.ntaken >= model_params.ndim)
-                            break;
-                    }
-                }
-        }
-    
         /* evaluate gain if necessary */
         if (workspace.criterion != NoCrit)
             workspace.this_gain = eval_guided_crit(workspace.comb_val.data(), workspace.end - workspace.st + 1,
@@ -314,9 +228,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 
     }
 
-    /* if there isn't a single splittable column, end here */
-    if (!workspace.ntaken_best && !workspace.ntaken && workspace.tried_all)
-        goto terminal_statistics;
+    col_is_taken.clear();
+    col_is_taken_s.clear();
 
     /* if the best split is not good enough, don't split any further */
     if (workspace.criterion != NoCrit && hplanes.back().score <= 0)
@@ -600,13 +513,6 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
             }
             break;
         }
-    }
-
-    double xmin = HUGE_VAL, xmax = -HUGE_VAL;
-    for (size_t row = workspace.st; row <= workspace.end; row++)
-    {
-        xmin = std::fmin(xmin, workspace.comb_val[row - workspace.st]);
-        xmax = std::fmax(xmax, workspace.comb_val[row - workspace.st]);
     }
 }
 

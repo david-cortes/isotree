@@ -389,7 +389,15 @@ inline double categ_gain(size_t cnt_left, size_t cnt_right,
 }
 
 
-#define avg_between(a, b) (((a) + (b)) / 2)
+/*  TODO: revisit these gain calculations.
+    The function 'calc_sd_raw' will round to a minimum value, because it needs to
+    avoid division by zero when standardizing, but here maybe it should be able
+    to output zeros.
+
+    Also perhaps should use a more robust formula for the pooled gain, since it's
+    possible to reduce it to something that doesn't involve sums of squares. */
+
+#define avg_between(a, b) (((a) + (b)) / 2.)
 #define sd_gain(sd, sd_left, sd_right) (1.0 - ((sd_left) + (sd_right)) / (2.0 * (sd)))
 
 /* for split-criterion in hyperplanes (see below for version aimed at single-variable splits) */
@@ -408,8 +416,8 @@ double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion, d
 
     /* sort in ascending order */
     std::sort(x, x + n);
-    if (x[0] == x[n-1]) return -HUGE_VAL;
     xmin = x[0]; xmax = x[n-1];
+    if (x[0] == x[n-1]) return -HUGE_VAL;
 
     /* compute sum - sum_sq - sd in one pass */
     long double sum = 0;

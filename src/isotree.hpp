@@ -460,34 +460,48 @@ typedef struct ImputedData {
 
 } ImputedData;
 
-/* Helper when passing column weights */
-class WeightedColSampler
+/*  This class provides efficient methods for sampling columns at random,
+    given that at a given node a column might no longer be splittable,
+    and when that happens, it also makes it non-splittable in any children
+    node from there onwards. The idea is to provide efficient methods for
+    passing the state from a parent node to a left node and then restore
+    the state before going for the right node.
+    It can be used in 3 modes:
+    - As a uniform sampler with replacement.
+    - As a weighted sampler with replacement.
+    - As an array that keeps track of which columns are still splittable. */
+class ColumnSampler
 {
 public:
+    std::vector<size_t> col_indices;
     std::vector<double> tree_weights;
-    size_t n;
+    size_t curr_pos;
+    size_t curr_col;
+    size_t n_cols;
     size_t tree_levels;
     size_t offset;
-    void initialize(double weights[], size_t n);
+    void initialize(double weights[], size_t n_cols);
+    void initialize(size_t n_cols);
+    bool sample_col(size_t &col, RNG_engine &rnd_generator);
+    void init_full_pass();        /* when passing through all columns */
+    bool sample_col(size_t &col); /* when passing through all columns */
     void drop_col(size_t col);
-    size_t sample_col(RNG_engine &rnd_generator);
-    void shuffle_cols(std::vector<size_t> &out, RNG_engine &rnd_generator);
-    bool is_initialized();
-    WeightedColSampler() = default;
+    bool has_weights();
+    size_t get_curr_pos();
+    void restore_pos(size_t pos);
+    ColumnSampler() = default;
 };
 
 typedef struct {
     std::vector<size_t>  ix_arr;
     std::vector<size_t>  ix_all;
     RNG_engine           rnd_generator;
-    std::uniform_int_distribution<size_t>  runif;
     std::uniform_real_distribution<double> rbin;
     size_t               st;
     size_t               end;
     size_t               st_NA;
     size_t               end_NA;
     size_t               split_ix;
-    bool                 go_to_shuffle;
     std::unordered_map<size_t, double> weights_map;
     std::vector<double>  weights_arr;    /* when not ignoring NAs and when using weights as density */
     double               xmin;
@@ -498,9 +512,8 @@ typedef struct {
     std::vector<char>    categs;
     size_t               ncols_tried;    /* 'npresent' and 'ncols_tried' are used interchangeable and for unrelated things */
     int                  ncat_tried;
-    std::vector<bool>    cols_possible;
     std::vector<double>  btree_weights;  /* only when using weights for sampling */
-    WeightedColSampler   col_sampler; /* columns can get eliminated, keep a copy for each thread */
+    ColumnSampler        col_sampler;    /* columns can get eliminated, keep a copy for each thread */
 
     /* for split criterion */
     std::vector<double>  buffer_dbl;
@@ -518,11 +531,9 @@ typedef struct {
     size_t   ntry;
     size_t   ntaken;
     size_t   ntaken_best;
-    bool     tried_all;
-    size_t   col_chosen;
+    size_t   col_chosen; /* also used as placeholder in the single-variable model */
     ColType  col_type;
     double   ext_sd;
-    std::vector<size_t>  cols_shuffled;
     std::vector<double>  comb_val;
     std::vector<size_t>  col_take;
     std::vector<ColType> col_take_type;
@@ -567,11 +578,12 @@ public:
     size_t  end_NA;
     size_t  split_ix;
     size_t  end;
+    size_t  sampler_pos;
     bool    go_to_shuffle;
     bool    full_state;
     std::vector<size_t> ix_arr;
     std::vector<bool>   cols_possible;
-    WeightedColSampler  col_sampler;
+    ColumnSampler       col_sampler;
     std::unique_ptr<double[]> weights_arr;
 
     RecursionState() = default;
@@ -771,17 +783,11 @@ size_t check_for_missing(PredictionData  &prediction_data,
                          int             nthreads);
 
 /* helpers_iforest.cpp */
-void decide_column(size_t ncols_numeric, size_t ncols_categ, size_t &col_chosen, ColType &col_type,
-                   RNG_engine &rnd_generator, std::uniform_int_distribution<size_t> &runif,
-                   WeightedColSampler &col_sampler);
-void add_unsplittable_col(WorkerMemory &workspace, IsoTree &tree, InputData &input_data);
-void add_unsplittable_col(WorkerMemory &workspace, InputData &input_data);
-bool check_is_splittable_col(WorkerMemory &workspace, IsoTree &tree, InputData &input_data);
 void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params, IsoTree &tree);
 void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params);
 int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size_t col_num);
 bool is_col_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
-                  InputData &input_data, size_t col_num, ColType col_type);
+                  InputData &input_data, size_t col_num);
 void set_col_as_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
                       InputData &input_data, size_t col_num, ColType col_type);
 void add_separation_step(WorkerMemory &workspace, InputData &input_data, double remainder);
