@@ -92,12 +92,17 @@
 #endif
 
 /* http://fredrik-j.blogspot.com/2009/02/how-not-to-compute-harmonic-numbers.html
-   https://en.wikipedia.org/wiki/Harmonic_number */
+   https://en.wikipedia.org/wiki/Harmonic_number
+   https://github.com/scikit-learn/scikit-learn/pull/19087 */
 #define THRESHOLD_EXACT_H 256 /* above this will get approximated */
 double harmonic(size_t n)
 {
     if (n > THRESHOLD_EXACT_H)
-        return logl((long double)n) + (long double)0.5772156649;
+        return logl((long double)n) + (long double)0.5772156649015328606065120
+                + 0.5 * (1./(long double)n)
+                - 0.5 * (1./square((long double)n))
+                      * ( 1./6. -   (1./square((long double)n))
+                                  * (1./60. - (1./126.)*(1./square((long double)n))) );
     else
         return harmonic_recursive((double)1, (double)(n + 1));
 }
@@ -740,6 +745,10 @@ bool ColumnSampler::sample_col(size_t &col, RNG_engine &rnd_generator)
     {
         if (this->curr_pos == 0)
             return false;
+        else if (this->curr_pos == 1) {
+            col = this->col_indices[0];
+            return true;
+        }
         col = this->col_indices[std::uniform_int_distribution<size_t>(0, this->curr_pos-1)(rnd_generator)];
         return true;
     }
