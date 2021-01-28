@@ -97,7 +97,7 @@
 #define EULERS_GAMMA 0.577215664901532860606512
 double digamma(double x)
 {
-    double w, y, z, z2;
+    double y, z, z2;
 
     /* check for positive integer up to 10 */
     if( (x < THRESHOLD_EXACT_H) && (x == floor(x)) )

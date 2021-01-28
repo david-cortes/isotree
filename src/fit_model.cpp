@@ -831,13 +831,26 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     if (!workspace.categs.size())
         workspace.categs.resize(input_data.max_categ);
 
+    /* IMPORTANT!!!!!
+       The standard library implementation is likely going to use the ziggurat method
+       for normal sampling, which has some state memory in the **distribution object itself**
+       in addition to the state memory from the RNG engine. DO NOT avoid re-generating this
+       object on each tree, despite being inefficient, because then it can cause seed
+       irreproducibility when the number of splitting dimensions is odd and the number
+       of threads is more than 1. This is a very hard issue to debug since everything
+       works fine depending on the order in which trees are assigned to threads.
+       DO NOT PUT THESE LINES BELOW THE NEXT IF. */
+    if (hplane_root != NULL)
+    {
+        if (input_data.ncols_categ || model_params.coef_type == Normal)
+            workspace.coef_norm = std::normal_distribution<double>(0, 1);
+        if (model_params.coef_type == Uniform)
+            workspace.coef_unif = std::uniform_real_distribution<double>(-1, 1);
+    }
+
     /* for the extended model, initialize extra vectors and objects */
     if (hplane_root != NULL && !workspace.comb_val.size())
     {
-        workspace.coef_norm = std::normal_distribution<double>(0, 1);
-        if (model_params.coef_type == Uniform)
-            workspace.coef_unif = std::uniform_real_distribution<double>(-1, 1);
-
         workspace.comb_val.resize(model_params.sample_size);
         workspace.col_take.resize(model_params.ndim);
         workspace.col_take_type.resize(model_params.ndim);
