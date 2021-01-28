@@ -91,14 +91,44 @@
     size_t log2ceil(size_t x) {return (size_t)(ceill(log2l((long double) x)));}
 #endif
 
+#define THRESHOLD_EXACT_H 256 /* above this will get approximated */
+
+/* adapted from cephes */
+#define EULERS_GAMMA 0.577215664901532860606512
+double digamma(double x)
+{
+    double w, y, z;
+
+    /* check for positive integer up to 10 */
+    if( (x < THRESHOLD_EXACT_H) && (x == floor(x)) )
+        return harmonic(x - 1) - EULERS_GAMMA;
+
+    if( x < 1.0e17 )
+    {
+        z = 1.0/(x * x);
+        y = z * ( 8.33333333333333333333E-2*z
+                 -8.33333333333333333333E-3*z*z
+                 +3.96825396825396825397E-3*z*z*z
+                 -4.16666666666666666667E-3*z*z*z*z
+                 +7.57575757575757575758E-3*z*z*z*z*z
+                 -2.10927960927960927961E-2*z*z*z*z*z*z
+                 +8.33333333333333333333E-2*z*z*z*z*z*z);
+    }
+    else {
+        y = 0.0;
+    }
+
+    y = log(x)  -  (0.5/x)  -  y;
+    return y;
+}
+
 /* http://fredrik-j.blogspot.com/2009/02/how-not-to-compute-harmonic-numbers.html
    https://en.wikipedia.org/wiki/Harmonic_number
    https://github.com/scikit-learn/scikit-learn/pull/19087 */
-#define THRESHOLD_EXACT_H 256 /* above this will get approximated */
 double harmonic(size_t n)
 {
     if (n > THRESHOLD_EXACT_H)
-        return logl((long double)n) + (long double)0.5772156649015328606065120
+        return logl((long double)n) + (long double)EULERS_GAMMA
                 + 0.5 * (1./(long double)n)
                 - 0.5 * (1./square((long double)n))
                       * ( 1./6. -   (1./square((long double)n))
@@ -131,21 +161,24 @@ double expected_avg_depth(size_t sample_size)
         case 9: return 4609.0/1260.0;
         default:
         {
-            return 2 * (harmonic(sample_size) - 1);
+            return 2. * (harmonic(sample_size) - 1.);
         }
     }
 }
 
+/* Note: H(x) = psi(x+1) + gamma */
 double expected_avg_depth(long double approx_sample_size)
 {
-    if (approx_sample_size < 1.5)
+    if (approx_sample_size <= 1)
         return 0;
-    else if (approx_sample_size < 2.5)
-        return 1;
-    else if (approx_sample_size <= THRESHOLD_EXACT_H)
-        return expected_avg_depth((size_t) roundl(approx_sample_size));
+    else if (approx_sample_size < (long double)INT_MAX)
+        return 2. * (digamma(approx_sample_size + 1.) + EULERS_GAMMA - 1.);
     else
-        return 2 * logl(approx_sample_size) - (long double)1.4227843351;
+        return 2. * logl(approx_sample_size) + 2.*((long double)EULERS_GAMMA - 1.)
+                + (1./approx_sample_size)
+                - (1./square(approx_sample_size))
+                   * ( 1./6. -   (1./square(approx_sample_size))
+                               * (1./60. - (1./126.)*(1./square(approx_sample_size))) );
 }
 
 /* https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree */
@@ -797,11 +830,11 @@ void ColumnSampler::shuffle_remainder(RNG_engine &rnd_generator)
 
     else
     {
+        if (this->tree_weights[0] <= 0)
+            return;
         std::vector<double> curr_weights = this->tree_weights;
         this->curr_pos = 0;
         this->curr_col = 0;
-        if (curr_weights[0] <= 0)
-            return;
 
         if (this->col_indices.size() < this->n_cols)
             this->col_indices.resize(this->n_cols);

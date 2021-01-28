@@ -583,7 +583,6 @@ public:
     size_t  end;
     size_t  sampler_pos;
     bool    go_to_shuffle;
-    size_t  col_sampler_pos;
     bool    full_state;
     std::vector<size_t> ix_arr;
     std::vector<bool>   cols_possible;
@@ -802,6 +801,7 @@ void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_
 
 /* utils.cpp */
 size_t log2ceil(size_t x);
+double digamma(double x);
 double harmonic(size_t n);
 double harmonic_recursive(double a, double b);
 double expected_avg_depth(size_t sample_size);
