@@ -785,8 +785,6 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         workspace.btree_weights.assign(input_data.btree_weights_init.begin(),
                                        input_data.btree_weights_init.end());
     workspace.rnd_generator.seed(model_params.random_seed + tree_num);
-    if (input_data.col_weights != NULL)
-    	workspace.col_sampler.initialize(input_data.col_weights, input_data.ncols_tot);
     workspace.rbin  = std::uniform_real_distribution<double>(0, 1);
     sample_random_rows(workspace.ix_arr, input_data.nrows, model_params.with_replacement,
                        workspace.rnd_generator, workspace.ix_all,
@@ -795,6 +793,15 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                        workspace.is_repeated);
     workspace.st  = 0;
     workspace.end = model_params.sample_size - 1;
+
+    /* in some cases, it's not possible to use column weights even if they are given */
+    bool avoid_col_weights = (tree_root != NULL && model_params.ndim == 1 &&
+                              (model_params.prob_pick_by_gain_avg + model_params.prob_pick_by_gain_pl) >= 1)
+                                ||
+                             (hplane_root != NULL && model_params.ndim >= input_data.ncols_tot);
+    if (input_data.col_weights != NULL && !avoid_col_weights)
+        workspace.col_sampler.initialize(input_data.col_weights, input_data.ncols_tot);
+
 
     /* set expected tree size and add root node */
     {
@@ -1029,7 +1036,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     }
 
     /* weigh columns by kurtosis in the sample if required */
-    if (model_params.weigh_by_kurt)
+    if (model_params.weigh_by_kurt && !avoid_col_weights)
     {
         std::vector<double> kurt_weights(input_data.ncols_numeric + input_data.ncols_categ);
 
@@ -1062,13 +1069,9 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
 
     workspace.col_sampler.initialize(input_data.ncols_tot);
     workspace.try_all = false;
-    if (hplane_root != NULL && model_params.ndim < input_data.ncols_tot / 2)
-    	workspace.col_sampler.drop_indices();
-    if (
-    		tree_root != NULL && model_params.ndim == 1 &&
-    		(model_params.prob_pick_by_gain_avg + model_params.prob_pick_by_gain_pl) >= 1
-    	)
-    	workspace.col_sampler.drop_weights();
+    if (hplane_root != NULL && model_params.ndim >= input_data.ncols_tot)
+        workspace.try_all = true;
+
 
     if (tree_root != NULL)
         split_itree_recursive(*tree_root,

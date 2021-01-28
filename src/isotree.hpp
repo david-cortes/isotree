@@ -477,19 +477,20 @@ public:
     std::vector<double> tree_weights;
     size_t curr_pos;
     size_t curr_col;
+    size_t last_given;
     size_t n_cols;
     size_t tree_levels;
     size_t offset;
+    size_t n_dropped;
     void initialize(double weights[], size_t n_cols);
     void initialize(size_t n_cols);
     bool sample_col(size_t &col, RNG_engine &rnd_generator);
-    void init_full_pass();        /* when passing through all columns */
+    void prepare_full_pass();        /* when passing through all columns */
     bool sample_col(size_t &col); /* when passing through all columns */
     void drop_col(size_t col);
     void shuffle_remainder(RNG_engine &rnd_generator);
-    void drop_indices();
-    void drop_weights();
     bool has_weights();
+    size_t get_remaining_cols();
     ColumnSampler() = default;
 };
 
@@ -582,7 +583,7 @@ public:
     size_t  split_ix;
     size_t  end;
     size_t  sampler_pos;
-    bool    go_to_shuffle;
+    size_t  n_dropped;
     bool    full_state;
     std::vector<size_t> ix_arr;
     std::vector<bool>   cols_possible;
@@ -789,7 +790,7 @@ void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams
 void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params);
 int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size_t col_num);
 bool is_col_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
-                  InputData &input_data, size_t col_num);
+                  size_t col_num);
 void set_col_as_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
                       InputData &input_data, size_t col_num, ColType col_type);
 void add_separation_step(WorkerMemory &workspace, InputData &input_data, double remainder);

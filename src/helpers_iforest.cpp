@@ -122,7 +122,7 @@ int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size
 }
 
 bool is_col_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
-                  InputData &input_data, size_t col_num)
+                  size_t col_num)
 {
     if (col_is_taken.size())
         return col_is_taken[col_num];
@@ -227,10 +227,12 @@ RecursionState::RecursionState(WorkerMemory &workspace, bool full_state)
 
     this->split_ix         =  workspace.split_ix;
     this->end              =  workspace.end;
-    if (workspace.col_sampler.has_weights())
-        this->col_sampler_weights = workspace.col_sampler.tree_weights;
-    else
+    if (!workspace.col_sampler.has_weights())
         this->sampler_pos  =  workspace.col_sampler.curr_pos;
+    else {
+        this->col_sampler_weights = workspace.col_sampler.tree_weights;
+        this->n_dropped           = workspace.col_sampler.n_dropped;
+    }
 
     if (this->full_state)
     {
@@ -261,10 +263,12 @@ void RecursionState::restore_state(WorkerMemory &workspace)
 {
     workspace.split_ix         =  this->split_ix;
     workspace.end              =  this->end;
-    if (workspace.col_sampler.has_weights())
-        workspace.col_sampler.tree_weights = std::move(this->col_sampler_weights);
-    else
+    if (!workspace.col_sampler.has_weights())
         workspace.col_sampler.curr_pos = this->sampler_pos;
+    else  {
+        workspace.col_sampler.tree_weights  =  std::move(this->col_sampler_weights);
+        workspace.col_sampler.n_dropped     =  this->n_dropped;
+    }
 
     if (this->full_state)
     {

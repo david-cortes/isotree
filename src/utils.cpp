@@ -97,7 +97,7 @@
 #define EULERS_GAMMA 0.577215664901532860606512
 double digamma(double x)
 {
-    double w, y, z;
+    double w, y, z, z2;
 
     /* check for positive integer up to 10 */
     if( (x < THRESHOLD_EXACT_H) && (x == floor(x)) )
@@ -106,13 +106,14 @@ double digamma(double x)
     if( x < 1.0e17 )
     {
         z = 1.0/(x * x);
-        y = z * ( 8.33333333333333333333E-2*z
-                 -8.33333333333333333333E-3*z*z
-                 +3.96825396825396825397E-3*z*z*z
-                 -4.16666666666666666667E-3*z*z*z*z
-                 +7.57575757575757575758E-3*z*z*z*z*z
-                 -2.10927960927960927961E-2*z*z*z*z*z*z
-                 +8.33333333333333333333E-2*z*z*z*z*z*z);
+        z2 = square(z);
+        y = z * ( 8.33333333333333333333E-2
+                 -8.33333333333333333333E-3*z
+                 +3.96825396825396825397E-3*z2
+                 -4.16666666666666666667E-3*z2*z
+                 +7.57575757575757575758E-3*square(z2)
+                 -2.10927960927960927961E-2*square(z2)*z
+                 +8.33333333333333333333E-2*square(z2)*z2);
     }
     else {
         y = 0.0;
@@ -713,6 +714,8 @@ void ColumnSampler::initialize(double weights[], size_t n_cols)
         this->tree_weights.shrink_to_fit();
         this->initialize(n_cols);
     }
+
+    this->n_dropped = 0;
 }
 
 bool ColumnSampler::has_weights()
@@ -726,8 +729,7 @@ void ColumnSampler::initialize(size_t n_cols)
     {
         this->n_cols = n_cols;
         this->curr_pos = n_cols;
-        if (this->col_indices.size() != n_cols)
-            this->col_indices.resize(n_cols);
+        this->col_indices.resize(n_cols);
         std::iota(this->col_indices.begin(), this->col_indices.end(), (size_t)0);
     }
 }
@@ -736,11 +738,13 @@ void ColumnSampler::drop_col(size_t col)
 {
     if (!this->has_weights())
     {
-        std::swap(this->col_indices[col], this->col_indices[--this->curr_pos]);
+        std::swap(this->col_indices[this->last_given], this->col_indices[--this->curr_pos]);
+        if (this->curr_col) this->curr_col--;
     }
 
     else
     {
+        this->n_dropped++;
         size_t curr_ix = col + this->offset;
         this->tree_weights[curr_ix] = 0.;
         for (size_t lev = 0; lev < this->tree_levels; lev++)
@@ -752,7 +756,7 @@ void ColumnSampler::drop_col(size_t col)
     }
 }
 
-void ColumnSampler::init_full_pass()
+void ColumnSampler::prepare_full_pass()
 {
     this->curr_col = 0;
 
@@ -760,14 +764,11 @@ void ColumnSampler::init_full_pass()
     {
         if (this->col_indices.size() < this->n_cols)
             this->col_indices.resize(this->n_cols);
-        std::iota(this->col_indices.begin(), this->col_indices.end(), (size_t)0);
-        this->curr_pos = this->n_cols;
+        this->curr_pos = 0;
         for (size_t col = 0; col < this->n_cols; col++)
         {
-            if (this->tree_weights[col + this->offset] <= 0)
-            {
-                std::swap(this->col_indices[col], this->col_indices[--this->curr_pos]);
-            }
+            if (this->tree_weights[col + this->offset] > 0)
+                this->col_indices[this->curr_pos++] = col;
         }
     }
 }
@@ -776,14 +777,22 @@ bool ColumnSampler::sample_col(size_t &col, RNG_engine &rnd_generator)
 {
     if (!this->has_weights())
     {
-        if (this->curr_pos == 0)
-            return false;
-        else if (this->curr_pos == 1) {
-            col = this->col_indices[0];
-            return true;
+        switch(this->curr_pos)
+        {
+            case 0: return false;
+            case 1:
+            {
+                this->last_given = 0;
+                col = this->col_indices[0];
+                return true;
+            }
+            default:
+            {
+                this->last_given = std::uniform_int_distribution<size_t>(0, this->curr_pos-1)(rnd_generator);
+                col = this->col_indices[this->last_given];
+                return true;
+            }
         }
-        col = this->col_indices[std::uniform_int_distribution<size_t>(0, this->curr_pos-1)(rnd_generator)];
-        return true;
     }
 
     else
@@ -814,6 +823,7 @@ bool ColumnSampler::sample_col(size_t &col)
 {
     if (this->curr_pos == this->curr_col || this->curr_pos == 0)
         return false;
+    this->last_given = this->curr_col;
     col = this->col_indices[this->curr_col++];
     return true;
 }
@@ -822,7 +832,7 @@ void ColumnSampler::shuffle_remainder(RNG_engine &rnd_generator)
 {
     if (!this->has_weights())
     {
-        this->init_full_pass();
+        this->prepare_full_pass();
         std::shuffle(this->col_indices.begin(),
                      this->col_indices.begin() + this->curr_pos,
                      rnd_generator);
@@ -873,16 +883,13 @@ void ColumnSampler::shuffle_remainder(RNG_engine &rnd_generator)
     }
 }
 
-void ColumnSampler::drop_indices()
-{
-    this->col_indices.clear();
-}
 
-void ColumnSampler::drop_weights()
+size_t ColumnSampler::get_remaining_cols()
 {
-    this->tree_weights.clear();
-    this->tree_weights.shrink_to_fit();
-    this->initialize(this->n_cols);
+    if (!this->has_weights())
+        return this->curr_pos;
+    else
+        return this->n_cols - this->n_dropped;
 }
 
 

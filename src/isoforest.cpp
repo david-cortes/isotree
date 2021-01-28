@@ -109,7 +109,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
         /* evaluate gain for all columns */
         trees.back().score = -HUGE_VAL; /* this is used to track the best gain */
-        workspace.col_sampler.init_full_pass();
+        workspace.col_sampler.prepare_full_pass();
         while (workspace.col_sampler.sample_col(workspace.col_chosen))
         {
             if (workspace.col_chosen < input_data.ncols_numeric)
@@ -228,36 +228,53 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         else
             workspace.criterion = NoCrit;
 
-        if (workspace.try_all)
-            workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
 
-        workspace.ntried = 0;
-
-        while (
-                workspace.try_all?
-                workspace.col_sampler.sample_col(trees.back().col_num)
-                    :
-                workspace.col_sampler.sample_col(trees.back().col_num, workspace.rnd_generator)
-               )
+        if (!workspace.col_sampler.has_weights())
         {
-            get_split_range(workspace, input_data, model_params, trees.back());
-            if (workspace.unsplittable)
+            while (workspace.col_sampler.sample_col(trees.back().col_num, workspace.rnd_generator))
             {
-                workspace.col_sampler.drop_col(trees.back().col_num + (trees.back().col_type == Numeric)? 0 : input_data.ncols_numeric);
-                workspace.ntried++;
-                if (!workspace.try_all && workspace.ntried > input_data.ncols_tot / 2)
+                get_split_range(workspace, input_data, model_params, trees.back());
+                if (workspace.unsplittable)
+                    workspace.col_sampler.drop_col(trees.back().col_num + (trees.back().col_type == Numeric)? (size_t)0 : input_data.ncols_numeric);
+                else
+                    goto produce_split;
+            }
+            goto terminal_statistics;
+        }
+
+        else
+        {
+            if (workspace.try_all)
+                workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
+            workspace.ntried = 0;
+            size_t threshold_shuffle = workspace.col_sampler.get_remaining_cols() / 2;
+
+            while (
+                    workspace.try_all?
+                    workspace.col_sampler.sample_col(trees.back().col_num)
+                        :
+                    workspace.col_sampler.sample_col(trees.back().col_num, workspace.rnd_generator)
+                   )
+            {
+                get_split_range(workspace, input_data, model_params, trees.back());
+                if (workspace.unsplittable)
                 {
-                    workspace.try_all = true;
-                    workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
+                    workspace.col_sampler.drop_col(trees.back().col_num + (trees.back().col_type == Numeric)? (size_t)0 : input_data.ncols_numeric);
+                    workspace.ntried++;
+                    if (!workspace.try_all && workspace.ntried > threshold_shuffle)
+                    {
+                        workspace.try_all = true;
+                        workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
+                    }
+                }
+
+                else
+                {
+                    goto produce_split;
                 }
             }
-
-            else
-            {
-                goto produce_split;
-            }
+            goto terminal_statistics;
         }
-        goto terminal_statistics;
     }
 
 

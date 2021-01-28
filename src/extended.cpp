@@ -134,25 +134,26 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                   (double)0);
 
         if (model_params.ndim >= input_data.ncols_tot)
-            workspace.col_sampler.init_full_pass();
+            workspace.col_sampler.prepare_full_pass();
         else if (workspace.try_all)
             workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
+        size_t threshold_shuffle = workspace.col_sampler.get_remaining_cols() / 2;
 
         while (
-                (!workspace.try_all && model_params.ndim < input_data.ncols_tot)?
-                workspace.col_sampler.sample_col(workspace.col_chosen, workspace.rnd_generator)
-                    :
+                workspace.try_all?
                 workspace.col_sampler.sample_col(workspace.col_chosen)
+                    :
+                workspace.col_sampler.sample_col(workspace.col_chosen, workspace.rnd_generator)
             )
         {
             workspace.ntried++;
-            if (!workspace.try_all && workspace.ntried > input_data.ncols_tot / 2)
+            if (!workspace.try_all && workspace.ntried > threshold_shuffle)
             {
                 workspace.try_all = true;
                 workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
             }
 
-            if (is_col_taken(col_is_taken, col_is_taken_s, input_data, workspace.col_chosen))
+            if (is_col_taken(col_is_taken, col_is_taken_s, workspace.col_chosen))
                 continue;
 
             get_split_range(workspace, input_data, model_params);
@@ -160,7 +161,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
             {
                 workspace.col_sampler.drop_col(workspace.col_chosen
                                                  +
-                                               (workspace.col_type == Numeric)? 0 : input_data.ncols_numeric);
+                                               (workspace.col_type == Numeric)? (size_t)0 : input_data.ncols_numeric);
             }
 
             else
