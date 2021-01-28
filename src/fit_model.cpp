@@ -44,8 +44,6 @@
 */
 #include "isotree.hpp"
 
-bool interrupt_switch;
-
 /*  Fit Isolation Forest model, or variant of it such as SCiForest
 * 
 * Parameters:

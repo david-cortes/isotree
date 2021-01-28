@@ -597,7 +597,6 @@ public:
 /* Function prototypes */
 
 /* fit_model.cpp */
-extern bool interrupt_switch;
 int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 double numeric_data[],  size_t ncols_numeric,
                 int    categ_data[],    size_t ncols_categ,    int ncat[],
@@ -853,6 +852,8 @@ void get_categs(size_t ix_arr[], int x[], size_t st, size_t end, int ncat,
                 MissingAction missing_action, char categs[], size_t &npresent, bool &unsplittable);
 long double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
                                   std::vector<double> &weights_arr, std::unordered_map<size_t, double> &weights_map);
+extern bool interrupt_switch;
+extern bool signal_is_locked;
 void set_interrup_global_variable(int s);
 #ifdef _FOR_PYTHON
 bool cy_check_interrupt_switch();

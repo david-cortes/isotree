@@ -1841,6 +1841,9 @@ void sort_csc_indices(double *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix
     }
 }
 
+bool interrupt_switch = false;
+bool handle_is_locked = false;
+
 /* Function to handle interrupt signals */
 void set_interrup_global_variable(int s)
 {
@@ -1881,33 +1884,40 @@ SignalSwitcher::SignalSwitcher()
 {
     #pragma omp critical
     {
-        interrupt_switch = false;
-        this->old_sig = signal(SIGINT, set_interrup_global_variable);
-        this->is_active = true;
+        if (!handle_is_locked)
+        {
+            handle_is_locked = true;
+            interrupt_switch = false;
+            this->old_sig = signal(SIGINT, set_interrup_global_variable);
+            this->is_active = true;
+        }
+
+        else {
+            this->is_active = false;
+        }
     }
 }
 
 SignalSwitcher::~SignalSwitcher()
 {
+    this->restore_handle();
+    #ifndef _FOR_PYTHON
     #pragma omp critical
     {
-        if (this->is_active)
-            signal(SIGINT, this->old_sig);
-        this->is_active = false;
-        #ifndef _FOR_PYTHON
         interrupt_switch = false;
-        #endif
     }
+    #endif
 }
 
 void SignalSwitcher::restore_handle()
 {
     #pragma omp critical
     {
-        if (this->is_active)
+        if (this->is_active && handle_is_locked)
         {
             signal(SIGINT, this->old_sig);
             this->is_active = false;
+            handle_is_locked = false;
         }
     }
 }
