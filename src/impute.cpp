@@ -22,7 +22,7 @@
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2020, David Cortes
+*     Copyright (c) 2019-2021, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
