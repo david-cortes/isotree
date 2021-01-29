@@ -177,11 +177,17 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         else if (!workspace.ntaken)
             break;
 
+
         /* evaluate gain if necessary */
         if (workspace.criterion != NoCrit)
-            workspace.this_gain = eval_guided_crit(workspace.comb_val.data(), workspace.end - workspace.st + 1,
-                                                   workspace.criterion, model_params.min_gain, workspace.this_split_point,
-                                                   workspace.xmin, workspace.xmax);
+            if (workspace.ntry > 1 || std::distance((double*)nullptr, workspace.comb_val.data()) <= workspace.st)
+                workspace.this_gain = eval_guided_crit(workspace.comb_val.data(), workspace.end - workspace.st + 1,
+                                                       workspace.criterion, model_params.min_gain, workspace.this_split_point,
+                                                       workspace.xmin, workspace.xmax);
+            else
+                workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data() - workspace.st,
+                                                       workspace.split_ix, workspace.this_split_point, workspace.xmin, workspace.xmax,
+                                                       workspace.criterion, model_params.min_gain, Fail);
         
         /* pass to the output object */
         if (workspace.ntry == 1 || workspace.this_gain > hplanes.back().score)
@@ -247,7 +253,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         goto terminal_statistics;
     
     /* now need to reproduce the same split from before */
-    if (workspace.criterion != NoCrit && workspace.ntry > 1)
+    if (workspace.criterion != NoCrit && (workspace.ntry > 1 || std::distance((double*)nullptr, workspace.comb_val.data()) <= workspace.st))
     {
         std::fill(workspace.comb_val.begin(),
                   workspace.comb_val.begin() + (workspace.end - workspace.st + 1),
@@ -324,8 +330,13 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     }
 
     /* divide */
-    workspace.split_ix = divide_subset_split(workspace.ix_arr.data(), workspace.comb_val.data(),
-                                             workspace.st, workspace.end, hplanes.back().split_point);
+    if (!(
+            workspace.criterion != NoCrit &&
+            workspace.ntry == 1 &&
+            std::distance((double*)nullptr, workspace.comb_val.data()) <= workspace.st
+    ))
+        workspace.split_ix = divide_subset_split(workspace.ix_arr.data(), workspace.comb_val.data(),
+                                                 workspace.st, workspace.end, hplanes.back().split_point);
 
     /* set as non-terminal */
     hplanes.back().score = -1;
