@@ -522,7 +522,7 @@ real_t calc_sd_right_to_left(double *restrict x, size_t n, double *restrict sd_a
 {
     real_t running_mean = 0;
     real_t running_ssq = 0;
-    real_t mean_prev = 0;
+    real_t mean_prev = x[n-1];
     for (size_t row = 0; row < n-1; row++)
     {
         running_mean   += (x[n-row-1] - running_mean) / (real_t)(row+1);
@@ -540,7 +540,7 @@ real_t calc_sd_right_to_left(double *restrict x, size_t ix_arr[], size_t st, siz
 {
     real_t running_mean = 0;
     real_t running_ssq = 0;
-    real_t mean_prev = 0;
+    real_t mean_prev = x[ix_arr[end]];
     size_t n = end - st + 1;
     for (size_t row = 0; row < n-1; row++)
     {
@@ -561,7 +561,7 @@ double find_split_std_gain_t(double *restrict x, size_t n, double *restrict sd_a
     real_t full_sd = calc_sd_right_to_left<real_t>(x, n, sd_arr);
     real_t running_mean = 0;
     real_t running_ssq = 0;
-    real_t mean_prev = 0;
+    real_t mean_prev = x[0];
     real_t best_gain = -HUGE_VAL;
     real_t this_sd, this_gain;
     real_t n_ = (real_t)n;
@@ -604,7 +604,7 @@ double find_split_std_gain_t(double *restrict x, size_t ix_arr[], size_t st, siz
     real_t full_sd = calc_sd_right_to_left<real_t>(x, ix_arr, st, end, sd_arr);
     real_t running_mean = 0;
     real_t running_ssq = 0;
-    real_t mean_prev = 0;
+    real_t mean_prev = x[ix_arr[st]];
     real_t best_gain = -HUGE_VAL;
     real_t n = (real_t)(end - st + 1);
     real_t this_sd, this_gain;

@@ -45,24 +45,25 @@
 #include "isotree.hpp"
 
 /* for regular numerical */
-void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x,
-                      MissingAction missing_action, double &x_sd, double &x_mean)
+template <class real_t>
+void calc_mean_and_sd_t(size_t ix_arr[], size_t st, size_t end, double *restrict x,
+                        MissingAction missing_action, double &x_sd, double &x_mean)
 {
-    long double m = 0;
-    long double s = 0;
-    long double m_prev = 0;
+    real_t m = 0;
+    real_t s = 0;
+    real_t m_prev = x[ix_arr[st]];
 
     if (missing_action == Fail)
     {
         for (size_t row = st; row <= end; row++)
         {
-            m += (x[ix_arr[row]] - m) / (long double)(row - st + 1);
+            m += (x[ix_arr[row]] - m) / (real_t)(row - st + 1);
             s += (x[ix_arr[row]] - m) * (x[ix_arr[row]] - m_prev);
             m_prev = m;
         }
 
         x_mean = m;
-        x_sd   = sqrtl(s / (long double)(end - st + 1));
+        x_sd   = std::sqrt(s / (real_t)(end - st + 1));
     }
 
     else
@@ -73,15 +74,25 @@ void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x
             if (!is_na_or_inf(x[ix_arr[row]]))
             {
                 cnt++;
-                m += (x[ix_arr[row]] - m) / (long double)cnt;
+                m += (x[ix_arr[row]] - m) / (real_t)cnt;
                 s += (x[ix_arr[row]] - m) * (x[ix_arr[row]] - m_prev);
                 m_prev = m;
             }
         }
 
         x_mean = m;
-        x_sd   = sqrtl(s / (long double)cnt);
+        x_sd   = std::sqrt(s / (real_t)cnt);
     }
+}
+
+#define THRESHOLD_LONG_DOUBLE (size_t)1e7
+void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x,
+                      MissingAction missing_action, double &x_sd, double &x_mean)
+{
+    if (end - st + 1 < THRESHOLD_LONG_DOUBLE)
+        calc_mean_and_sd_t<double>(ix_arr, st, end, x, missing_action, x_sd, x_mean);
+    else
+        calc_mean_and_sd_t<long double>(ix_arr, st, end, x, missing_action, x_sd, x_mean);
 }
 
 /* for sparse numerical */

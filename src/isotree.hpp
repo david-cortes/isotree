@@ -884,6 +884,9 @@ bool check_indices_are_sorted(sparse_ix indices[], size_t n);
 void sort_csc_indices(double *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr, size_t ncols_numeric);
 
 /* mult.cpp */
+template <class real_t>
+void calc_mean_and_sd_t(size_t ix_arr[], size_t st, size_t end, double *restrict x,
+                        MissingAction missing_action, double &x_sd, double &x_mean);
 void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x,
                       MissingAction missing_action, double &x_sd, double &x_mean);
 void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
