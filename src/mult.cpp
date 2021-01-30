@@ -85,6 +85,7 @@ void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x
 }
 
 /* for sparse numerical */
+#define SD_MIN 1e-10
 void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                       double *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                       double &x_sd, double &x_mean)
@@ -140,7 +141,8 @@ void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
     }
 
     x_mean = sum / (long double) cnt;
-    x_sd   = calc_sd_raw(cnt, sum, sum_sq);
+    x_sd   = sqrtl((sum_sq - sum * (sum / (long double)cnt)) / (long double)cnt);
+    x_sd   = std::fmax(SD_MIN, x_sd);
 }
 
 

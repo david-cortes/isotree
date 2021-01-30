@@ -819,8 +819,6 @@ void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, siz
 void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, size_t split_ix, size_t n,
                                      double *restrict counter, double *restrict weights, double exp_remainder);
 void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool diag_to_one);
-double calc_sd_raw(size_t cnt, long double sum, long double sum_sq);
-long double calc_sd_raw_l(size_t cnt, long double sum, long double sum_sq);
 void build_btree_sampler(std::vector<double> &btree_weights, double *restrict sample_weights,
                          size_t nrows, size_t &log2_n, size_t &btree_offset);
 void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_replacement,
@@ -914,25 +912,39 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, int x[], int ncat, 
 double expected_sd_cat(double p[], size_t n, size_t pos[]);
 double expected_sd_cat(size_t counts[], double p[], size_t n, size_t pos[]);
 double expected_sd_cat_single(size_t counts[], double p[], size_t n, size_t pos[], size_t cat_exclude, size_t cnt);
-double numeric_gain(size_t cnt_left, size_t cnt_right,
-                    long double sum_left, long double sum_right,
-                    long double sum_sq_left, long double sum_sq_right,
-                    double sd_full, long double cnt);
-double numeric_gain_no_div(size_t cnt_left, size_t cnt_right,
-                           long double sum_left, long double sum_right,
-                           long double sum_sq_left, long double sum_sq_right,
-                           double sd_full, long double cnt);
 double categ_gain(size_t cnt_left, size_t cnt_right,
                   long double s_left, long double s_right,
                   long double base_info, long double cnt);
-double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion, double min_gain,
+template <class real_t>
+double find_split_rel_gain_t(double *restrict x, size_t n, double &split_point);
+double find_split_rel_gain(double *restrict x, size_t n, double &split_point);
+template <class real_t>
+double find_split_rel_gain_t(double *restrict x, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix);
+double find_split_rel_gain(double *restrict x, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix);
+template <class real_t>
+real_t calc_sd_right_to_left(double *restrict x, size_t n, double *restrict sd_arr);
+template <class real_t>
+real_t calc_sd_right_to_left(double *restrict x, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr);
+template <class real_t>
+double find_split_std_gain_t(double *restrict x, size_t n, double *restrict sd_arr,
+                             GainCriterion criterion, double min_gain, double &split_point);
+double find_split_std_gain(double *restrict x, size_t n, double *restrict sd_arr,
+                           GainCriterion criterion, double min_gain, double &split_point);
+template <class real_t>
+double find_split_std_gain_t(double *restrict x, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
+                             GainCriterion criterion, double min_gain, double &split_point, size_t &split_ix);
+double find_split_std_gain(double *restrict x, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
+                           GainCriterion criterion, double min_gain, double &split_point, size_t &split_ix);
+double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
+                        double min_gain, bool as_relative_gain, double *restrict buffer_sd,
                         double &split_point, double &xmin, double &xmax);
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *restrict x,
+                        double *restrict buffer_sd, bool as_relative_gain,
                         size_t &split_ix, double &split_point, double &xmin, double &xmax,
                         GainCriterion criterion, double min_gain, MissingAction missing_action);
 double eval_guided_crit(size_t ix_arr[], size_t st, size_t end,
                         size_t col_num, double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                        double buffer_arr[], size_t buffer_pos[],
+                        double buffer_arr[], size_t buffer_pos[], bool as_relative_gain,
                         double &split_point, double &xmin, double &xmax,
                         GainCriterion criterion, double min_gain, MissingAction missing_action);
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *restrict x, int ncat,

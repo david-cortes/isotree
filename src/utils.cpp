@@ -100,7 +100,7 @@ double digamma(double x)
     double y, z, z2;
 
     /* check for positive integer up to 10 */
-    if( (x < THRESHOLD_EXACT_H) && (x == floor(x)) )
+    if( (x <= THRESHOLD_EXACT_H) && (x == floor(x)) )
         return harmonic(x - 1) - EULERS_GAMMA;
 
     if( x < 1.0e17 )
@@ -172,7 +172,7 @@ double expected_avg_depth(long double approx_sample_size)
 {
     if (approx_sample_size <= 1)
         return 0;
-    else if (approx_sample_size < (long double)INT_MAX)
+    else if (approx_sample_size < (long double)INT32_MAX)
         return 2. * (digamma(approx_sample_size + 1.) + EULERS_GAMMA - 1.);
     else
         return 2. * logl(approx_sample_size) + 2.*((long double)EULERS_GAMMA - 1.)
@@ -409,27 +409,6 @@ void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool 
     else
         for (size_t i = 0; i < n; i++)
             dmat[i + i * n] = 0;
-}
-
-/* Note: do NOT divide by (n-1) as in some situations it will still need to calculate
-   the standard deviation with 1-2 observations only (e.g. when using the extended model
-   and some column has many rows but only 2 non-missing values, or when using the non-pooled
-   std criterion) */
-#define SD_MIN 1e-12
-double calc_sd_raw(size_t cnt, long double sum, long double sum_sq)
-{
-    if (cnt <= 1)
-        return 0.;
-    else
-        return sqrtl(fmaxl(SD_MIN, (sum_sq - (square(sum) / (long double)cnt)) / (long double)cnt ));
-}
-
-long double calc_sd_raw_l(size_t cnt, long double sum, long double sum_sq)
-{
-    if (cnt <= 1)
-        return 0.;
-    else
-        return sqrtl(fmaxl(SD_MIN, (sum_sq - (square(sum) / (long double)cnt)) / (long double)cnt ));
 }
 
 void build_btree_sampler(std::vector<double> &btree_weights, double *restrict sample_weights,

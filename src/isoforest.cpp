@@ -118,6 +118,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                 {
                     workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
                                                            input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                                           workspace.buffer_dbl.data(), false,
                                                            workspace.split_ix, workspace.this_split_point,
                                                            workspace.xmin, workspace.xmax,
                                                            workspace.criterion, model_params.min_gain,
@@ -128,7 +129,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                 {
                     workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
                                                            workspace.col_chosen, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                                           workspace.buffer_dbl.data(), workspace.buffer_szt.data(),
+                                                           workspace.buffer_dbl.data(), workspace.buffer_szt.data(), false,
                                                            workspace.this_split_point, workspace.xmin, workspace.xmax,
                                                            workspace.criterion, model_params.min_gain, model_params.missing_action);
                 }
@@ -300,6 +301,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                     {
                         eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
                                          input_data.numeric_data + trees.back().col_num * input_data.nrows,
+                                         workspace.buffer_dbl.data(), true,
                                          workspace.split_ix, trees.back().num_split,
                                          workspace.xmin, workspace.xmax,
                                          workspace.criterion, model_params.min_gain,
@@ -307,6 +309,11 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                         if (model_params.missing_action == Fail) /* data is already split */
                         {
                             workspace.split_ix++;
+                            if (model_params.penalize_range)
+                            {
+                                trees.back().range_low  = workspace.xmin - workspace.xmax + trees.back().num_split;
+                                trees.back().range_high = workspace.xmax - workspace.xmin + trees.back().num_split;
+                            }
                             goto follow_branches;
                         }
                     }
@@ -315,7 +322,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                     {
                         eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
                                          trees.back().col_num, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                         workspace.buffer_dbl.data(), workspace.buffer_szt.data(),
+                                         workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
                                          trees.back().num_split, workspace.xmin, workspace.xmax,
                                          workspace.criterion, model_params.min_gain,
                                          model_params.missing_action);

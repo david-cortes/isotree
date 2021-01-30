@@ -348,6 +348,12 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
                 uint64_t random_seed, int nthreads)
 {
+    if (prob_pick_by_gain_avg < 0 || prob_split_by_gain_avg < 0 ||
+        prob_pick_by_gain_pl < 0 || prob_split_by_gain_pl < 0)
+        throw std::runtime_error("Cannot pass negative probabilities.\n");
+    if (ndim == 0 && model_outputs == NULL)
+        throw std::runtime_error("Must pass 'ndim>0' in the extended model.\n");
+
     /* calculate maximum number of categories to use later */
     int max_categ = 0;
     for (size_t col = 0; col < ncols_categ; col++)
@@ -717,6 +723,12 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              bool   all_perm, std::vector<ImputeNode> *impute_nodes, size_t min_imp_obs,
              uint64_t random_seed)
 {
+    if (prob_pick_by_gain_avg < 0 || prob_split_by_gain_avg < 0 ||
+        prob_pick_by_gain_pl < 0 || prob_split_by_gain_pl < 0)
+        throw std::runtime_error("Cannot pass negative probabilities.\n");
+    if (ndim == 0 && model_outputs == NULL)
+        throw std::runtime_error("Must pass 'ndim>0' in the extended model.\n");
+
     int max_categ = 0;
     for (size_t col = 0; col < ncols_categ; col++)
         max_categ = (ncat[col] > max_categ)? ncat[col] : max_categ;
@@ -795,7 +807,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     workspace.end = model_params.sample_size - 1;
 
     /* in some cases, it's not possible to use column weights even if they are given */
-    bool avoid_col_weights = (tree_root != NULL && model_params.ndim == 1 &&
+    bool avoid_col_weights = (tree_root != NULL && model_params.ndim < 2 &&
                               (model_params.prob_pick_by_gain_avg + model_params.prob_pick_by_gain_pl) >= 1)
                                 ||
                              (hplane_root != NULL && model_params.ndim >= input_data.ncols_tot);
@@ -987,8 +999,8 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         size_t min_size_szt = 0;
         size_t min_size_chr = 0;
 
-        bool gain = model_params.prob_split_by_gain_avg || model_params.prob_pick_by_gain_avg ||
-                     model_params.prob_split_by_gain_pl  || model_params.prob_pick_by_gain_pl;
+        bool gain = model_params.prob_split_by_gain_avg > 0 || model_params.prob_pick_by_gain_avg > 0 ||
+                    model_params.prob_split_by_gain_pl > 0  || model_params.prob_pick_by_gain_pl > 0;
 
         if (input_data.ncols_categ)
         {
@@ -1002,6 +1014,18 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         {
             min_size_szt = std::max(min_size_szt, model_params.sample_size);
             min_size_dbl = std::max(min_size_dbl, model_params.sample_size);
+        }
+
+        if (gain && (model_params.ntry > 1 ||
+                     model_params.prob_pick_by_gain_avg > 0 ||
+                     model_params.prob_split_by_gain_avg > 0 ||
+                     (model_params.ndim < 2 && model_params.prob_pick_by_gain_pl > 0) ||
+                     model_params.min_gain > 0)
+        )
+        {
+            min_size_dbl = std::max(min_size_dbl, model_params.sample_size);
+            if (model_params.ndim < 2 && input_data.Xc_indptr != NULL)
+                min_size_dbl = std::max(min_size_dbl, (size_t)2*model_params.sample_size);
         }
 
         /* for the extended model */
