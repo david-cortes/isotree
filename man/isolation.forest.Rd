@@ -6,8 +6,6 @@
 \usage{
 isolation.forest(
   df,
-  sample_weights = NULL,
-  column_weights = NULL,
   sample_size = NROW(df),
   ntrees = 500,
   ndim = min(3, NCOL(df)),
@@ -38,6 +36,8 @@ isolation.forest(
   output_score = FALSE,
   output_dist = FALSE,
   square_dist = FALSE,
+  sample_weights = NULL,
+  column_weights = NULL,
   random_seed = 1,
   nthreads = parallel::detectCores()
 )
@@ -55,21 +55,7 @@ If passing a `data.frame`, will assume that columns are:
   \item Numerical, if they are of types `numeric`, `integer`, `Date`, `POSIXct`.
   \item Categorical, if they are of type `character`, `factor`, `bool`.
 }
-Other column types are not supported. Note that it does not support inputs with a number of rows or number of columns
-above that of `.Machine$integer.max` (typically 2^31-1).}
-
-\item{sample_weights}{Sample observation weights for each row of `df`, with higher weights indicating either higher sampling
-probability (i.e. the observation has a larger effect on the fitted model, if using sub-samples), or
-distribution density (i.e. if the weight is two, it has the same effect of including the same data
-point twice), according to parameter `weights_as_sample_prob`. Not supported when calculating pairwise
-distances while the model is being fit (done by passing `output_dist` = `TRUE`).}
-
-\item{column_weights}{Sampling weights for each column in `df`. Ignored when picking columns by deterministic criterion.
-If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
-Note that, if passing a data.frame with both numeric and categorical columns, the column names must
-not be repeated, otherwise the column weights passed here will not end up matching. If passing a `data.frame`
-to `df`, will assume the column order is the same as in there, regardless of whether the entries passed to
-`column_weights` are named or not.}
+Other input and column types are not supported.}
 
 \item{sample_size}{Sample size of the data sub-samples with which each binary tree will be built.
 Recommended value in references [1], [2], [3], [4] is 256, while the default value in the author's code in reference [5] is
@@ -92,7 +78,10 @@ splits, in which case the distribution is likely to be centered around a much lo
 in references [1] and [2], while if passing values greater than 1, will produce the extended model described in
 references [3] and [4].
 Recommended value in reference [4] is 2, while [3] recommends a low value such as 2 or 3. Models with values higher than 1
-are referred hereafter as the extended model (as in [3]).}
+are referred hereafter as the extended model (as in [3]).
+
+Note that, when using `ndim>1`, the variables are standardized at each step as suggested in [4],
+which makes the models slightly different than in [3].}
 
 \item{ntry}{In the extended model with non-random splits, how many random combinations to try for determining the best gain.
 Only used when deciding splits by gain (see documentation for parameters `prob_pick_avg_gain` and `prob_pick_pooled_gain`).
@@ -125,7 +114,11 @@ Note that, since this will created isolated nodes faster, the resulting object w
 When splits are not made according to any of `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_split_avg_gain`,
 `prob_split_pooled_gain`, both the column and the split point are decided at random. Default setting for 
 references [1], [2], [3] is zero, and default for reference [4] is 1. This is the randomization parameter
-that can be passed to the author's original code in [5]. Note that, if passing a value of 1 (100\%) with no sub-sampling and using the
+that can be passed to the author's original code in [5],
+but note that the code in [5] suffers from a mathematical error in the calculation of running standard deviations,
+so the results from it might not match with this library's.
+
+Note that, if passing a value of 1 (100\%) with no sub-sampling and using the
 single-variable model, every single tree will have the exact same splits.
 
 Important detail: if using either `prob_pick_avg_gain` or `prob_pick_pooled_gain`, the distribution of
@@ -250,7 +243,10 @@ Be aware that this option can make the distribution of outlier scores a bit diff
 for each tree as briefly proposed in reference [1]. Note that this is only done at the beginning of each tree
 sample, so if not using sub-samples, it's better to pass column weights calculated externally. For
 categorical columns, will calculate expected kurtosis if the column was converted to numerical by
-assigning to each category a random number `~ Unif(0, 1)`.}
+assigning to each category a random number `~ Unif(0, 1)`.
+
+Using this option makes the model more likely to pick the columns that have anomalous values
+when viewed as a 1-d distribution, and can bring a large improvement in some datasets.}
 
 \item{coefs}{For the extended model, whether to sample random coefficients according to a normal distribution `~ N(0, 1)`
 (as proposed in reference [3]) or according to a uniform distribution `~ Unif(-1, +1)` as proposed in reference [4].
@@ -306,7 +302,20 @@ results from this might differ a bit from those of `predict` called after.}
 just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 p(i, j) = ((i - 1) * (n - i/2) + j - i).}
 
-\item{random_seed}{Seed that will be used to generate random numbers used by the model.}
+\item{sample_weights}{Sample observation weights for each row of `df`, with higher weights indicating either higher sampling
+probability (i.e. the observation has a larger effect on the fitted model, if using sub-samples), or
+distribution density (i.e. if the weight is two, it has the same effect of including the same data
+point twice), according to parameter `weights_as_sample_prob`. Not supported when calculating pairwise
+distances while the model is being fit (done by passing `output_dist` = `TRUE`).}
+
+\item{column_weights}{Sampling weights for each column in `df`. Ignored when picking columns by deterministic criterion.
+If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+Note that, if passing a data.frame with both numeric and categorical columns, the column names must
+not be repeated, otherwise the column weights passed here will not end up matching. If passing a `data.frame`
+to `df`, will assume the column order is the same as in there, regardless of whether the entries passed to
+`column_weights` are named or not.}
+
+\item{random_seed}{Seed that will be used for random number generation.}
 
 \item{nthreads}{Number of parallel threads to use. If passing a negative number, will use
 the maximum number of available threads in the system. Note that, the more threads,
@@ -319,8 +328,9 @@ even if all threads look fully utilized.}
 }
 \value{
 If passing `output_score` = `FALSE`, `output_dist` = `FALSE`, and `output_imputations` = `FALSE` (the defaults),
-will output an `isolation_forest` object from which `predict` method can then be called on new data. If passing
-`TRUE` to any of the former options, will output a list with entries:
+will output an `isolation_forest` object from which `predict` method can then be called on new data.
+
+If passing `TRUE` to any of the former options, will output a list with entries:
 \itemize{
   \item `model`: the `isolation_forest` object from which new predictions can be made.
   \item `scores`: a vector with the outlier score for each inpuit observation (if passing `output_score` = `TRUE`).
@@ -348,11 +358,17 @@ In particular, the following default values are likely to cause huge differences
 defaults in other software: `ndim`, `sample_size`, `ntrees`, `penalize_range`. The defaults here are
 nevertheless more likely to result in better models.
 
-Note that the default parameters set up for this implementation will not scale to large datasets. In particular,
-if the amount of data is large, it's avised to want to set a smaller sample size for each tree, and fit fewer of them.
-As well, the default option for `missing_action` might slow things down significantly.
+Note that the default parameters will not scale to large datasets. In particular,
+if the amount of data is large, it's suggested to set a smaller sample size for each tree (parameter `sample_size`),
+and to fit fewer of them (parameter `ntrees`).
+As well, the default option for `missing_action` might slow things down significantly
+(see below for details).
+These defaults can also result in very big model sizes in memory and as serialized
+files (e.g. models that weight over 10GB) when the number of rows in the data is large.
+Using fewer trees, smaller sample sizes, and shallower trees can help to reduce model
+sizes if that becomes a problem.
 
-The model offers many tunable parameters. Assuming that `ntrees` is high-enough for data,
+The model offers many tunable parameters. Assuming that `ntrees` is high-enough for the data,
 the most likely candidate to tune is `prob_pick_pooled_gain` (along with perhaps disabling
 `penalize_range` alongside this option), for which higher values tend to
 result in a better ability to flag outliers in the training data (`df`) at the expense of hindered
@@ -362,11 +378,13 @@ generalizability to inputs with values outside the variables' ranges to which th
 `sample_size` - the default is to use all rows, but in some datasets introducing sub-sampling can help,
 especially for the single-variable model. After that, next candidate to tune is `prob_pick_avg_gain`,
 for which high values tend to result in models that are more likely to flag values outside of the variables'
-ranges and fewer ghost regions, at the expense of fewer flagged outliers in the original data.
+ranges.
 }
 \details{
-When calculating gain, the variables are standardized at each step, so there is no need to center/scale the
-data beforehand.
+When using more than one dimension for splits (i.e. splitting hyperplanes, see `ndim`) and when
+calculating gain, the variables are standardized at each step, so there is no need to center/scale the
+data beforehand. The gain calculations are also standardized according to the standard deviation when
+using `ntry>1` or `ndim==1`, in order to avoid differences in the scale of the coefficients.
 
 When using sparse matrices, calculations such as standard deviations, gain, and kurtosis, will use procedures
 that rely on calculating sums of squared numbers. This is not a problem if most of the entries are zero and the

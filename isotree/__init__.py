@@ -34,7 +34,7 @@ class IsolationForest:
 
     Note
     ----
-    The model offers many tunable parameters. Assuming that `ntrees` is high-enough for data,
+    The model offers many tunable parameters. Assuming that ``ntrees`` is high-enough for the data,
     the most likely candidate to tune is ``prob_pick_pooled_gain`` (along with perhaps disabling
     ``penalize_range`` alongside this option), for which higher values tend to
     result in a better ability to flag outliers in the training data at the expense of hindered
@@ -44,19 +44,26 @@ class IsolationForest:
     ``sample_size`` - the default is to use all rows, but in some datasets introducing sub-sampling can help,
     especially for the single-variable model. After that, next candidate to tune is ``prob_pick_avg_gain``,
     for which high values tend to result in models that are more likely to flag values outside of the variables'
-    ranges and fewer ghost regions, at the expense of fewer flagged outliers in the original data.
+    ranges.
 
     Note
     ----
-    The default parameters set up for this implementation will not scale to large datasets. In particular,
-    if the amount of data is large, it's advised to set a smaller sample size for each tree, and fit fewer of them.
+    The default parameters will not scale to large datasets. In particular,
+    if the amount of data is large, it's suggested to set a smaller sample size for each tree (parameter ``sample_size``)
+    and to fit fewer of them (parameter ``ntrees``).
     As well, the default option for 'missing_action' might slow things down significantly.
     See the documentation of the parameters for more details.
+    These defaults can also result in very big model sizes in memory and as serialized
+    files (e.g. models that weight over 10GB) when the number of rows in the data is large.
+    Using fewer trees, smaller sample sizes, and shallower trees can help to reduce model
+    sizes if that becomes a problem.
 
     Note
     ----
-    When calculating gain, the variables are standardized at each step, so there is no need to center/scale the
-    data beforehand.
+    When using more than one dimension for splits (i.e. splitting hyperplanes, see ``ndim``) and when
+    calculating gain, the variables are standardized at each step, so there is no need to center/scale the
+    data beforehand. The gain calculations are also standardized according to the standard deviation when
+    using ``ntry>1`` or ``ndim==1``, in order to avoid differences in the scale of the coefficients.
 
     Note
     ----
@@ -92,6 +99,9 @@ class IsolationForest:
         in [1] and [2], while if passing values greater than 1, will produce the extended model described in [3] and [4].
         Recommended value in [4] is 2, while [3] recommends a low value such as 2 or 3. Models with values higher than 1
         are referred hereafter as the extended model (as in [3]).
+
+        Note that, when using ``ndim>1``, the variables are standardized at each step as suggested in [4],
+        which makes the models slightly different than in [3].
     ntry : int
         In the extended model with non-random splits, how many random combinations to try for determining the best gain.
         Only used when deciding splits by gain (see documentation for parameters 'prob_pick_avg_gain' and 'prob_pick_pooled_gain').
@@ -125,7 +135,9 @@ class IsolationForest:
         When splits are
         not made according to any of 'prob_pick_avg_gain', 'prob_pick_pooled_gain', 'prob_split_avg_gain',
         'prob_split_pooled_gain', both the column and the split point are decided at random. Default setting for [1], [2], [3] is
-        zero, and default for [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5].
+        zero, and default for [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5],
+        but note that the code in [5] suffers from a mathematical error in the calculation of running standard deviations,
+        so the results from it might not match with this library's.
         
         Note that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable model, every single tree will have
         the exact same splits.
@@ -263,6 +275,9 @@ class IsolationForest:
         sample, so if not using sub-samples, it's better to pass column weights calculated externally. For
         categorical columns, will calculate expected kurtosis if the column was converted to numerical by
         assigning to each category a random number ~ Unif(0, 1).
+
+        Using this option makes the model more likely to pick the columns that have anomalous values
+        when viewed as a 1-d distribution, and can bring a large improvement in some datasets.
     coefs : str, one of "normal" or "uniform"
         For the extended model, whether to sample random coefficients according to a normal distribution ~ N(0, 1)
         (as proposed in [3]) or according to a uniform distribution ~ Unif(-1, +1) as proposed in [4]. Ignored for the
@@ -300,7 +315,7 @@ class IsolationForest:
         in this regard regardless of how many observations end up there. Implemented for testing purposes
         and not recommended to change from the default. Ignored when passing 'build_imputer' = 'False'.
     random_seed : int
-        Seed that will be used to generate random numbers used by the model.
+        Seed that will be used for random number generation.
     random_state : RandomState
         NumPy random state object - if passed, will be used to generate an integer for 'random_seed', and
         the value that was originally passed to 'random_seed' will be ignored. This is only kept as
