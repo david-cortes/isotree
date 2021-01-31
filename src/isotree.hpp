@@ -399,12 +399,15 @@ typedef struct {
     double*     numeric_data;
     int*        categ_data;
     size_t      nrows;
-    double*     Xc;           /* only for sparse matrices */
-    sparse_ix*  Xc_ind;       /* only for sparse matrices */
-    sparse_ix*  Xc_indptr;    /* only for sparse matrices */
-    double*     Xr;           /* only for sparse matrices */
-    sparse_ix*  Xr_ind;       /* only for sparse matrices */
-    sparse_ix*  Xr_indptr;    /* only for sparse matrices */
+    bool        is_col_major;
+    size_t      ncols_numeric; /* only required for row-major data */
+    size_t      ncols_categ;   /* only required for row-major data */
+    double*     Xc;            /* only for sparse matrices */
+    sparse_ix*  Xc_ind;        /* only for sparse matrices */
+    sparse_ix*  Xc_indptr;     /* only for sparse matrices */
+    double*     Xr;            /* only for sparse matrices */
+    sparse_ix*  Xr_ind;        /* only for sparse matrices */
+    sparse_ix*  Xr_indptr;     /* only for sparse matrices */
 } PredictionData;
 
 typedef struct {
@@ -662,6 +665,7 @@ void simplify_hplane(IsoHPlane &hplane, WorkerMemory &workspace, InputData &inpu
 
 /* predict.cpp */
 void predict_iforest(double numeric_data[], int categ_data[],
+                     bool is_col_major, size_t ncols_numeric, size_t ncols_categ,
                      double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      double Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                      size_t nrows, int nthreads, bool standardize,
@@ -732,7 +736,7 @@ void initialize_worker_for_sim(WorkerForSimilarity  &workspace,
                                bool                  assume_full_distr);
 
 /* impute.cpp */
-void impute_missing_values(double numeric_data[], int categ_data[],
+void impute_missing_values(double numeric_data[], int categ_data[], bool is_col_major,
                            double Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                            size_t nrows, int nthreads,
                            IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,

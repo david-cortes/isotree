@@ -75,6 +75,7 @@
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - Xc_ind[nnz]
 *       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns in CSC format.
 * - Xc_indptr[ncols_categ + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
@@ -141,6 +142,7 @@ void calc_similarity(double numeric_data[], int categ_data[],
                      double tmat[], double rmat[], size_t n_from)
 {
     PredictionData prediction_data = {numeric_data, categ_data, nrows,
+                                      false, 0, 0,
                                       Xc, Xc_ind, Xc_indptr,
                                       NULL, NULL, NULL};
 

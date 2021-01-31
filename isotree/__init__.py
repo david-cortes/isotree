@@ -791,7 +791,10 @@ class IsolationForest:
         if X.__class__.__name__ == "DataFrame":
             ### https://stackoverflow.com/questions/25039626/how-do-i-find-numeric-columns-in-pandas
             X_num = X.select_dtypes(include = [np.number, np.datetime64]).to_numpy()
-            X_num = np.asfortranarray(X_num).astype(ctypes.c_double)
+            if X_num.dtype != ctypes.c_double:
+                X_num = X_num.astype(ctypes.c_double)
+            if not np.isfortran(X_num):
+                X_num = np.asfortranarray(X_num)
             X_cat = X.select_dtypes(include = [pd.CategoricalDtype, "object", "bool"]).copy()
             if (X_num.shape[1] + X_cat.shape[1]) == 0:
                 raise ValueError("Input data has no columns of numeric or categorical type.")
@@ -839,15 +842,16 @@ class IsolationForest:
                     # https://github.com/pandas-dev/pandas/issues/30618
                     if self._cat_mapping[cl].__class__.__name__ == "CategoricalIndex":
                         self._cat_mapping[cl] = self._cat_mapping[cl].to_numpy()
-                X_cat = np.asfortranarray(X_cat).astype(ctypes.c_int)
+                if X_cat.dtype != ctypes.c_int:
+                    X_cat = X_cat.astype(ctypes.c_int)
+                if not np.isfortran(X_cat):
+                    X_cat = np.asfortranarray(X_cat)
 
         else:
             if len(X.shape) != 2:
                 raise ValueError("Input data must be two-dimensional.")
 
-            if X.__class__.__name__ == "ndarray":
-                X = np.asfortranarray(X).astype(ctypes.c_double)
-            elif issparse(X):
+            if issparse(X):
                 if isspmatrix_csc(X):
                     if ((X.indptr.dtype != ctypes.c_size_t) or
                         (X.indices.dtype != ctypes.c_size_t) or
@@ -867,7 +871,12 @@ class IsolationForest:
                 X.indices = X.indices.astype(ctypes.c_size_t)
                 X.indptr  = X.indptr.astype(ctypes.c_size_t)
             else:
-                X = np.asfortranarray(np.array(X)).astype(ctypes.c_double)
+                if (X.__class__.__name__ == "ndarray") and (X.dtype != ctypes.c_double):
+                    X = X.astype(ctypes.c_double)
+                if (X.__class__.__name__ != "ndarray") or (not np.isfortran(X)):
+                    X = np.asfortranarray(X)
+                if X.dtype != ctypes.c_double:
+                    X = X.astype(ctypes.c_double)
 
             self._ncols_numeric = X.shape[1]
             self._ncols_categ   = 0
@@ -922,7 +931,7 @@ class IsolationForest:
 
         return X_num, X_cat, ncat, sample_weights, column_weights, nrows
 
-    def _process_data_new(self, X, allow_csr = True, allow_csc = True):
+    def _process_data_new(self, X, allow_csr = True, allow_csc = True, prefer_row_major = False):
         if X.__class__.__name__ == "DataFrame":
             if (self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]) > 0:
                 missing_cols = np.setdiff1d(np.array(X.columns.values), np.r_[self.cols_numeric_, self.cols_categ_])
@@ -931,7 +940,10 @@ class IsolationForest:
 
                 if self._ncols_numeric > 0:
                     X_num = X[self.cols_numeric_].to_numpy()
-                    X_num = np.asfortranarray(X_num).astype(ctypes.c_double)
+                    if X_num.dtype != ctypes.c_double:
+                        X_num = X_num.astype(ctypes.c_double)
+                    if (not prefer_row_major) and (not np.isfortran(X_num)):
+                        X_num = np.asfortranarray(X_num)
                     nrows = X_num.shape[0]
                 else:
                     X_num = None
@@ -941,7 +953,10 @@ class IsolationForest:
                     for cl in range(self._ncols_categ):
                         X_cat[self.cols_categ_[cl]] = pd.Categorical(X_cat[self.cols_categ_[cl]], self._cat_mapping[cl]).codes
                     X_cat = X_cat.to_numpy()
-                    X_cat = np.asfortranarray(X_cat).astype(ctypes.c_int)
+                    if X_cat.dtype != ctypes.c_int:
+                        X_cat = X_cat.astype(ctypes.c_int)
+                    if (not prefer_row_major) and (not np.isfortran(X_cat)):
+                        X_cat = np.asfortranarray(X_cat)
                     nrows = X_cat.shape[0]
                 else:
                     X_cat = None
@@ -950,10 +965,20 @@ class IsolationForest:
                 if X.shape[1] != self._ncols_numeric:
                     raise ValueError("Input has different number of columns than data to which model was fit.")
                 X_num = X.to_numpy()
-                X_num = np.asfortranarray(X_num).astype(ctypes.c_double)
+                if X_num.dtype != ctypes.c_double:
+                    X_num = X_num.astype(ctypes.c_double)
+                if (not prefer_row_major) and (not np.isfortran(X_num)):
+                    X_num = np.asfortranarray(X_num)
                 X_cat = None
                 nrows = X_num.shape[0]
 
+            if (X_num is not None) and (X_cat is not None) and (np.isfortran(X_num) != np.isfortran(X_cat)):
+                if prefer_row_major:
+                    X_num = np.ascontiguousarray(X_num)
+                    X_cat = np.ascontiguousarray(X_cat)
+                else:
+                    X_num = np.asfortranarray(X_num)
+                    X_cat = np.asfortranarray(X_cat)
 
         else:
             if self._ncols_categ > 0:
@@ -996,8 +1021,13 @@ class IsolationForest:
                 X_num     = X
             else:
                 if X.__class__.__name__ != "ndarray":
-                    X = np.array(X)
-                X_num = np.asfortranarray(X).astype(ctypes.c_double)
+                    if prefer_row_major:
+                        X = np.array(X)
+                    else:
+                        X = np.asfortranarray(X)
+                if X.dtype != ctypes.c_double:
+                    X = X.astype(ctypes.c_double)
+                X_num = X
             nrows = X_num.shape[0]
 
         return X_num, X_cat, nrows
@@ -1084,7 +1114,7 @@ class IsolationForest:
         """
         assert self.is_fitted_
         assert output in ["score", "avg_depth", "tree_num"]
-        X_num, X_cat, nrows = self._process_data_new(X)
+        X_num, X_cat, nrows = self._process_data_new(X, prefer_row_major = True)
         if output == "tree_num":
             if self.missing_action == "divide":
                 raise ValueError("Cannot output tree number when using 'missing_action' = 'divide'.")
@@ -1169,7 +1199,7 @@ class IsolationForest:
             else:
                 X = np.vstack([X, X_ref])
 
-        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False)
+        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False, prefer_row_major = False)
         if nrows == 1:
             raise ValueError("Cannot calculate pairwise distances for only 1 row.")
 
@@ -1216,7 +1246,12 @@ class IsolationForest:
         if self.missing_action == "fail":
             raise ValueError("Cannot impute missing values when using 'missing_action' = 'fail'.")
 
-        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = True, allow_csc = False)
+        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = True, allow_csc = False, prefer_row_major = True)
+        if X.__class__.__name__ != "DataFrame":
+            if X_num is not None:
+                X_num = X_num.copy()
+            if X_cat is not None:
+                X_cat = X_cat.copy()
         X_num, X_cat = self._cpp_obj.impute(X_num, X_cat,
                                             ctypes.c_bool(self._is_extended_).value,
                                             ctypes.c_size_t(nrows).value,
@@ -1299,7 +1334,7 @@ class IsolationForest:
         if not self.is_fitted_:
             return self.fit(X = X, sample_weights = sample_weights, column_weights = column_weights)
         
-        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False)
+        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False, prefer_row_major = False)
         if sample_weights is not None:
             sample_weights = sample_weights.reshape(-1).astype(ctypes.c_double)
             assert sample_weights.shape[0] == X.shape[0]

@@ -189,6 +189,7 @@ cdef extern from "isotree.hpp":
                     uint64_t random_seed, int nthreads) nogil except +
 
     void predict_iforest(double *numeric_data, int *categ_data,
+                         bool_t is_col_major, size_t ncols_numeric, size_t ncols_categ,
                          double *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr,
                          double *Xr, sparse_ix *Xr_ind, sparse_ix *Xr_indptr,
                          size_t nrows, int nthreads, bool_t standardize,
@@ -207,7 +208,7 @@ cdef extern from "isotree.hpp":
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                          double tmat[], double rmat[], size_t n_from) nogil except +
 
-    void impute_missing_values(double *numeric_data, int *categ_data,
+    void impute_missing_values(double *numeric_data, int *categ_data, bool_t is_col_major,
                                double *Xr, sparse_ix *Xr_ind, sparse_ix *Xr_indptr,
                                size_t nrows, int nthreads,
                                IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -562,9 +563,15 @@ cdef class isoforest_cpp_obj:
         cdef sparse_ix*  Xr_ind_ptr        =  NULL
         cdef sparse_ix*  Xr_indptr_ptr     =  NULL
 
+        cdef bool_t is_col_major    =  True
+        cdef size_t ncols_numeric   =  0
+        cdef size_t ncols_categ     =  0
+
         if X_num is not None:
             if not issparse(X_num):
                 numeric_data_ptr   =  get_ptr_dbl_mat(X_num)
+                ncols_numeric      =  X_num.shape[1]
+                is_col_major       =  np.isfortran(X_num)
             else:
                 if isspmatrix_csc(X_num):
                     if X_num.data.shape[0]:
@@ -581,6 +588,8 @@ cdef class isoforest_cpp_obj:
 
         if X_cat is not None:
             categ_data_ptr    =  get_ptr_int_mat(X_cat)
+            ncols_categ       =  X_cat.shape[1]
+            is_col_major      =  np.isfortran(X_cat)
 
         cdef np.ndarray[double, ndim = 1] depths    =  np.zeros(nrows, dtype = ctypes.c_double)
         cdef np.ndarray[size_t, ndim = 2] tree_num  =  np.empty((0, 0), dtype = ctypes.c_size_t, order = 'F')
@@ -604,6 +613,7 @@ cdef class isoforest_cpp_obj:
         
         with nogil, boundscheck(False), nonecheck(False), wraparound(False):
             predict_iforest(numeric_data_ptr, categ_data_ptr,
+                            is_col_major, ncols_numeric, ncols_categ,
                             Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
                             Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
                             nrows, nthreads, standardize,
@@ -682,10 +692,12 @@ cdef class isoforest_cpp_obj:
         cdef double*     Xr_ptr            =  NULL
         cdef sparse_ix*  Xr_ind_ptr        =  NULL
         cdef sparse_ix*  Xr_indptr_ptr     =  NULL
+        cdef bool_t      is_col_major      =  True
 
         if X_num is not None:
             if not issparse(X_num):
                 numeric_data_ptr  =  get_ptr_dbl_mat(X_num)
+                is_col_major      =  np.isfortran(X_num)
             else:
                 if X_num.data.shape[0]:
                     Xr_ptr         =  get_ptr_dbl_vec(X_num.data)
@@ -694,6 +706,7 @@ cdef class isoforest_cpp_obj:
                 Xr_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
         if X_cat is not None:
             categ_data_ptr     =  get_ptr_int_mat(X_cat)
+            is_col_major       =  np.isfortran(X_cat)
 
         cdef IsoForest*     model_ptr      =  NULL
         cdef ExtIsoForest*  ext_model_ptr  =  NULL
@@ -703,7 +716,7 @@ cdef class isoforest_cpp_obj:
             ext_model_ptr  =  &self.ext_isoforest
 
         with nogil, boundscheck(False), nonecheck(False), wraparound(False):
-            impute_missing_values(numeric_data_ptr, categ_data_ptr,
+            impute_missing_values(numeric_data_ptr, categ_data_ptr, is_col_major,
                                   Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
                                   nrows, nthreads,
                                   model_ptr, ext_model_ptr,

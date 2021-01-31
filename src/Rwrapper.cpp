@@ -597,6 +597,7 @@ void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector
     }
 
     predict_iforest(numeric_data_ptr, categ_data_ptr,
+                    true, 0, 0,
                     Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
                     Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
                     nrows, nthreads, standardize,
@@ -715,7 +716,7 @@ Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
     Imputer* imputer_ptr = static_cast<Imputer*>(R_ExternalPtrAddr(imputer_R_ptr));
 
 
-    impute_missing_values(numeric_data_ptr, categ_data_ptr,
+    impute_missing_values(numeric_data_ptr, categ_data_ptr, true,
                           Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
                           nrows, nthreads,
                           model_ptr, ext_model_ptr,

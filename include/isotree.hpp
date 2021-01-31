@@ -322,6 +322,7 @@ typedef struct Imputer {
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - Xc_ind[nnz]
 *       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns.
 * - Xc_indptr[ncols_numeric + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
@@ -634,6 +635,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - Xc_ind[nnz]
 *       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns.
 * - Xc_indptr[ncols_numeric + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
@@ -741,27 +743,47 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * Parameters
 * ==========
 * - numeric_data[nrows * ncols_numeric]
-*       Pointer to numeric data for which to make predictions. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to numeric data for which to make predictions. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'is_col_major').
 *       Pass NULL if there are no dense numeric columns.
 *       Can only pass one of 'numeric_data', 'Xc' + 'Xc_ind' + 'Xc_indptr', 'Xr' + 'Xr_ind' + 'Xr_indptr'.
 * - categ_data[nrows * ncols_categ]
-*       Pointer to categorical data for which to make predictions. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to categorical data for which to make predictions. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'is_col_major').
 *       Pass NULL if there are no categorical columns.
 *       Each category should be represented as an integer, and these integers must start at zero and
 *       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
 *       present when the model was fit (note that they are not treated as being ordinal, this is just
 *       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
 *       must be the same as was used in the data to which the model was fit.
+* - is_col_major
+*       Whether 'numeric_data' and 'categ_data' come in column-major order, like the data to which the
+*       model was fit. If passing 'false', will assume they are in row-major order. Note that most of
+*       the functions in this library work only with column-major order, but here both are suitable
+*       and row-major is preferred. Both arrays must have the same orientation (row/column major).
+* - ncols_numeric
+*       Number of columns in 'numeric_data'. This is ignored when the data is sparse or comes
+*       in column-major order. Note that the number of columns must not be lower than the number
+*       of columns to which the model was fit, and when using column-major order, must have
+*       the same number of columns as the data to which the model was fit (i.e. cannot have
+*       new columns).
+* - ncols_categ
+*       Number of columns in 'categ_data'. This is ignored when the data comes
+*       in column-major order. Note that the number of columns must not be lower than the number
+*       of columns to which the model was fit, and when using column-major order, must have
+*       the same number of columns as the data to which the model was fit (i.e. cannot have
+*       new columns).
 * - Xc[nnz]
 *       Pointer to numeric data in sparse numeric matrix in CSC format (column-compressed).
 *       Pass NULL if there are no sparse numeric columns.
 *       Can only pass one of 'numeric_data', 'Xc' + 'Xc_ind' + 'Xc_indptr', 'Xr' + 'Xr_ind' + 'Xr_indptr'.
 * - Xc_ind[nnz]
 *       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns in CSC format.
 * - Xc_indptr[ncols_categ + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
@@ -773,6 +795,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Can only pass one of 'numeric_data', 'Xc' + 'Xc_ind' + 'Xc_indptr', 'Xr' + 'Xr_ind' + 'Xr_indptr'. 
 * - Xr_ind[nnz]
 *       Pointer to column indices to which each non-zero entry in 'Xr' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns in CSR format.
 * - Xr_indptr[nrows + 1]
 *       Pointer to row index pointers that tell at entry [row] where does row 'row'
@@ -810,6 +833,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       the actual number of rows. Pass NULL if only average depths or outlier scores are desired.
 */
 void predict_iforest(double numeric_data[], int categ_data[],
+                     bool is_col_major, size_t ncols_numeric, size_t ncols_categ,
                      double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      double Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                      size_t nrows, int nthreads, bool standardize,
@@ -847,6 +871,7 @@ void predict_iforest(double numeric_data[], int categ_data[],
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - Xc_ind[nnz]
 *       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns in CSC format.
 * - Xc_indptr[ncols_categ + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
@@ -918,18 +943,18 @@ void calc_similarity(double numeric_data[], int categ_data[],
 * Parameters
 * ==========
 * - numeric_data[nrows * ncols_numeric] (in, out)
-*       Pointer to numeric data in which missing values will be imputed. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to numeric data in which missing values will be imputed. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'is_col_major').
 *       Pass NULL if there are no dense numeric columns.
 *       Can only pass one of 'numeric_data', 'Xr' + 'Xr_ind' + 'Xr_indptr'.
 *       Imputations will overwrite values in this same array.
-* - ncols_numeric
-*       Number of numeric columns in the data (whether they come in a sparse matrix or dense array).
 * - categ_data[nrows * ncols_categ]
-*       Pointer to categorical data in which missing values will be imputed. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to categorical data in which missing values will be imputed. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'is_col_major').
 *       Pass NULL if there are no categorical columns.
 *       Each category should be represented as an integer, and these integers must start at zero and
 *       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
@@ -937,6 +962,11 @@ void calc_similarity(double numeric_data[], int categ_data[],
 *       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
 *       must be the same as was used in the data to which the model was fit.
 *       Imputations will overwrite values in this same array.
+* - is_col_major
+*       Whether 'numeric_data' and 'categ_data' come in column-major order, like the data to which the
+*       model was fit. If passing 'false', will assume they are in row-major order. Note that most of
+*       the functions in this library work only with column-major order, but here both are suitable
+*       and row-major is preferred. Both arrays must have the same orientation (row/column major).
 * - ncols_categ
 *       Number of categorical columns in the data.
 * - ncat[ncols_categ]
@@ -950,6 +980,7 @@ void calc_similarity(double numeric_data[], int categ_data[],
 *       Imputations will overwrite values in this same array.
 * - Xr_ind[nnz]
 *       Pointer to column indices to which each non-zero entry in 'Xr' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns in CSR format.
 * - Xr_indptr[nrows + 1]
 *       Pointer to row index pointers that tell at entry [row] where does row 'row'
@@ -973,7 +1004,7 @@ void calc_similarity(double numeric_data[], int categ_data[],
 *       Pointer to fitted imputation node obects for the same trees as in 'model_outputs' or 'model_outputs_ext',
 *       as produced from function 'fit_iforest',
 */
-void impute_missing_values(double numeric_data[], int categ_data[],
+void impute_missing_values(double numeric_data[], int categ_data[], bool is_col_major,
                            double Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                            size_t nrows, int nthreads,
                            IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,

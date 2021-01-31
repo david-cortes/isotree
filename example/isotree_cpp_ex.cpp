@@ -74,6 +74,7 @@ int main()
        (see file 'predict.cpp' for the documentation) */
     std::vector<double> outlier_scores(nrow);
     predict_iforest(X.data(), NULL,
+                    true, ncol, 0,
                     NULL, NULL, NULL,
                     NULL, NULL, NULL,
                     nrow, 1, true,

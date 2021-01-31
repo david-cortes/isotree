@@ -52,18 +52,18 @@
 * Parameters
 * ==========
 * - numeric_data[nrows * ncols_numeric] (in, out)
-*       Pointer to numeric data in which missing values will be imputed. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to numeric data in which missing values will be imputed. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'is_col_major').
 *       Pass NULL if there are no dense numeric columns.
 *       Can only pass one of 'numeric_data', 'Xr' + 'Xr_ind' + 'Xr_indptr'.
 *       Imputations will overwrite values in this same array.
-* - ncols_numeric
-*       Number of numeric columns in the data (whether they come in a sparse matrix or dense array).
 * - categ_data[nrows * ncols_categ]
-*       Pointer to categorical data in which missing values will be imputed. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to categorical data in which missing values will be imputed. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'is_col_major').
 *       Pass NULL if there are no categorical columns.
 *       Each category should be represented as an integer, and these integers must start at zero and
 *       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
@@ -71,6 +71,11 @@
 *       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
 *       must be the same as was used in the data to which the model was fit.
 *       Imputations will overwrite values in this same array.
+* - is_col_major
+*       Whether 'numeric_data' and 'categ_data' come in column-major order, like the data to which the
+*       model was fit. If passing 'false', will assume they are in row-major order. Note that most of
+*       the functions in this library work only with column-major order, but here both are suitable
+*       and row-major is preferred. Both arrays must have the same orientation (row/column major).
 * - ncols_categ
 *       Number of categorical columns in the data.
 * - ncat[ncols_categ]
@@ -84,6 +89,7 @@
 *       Imputations will overwrite values in this same array.
 * - Xr_ind[nnz]
 *       Pointer to column indices to which each non-zero entry in 'Xr' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns in CSR format.
 * - Xr_indptr[nrows + 1]
 *       Pointer to row index pointers that tell at entry [row] where does row 'row'
@@ -107,13 +113,14 @@
 *       Pointer to fitted imputation node obects for the same trees as in 'model_outputs' or 'model_outputs_ext',
 *       as produced from function 'fit_iforest',
 */
-void impute_missing_values(double numeric_data[], int categ_data[],
+void impute_missing_values(double numeric_data[], int categ_data[], bool is_col_major,
                            double Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                            size_t nrows, int nthreads,
                            IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                            Imputer &imputer)
 {
     PredictionData prediction_data = {numeric_data, categ_data, nrows,
+                                      is_col_major, imputer.ncols_numeric, imputer.ncols_categ,
                                       NULL, NULL, NULL,
                                       Xr, Xr_ind, Xr_indptr};
 
@@ -887,17 +894,36 @@ void apply_imputation_results(PredictionData  &prediction_data,
 {
     size_t col;
     size_t pos = 0;
-    for (size_t ix = 0; ix < imp.n_missing_num; ix++)
+    if (prediction_data.is_col_major)
     {
-        col = imp.missing_num[ix];
-        if (imp.num_weight[ix] > 0 && !is_na_or_inf(imp.num_sum[ix]))
-            prediction_data.numeric_data[row + col * prediction_data.nrows]
-                =
-            imp.num_sum[ix] / imp.num_weight[ix];
-        else
-            prediction_data.numeric_data[row + col * prediction_data.nrows]
-                =
-            imputer.col_means[col];
+        for (size_t ix = 0; ix < imp.n_missing_num; ix++)
+        {
+            col = imp.missing_num[ix];
+            if (imp.num_weight[ix] > 0 && !is_na_or_inf(imp.num_sum[ix]))
+                prediction_data.numeric_data[row + col * prediction_data.nrows]
+                    =
+                imp.num_sum[ix] / imp.num_weight[ix];
+            else
+                prediction_data.numeric_data[row + col * prediction_data.nrows]
+                    =
+                imputer.col_means[col];
+        }
+    }
+
+    else
+    {
+        for (size_t ix = 0; ix < imp.n_missing_num; ix++)
+        {
+            col = imp.missing_num[ix];
+            if (imp.num_weight[ix] > 0 && !is_na_or_inf(imp.num_sum[ix]))
+                prediction_data.numeric_data[col + row * imputer.ncols_numeric]
+                    =
+                imp.num_sum[ix] / imp.num_weight[ix];
+            else
+                prediction_data.numeric_data[col + row * imputer.ncols_numeric]
+                    =
+                imputer.col_means[col];
+        }
     }
 
     if (prediction_data.Xr != NULL)
@@ -917,18 +943,38 @@ void apply_imputation_results(PredictionData  &prediction_data,
             }
         }
 
-    for (size_t ix = 0; ix < imp.n_missing_cat; ix++)
+    if (prediction_data.is_col_major)
     {
-        col = imp.missing_cat[ix];
-        prediction_data.categ_data[row + col * prediction_data.nrows]
-                    =
-        std::distance(imp.cat_sum[col].begin(),
-                      std::max_element(imp.cat_sum[col].begin(), imp.cat_sum[col].end()));
-
-        if (prediction_data.categ_data[row + col * prediction_data.nrows] == 0 && imp.cat_sum[col][0] <= 0)
+        for (size_t ix = 0; ix < imp.n_missing_cat; ix++)
+        {
+            col = imp.missing_cat[ix];
             prediction_data.categ_data[row + col * prediction_data.nrows]
-                =
-            imputer.col_modes[col];
+                        =
+            std::distance(imp.cat_sum[col].begin(),
+                          std::max_element(imp.cat_sum[col].begin(), imp.cat_sum[col].end()));
+
+            if (prediction_data.categ_data[row + col * prediction_data.nrows] == 0 && imp.cat_sum[col][0] <= 0)
+                prediction_data.categ_data[row + col * prediction_data.nrows]
+                    =
+                imputer.col_modes[col];
+        }
+    }
+
+    else
+    {
+        for (size_t ix = 0; ix < imp.n_missing_cat; ix++)
+        {
+            col = imp.missing_cat[ix];
+            prediction_data.categ_data[col + row * imputer.ncols_categ]
+                        =
+            std::distance(imp.cat_sum[col].begin(),
+                          std::max_element(imp.cat_sum[col].begin(), imp.cat_sum[col].end()));
+
+            if (prediction_data.categ_data[col + row * imputer.ncols_categ] == 0 && imp.cat_sum[col][0] <= 0)
+                prediction_data.categ_data[col + row * imputer.ncols_categ]
+                    =
+                imputer.col_modes[col];
+        }
     }
 }
 
@@ -996,9 +1042,20 @@ void initialize_impute_calc(ImputedData &imp, PredictionData &prediction_data, I
     {
         if (!imp.missing_num.size())
             imp.missing_num.resize(imputer.ncols_numeric);
-        for (size_t col = 0; col < imputer.ncols_numeric; col++)
-            if (is_na_or_inf(prediction_data.numeric_data[row + col * prediction_data.nrows]))
-                imp.missing_num[imp.n_missing_num++] = col;
+
+        if (prediction_data.is_col_major)
+        {
+            for (size_t col = 0; col < imputer.ncols_numeric; col++)
+                if (is_na_or_inf(prediction_data.numeric_data[row + col * prediction_data.nrows]))
+                    imp.missing_num[imp.n_missing_num++] = col;
+        }
+
+        else
+        {
+            for (size_t col = 0; col < imputer.ncols_numeric; col++)
+                if (is_na_or_inf(prediction_data.numeric_data[col + row * imputer.ncols_numeric]))
+                    imp.missing_num[imp.n_missing_num++] = col;
+        }
 
         if (!imp.num_sum.size())
         {
@@ -1038,10 +1095,23 @@ void initialize_impute_calc(ImputedData &imp, PredictionData &prediction_data, I
     {
         if (!imp.missing_cat.size())
             imp.missing_cat.resize(imputer.ncols_categ);
-        for (size_t col = 0; col < imputer.ncols_categ; col++)
+
+        if (prediction_data.is_col_major)
         {
-            if (prediction_data.categ_data[row + col * prediction_data.nrows] < 0)
-                imp.missing_cat[imp.n_missing_cat++] = col;
+            for (size_t col = 0; col < imputer.ncols_categ; col++)
+            {
+                if (prediction_data.categ_data[row + col * prediction_data.nrows] < 0)
+                    imp.missing_cat[imp.n_missing_cat++] = col;
+            }
+        }
+
+        else
+        {
+            for (size_t col = 0; col < imputer.ncols_categ; col++)
+            {
+                if (prediction_data.categ_data[col + row * imputer.ncols_categ] < 0)
+                    imp.missing_cat[imp.n_missing_cat++] = col;
+            }
         }
 
         if (!imp.cat_weight.size())
@@ -1156,15 +1226,34 @@ size_t check_for_missing(PredictionData  &prediction_data,
     for (size_t_for row = 0; row < prediction_data.nrows; row++)
     {
         if (prediction_data.numeric_data != NULL)
-            for (size_t col = 0; col < imputer.ncols_numeric; col++)
+        {
+            if (prediction_data.is_col_major)
             {
-                if (is_na_or_inf(prediction_data.numeric_data[row + col * prediction_data.nrows]))
+                for (size_t col = 0; col < imputer.ncols_numeric; col++)
                 {
-                    has_missing[row] = true;
-                    break;
+                    if (is_na_or_inf(prediction_data.numeric_data[row + col * prediction_data.nrows]))
+                    {
+                        has_missing[row] = true;
+                        break;
+                    }
                 }
             }
+
+            else
+            {
+                for (size_t col = 0; col < imputer.ncols_numeric; col++)
+                {
+                    if (is_na_or_inf(prediction_data.numeric_data[col + row * imputer.ncols_numeric]))
+                    {
+                        has_missing[row] = true;
+                        break;
+                    }
+                }
+            }
+        }
+
         else if (prediction_data.Xr != NULL)
+        {
             for (size_t ix = prediction_data.Xr_indptr[row]; ix < prediction_data.Xr_indptr[row + 1]; ix++)
             {
                 if (is_na_or_inf(prediction_data.Xr[ix]))
@@ -1173,16 +1262,34 @@ size_t check_for_missing(PredictionData  &prediction_data,
                     break;
                 }
             }
+        }
 
         if (!has_missing[row])
-            for (size_t col = 0; col < imputer.ncols_categ; col++)
+        {
+            if (prediction_data.is_col_major)
             {
-                if (prediction_data.categ_data[row + col * prediction_data.nrows] < 0)
+                for (size_t col = 0; col < imputer.ncols_categ; col++)
                 {
-                    has_missing[row] = true;
-                    break;
+                    if (prediction_data.categ_data[row + col * prediction_data.nrows] < 0)
+                    {
+                        has_missing[row] = true;
+                        break;
+                    }
                 }
             }
+
+            else
+            {
+                for (size_t col = 0; col < imputer.ncols_categ; col++)
+                {
+                    if (prediction_data.categ_data[col + row * imputer.ncols_categ] < 0)
+                    {
+                        has_missing[row] = true;
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     size_t st = 0;

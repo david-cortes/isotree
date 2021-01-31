@@ -84,6 +84,7 @@
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - Xc_ind[nnz]
 *       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns.
 * - Xc_indptr[ncols_numeric + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
@@ -622,6 +623,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - Xc_ind[nnz]
 *       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns.
 * - Xc_indptr[ncols_numeric + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
