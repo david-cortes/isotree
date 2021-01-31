@@ -420,21 +420,21 @@ double categ_gain(size_t cnt_left, size_t cnt_right,
     And this calculation will be robust-enough when dealing with numbers that were
     already standardized beforehand, as the extended model does at each step.
     Note however that, when fitting this model, one is usually interested in evaluating
-    the actual gain, standardizes by the standard deviation, as it will try different
+    the actual gain, standardized by the standard deviation, as it will try different
     linear combinations which will give different standard deviations, so this simpler
     formula cannot be applied unless only one linear combination is probed.
         
-    Nevertheless, one can also look at:
+    One can also look at:
         diff_gain = (1/sigma) * (gain_new - gain)
     Which can be simplified to something that doesn't include sums of squares:
         (1/(sigma*n))*(  -s_left^2/n_left  -  (s-s_left)^2/(n-n_left)  +  (s_left+x)^2/(n_left+1)  +  (s-(s_left+x))^2/(n-(n_left+1))  )
-    And this calculation would in theory allow getting the actual standardizes gain.
+    And this calculation would in theory allow getting the actual standardized gain.
     In practice however, this calculation can have poor numerical precision when the
     sample size is large, so the functions here do not even attempt at calculating it,
     and this is the reason why the two-pass approach is preferred.
 
-    The averaged SD formula unfortunately doesn't reduce to something that would involve only
-    sums.
+    The averaged SD formula unfortunately doesn't reduce to something that would involve
+    only sums.
 */
 
 /*  TODO: maybe it's not a good idea to use the two-pass approach with un-standardized
@@ -443,9 +443,10 @@ double categ_gain(size_t cnt_left, size_t cnt_right,
     The sums of centered squares method is also likely to be more precise. */
 
 
-#define avg_between(a, b) (((a) + (b)) / 2.)
+#define avg_between(a, b) ((a) + ((b)-(a))/2.)
 #define sd_gain(sd, sd_left, sd_right) (1. - ((sd_left) + (sd_right)) / (2. * (sd)))
-#define pooled_gain(sd, cnt, sd_left, sd_right, cnt_left, cnt_right) (1. - (1./(sd))*((((real_t)(cnt_left))/(cnt))*(sd_left) + (((real_t)(cnt_right)/(cnt)))*(sd_right)))
+#define pooled_gain(sd, cnt, sd_left, sd_right, cnt_left, cnt_right) \
+    (1. - (1./(sd))*(  ( ((real_t)(cnt_left))/(cnt) )*(sd_left) + ( ((real_t)(cnt_right)/(cnt)) )*(sd_right)  ))
 
 #define THRESHOLD_LONG_DOUBLE ((size_t)1e6)
 

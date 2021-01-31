@@ -146,6 +146,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                 workspace.col_sampler.sample_col(workspace.col_chosen, workspace.rnd_generator)
             )
         {
+            if (interrupt_switch) return;
+            
             workspace.ntried++;
             if (!workspace.try_all && workspace.ntried >= threshold_shuffle)
             {

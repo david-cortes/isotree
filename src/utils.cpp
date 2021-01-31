@@ -1886,13 +1886,14 @@ SignalSwitcher::SignalSwitcher()
 
 SignalSwitcher::~SignalSwitcher()
 {
-    this->restore_handle();
     #ifndef _FOR_PYTHON
     #pragma omp critical
     {
-        interrupt_switch = false;
+        if (this->is_active && handle_is_locked)
+            interrupt_switch = false;
     }
     #endif
+    this->restore_handle();
 }
 
 void SignalSwitcher::restore_handle()

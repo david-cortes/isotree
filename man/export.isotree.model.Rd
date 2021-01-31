@@ -22,8 +22,9 @@ No return value.
 Save Isolation Forest model to a serialized file along with its
 metadata, in order to be used in the Python or the C++ versions of this package.
 
-This function is not meant to be used for passing models to and from R -
-in such case, you can use `saveRDS` and `readRDS` instead.
+This function is not suggested to be used for passing models to and from R -
+in such case, one can use `saveRDS` and `readRDS` instead, although the function
+still works correctly for serializing objects between R sessions.
 
 Note that, if the model was fitted to a `data.frame`, the column names must be
 something exportable as JSON, and must be something that Python's Pandas could
@@ -51,6 +52,9 @@ and de-serializing its contents with the `cereal` library or using the provided 
 for de-serialization. If using `ndim=1`, it will be an object of class `IsoForest`, and if
 using `ndim>1`, will be an object of class `ExtIsoForest`. The imputer file, if produced, will
 be an object of class `Imputer`.
+
+Be aware that this function will write raw bytes from memory as-is without compression,
+so the file sizes can end up being much larger than when using `saveRDS`.
 
 The metadata is not used in the C++ version, but is necessary for the Python version.
 
