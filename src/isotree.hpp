@@ -922,21 +922,21 @@ template <class real_t>
 double find_split_rel_gain_t(double *restrict x, size_t n, double &split_point);
 double find_split_rel_gain(double *restrict x, size_t n, double &split_point);
 template <class real_t>
-double find_split_rel_gain_t(double *restrict x, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix);
-double find_split_rel_gain(double *restrict x, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix);
+double find_split_rel_gain_t(double *restrict x, double xmean, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix);
+double find_split_rel_gain(double *restrict x, double xmean, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix);
 template <class real_t>
 real_t calc_sd_right_to_left(double *restrict x, size_t n, double *restrict sd_arr);
 template <class real_t>
-real_t calc_sd_right_to_left(double *restrict x, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr);
+real_t calc_sd_right_to_left(double *restrict x, double xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr);
 template <class real_t>
 double find_split_std_gain_t(double *restrict x, size_t n, double *restrict sd_arr,
                              GainCriterion criterion, double min_gain, double &split_point);
 double find_split_std_gain(double *restrict x, size_t n, double *restrict sd_arr,
                            GainCriterion criterion, double min_gain, double &split_point);
 template <class real_t>
-double find_split_std_gain_t(double *restrict x, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
+double find_split_std_gain_t(double *restrict x, double xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
                              GainCriterion criterion, double min_gain, double &split_point, size_t &split_ix);
-double find_split_std_gain(double *restrict x, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
+double find_split_std_gain(double *restrict x, double xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
                            GainCriterion criterion, double min_gain, double &split_point, size_t &split_ix);
 double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
                         double min_gain, bool as_relative_gain, double *restrict buffer_sd,

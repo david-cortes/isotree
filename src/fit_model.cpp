@@ -988,8 +988,8 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
 
     /* make space for buffers if not already allocated */
     if (
-            (model_params.prob_split_by_gain_avg || model_params.prob_pick_by_gain_avg ||
-             model_params.prob_split_by_gain_pl  || model_params.prob_pick_by_gain_pl  ||
+            (model_params.prob_split_by_gain_avg > 0 || model_params.prob_pick_by_gain_avg > 0 ||
+             model_params.prob_split_by_gain_pl > 0  || model_params.prob_pick_by_gain_pl > 0  ||
              model_params.weigh_by_kurt || hplane_root != NULL)
                 &&
             (!workspace.buffer_dbl.size() && !workspace.buffer_szt.size() && !workspace.buffer_chr.size())

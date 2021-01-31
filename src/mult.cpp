@@ -44,6 +44,8 @@
 */
 #include "isotree.hpp"
 
+/* https://www.johndcook.com/blog/standard_deviation/ */
+
 /* for regular numerical */
 template <class real_t>
 void calc_mean_and_sd_t(size_t ix_arr[], size_t st, size_t end, double *restrict x,
@@ -96,6 +98,8 @@ void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x
 }
 
 /* for sparse numerical */
+/* TODO: this one could also use Welford's method by keeping track of how
+   many positions it advanced at every call to lower_bound */
 #define SD_MIN 1e-10
 void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                       double *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
