@@ -172,6 +172,7 @@ void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
     if (cnt > added)
     {
         s += (m / (real_t)cnt) * ( m * ((real_t)(cnt-added)/(real_t)added) );
+        m *= (real_t)added / (real_t)cnt;
     }
 
     x_mean = m;

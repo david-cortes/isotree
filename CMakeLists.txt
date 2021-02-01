@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.9)
-project (isotree VERSION 0.2.0)
+project (isotree VERSION 0.2.1)
 set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -16,6 +16,7 @@ add_library(isotree SHARED ${SRC_FILES})
 target_include_directories(isotree PRIVATE ${PROJECT_SOURCE_DIR}/src)
 set_target_properties(isotree PROPERTIES PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/isotree.hpp)
 
+## omit this line to use the system's default RNG engine
 add_compile_definitions(_USE_MERSENNE_TWISTER)
 
 ## https://cliutils.gitlab.io/modern-cmake/chapters/packages/OpenMP.html
