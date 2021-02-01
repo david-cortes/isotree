@@ -44,6 +44,7 @@
 */
 #include "isotree.hpp"
 
+template <class InputData, class WorkerMemory>
 void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                             WorkerMemory             &workspace,
                             InputData                &input_data,
@@ -417,6 +418,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 }
 
 
+template <class InputData, class WorkerMemory>
 void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params,
                        std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s)
 {
@@ -556,6 +558,7 @@ void shrink_to_fit_hplane(IsoHPlane &hplane, bool clear_vectors)
     hplane.fill_new.shrink_to_fit();
 }
 
+template <class InputData, class WorkerMemory>
 void simplify_hplane(IsoHPlane &hplane, WorkerMemory &workspace, InputData &input_data, ModelParams &model_params)
 {
     if (workspace.ntaken_best < model_params.ndim)

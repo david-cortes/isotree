@@ -44,6 +44,7 @@
 */
 #include "isotree.hpp"
 
+template <class InputData, class WorkerMemory>
 void split_itree_recursive(std::vector<IsoTree>     &trees,
                            WorkerMemory             &workspace,
                            InputData                &input_data,

@@ -46,6 +46,7 @@
 
 
 /* for use in regular model */
+template <class InputData, class WorkerMemory>
 void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params, IsoTree &tree)
 {
     if (tree.col_num < input_data.ncols_numeric)
@@ -74,6 +75,7 @@ void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams
 }
 
 /* for use in extended model */
+template <class InputData, class WorkerMemory>
 void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params)
 {
     if (workspace.col_chosen < input_data.ncols_numeric)
@@ -101,6 +103,7 @@ void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams
     }
 }
 
+template <class InputData, class WorkerMemory>
 int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size_t col_num)
 {
     int chosen_cat = std::uniform_int_distribution<int>
@@ -130,16 +133,18 @@ bool is_col_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &c
         return col_is_taken_s.find(col_num) != col_is_taken_s.end();
 }
 
+template <class InputData>
 void set_col_as_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
                       InputData &input_data, size_t col_num, ColType col_type)
 {
-    col_num += ((col_type == Categorical)? 0 : input_data.ncols_categ);
+    col_num += ((col_type == Numeric)? 0 : input_data.ncols_numeric);
     if (col_is_taken.size())
         col_is_taken[col_num] = true;
     else
         col_is_taken_s.insert(col_num);
 }
 
+template <class InputData, class WorkerMemory>
 void add_separation_step(WorkerMemory &workspace, InputData &input_data, double remainder)
 {
     if (workspace.weights_arr.size())
@@ -153,6 +158,7 @@ void add_separation_step(WorkerMemory &workspace, InputData &input_data, double 
                               input_data.nrows, workspace.tmat_sep.data(), remainder);
 }
 
+template <class InputData, class WorkerMemory>
 void add_remainder_separation_steps(WorkerMemory &workspace, InputData &input_data, long double sum_weight)
 {
     if (
@@ -170,6 +176,7 @@ void add_remainder_separation_steps(WorkerMemory &workspace, InputData &input_da
     }
 }
 
+template <class PredictionData, class sparse_ix>
 void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                           PredictionData &prediction_data, sparse_ix *restrict tree_num, int nthreads)
 {
@@ -221,6 +228,8 @@ void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_
     }
 }
 
+
+template <class WorkerMemory>
 RecursionState::RecursionState(WorkerMemory &workspace, bool full_state)
 {
     this->full_state = full_state;
@@ -259,6 +268,7 @@ RecursionState::RecursionState(WorkerMemory &workspace, bool full_state)
 }
 
 
+template <class WorkerMemory>
 void RecursionState::restore_state(WorkerMemory &workspace)
 {
     workspace.split_ix         =  this->split_ix;

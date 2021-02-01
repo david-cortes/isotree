@@ -245,6 +245,10 @@ sample, so if not using sub-samples, it's better to pass column weights calculat
 categorical columns, will calculate expected kurtosis if the column was converted to numerical by
 assigning to each category a random number `~ Unif(0, 1)`.
 
+Note that when using sparse matrices, the calculation of kurtosis will rely on a procedure that
+uses sums of squares and higher-power numbers, which has less numerical precision than the
+calculation used for dense inputs, and as such, the results might differ slightly.
+
 Using this option makes the model more likely to pick the columns that have anomalous values
 when viewed as a 1-d distribution, and can bring a large improvement in some datasets.}
 
@@ -385,14 +389,6 @@ When using more than one dimension for splits (i.e. splitting hyperplanes, see `
 calculating gain, the variables are standardized at each step, so there is no need to center/scale the
 data beforehand. The gain calculations are also standardized according to the standard deviation when
 using `ntry>1` or `ndim==1`, in order to avoid differences in the scale of the coefficients.
-
-When using sparse matrices, calculations such as standard deviations, gain, and kurtosis, will use procedures
-that rely on calculating sums of squared numbers. This is not a problem if most of the entries are zero and the
-numbers are small, but if passing dense matrices as sparse and/or the entries in the sparse matrices have values
-in wildly different orders of magnitude (e.g. 0.0001 and 10000000), the calculations might be incorrect due to loss of
-numeric precision, and the results might not be as good. For dense matrices it uses more numerically-robust
-techniques (which would add a large computational overhead in sparse matrices), so it's not a problem to have values
-with different orders of magnitude.
 }
 \examples{
 ### Example 1: detect an obvious outlier
@@ -479,7 +475,7 @@ plot.space(Z2, "Extended Isolation Forest")
 
 ### SCiForest
 iso_sci = isolation.forest(
-     X, ndim=2, ntry=10,
+     X, ndim=2,
      ntrees=100,
      nthreads=1,
      penalize_range=TRUE,

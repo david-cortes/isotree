@@ -330,17 +330,18 @@
 * [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
 * [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 */
+template <class real_t, class sparse_ix>
 int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                double numeric_data[],  size_t ncols_numeric,
+                real_t numeric_data[],  size_t ncols_numeric,
                 int    categ_data[],    size_t ncols_categ,    int ncat[],
-                double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                 size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
-                double sample_weights[], bool with_replacement, bool weight_as_sample,
+                real_t sample_weights[], bool with_replacement, bool weight_as_sample,
                 size_t nrows, size_t sample_size, size_t ntrees, size_t max_depth,
                 bool   limit_depth, bool penalize_range,
                 bool   standardize_dist, double tmat[],
                 double output_depths[], bool standardize_depth,
-                double col_weights[], bool weigh_by_kurt,
+                real_t col_weights[], bool weigh_by_kurt,
                 double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                 double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
                 double min_gain, MissingAction missing_action,
@@ -350,7 +351,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 uint64_t random_seed, int nthreads)
 {
     if (prob_pick_by_gain_avg < 0 || prob_split_by_gain_avg < 0 ||
-        prob_pick_by_gain_pl < 0 || prob_split_by_gain_pl < 0)
+        prob_pick_by_gain_pl < 0  || prob_split_by_gain_pl < 0)
         throw std::runtime_error("Cannot pass negative probabilities.\n");
     if (ndim == 0 && model_outputs == NULL)
         throw std::runtime_error("Must pass 'ndim>0' in the extended model.\n");
@@ -366,7 +367,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         sample_size = nrows;
 
     /* put data in structs to shorten function calls */
-    InputData input_data     = {numeric_data, ncols_numeric, categ_data, ncat, max_categ, ncols_categ,
+    InputData<real_t, sparse_ix>
+              input_data     = {numeric_data, ncols_numeric, categ_data, ncat, max_categ, ncols_categ,
                                 nrows, ncols_numeric + ncols_categ, sample_weights,
                                 weight_as_sample, col_weights,
                                 Xc, Xc_ind, Xc_indptr,
@@ -390,8 +392,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     }
 
     /* if imputing missing values on-the-fly, need to determine which are missing */
-    std::vector<ImputedData> impute_vec;
-    std::unordered_map<size_t, ImputedData> impute_map;
+    std::vector<ImputedData<sparse_ix>> impute_vec;
+    std::unordered_map<size_t, ImputedData<sparse_ix>> impute_map;
     if (model_params.impute_at_fit)
         check_for_missing(input_data, impute_vec, impute_map, nthreads);
 
@@ -427,9 +429,9 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     if ((size_t)nthreads > ntrees)
         nthreads = (int)ntrees;
     #ifdef _OPENMP
-        std::vector<WorkerMemory> worker_memory(nthreads);
+        std::vector<WorkerMemory<ImputedData<sparse_ix>>> worker_memory(nthreads);
     #else
-        std::vector<WorkerMemory> worker_memory(1);
+        std::vector<WorkerMemory<ImputedData<sparse_ix>>> worker_memory(1);
     #endif
 
     /* Global variable that determines if the procedure receives a stop signal */
@@ -491,7 +493,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 
     /* if calculating similarity/distance, now need to reduce and average */
     if (calc_dist)
-        gather_sim_result(NULL, &worker_memory,
+        gather_sim_result< PredictionData<real_t, sparse_ix>, InputData<real_t, sparse_ix> >
+                         (NULL, &worker_memory,
                           NULL, &input_data,
                           model_outputs, model_outputs_ext,
                           tmat, NULL, 0,
@@ -509,7 +512,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         #ifdef _OPENMP
         if (nthreads > 1)
         {
-            for (WorkerMemory &w : worker_memory)
+            for (WorkerMemory<ImputedData<sparse_ix>> &w : worker_memory)
             {
                 if (w.row_depths.size())
                 {
@@ -530,7 +533,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
             double depth_divisor = (double)ntrees * ((model_outputs != NULL)?
                                                      model_outputs->exp_avg_depth : model_outputs_ext->exp_avg_depth);
             for (size_t_for row = 0; row < nrows; row++)
-                output_depths[row] = exp2( - output_depths[row] / depth_divisor );
+                output_depths[row] = std::exp2( - output_depths[row] / depth_divisor );
         }
 
         else
@@ -552,7 +555,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         #ifdef _OPENMP
         if (nthreads > 1)
         {
-            for (WorkerMemory &w : worker_memory)
+            for (WorkerMemory<ImputedData<sparse_ix>> &w : worker_memory)
                 combine_tree_imputations(w, impute_vec, impute_map, input_data.has_missing, nthreads);
         }
 
@@ -709,14 +712,15 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - random_seed
 *       Seed that will be used to generate random numbers used by the model.
 */
+template <class real_t, class sparse_ix>
 int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-             double numeric_data[],  size_t ncols_numeric,
+             real_t numeric_data[],  size_t ncols_numeric,
              int    categ_data[],    size_t ncols_categ,    int ncat[],
-             double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+             real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
              size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
-             double sample_weights[], size_t nrows, size_t max_depth,
+             real_t sample_weights[], size_t nrows, size_t max_depth,
              bool   limit_depth,   bool penalize_range,
-             double col_weights[], bool weigh_by_kurt,
+             real_t col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
              double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
              double min_gain, MissingAction missing_action,
@@ -726,7 +730,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              uint64_t random_seed)
 {
     if (prob_pick_by_gain_avg < 0 || prob_split_by_gain_avg < 0 ||
-        prob_pick_by_gain_pl < 0 || prob_split_by_gain_pl < 0)
+        prob_pick_by_gain_pl < 0  || prob_split_by_gain_pl < 0)
         throw std::runtime_error("Cannot pass negative probabilities.\n");
     if (ndim == 0 && model_outputs == NULL)
         throw std::runtime_error("Must pass 'ndim>0' in the extended model.\n");
@@ -735,7 +739,8 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     for (size_t col = 0; col < ncols_categ; col++)
         max_categ = (ncat[col] > max_categ)? ncat[col] : max_categ;
 
-    InputData input_data     = {numeric_data, ncols_numeric, categ_data, ncat, max_categ, ncols_categ,
+    InputData<real_t, sparse_ix>
+              input_data     = {numeric_data, ncols_numeric, categ_data, ncat, max_categ, ncols_categ,
                                 nrows, ncols_numeric + ncols_categ, sample_weights,
                                 false, col_weights,
                                 Xc, Xc_ind, Xc_indptr,
@@ -750,7 +755,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 (model_outputs != NULL)? 0 : ndim, (model_outputs != NULL)? 0 : ntry,
                                 coef_type, coef_by_prop, false, false, false, depth_imp, weigh_imp_rows, min_imp_obs};
 
-    std::unique_ptr<WorkerMemory> workspace = std::unique_ptr<WorkerMemory>(new WorkerMemory);
+    std::unique_ptr<WorkerMemory<ImputedData<sparse_ix>>> workspace = std::unique_ptr<WorkerMemory<ImputedData<sparse_ix>>>(new WorkerMemory<ImputedData<sparse_ix>>);
 
     size_t last_tree;
     if (model_outputs != NULL)
@@ -781,6 +786,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     return EXIT_SUCCESS;
 }
 
+template <class InputData, class WorkerMemory>
 void fit_itree(std::vector<IsoTree>    *tree_root,
                std::vector<IsoHPlane>  *hplane_root,
                WorkerMemory             &workspace,
@@ -822,7 +828,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         size_t exp_nodes = 2 * model_params.sample_size;
         if (model_params.sample_size >= (SIZE_MAX / (size_t)2))
             exp_nodes = SIZE_MAX;
-        if (model_params.max_depth <= (size_t)30)
+        else if (model_params.max_depth <= (size_t)30)
             exp_nodes = std::min(exp_nodes, pow2(model_params.max_depth));
         if (tree_root != NULL)
         {
@@ -1103,6 +1109,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                               workspace.buffer_szt.data(), workspace.buffer_dbl.data(),
                               model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator);
 
+        for (auto &w : kurt_weights) w = std::fmax(0., -1. + w);
         workspace.col_sampler.initialize(kurt_weights.data(), kurt_weights.size());
     }
 

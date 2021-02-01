@@ -91,9 +91,8 @@ setup(
     cmdclass = {'build_ext': build_ext_subclass},
     ext_modules = [Extension(
                                 "isotree._cpp_interface",
-                                sources=["isotree/cpp_interface.pyx", "src/fit_model.cpp", "src/isoforest.cpp",
-                                         "src/extended.cpp", "src/helpers_iforest.cpp", "src/predict.cpp", "src/utils.cpp",
-                                         "src/crit.cpp", "src/dist.cpp", "src/impute.cpp", "src/mult.cpp", "src/dealloc.cpp",
+                                sources=["isotree/cpp_interface.pyx",
+                                         "src/dealloc.cpp",
                                          "src/merge_models.cpp", "src/serialize.cpp", "src/sql.cpp"],
                                 include_dirs=[np.get_include(), ".", "./src", cereal_dir],
                                 language="c++",

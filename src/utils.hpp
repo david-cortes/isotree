@@ -411,7 +411,8 @@ void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool 
             dmat[i + i * n] = 0;
 }
 
-void build_btree_sampler(std::vector<double> &btree_weights, double *restrict sample_weights,
+template <class real_t>
+void build_btree_sampler(std::vector<double> &btree_weights, real_t *restrict sample_weights,
                          size_t nrows, size_t &log2_n, size_t &btree_offset)
 {
     /* build a perfectly-balanced binary search tree in which each node will
@@ -437,9 +438,10 @@ void build_btree_sampler(std::vector<double> &btree_weights, double *restrict sa
     }
 }
 
+template <class real_t>
 void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_replacement,
                         RNG_engine &rnd_generator, std::vector<size_t> &ix_all,
-                        double sample_weights[], std::vector<double> &btree_weights,
+                        real_t sample_weights[], std::vector<double> &btree_weights,
                         size_t log2_n, size_t btree_offset, std::vector<bool> &is_repeated)
 {
     size_t ntake = ix_arr.size();
@@ -607,7 +609,8 @@ void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_rep
 }
 
 /* https://stackoverflow.com/questions/57599509/c-random-non-repeated-integers-with-weights */
-void weighted_shuffle(size_t *restrict outp, size_t n, double *restrict weights, double *restrict buffer_arr, RNG_engine &rnd_generator)
+template <class real_t>
+void weighted_shuffle(size_t *restrict outp, size_t n, real_t *restrict weights, double *restrict buffer_arr, RNG_engine &rnd_generator)
 {
     /* determine smallest power of two that is larger than N */
     size_t tree_levels = log2ceil(n);
@@ -667,7 +670,8 @@ void weighted_shuffle(size_t *restrict outp, size_t n, double *restrict weights,
 
 /*  This one samples with replacement. When using weights, the algorithm is the
     same as for the row sampler, but keeping the weights after taking each iteration. */
-void ColumnSampler::initialize(double weights[], size_t n_cols)
+template <class real_t>
+void ColumnSampler::initialize(real_t weights[], size_t n_cols)
 {
     this->n_cols = n_cols;
     this->tree_levels = log2ceil(n_cols);
@@ -891,7 +895,8 @@ size_t divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, d
 }
 
 /* For numerical columns */
-void divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, double split_point,
+template <class real_t>
+void divide_subset_split(size_t ix_arr[], real_t x[], size_t st, size_t end, double split_point,
                          MissingAction missing_action, size_t &st_NA, size_t &end_NA, size_t &split_ix)
 {
     size_t temp;
@@ -943,8 +948,9 @@ void divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, dou
 }
 
 /* For sparse numeric columns */
+template <class real_t, class sparse_ix>
 void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-                         double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[], double split_point,
+                         real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[], double split_point,
                          MissingAction missing_action, size_t &st_NA, size_t &end_NA, size_t &split_ix)
 {
     /* TODO: this is a mess, needs refactoring */
@@ -1496,7 +1502,8 @@ void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end,
 }
 
 /* for regular numeric columns */
-void get_range(size_t ix_arr[], double x[], size_t st, size_t end,
+template <class real_t>
+void get_range(size_t ix_arr[], real_t x[], size_t st, size_t end,
                MissingAction missing_action, double &xmin, double &xmax, bool &unsplittable)
 {
     xmin =  HUGE_VAL;
@@ -1525,8 +1532,9 @@ void get_range(size_t ix_arr[], double x[], size_t st, size_t end,
 }
 
 /* for sparse inputs */
+template <class real_t, class sparse_ix>
 void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-               double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+               real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                MissingAction missing_action, double &xmin, double &xmax, bool &unsplittable)
 {
     /* ix_arr must already be sorted beforehand */
@@ -1656,7 +1664,8 @@ long double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t
         return -HUGE_VAL;
 }
 
-size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, double x[])
+template <class real_t>
+size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, real_t x[])
 {
     size_t st_non_na = st;
     size_t temp;
@@ -1675,7 +1684,8 @@ size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, double x[])
     return st_non_na;
 }
 
-size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, size_t col_num, double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[])
+template <class real_t, class sparse_ix>
+size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, size_t col_num, real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[])
 {
     size_t st_non_na = st;
     size_t temp;
@@ -1749,8 +1759,9 @@ size_t center_NAs(size_t *restrict ix_arr, size_t st_left, size_t st, size_t cur
     return curr_pos;
 }
 
+template <class real_t, class sparse_ix>
 void todense(size_t ix_arr[], size_t st, size_t end,
-             size_t col_num, double *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+             size_t col_num, real_t *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
              double *restrict buffer_arr)
 {
     std::fill(buffer_arr, buffer_arr + (end - st + 1), (double)0);
@@ -1782,6 +1793,7 @@ void todense(size_t ix_arr[], size_t st, size_t end,
     }
 }
 
+template <class sparse_ix>
 bool check_indices_are_sorted(sparse_ix indices[], size_t n)
 {
     if (n <= 1)
@@ -1794,7 +1806,8 @@ bool check_indices_are_sorted(sparse_ix indices[], size_t n)
     return true;
 }
 
-void sort_csc_indices(double *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr, size_t ncols_numeric)
+template <class real_t, class sparse_ix>
+void sort_csc_indices(real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr, size_t ncols_numeric)
 {
     std::vector<double> buffer_sorted_vals;
     std::vector<sparse_ix> buffer_sorted_ix;

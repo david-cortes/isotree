@@ -226,6 +226,10 @@
 #' categorical columns, will calculate expected kurtosis if the column was converted to numerical by
 #' assigning to each category a random number `~ Unif(0, 1)`.
 #' 
+#' Note that when using sparse matrices, the calculation of kurtosis will rely on a procedure that
+#' uses sums of squares and higher-power numbers, which has less numerical precision than the
+#' calculation used for dense inputs, and as such, the results might differ slightly.
+#' 
 #' Using this option makes the model more likely to pick the columns that have anomalous values
 #' when viewed as a 1-d distribution, and can bring a large improvement in some datasets.
 #' @param coefs For the extended model, whether to sample random coefficients according to a normal distribution `~ N(0, 1)`
@@ -401,7 +405,7 @@
 #' 
 #' ### SCiForest
 #' iso_sci = isolation.forest(
-#'      X, ndim=2, ntry=10,
+#'      X, ndim=2,
 #'      ntrees=100,
 #'      nthreads=1,
 #'      penalize_range=TRUE,
@@ -511,14 +515,6 @@
 #' calculating gain, the variables are standardized at each step, so there is no need to center/scale the
 #' data beforehand. The gain calculations are also standardized according to the standard deviation when
 #' using `ntry>1` or `ndim==1`, in order to avoid differences in the scale of the coefficients.
-#' 
-#' When using sparse matrices, calculations such as standard deviations, gain, and kurtosis, will use procedures
-#' that rely on calculating sums of squared numbers. This is not a problem if most of the entries are zero and the
-#' numbers are small, but if passing dense matrices as sparse and/or the entries in the sparse matrices have values
-#' in wildly different orders of magnitude (e.g. 0.0001 and 10000000), the calculations might be incorrect due to loss of
-#' numeric precision, and the results might not be as good. For dense matrices it uses more numerically-robust
-#' techniques (which would add a large computational overhead in sparse matrices), so it's not a problem to have values
-#' with different orders of magnitude.
 #' @export
 isolation.forest <- function(df,
                              sample_size = NROW(df), ntrees = 500, ndim = min(3, NCOL(df)),
@@ -811,8 +807,8 @@ isolation.forest <- function(df,
 #'   closer to one further away points, and closer to 0.5 average distance.
 #'   \item `"avg_sep"` for the non-standardized average separation depth.
 #'   \item `"tree_num"` for the terminal node number for each tree - if choosing this option,
-#'   will return a list containing both the outlier score and the terminal node numbers, under entries
-#'   `score` and `tree_num`, respectively.
+#'   will return a list containing both the average isolation depth and the terminal node numbers, under entries
+#'   `avg_depth` and `tree_num`, respectively.
 #'   \item `"impute"` for imputation of missing values in `newdata`.
 #' }
 #' @param square_mat When passing `type` = `"dist` or `"avg_sep"` with no `refdata`, whether to return a full square matrix or
@@ -826,10 +822,14 @@ isolation.forest <- function(df,
 #' or `"avg_sep"`, will calculate pairwise distances/separation between the points in `newdata`.
 #' @param ... Not used.
 #' @return The requested prediction type, which can be: \itemize{
-#' \item A vector with one entry per row in `newdata` (for output types `"score"`, `"avg_depth"`, `"tree_num"`).
-#' \item A square matrix or vector with the upper triangular part of a square matrix
-#' (for output types `"dist"`, `"avg_sep"`, with no `refdata`)
-#' \item A matrix with points in `newdata` as rows and points in `refdata` as columns
+#' \item A numeric vector with one entry per row in `newdata` (for output types `"score"`, `"avg_depth"`).
+#' \item A list with entries `avg_depth` (numeric vector)
+#' and `tree_num` (integer matrix indicating the terminal node number under each tree for each
+#' observation, with trees as columns), for output type
+#' `"tree_num"`.
+#' \item A numeric square matrix or vector with the upper triangular part of a square matrix
+#' (for output types `"dist"`, `"avg_sep"`, with no `refdata`).
+#' \item A numeric matrix with points in `newdata` as rows and points in `refdata` as columns
 #' (for output types `"dist"`, `"avg_sep"`, with `refdata`).
 #' \item The same type as the input `newdata` (for output type `"impute"`).}
 #' @details The standardized outlier score is calculated according to the original paper's formula:
@@ -837,8 +837,11 @@ isolation.forest <- function(df,
 #' \eqn{\bar{d}}{avg(depth)} is the average depth under each tree at which an observation
 #' becomes isolated (a remainder is extrapolated if the actual terminal node is not isolated),
 #' and \eqn{c(n)}{c(nobs)} is the expected isolation depth if observations were uniformly random
-#' (see references under \link{isolation.forest} for details). This distribution should be centered
-#' around 0.5, unless using non-random splits (parameters
+#' (see references under \link{isolation.forest} for details). The actual calculation
+#' of \eqn{c(n)}{c(nobs)} however differs from the paper as this package uses more exact procedures
+#' for calculation of harmonic numbers.
+#' 
+#' The distribution of outlier scores should be centered around 0.5, unless using non-random splits (parameters
 #' `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_split_avg_gain`, `prob_split_pooled_gain`)
 #' and/or range penalizations (which are on by default).
 #' 
@@ -858,7 +861,7 @@ isolation.forest <- function(df,
 #' 
 #' The outlier scores/depth predict functionality is optimized for making predictions on one or a
 #' few rows at a time - for making large batches of predictions, it might be faster to use the
-#' `output_score=TRUE` in `isolation.forest`.
+#' option `output_score=TRUE` in `isolation.forest`.
 #' @seealso \link{isolation.forest} \link{unpack.isolation.forest}
 #' @export
 predict.isolation_forest <- function(object, newdata, type="score", square_mat=FALSE, refdata=NULL, ...) {
@@ -943,7 +946,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
                     pdata$Xr, pdata$Xr_ind, pdata$Xr_indptr,
                     pdata$nrows, object$nthreads, type == "score")
         if (type == "tree_num")
-            return(list(score = score_array, tree_num = matrix(tree_num + 1L, nrow = pdata$nrows, ncol = object$params$ntrees)))
+            return(list(avg_depth = score_array, tree_num = matrix(tree_num + 1L, nrow = pdata$nrows, ncol = object$params$ntrees)))
         else
             return(score_array)
     } else if (type != "impute") {
@@ -1302,8 +1305,8 @@ get.num.nodes <- function(model)  {
 #' 
 #' ### The new predicted scores will be a weighted average
 #' ### (Be aware that, due to round-off, it will not match with '==')
-#' nodes.comb$score
-#' (3*nodes1$score + 2*nodes2$score) / 5
+#' nodes.comb$avg_depth
+#' (3*nodes1$avg_depth + 2*nodes2$avg_depth) / 5
 #' @export
 append.trees <- function(model, other) {
     if (!("isolation_forest" %in% class(model)) || !("isolation_forest" %in% class(other))) {

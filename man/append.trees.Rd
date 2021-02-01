@@ -80,6 +80,6 @@ nodes.comb$tree_num == cbind(nodes1$tree_num, nodes2$tree_num)
 
 ### The new predicted scores will be a weighted average
 ### (Be aware that, due to round-off, it will not match with '==')
-nodes.comb$score
-(3*nodes1$score + 2*nodes2$score) / 5
+nodes.comb$avg_depth
+(3*nodes1$avg_depth + 2*nodes2$avg_depth) / 5
 }

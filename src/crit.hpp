@@ -50,7 +50,8 @@
 #define pw4(x) ((x) * (x) * (x) * (x))
 
 /* https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Higher-order_statistics */
-double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, double x[], MissingAction missing_action)
+template <class real_t>
+double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], MissingAction missing_action)
 {
     long double m = 0;
     long double M2 = 0, M3 = 0, M4 = 0;
@@ -108,8 +109,9 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, double x[], Missing
 
 
 /* TODO: make these compensated sums */
+template <class real_t, class sparse_ix>
 double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-                     double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                     real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      MissingAction missing_action)
 {
     /* ix_arr must be already sorted beforehand */
@@ -448,11 +450,10 @@ double categ_gain(size_t cnt_left, size_t cnt_right,
 #define pooled_gain(sd, cnt, sd_left, sd_right, cnt_left, cnt_right) \
     (1. - (1./(sd))*(  ( ((real_t)(cnt_left))/(cnt) )*(sd_left) + ( ((real_t)(cnt_right)/(cnt)) )*(sd_right)  ))
 
-#define THRESHOLD_LONG_DOUBLE ((size_t)1e6)
 
 /* TODO: make this a compensated sum */
-template <class real_t>
-double find_split_rel_gain_t(double *restrict x, size_t n, double &split_point)
+template <class real_t, class real_t_>
+double find_split_rel_gain_t(real_t_ *restrict x, size_t n, double &split_point)
 {
     real_t this_gain;
     real_t best_gain = -HUGE_VAL;
@@ -480,16 +481,17 @@ double find_split_rel_gain_t(double *restrict x, size_t n, double &split_point)
         return std::fmax((double)best_gain, std::numeric_limits<double>::epsilon());
 }
 
-double find_split_rel_gain(double *restrict x, size_t n, double &split_point)
+template <class real_t_>
+double find_split_rel_gain(real_t_ *restrict x, size_t n, double &split_point)
 {
     if (n < THRESHOLD_LONG_DOUBLE)
-        return find_split_rel_gain_t<double>(x, n, split_point);
+        return find_split_rel_gain_t<double, real_t_>(x, n, split_point);
     else
-        return find_split_rel_gain_t<long double>(x, n, split_point);
+        return find_split_rel_gain_t<long double, real_t_>(x, n, split_point);
 }
 
-template <class real_t>
-double find_split_rel_gain_t(double *restrict x, double xmean, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix)
+template <class real_t, class real_t_>
+double find_split_rel_gain_t(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix)
 {
     real_t this_gain;
     real_t best_gain = -HUGE_VAL;
@@ -518,16 +520,17 @@ double find_split_rel_gain_t(double *restrict x, double xmean, size_t ix_arr[], 
         return std::fmax((double)best_gain, std::numeric_limits<double>::epsilon());
 }
 
-double find_split_rel_gain(double *restrict x, double xmean, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix)
+template <class real_t_>
+double find_split_rel_gain(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix)
 {
     if ((end-st+1) < THRESHOLD_LONG_DOUBLE)
-        return find_split_rel_gain_t<double>(x, xmean, ix_arr, st, end, split_point, split_ix);
+        return find_split_rel_gain_t<double, real_t_>(x, xmean, ix_arr, st, end, split_point, split_ix);
     else
-        return find_split_rel_gain_t<long double>(x, xmean, ix_arr, st, end, split_point, split_ix);
+        return find_split_rel_gain_t<long double, real_t_>(x, xmean, ix_arr, st, end, split_point, split_ix);
 }
 
-template <class real_t>
-real_t calc_sd_right_to_left(double *restrict x, size_t n, double *restrict sd_arr)
+template <class real_t, class real_t_>
+real_t calc_sd_right_to_left(real_t_ *restrict x, size_t n, double *restrict sd_arr)
 {
     real_t running_mean = 0;
     real_t running_ssq = 0;
@@ -544,8 +547,8 @@ real_t calc_sd_right_to_left(double *restrict x, size_t n, double *restrict sd_a
     return std::sqrt(running_ssq / (real_t)n);
 }
 
-template <class real_t>
-real_t calc_sd_right_to_left(double *restrict x, double xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr)
+template <class real_t, class real_t_>
+real_t calc_sd_right_to_left(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr)
 {
     real_t running_mean = 0;
     real_t running_ssq = 0;
@@ -563,8 +566,8 @@ real_t calc_sd_right_to_left(double *restrict x, double xmean, size_t ix_arr[], 
     return std::sqrt(running_ssq / (real_t)n);
 }
 
-template <class real_t>
-double find_split_std_gain_t(double *restrict x, size_t n, double *restrict sd_arr,
+template <class real_t, class real_t_>
+double find_split_std_gain_t(real_t_ *restrict x, size_t n, double *restrict sd_arr,
                              GainCriterion criterion, double min_gain, double &split_point)
 {
     real_t full_sd = calc_sd_right_to_left<real_t>(x, n, sd_arr);
@@ -596,17 +599,18 @@ double find_split_std_gain_t(double *restrict x, size_t n, double *restrict sd_a
     return best_gain;
 }
 
-double find_split_std_gain(double *restrict x, size_t n, double *restrict sd_arr,
+template <class real_t_>
+double find_split_std_gain(real_t_ *restrict x, size_t n, double *restrict sd_arr,
                            GainCriterion criterion, double min_gain, double &split_point)
 {
     if (n < THRESHOLD_LONG_DOUBLE)
-        return find_split_std_gain_t<double>(x, n, sd_arr, criterion, min_gain, split_point);
+        return find_split_std_gain_t<double, real_t_>(x, n, sd_arr, criterion, min_gain, split_point);
     else
-        return find_split_std_gain_t<long double>(x, n, sd_arr, criterion, min_gain, split_point);
+        return find_split_std_gain_t<long double, real_t_>(x, n, sd_arr, criterion, min_gain, split_point);
 }
 
-template <class real_t>
-double find_split_std_gain_t(double *restrict x, double xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
+template <class real_t, class real_t_>
+double find_split_std_gain_t(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
                              GainCriterion criterion, double min_gain, double &split_point, size_t &split_ix)
 {
     real_t full_sd = calc_sd_right_to_left<real_t>(x, xmean, ix_arr, st, end, sd_arr);
@@ -639,13 +643,14 @@ double find_split_std_gain_t(double *restrict x, double xmean, size_t ix_arr[], 
     return best_gain;
 }
 
-double find_split_std_gain(double *restrict x, double xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
+template <class real_t_>
+double find_split_std_gain(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
                            GainCriterion criterion, double min_gain, double &split_point, size_t &split_ix)
 {
     if ((end-st+1) < THRESHOLD_LONG_DOUBLE)
-        return find_split_std_gain_t<double>(x, xmean, ix_arr, st, end, sd_arr, criterion, min_gain, split_point, split_ix);
+        return find_split_std_gain_t<double, real_t_>(x, xmean, ix_arr, st, end, sd_arr, criterion, min_gain, split_point, split_ix);
     else
-        return find_split_std_gain_t<long double>(x, xmean, ix_arr, st, end, sd_arr, criterion, min_gain, split_point, split_ix);
+        return find_split_std_gain_t<long double, real_t_>(x, xmean, ix_arr, st, end, sd_arr, criterion, min_gain, split_point, split_ix);
 }
 
 
@@ -684,7 +689,8 @@ double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
 }
 
 /* for split-criterion in single-variable splits */
-double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *restrict x,
+template <class real_t_>
+double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, real_t_ *restrict x,
                         double *restrict buffer_sd, bool as_relative_gain,
                         size_t &split_ix, double &split_point, double &xmin, double &xmax,
                         GainCriterion criterion, double min_gain, MissingAction missing_action)
@@ -718,10 +724,10 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *
        which could make the standard deviations have poor precision. It's nevertheless not
        necessary for this mean to have good precision, since it's only meant for centering,
        so it can be calculated inexactly with simd instructions. */
-    double xmean = 0;
+    real_t_ xmean = 0;
     for (size_t ix = st; ix <= end; ix++)
         xmean += x[ix_arr[ix]];
-    xmean /= (double)(end - st + 1);
+    xmean /= (real_t_)(end - st + 1);
 
     if (criterion == Pooled && as_relative_gain && min_gain <= 0)
         gain = find_split_rel_gain(x, xmean, ix_arr, st, end, split_point, split_ix);
@@ -731,9 +737,14 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *
     return std::fmax(0., gain);
 }
 
-/* TODO: implement algorithm that works with unsorted 'x' to use with sparse data */
+/* TODO: here it should only need to look at the non-zero entries. It can then use the
+   same algorithm as above, but putting an extra check to see where do the zeros fit in
+   the sorted order of the non-zero entries while calculating gains and SDs, and then
+   call the 'divide_subset' function after-the-fact to reach the same end result.
+   It should be much faster than this if the non-zero entries are few. */
+template <class real_t_, class sparse_ix>
 double eval_guided_crit(size_t ix_arr[], size_t st, size_t end,
-                        size_t col_num, double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                        size_t col_num, real_t_ Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                         double buffer_arr[], size_t buffer_pos[], bool as_relative_gain,
                         double &split_point, double &xmin, double &xmax,
                         GainCriterion criterion, double min_gain, MissingAction missing_action)

@@ -44,11 +44,12 @@
 */
 #include "isotree.hpp"
 
+#define SD_MIN 1e-10
 /* https://www.johndcook.com/blog/standard_deviation/ */
 
 /* for regular numerical */
-template <class real_t>
-void calc_mean_and_sd_t(size_t ix_arr[], size_t st, size_t end, double *restrict x,
+template <class real_t, class real_t_>
+void calc_mean_and_sd_t(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x,
                         MissingAction missing_action, double &x_sd, double &x_mean)
 {
     real_t m = 0;
@@ -87,22 +88,21 @@ void calc_mean_and_sd_t(size_t ix_arr[], size_t st, size_t end, double *restrict
     }
 }
 
-#define THRESHOLD_LONG_DOUBLE (size_t)1e7
-void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, double *restrict x,
+template <class real_t_>
+void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x,
                       MissingAction missing_action, double &x_sd, double &x_mean)
 {
     if (end - st + 1 < THRESHOLD_LONG_DOUBLE)
-        calc_mean_and_sd_t<double>(ix_arr, st, end, x, missing_action, x_sd, x_mean);
+        calc_mean_and_sd_t<double, real_t_>(ix_arr, st, end, x, missing_action, x_sd, x_mean);
     else
-        calc_mean_and_sd_t<long double>(ix_arr, st, end, x, missing_action, x_sd, x_mean);
+        calc_mean_and_sd_t<long double, real_t_>(ix_arr, st, end, x, missing_action, x_sd, x_mean);
+    x_sd = std::fmax(x_sd, SD_MIN);
 }
 
 /* for sparse numerical */
-/* TODO: this one could also use Welford's method by keeping track of how
-   many positions it advanced at every call to lower_bound */
-#define SD_MIN 1e-10
+template <class real_t_, class sparse_ix, class real_t>
 void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-                      double *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                      real_t_ *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                       double &x_sd, double &x_mean)
 {
     /* ix_arr must be already sorted beforehand */
@@ -119,11 +119,10 @@ void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
     size_t *ptr_st = std::lower_bound(ix_arr + st, ix_arr + end + 1, (size_t)Xc_ind[st_col]);
 
     size_t cnt = end - st + 1;
-    long double sum = 0;
-    long double sum_sq = 0;
-
-    /* Note: this function will discard NAs regardless of chosen action. If reaching the point of calling
-       this function, chances are that the performance gain of not checking for them will not be important */
+    size_t added = 0;
+    real_t m = 0;
+    real_t s = 0;
+    real_t m_prev = 0;
 
     for (size_t *row = ptr_st;
          row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
@@ -138,8 +137,10 @@ void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 
             else
             {
-                sum    += Xc[curr_pos];
-                sum_sq += square(Xc[curr_pos]);
+                if (added == 0) m_prev = Xc[curr_pos];
+                m += (Xc[curr_pos] - m) / (real_t)(++added);
+                s += (Xc[curr_pos] - m) * (Xc[curr_pos] - m_prev);
+                m_prev = m;
             }
 
             if (row == ix_arr + end || curr_pos == end_col) break;
@@ -155,18 +156,47 @@ void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
         }
     }
 
-    x_mean = sum / (long double) cnt;
-    x_sd   = sqrtl((sum_sq - sum * (sum / (long double)cnt)) / (long double)cnt);
-    x_sd   = std::fmax(SD_MIN, x_sd);
+    if (added == 0)
+    {
+        x_mean = 0;
+        x_sd = 0;
+        return;
+    }
+
+    /* Note: up to this point:
+         m = sum(x)/nnz
+         s = sum(x^2) - (1/nnz)*(sum(x)^2)
+       Here the standard deviation is given by:
+         sigma = (1/n)*(sum(x^2) - (1/n)*(sum(x)^2))
+       The difference can be put to a closed form. */
+    if (cnt > added)
+    {
+        s += (m / (real_t)cnt) * ( m * ((real_t)(cnt-added)/(real_t)added) );
+    }
+
+    x_mean = m;
+    x_sd   = std::sqrt(s / (real_t)cnt);
 }
 
+template <class real_t_, class sparse_ix>
+void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
+                      real_t_ *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                      double &x_sd, double &x_mean)
+{
+    if (end - st + 1 < THRESHOLD_LONG_DOUBLE)
+        calc_mean_and_sd<real_t_, sparse_ix, double>(ix_arr, st, end, col_num, Xc, Xc_ind, Xc_indptr, x_sd, x_mean);
+    else
+        calc_mean_and_sd<real_t_, sparse_ix, long double>(ix_arr, st, end, col_num, Xc, Xc_ind, Xc_indptr, x_sd, x_mean);
+    x_sd = std::fmax(SD_MIN, x_sd);
+}
 
 /* Note about these functions: they write into an array that does not need to match to 'ix_arr',
    and instead, the index that is stored in ix_arr[n] will have the value in res[n] */
 
 /* for regular numerical */
+template <class real_t_>
 void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict res,
-                     double *restrict x, double &coef, double x_sd, double x_mean, double &fill_val,
+                     real_t_ *restrict x, double &coef, double x_sd, double x_mean, double &fill_val,
                      MissingAction missing_action, double *restrict buffer_arr,
                      size_t *restrict buffer_NAs, bool first_run)
 {
@@ -233,8 +263,9 @@ void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict re
 }
 
 /* for sparse numerical */
+template <class real_t_, class sparse_ix>
 void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num, double *restrict res,
-                     double *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+                     real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                      double &coef, double x_sd, double x_mean, double &fill_val, MissingAction missing_action,
                      double *restrict buffer_arr, size_t *restrict buffer_NAs, bool first_run)
 {

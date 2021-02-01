@@ -135,13 +135,15 @@
 *       assumed to be the first 'n_from' rows.
 *       Ignored when 'tmat' is passed.
 */
-void calc_similarity(double numeric_data[], int categ_data[],
-                     double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+template <class real_t, class sparse_ix>
+void calc_similarity(real_t numeric_data[], int categ_data[],
+                     real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                      double tmat[], double rmat[], size_t n_from)
 {
-    PredictionData prediction_data = {numeric_data, categ_data, nrows,
+    PredictionData<real_t, sparse_ix>
+                   prediction_data = {numeric_data, categ_data, nrows,
                                       false, 0, 0,
                                       Xc, Xc_ind, Xc_indptr,
                                       NULL, NULL, NULL};
@@ -201,7 +203,8 @@ void calc_similarity(double numeric_data[], int categ_data[],
     #endif
     
     /* gather and transform the results */
-    gather_sim_result(&worker_memory, NULL,
+    gather_sim_result< PredictionData<real_t, sparse_ix>, InputData<real_t, sparse_ix>, WorkerMemory<ImputedData<sparse_ix>> >
+                     (&worker_memory, NULL,
                       &prediction_data, NULL,
                       model_outputs, model_outputs_ext,
                       tmat, rmat, n_from,
@@ -214,6 +217,7 @@ void calc_similarity(double numeric_data[], int categ_data[],
     #endif
 }
 
+template <class PredictionData>
 void traverse_tree_sim(WorkerForSimilarity   &workspace,
                        PredictionData        &prediction_data,
                        IsoForest             &model_outputs,
@@ -449,6 +453,7 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
     }
 }
 
+template <class PredictionData>
 void traverse_hplane_sim(WorkerForSimilarity     &workspace,
                          PredictionData          &prediction_data,
                          ExtIsoForest            &model_outputs,
@@ -609,6 +614,7 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
 
 }
 
+template <class PredictionData, class InputData, class WorkerMemory>
 void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
                        std::vector<WorkerMemory> *worker_memory_m,
                        PredictionData *prediction_data, InputData *input_data,
@@ -736,6 +742,7 @@ void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
     }
 }
 
+template <class PredictionData>
 void initialize_worker_for_sim(WorkerForSimilarity  &workspace,
                                PredictionData       &prediction_data,
                                IsoForest            *model_outputs,

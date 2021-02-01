@@ -59,8 +59,8 @@ from cython cimport boundscheck, nonecheck, wraparound
 import ctypes
 import os
 
-cdef extern from "isotree.hpp":
-    ctypedef size_t sparse_ix
+
+cdef extern from "model_joined.hpp":
 
     bool_t cy_check_interrupt_switch()
     void cy_tick_off_interrupt_switch()
@@ -169,73 +169,11 @@ cdef extern from "isotree.hpp":
         vector[int]     col_modes
 
 
-    int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                    double *numeric_data,  size_t ncols_numeric,
-                    int    *categ_data,    size_t ncols_categ,    int *ncat,
-                    double *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr,
-                    size_t ndim, size_t ntry, CoefType coef_type, bool_t coef_by_prop,
-                    double *sample_weights, bool_t with_replacement, bool_t weight_as_sample,
-                    size_t nrows, size_t sample_size, size_t ntrees, size_t max_depth,
-                    bool_t limit_depth, bool_t penalize_range,
-                    bool_t standardize_dist, double *tmat,
-                    double *output_depths, bool_t standardize_depth,
-                    double *col_weights, bool_t weigh_by_kurt,
-                    double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
-                    double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
-                    double min_gain, MissingAction missing_action,
-                    CategSplit cat_split_type, NewCategAction new_cat_action,
-                    bool_t all_perm, Imputer *imputer, size_t min_imp_obs,
-                    UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool_t impute_at_fit,
-                    uint64_t random_seed, int nthreads) nogil except +
-
-    void predict_iforest(double *numeric_data, int *categ_data,
-                         bool_t is_col_major, size_t ncols_numeric, size_t ncols_categ,
-                         double *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr,
-                         double *Xr, sparse_ix *Xr_ind, sparse_ix *Xr_indptr,
-                         size_t nrows, int nthreads, bool_t standardize,
-                         IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                         double *output_depths, size_t *tree_num) nogil except +
-
-    void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads)
-
-    void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads)
-
     void tmat_to_dense(double *tmat, double *dmat, size_t n, bool_t diag_to_one)
-
-    void calc_similarity(double numeric_data[], int categ_data[],
-                         double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                         size_t nrows, int nthreads, bool_t assume_full_distr, bool_t standardize_dist,
-                         IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                         double tmat[], double rmat[], size_t n_from) nogil except +
-
-    void impute_missing_values(double *numeric_data, int *categ_data, bool_t is_col_major,
-                               double *Xr, sparse_ix *Xr_ind, sparse_ix *Xr_indptr,
-                               size_t nrows, int nthreads,
-                               IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                               Imputer &imputer) nogil except +
-
-    int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                 double *numeric_data,  size_t ncols_numeric,
-                 int    *categ_data,    size_t ncols_categ,    int *ncat,
-                 double *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr,
-                 size_t ndim, size_t ntry, CoefType coef_type, bool_t coef_by_prop,
-                 double *sample_weights,
-                 size_t nrows, size_t max_depth,
-                 bool_t   limit_depth,  bool_t penalize_range,
-                 double *col_weights, bool_t weigh_by_kurt,
-                 double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
-                 double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
-                 double min_gain, MissingAction missing_action,
-                 CategSplit cat_split_type, NewCategAction new_cat_action,
-                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
-                 bool_t  all_perm, vector[ImputeNode] *impute_nodes, size_t min_imp_obs,
-                 uint64_t random_seed) nogil except +
 
     void merge_models(IsoForest*     model,      IsoForest*     other,
                       ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                       Imputer*       imputer,    Imputer*       iother) nogil except +
-
-    void sort_csc_indices(double *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr, size_t ncols_numeric) nogil except +
 
     void serialize_isoforest(IsoForest &model, void *output_file_path) nogil except +
     cpp_string serialize_isoforest(IsoForest &model) nogil except +
@@ -270,6 +208,83 @@ cdef extern from "isotree.hpp":
     int return_EXIT_FAILURE()
 
 
+    int fit_iforest[real_t_, sparse_ix_](
+                    IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                    real_t_ *numeric_data,  size_t ncols_numeric,
+                    int    *categ_data,    size_t ncols_categ,    int *ncat,
+                    real_t_ *Xc, sparse_ix_ *Xc_ind, sparse_ix_ *Xc_indptr,
+                    size_t ndim, size_t ntry, CoefType coef_type, bool_t coef_by_prop,
+                    real_t_ *sample_weights, bool_t with_replacement, bool_t weight_as_sample,
+                    size_t nrows, size_t sample_size, size_t ntrees, size_t max_depth,
+                    bool_t limit_depth, bool_t penalize_range,
+                    bool_t standardize_dist, double *tmat,
+                    double *output_depths, bool_t standardize_depth,
+                    real_t_ *col_weights, bool_t weigh_by_kurt,
+                    double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
+                    double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
+                    double min_gain, MissingAction missing_action,
+                    CategSplit cat_split_type, NewCategAction new_cat_action,
+                    bool_t all_perm, Imputer *imputer, size_t min_imp_obs,
+                    UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool_t impute_at_fit,
+                    uint64_t random_seed, int nthreads) nogil except +
+
+    void predict_iforest[real_t_, sparse_ix_](
+                         real_t_ *numeric_data, int *categ_data,
+                         bool_t is_col_major, size_t ncols_numeric, size_t ncols_categ,
+                         real_t_ *Xc, sparse_ix_ *Xc_ind, sparse_ix_ *Xc_indptr,
+                         real_t_ *Xr, sparse_ix_ *Xr_ind, sparse_ix_ *Xr_indptr,
+                         size_t nrows, int nthreads, bool_t standardize,
+                         IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                         double *output_depths, sparse_ix_ *tree_num) nogil except +
+
+    void get_num_nodes[sparse_ix_](IsoForest &model_outputs, sparse_ix_ *n_nodes, sparse_ix_ *n_terminal, int nthreads)
+
+    void get_num_nodes[sparse_ix_](ExtIsoForest &model_outputs, sparse_ix_ *n_nodes, sparse_ix_ *n_terminal, int nthreads)
+
+    void calc_similarity[real_t_, sparse_ix_](
+                         real_t_ numeric_data[], int categ_data[],
+                         real_t_ Xc[], sparse_ix_ Xc_ind[], sparse_ix_ Xc_indptr[],
+                         size_t nrows, int nthreads, bool_t assume_full_distr, bool_t standardize_dist,
+                         IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                         double tmat[], double rmat[], size_t n_from) nogil except +
+
+    void impute_missing_values[real_t_, sparse_ix_](
+                               real_t_ *numeric_data, int *categ_data, bool_t is_col_major,
+                               real_t_ *Xr, sparse_ix_ *Xr_ind, sparse_ix_ *Xr_indptr,
+                               size_t nrows, int nthreads,
+                               IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                               Imputer &imputer) nogil except +
+
+    int add_tree[real_t_, sparse_ix_](
+                 IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                 real_t_ *numeric_data,  size_t ncols_numeric,
+                 int    *categ_data,    size_t ncols_categ,    int *ncat,
+                 real_t_ *Xc, sparse_ix_ *Xc_ind, sparse_ix_ *Xc_indptr,
+                 size_t ndim, size_t ntry, CoefType coef_type, bool_t coef_by_prop,
+                 real_t_ *sample_weights,
+                 size_t nrows, size_t max_depth,
+                 bool_t   limit_depth,  bool_t penalize_range,
+                 real_t_ *col_weights, bool_t weigh_by_kurt,
+                 double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
+                 double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
+                 double min_gain, MissingAction missing_action,
+                 CategSplit cat_split_type, NewCategAction new_cat_action,
+                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
+                 bool_t  all_perm, vector[ImputeNode] *impute_nodes, size_t min_imp_obs,
+                 uint64_t random_seed) nogil except +
+
+    void sort_csc_indices[real_t_, sparse_ix_](real_t_ *Xc, sparse_ix_ *Xc_ind, sparse_ix_ *Xc_indptr, size_t ncols_numeric) nogil except +
+
+
+ctypedef fused sparse_ix:
+    int
+    np.int64_t
+    size_t
+
+ctypedef fused real_t:
+    float
+    double
+
 cdef double* get_ptr_dbl_vec(np.ndarray[double, ndim = 1] a):
     return &a[0]
 
@@ -279,22 +294,41 @@ cdef int* get_ptr_int_vec(np.ndarray[int, ndim = 1] a):
 cdef size_t* get_ptr_szt_vec(np.ndarray[size_t, ndim = 1] a):
     return &a[0]
 
+cdef float* get_ptr_float_vec(np.ndarray[float, ndim = 1] a):
+    return &a[0]
+
+cdef np.int64_t* get_ptr_int64_vec(np.ndarray[np.int64_t, ndim = 1] a):
+    return &a[0]
+
 cdef double* get_ptr_dbl_mat(np.ndarray[double, ndim = 2] a):
     return &a[0, 0]
 
 cdef int* get_ptr_int_mat(np.ndarray[int, ndim = 2] a):
     return &a[0, 0]
 
+cdef float* get_ptr_float_mat(np.ndarray[float, ndim = 2] a):
+    return &a[0, 0]
+
+
 def _sort_csc_indices(Xcsc):
-    cdef double *ptr_Xc = NULL
-    cdef sparse_ix *ptr_Xc_ind = NULL
-    cdef sparse_ix *ptr_Xc_indptr = get_ptr_szt_vec(Xcsc.indptr)
-    cdef size_t ncols_numeric = Xcsc.shape[1]
-    if Xcsc.indptr.shape[0] > 1:
-        ptr_Xc = get_ptr_dbl_vec(Xcsc.data)
-        ptr_Xc_ind = get_ptr_szt_vec(Xcsc.indices)
-        with nogil:
-            sort_csc_indices(ptr_Xc, ptr_Xc_ind, ptr_Xc_indptr, ncols_numeric)
+    cdef size_t ncols_numeric = Xcsc.shape[1] if isspmatrix_csc(Xcsc) else Xcsc.shape[0]
+    if (Xcsc.indptr.shape[0] > 1) and (Xcsc.data.shape[0] > 1):
+        if Xcsc.data.dtype == ctypes.c_double:
+            if Xcsc.indices.dtype == ctypes.c_int:
+                sort_csc_indices(get_ptr_dbl_vec(Xcsc.data), get_ptr_int_vec(Xcsc.indices), get_ptr_int_vec(Xcsc.indptr), ncols_numeric)
+            elif Xcsc.indices.dtype == np.int64:
+                sort_csc_indices(get_ptr_dbl_vec(Xcsc.data), get_ptr_int64_vec(Xcsc.indices), get_ptr_int64_vec(Xcsc.indptr), ncols_numeric)
+            else:
+                sort_csc_indices(get_ptr_dbl_vec(Xcsc.data), get_ptr_szt_vec(Xcsc.indices), get_ptr_szt_vec(Xcsc.indptr), ncols_numeric)
+        elif Xcsc.data.dtype == ctypes.c_float:
+            if Xcsc.indices.dtype == ctypes.c_int:
+                sort_csc_indices(get_ptr_float_vec(Xcsc.data), get_ptr_int_vec(Xcsc.indices), get_ptr_int_vec(Xcsc.indptr), ncols_numeric)
+            elif Xcsc.indices.dtype == np.int64:
+                sort_csc_indices(get_ptr_float_vec(Xcsc.data), get_ptr_int64_vec(Xcsc.indices), get_ptr_int64_vec(Xcsc.indptr), ncols_numeric)
+            else:
+                sort_csc_indices(get_ptr_float_vec(Xcsc.data), get_ptr_szt_vec(Xcsc.indices), get_ptr_szt_vec(Xcsc.indptr), ncols_numeric)
+        else:
+            raise ValueError("Invalid dtype for 'X'.")
 
 
 # @cython.auto_pickle(True)
@@ -320,7 +354,10 @@ cdef class isoforest_cpp_obj:
     def get_imputer(self):
         return self.imputer
 
-    def fit_model(self, X_num, X_cat, ncat, sample_weights, col_weights,
+    def fit_model(self,
+                  np.ndarray[real_t, ndim=1] placeholder_real_t,
+                  np.ndarray[sparse_ix, ndim=1] placeholder_sparse_ix,
+                  X_num, X_cat, ncat, sample_weights, col_weights,
                   size_t nrows, size_t ncols_numeric, size_t ncols_categ,
                   size_t ndim, size_t ntry, coef_type, bool_t coef_by_prop,
                   bool_t with_replacement, bool_t weight_as_sample,
@@ -336,29 +373,60 @@ cdef class isoforest_cpp_obj:
                   depth_imp, weigh_imp_rows, bool_t impute_at_fit,
                   bool_t all_perm, uint64_t random_seed,
                   int nthreads):
-        cdef double*     numeric_data_ptr    =  NULL
+        cdef real_t*     numeric_data_ptr    =  NULL
         cdef int*        categ_data_ptr      =  NULL
         cdef int*        ncat_ptr            =  NULL
-        cdef double*     Xc_ptr              =  NULL
+        cdef real_t*     Xc_ptr              =  NULL
         cdef sparse_ix*  Xc_ind_ptr          =  NULL
         cdef sparse_ix*  Xc_indptr_ptr       =  NULL
-        cdef double*     sample_weights_ptr  =  NULL
-        cdef double*     col_weights_ptr     =  NULL
+        cdef real_t*     sample_weights_ptr  =  NULL
+        cdef real_t*     col_weights_ptr     =  NULL
 
         if X_num is not None:
             if not issparse(X_num):
-                numeric_data_ptr  =  get_ptr_dbl_mat(X_num)
+                if real_t is float:
+                    numeric_data_ptr  =  get_ptr_float_mat(X_num)
+                else:
+                    if X_num.dtype != ctypes.c_double:
+                        X_num = X_num.astype(ctypes.c_double)
+                    numeric_data_ptr  =  get_ptr_dbl_mat(X_num)
             else:
-                Xc_ptr         =  get_ptr_dbl_vec(X_num.data)
-                Xc_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
-                Xc_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
+                if real_t is float:
+                    Xc_ptr         =  get_ptr_float_vec(X_num.data)
+                else:
+                    if X_num.data.dtype != ctypes.c_double:
+                        X_num.data = X_num.data.astype(ctypes.c_double)
+                    Xc_ptr         =  get_ptr_dbl_vec(X_num.data)
+                if sparse_ix is int:
+                    Xc_ind_ptr     =  get_ptr_int_vec(X_num.indices)
+                    Xc_indptr_ptr  =  get_ptr_int_vec(X_num.indptr)
+                elif sparse_ix is np.int64_t:
+                    Xc_ind_ptr     =  get_ptr_int64_vec(X_num.indices)
+                    Xc_indptr_ptr  =  get_ptr_int64_vec(X_num.indptr)
+                else:
+                    if X_num.indices.dtype != ctypes.c_size_t:
+                        X_num.indices = X_num.indices.astype(ctypes.c_size_t)
+                    if X_num.indptr.dtype != ctypes.c_size_t:
+                        X_num.indptr = X_num.indptr.astype(ctypes.c_size_t)
+                    Xc_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
+                    Xc_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
         if X_cat is not None:
             categ_data_ptr     =  get_ptr_int_mat(X_cat)
             ncat_ptr           =  get_ptr_int_vec(ncat)
         if sample_weights is not None:
-            sample_weights_ptr =  get_ptr_dbl_vec(sample_weights)
+            if real_t is float:
+                sample_weights_ptr =  get_ptr_float_vec(sample_weights)
+            else:
+                if sample_weights.dtype != ctypes.c_double:
+                    sample_weights = sample_weights.astype(ctypes.c_double)
+                sample_weights_ptr =  get_ptr_dbl_vec(sample_weights)
         if col_weights is not None:
-            col_weights_ptr    =  get_ptr_dbl_vec(col_weights)
+            if real_t is float:
+                col_weights_ptr    =  get_ptr_float_vec(col_weights)
+            else:
+                if col_weights.dtype != ctypes.c_double:
+                    col_weights = col_weights.astype(ctypes.c_double)
+                col_weights_ptr    =  get_ptr_dbl_vec(col_weights)
 
         cdef CoefType        coef_type_C       =  Normal
         cdef CategSplit      cat_split_type_C  =  SubSet
@@ -458,7 +526,10 @@ cdef class isoforest_cpp_obj:
 
         return depths, tmat, dmat, X_num, X_cat
 
-    def fit_tree(self, X_num, X_cat, ncat, sample_weights, col_weights,
+    def fit_tree(self,
+                 np.ndarray[real_t, ndim=1] placeholder_real_t,
+                 np.ndarray[sparse_ix, ndim=1] placeholder_sparse_ix,
+                 X_num, X_cat, ncat, sample_weights, col_weights,
                  size_t nrows, size_t ncols_numeric, size_t ncols_categ,
                  size_t ndim, size_t ntry, coef_type, bool_t coef_by_prop,
                  size_t max_depth, bool_t limit_depth, bool_t penalize_range,
@@ -469,29 +540,60 @@ cdef class isoforest_cpp_obj:
                  bool_t build_imputer, size_t min_imp_obs,
                  depth_imp, weigh_imp_rows,
                  bool_t all_perm, uint64_t random_seed):
-        cdef double*     numeric_data_ptr    =  NULL
+        cdef real_t*     numeric_data_ptr    =  NULL
         cdef int*        categ_data_ptr      =  NULL
         cdef int*        ncat_ptr            =  NULL
-        cdef double*     Xc_ptr              =  NULL
+        cdef real_t*     Xc_ptr              =  NULL
         cdef sparse_ix*  Xc_ind_ptr          =  NULL
         cdef sparse_ix*  Xc_indptr_ptr       =  NULL
-        cdef double*     sample_weights_ptr  =  NULL
-        cdef double*     col_weights_ptr     =  NULL
+        cdef real_t*     sample_weights_ptr  =  NULL
+        cdef real_t*     col_weights_ptr     =  NULL
 
         if X_num is not None:
             if not issparse(X_num):
-                numeric_data_ptr  =  get_ptr_dbl_mat(X_num)
+                if real_t is float:
+                    numeric_data_ptr  =  get_ptr_float_mat(X_num)
+                else:
+                    if X_num.dtype != ctypes.c_double:
+                        X_num = X_num.astype(ctypes.c_double)
+                    numeric_data_ptr  =  get_ptr_dbl_mat(X_num)
             else:
-                Xc_ptr         =  get_ptr_dbl_vec(X_num.data)
-                Xc_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
-                Xc_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
+                if real_t is float:
+                    Xc_ptr         =  get_ptr_float_vec(X_num.data)
+                else:
+                    if X_num.data.dtype != ctypes.c_double:
+                        X_num.data = X_num.data.astype(ctypes.c_double)
+                    Xc_ptr         =  get_ptr_dbl_vec(X_num.data)
+                if sparse_ix is int:
+                    Xc_ind_ptr     =  get_ptr_int_vec(X_num.indices)
+                    Xc_indptr_ptr  =  get_ptr_int_vec(X_num.indptr)
+                elif sparse_ix is np.int64_t:
+                    Xc_ind_ptr     =  get_ptr_int64_vec(X_num.indices)
+                    Xc_indptr_ptr  =  get_ptr_int64_vec(X_num.indptr)
+                else:
+                    if X_num.indices.dtype != ctypes.c_size_t:
+                        X_num.indices = X_num.indices.astype(ctypes.c_size_t)
+                    if X_num.indptr.dtype != ctypes.c_size_t:
+                        X_num.indptr = X_num.indptr.astype(ctypes.c_size_t)
+                    Xc_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
+                    Xc_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
         if X_cat is not None:
             categ_data_ptr     =  get_ptr_int_mat(X_cat)
             ncat_ptr           =  get_ptr_int_vec(ncat)
         if sample_weights is not None:
-            sample_weights_ptr  =  get_ptr_dbl_vec(sample_weights)
+            if real_t is float:
+                sample_weights_ptr  =  get_ptr_float_vec(sample_weights)
+            else:
+                if sample_weights.dtype != ctypes.c_double:
+                    sample_weights  = sample_weights.astype(ctypes.c_double)
+                sample_weights_ptr  =  get_ptr_dbl_vec(sample_weights)
         if col_weights is not None:
-            col_weights_ptr     =  get_ptr_dbl_vec(col_weights)
+            if real_t is float:
+                col_weights_ptr     =  get_ptr_float_vec(col_weights)
+            else:
+                if col_weights.dtype != ctypes.c_double:
+                    col_weights = col_weights.astype(ctypes.c_double)
+                col_weights_ptr =  get_ptr_dbl_vec(col_weights)
 
         cdef CoefType        coef_type_C       =  Normal
         cdef CategSplit      cat_split_type_C  =  SubSet
@@ -551,15 +653,18 @@ cdef class isoforest_cpp_obj:
                      depth_imp_C, weigh_imp_rows_C,
                      all_perm, imputer_tree_ptr, min_imp_obs, random_seed)
 
-    def predict(self, X_num, X_cat, is_extended,
+    def predict(self,
+                np.ndarray[real_t, ndim=1] placeholder_real_t,
+                np.ndarray[sparse_ix, ndim=1] placeholder_sparse_ix,
+                X_num, X_cat, is_extended,
                 size_t nrows, int nthreads, bool_t standardize, bool_t output_tree_num):
 
-        cdef double*     numeric_data_ptr  =  NULL
+        cdef real_t*     numeric_data_ptr  =  NULL
         cdef int*        categ_data_ptr    =  NULL
-        cdef double*     Xc_ptr            =  NULL
+        cdef real_t*     Xc_ptr            =  NULL
         cdef sparse_ix*  Xc_ind_ptr        =  NULL
         cdef sparse_ix*  Xc_indptr_ptr     =  NULL
-        cdef double*     Xr_ptr            =  NULL
+        cdef real_t*     Xr_ptr            =  NULL
         cdef sparse_ix*  Xr_ind_ptr        =  NULL
         cdef sparse_ix*  Xr_indptr_ptr     =  NULL
 
@@ -569,39 +674,80 @@ cdef class isoforest_cpp_obj:
 
         if X_num is not None:
             if not issparse(X_num):
-                numeric_data_ptr   =  get_ptr_dbl_mat(X_num)
+                if real_t is float:
+                    numeric_data_ptr   =  get_ptr_float_mat(X_num)
+                else:
+                    if X_num.dtype != ctypes.c_double:
+                        X_num = X_num.astype(ctypes.c_double)
+                    numeric_data_ptr   =  get_ptr_dbl_mat(X_num)
                 ncols_numeric      =  X_num.shape[1]
                 is_col_major       =  np.isfortran(X_num)
             else:
                 if isspmatrix_csc(X_num):
                     if X_num.data.shape[0]:
-                        Xc_ptr         =  get_ptr_dbl_vec(X_num.data)
-                    if X_num.indices.shape[0]:
-                        Xc_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
-                    Xc_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
+                        if real_t is float:
+                            Xc_ptr         =  get_ptr_float_vec(X_num.data)
+                        else:
+                            if X_num.data.dtype != ctypes.c_double:
+                                X_num.data = X_num.data.astype(ctypes.c_double)
+                            Xc_ptr         =  get_ptr_dbl_vec(X_num.data)
+                    if sparse_ix is int:
+                        if X_num.indices.shape[0]:
+                            Xc_ind_ptr     =  get_ptr_int_vec(X_num.indices)
+                        Xc_indptr_ptr      =  get_ptr_int_vec(X_num.indptr)
+                    elif sparse_ix is np.int64_t:
+                        if X_num.indices.shape[0]:
+                            Xc_ind_ptr     =  get_ptr_int64_vec(X_num.indices)
+                        Xc_indptr_ptr      =  get_ptr_int64_vec(X_num.indptr)
+                    else:
+                        if X_num.indices.shape[0]:
+                            if X_num.indices.dtype != ctypes.c_size_t:
+                                X_num.indices = X_num.indices.astype(ctypes.c_size_t)
+                            Xc_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
+                        if X_num.indptr.dtype != ctypes.c_size_t:
+                            X_num.indptr = X_num.indptr.astype(ctypes.c_size_t)
+                        Xc_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
                 else:
                     if X_num.data.shape[0]:
-                        Xr_ptr         =  get_ptr_dbl_vec(X_num.data)
-                    if X_num.indices.shape[0]:
-                        Xr_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
-                    Xr_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
+                        if real_t is float:
+                            Xr_ptr         =  get_ptr_float_vec(X_num.data)
+                        else:
+                            if X_num.data.dtype != ctypes.c_double:
+                                X_num.data = X_num.data.astype(ctypes.c_double)
+                            Xr_ptr         =  get_ptr_dbl_vec(X_num.data)
+                    if sparse_ix is int:
+                        if X_num.indices.shape[0]:
+                            Xr_ind_ptr     =  get_ptr_int_vec(X_num.indices)
+                        Xr_indptr_ptr      =  get_ptr_int_vec(X_num.indptr)
+                    elif sparse_ix is np.int64_t:
+                        if X_num.indices.shape[0]:
+                            Xr_ind_ptr     =  get_ptr_int64_vec(X_num.indices)
+                        Xr_indptr_ptr      =  get_ptr_int64_vec(X_num.indptr)
+                    else:
+                        if X_num.indices.shape[0]:
+                            if X_num.indices.dtype != ctypes.c_size_t:
+                                X_num.indices = X_num.indices.astype(ctypes.c_size_t)
+                            Xr_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
+                        if X_num.indptr.dtype != ctypes.c_size_t:
+                            X_num.indptr = X_num.indptr.astype(ctypes.c_size_t)
+                        Xr_indptr_ptr      =  get_ptr_szt_vec(X_num.indptr)
 
         if X_cat is not None:
             categ_data_ptr    =  get_ptr_int_mat(X_cat)
             ncols_categ       =  X_cat.shape[1]
             is_col_major      =  np.isfortran(X_cat)
 
-        cdef np.ndarray[double, ndim = 1] depths    =  np.zeros(nrows, dtype = ctypes.c_double)
-        cdef np.ndarray[size_t, ndim = 2] tree_num  =  np.empty((0, 0), dtype = ctypes.c_size_t, order = 'F')
-        cdef double* depths_ptr    =  &depths[0]
-        cdef size_t* tree_num_ptr  =  NULL
+        cdef np.ndarray[double, ndim = 1]    depths    =  np.zeros(nrows, dtype = ctypes.c_double)
+        cdef np.ndarray[sparse_ix, ndim = 2] tree_num  =  np.empty((0, 0), order = 'F', dtype = placeholder_sparse_ix.dtype)
+        cdef double* depths_ptr       =  &depths[0]
+        cdef sparse_ix* tree_num_ptr  =  NULL
 
         if output_tree_num:
             if is_extended:
                 sz = self.ext_isoforest.hplanes.size()
             else:
                 sz = self.isoforest.trees.size()
-            tree_num      =  np.empty((nrows, sz), dtype = ctypes.c_size_t, order = 'F')
+            tree_num      =  np.empty((nrows, sz), dtype = placeholder_sparse_ix.dtype, order = 'F')
             tree_num_ptr  =  &tree_num[0, 0]
 
         cdef IsoForest*     model_ptr      =  NULL
@@ -623,26 +769,52 @@ cdef class isoforest_cpp_obj:
         return depths, tree_num
 
 
-    def dist(self, X_num, X_cat, is_extended,
+    def dist(self,
+             np.ndarray[real_t, ndim=1] placeholder_real_t,
+             np.ndarray[sparse_ix, ndim=1] placeholder_sparse_ix,
+             X_num, X_cat, is_extended,
              size_t nrows, int nthreads, bool_t assume_full_distr,
              bool_t standardize_dist,    bool_t sq_dist,
              size_t n_from):
 
-        cdef double*     numeric_data_ptr  =  NULL
+        cdef real_t*     numeric_data_ptr  =  NULL
         cdef int*        categ_data_ptr    =  NULL
-        cdef double*     Xc_ptr            =  NULL
+        cdef real_t*     Xc_ptr            =  NULL
         cdef sparse_ix*  Xc_ind_ptr        =  NULL
         cdef sparse_ix*  Xc_indptr_ptr     =  NULL
 
         if X_num is not None:
             if not issparse(X_num):
-                numeric_data_ptr  =  get_ptr_dbl_mat(X_num)
+                if real_t is float:
+                    numeric_data_ptr  =  get_ptr_float_mat(X_num)
+                else:
+                    if X_num.dtype != ctypes.c_double:
+                        X_num = X_num.astype(ctypes.c_double)
+                    numeric_data_ptr  =  get_ptr_dbl_mat(X_num)
             else:
                 if X_num.data.shape[0]:
-                    Xc_ptr         =  get_ptr_dbl_vec(X_num.data)
-                if X_num.indices.shape[0]:
-                    Xc_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
-                Xc_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
+                    if real_t is float:
+                        Xc_ptr         =  get_ptr_float_vec(X_num.data)
+                    else:
+                        if X_num.data.dtype != ctypes.c_double:
+                            X_num.data = X_num.data.astype(ctypes.c_double)
+                        Xc_ptr         =  get_ptr_dbl_vec(X_num.data)
+                if sparse_ix is int:
+                    if X_num.indices.shape[0]:
+                        Xc_ind_ptr =  get_ptr_int_vec(X_num.indices)
+                    Xc_indptr_ptr  =  get_ptr_int_vec(X_num.indptr)
+                elif sparse_ix is np.int64_t:
+                    if X_num.indices.shape[0]:
+                        Xc_ind_ptr =  get_ptr_int64_vec(X_num.indices)
+                    Xc_indptr_ptr  =  get_ptr_int64_vec(X_num.indptr)
+                else:
+                    if X_num.indices.shape[0]:
+                        if X_num.indices.dtype != ctypes.c_size_t:
+                            X_num.indices = X_num.indices.astype(ctypes.c_size_t)
+                        Xc_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
+                    if X_num.indptr.dtype != ctypes.c_size_t:
+                        X_num.indptr = X_num.indptr.astype(ctypes.c_size_t)
+                    Xc_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
         if X_cat is not None:
             categ_data_ptr     =  get_ptr_int_mat(X_cat)
 
@@ -686,24 +858,50 @@ cdef class isoforest_cpp_obj:
 
         return tmat, dmat, rmat
 
-    def impute(self, X_num, X_cat, bool_t is_extended, size_t nrows, int nthreads):
-        cdef double*     numeric_data_ptr  =  NULL
+    def impute(self,
+               np.ndarray[real_t, ndim=1] placeholder_real_t,
+               np.ndarray[sparse_ix, ndim=1] placeholder_sparse_ix,
+               X_num, X_cat, bool_t is_extended, size_t nrows, int nthreads):
+        cdef real_t*     numeric_data_ptr  =  NULL
         cdef int*        categ_data_ptr    =  NULL
-        cdef double*     Xr_ptr            =  NULL
+        cdef real_t*     Xr_ptr            =  NULL
         cdef sparse_ix*  Xr_ind_ptr        =  NULL
         cdef sparse_ix*  Xr_indptr_ptr     =  NULL
         cdef bool_t      is_col_major      =  True
 
         if X_num is not None:
             if not issparse(X_num):
-                numeric_data_ptr  =  get_ptr_dbl_mat(X_num)
+                if real_t is float:
+                    numeric_data_ptr  =  get_ptr_float_mat(X_num)
+                else:
+                    if X_num.dtype != ctypes.c_double:
+                        X_num = X_num.astype(ctypes.c_double)
+                    numeric_data_ptr  =  get_ptr_dbl_mat(X_num)
                 is_col_major      =  np.isfortran(X_num)
             else:
                 if X_num.data.shape[0]:
-                    Xr_ptr         =  get_ptr_dbl_vec(X_num.data)
-                if X_num.indices.shape[0]:
-                    Xr_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
-                Xr_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
+                    if real_t is float:
+                        Xr_ptr         =  get_ptr_float_vec(X_num.data)
+                    else:
+                        if X_num.data.dtype != ctypes.c_double:
+                            X_num.data = X_num.data.astype(ctypes.c_double)
+                        Xr_ptr         =  get_ptr_dbl_vec(X_num.data)
+                if sparse_ix is int:
+                    if X_num.indices.shape[0]:
+                        Xr_ind_ptr =  get_ptr_int_vec(X_num.indices)
+                    Xr_indptr_ptr  =  get_ptr_int_vec(X_num.indptr)
+                elif sparse_ix is np.int64_t:
+                    if X_num.indices.shape[0]:
+                        Xr_ind_ptr =  get_ptr_int64_vec(X_num.indices)
+                    Xr_indptr_ptr  =  get_ptr_int64_vec(X_num.indptr)
+                else:
+                    if X_num.indices.shape[0]:
+                        if X_num.indices.dtype != ctypes.c_size_t:
+                            X_num.indices = X_num.indices.astype(ctypes.c_size_t)
+                        Xr_ind_ptr =  get_ptr_szt_vec(X_num.indices)
+                    if X_num.indptr.dtype != ctypes.c_size_t:
+                        X_num.indptr = X_num.indptr.astype(ctypes.c_size_t)
+                    Xr_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
         if X_cat is not None:
             categ_data_ptr     =  get_ptr_int_mat(X_cat)
             is_col_major       =  np.isfortran(X_cat)
@@ -730,8 +928,8 @@ cdef class isoforest_cpp_obj:
             ntrees = self.isoforest.trees.size()
         else:
             ntrees = self.ext_isoforest.hplanes.size()
-        cdef np.ndarray[sparse_ix, ndim=1] n_nodes    = np.empty(ntrees, dtype=ctypes.c_size_t)
-        cdef np.ndarray[sparse_ix, ndim=1] n_terminal = np.empty(ntrees, dtype=ctypes.c_size_t)
+        cdef np.ndarray[size_t, ndim=1] n_nodes    = np.empty(ntrees, dtype=ctypes.c_size_t)
+        cdef np.ndarray[size_t, ndim=1] n_terminal = np.empty(ntrees, dtype=ctypes.c_size_t)
         if not is_extended:
             get_num_nodes(self.isoforest, &n_nodes[0], &n_terminal[0], nthreads)
         else:

@@ -43,23 +43,36 @@
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef ISOTREE_H
-#define ISOTREE_H
-
 /* Standard headers */
 #include <stddef.h>
+#include <cstdint>
 #include <vector>
 
-/* For sparse matrices */
-#ifdef _FOR_R
-    #define sparse_ix int
-#else
-    #define sparse_ix size_t
+/*  The library has overloaded functions supporting different input types.
+    Note that, while 'float' type is supported, it will
+    be slower to fit models to them as the models internally use
+    'double' and 'long double', and it's not recommended to use.
+
+    In order to use the library with different types than the ones
+    suggested here, add something like this before including the
+    library header:
+      #define real_t float
+      #define sparse_ix int
+      #include "isotree.hpp"
+    The header may be included multiple times if required. */
+#ifndef real_t
+    #define real_t double     /* supported: float, double */
+#endif
+#ifndef sparse_ix
+    #define sparse_ix size_t  /* supported: int, int64_t, size_t */
 #endif
 
 #ifndef _ENABLE_CEREAL
 #define _ENABLE_CEREAL
 #endif
+
+#ifndef ISOTREE_H
+#define ISOTREE_H
 
 
 /* Types used through the package */
@@ -118,8 +131,8 @@ typedef struct IsoTree {
             this->remainder
             );
     }
-    IsoTree() {};
     #endif
+    IsoTree() = default;
 
 } IsoTree;
 
@@ -163,8 +176,8 @@ typedef struct IsoHPlane {
             this->remainder
             );
     }
-    IsoHPlane() {};
     #endif
+    IsoHPlane() = default;
 } IsoHPlane;
 
 /* Note: don't use long doubles in the outside outputs or there will be issues with MINGW in windows */
@@ -193,8 +206,8 @@ typedef struct IsoForest {
             this->orig_sample_size
             );
     }
-    IsoForest() {};
     #endif
+    IsoForest() = default;
 } IsoForest;
 
 typedef struct ExtIsoForest {
@@ -220,8 +233,8 @@ typedef struct ExtIsoForest {
             this->orig_sample_size
             );
     }
-    ExtIsoForest() {};
     #endif
+    ExtIsoForest() = default;
 } ExtIsoForest;
 
 typedef struct ImputeNode {
@@ -244,7 +257,7 @@ typedef struct ImputeNode {
             );
     }
     #endif
-    ImputeNode() {};
+    ImputeNode() = default;
 
     ImputeNode(size_t parent)
     {
@@ -276,11 +289,11 @@ typedef struct Imputer {
     }
     #endif
 
-    Imputer() {};
+    Imputer() = default;
 
 } Imputer;
 
-
+#endif /* ISOTREE_H */
 
 /*  Fit Isolation Forest model, or variant of it such as SCiForest
 * 
@@ -568,15 +581,15 @@ typedef struct Imputer {
 * [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 */
 int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                double numeric_data[],  size_t ncols_numeric,
+                real_t numeric_data[],  size_t ncols_numeric,
                 int    categ_data[],    size_t ncols_categ,    int ncat[],
-                double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                 size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
-                double sample_weights[], bool with_replacement, bool weight_as_sample,
+                real_t sample_weights[], bool with_replacement, bool weight_as_sample,
                 size_t nrows, size_t sample_size, size_t ntrees, size_t max_depth,
                 bool   limit_depth, bool penalize_range,
                 bool   standardize_dist, double tmat[],
-                double output_depths[], bool standardize_depth,
+                real_t output_depths[], bool standardize_depth,
                 double col_weights[], bool weigh_by_kurt,
                 double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                 double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
@@ -585,6 +598,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
                 uint64_t random_seed, int nthreads);
+
 
 
 /* Add additional trees to already-fitted isolation forest model
@@ -722,13 +736,13 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Seed that will be used to generate random numbers used by the model.
 */
 int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-             double numeric_data[],  size_t ncols_numeric,
+             real_t numeric_data[],  size_t ncols_numeric,
              int    categ_data[],    size_t ncols_categ,    int ncat[],
-             double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-             size_t ndim, size_t ntry, CoefType coef_type,
-             double sample_weights[], size_t nrows, size_t max_depth,
+             real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+             size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
+             real_t sample_weights[], size_t nrows, size_t max_depth,
              bool   limit_depth,   bool penalize_range,
-             double col_weights[], bool weigh_by_kurt,
+             real_t col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
              double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
              double min_gain, MissingAction missing_action,
@@ -832,13 +846,34 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       when passing this parameter, and as such, there will be some overhead regardless of
 *       the actual number of rows. Pass NULL if only average depths or outlier scores are desired.
 */
-void predict_iforest(double numeric_data[], int categ_data[],
+void predict_iforest(real_t numeric_data[], int categ_data[],
                      bool is_col_major, size_t ncols_numeric, size_t ncols_categ,
-                     double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                     double Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
+                     real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                     real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                      size_t nrows, int nthreads, bool standardize,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                      double output_depths[],   sparse_ix tree_num[]);
+
+
+
+/* Get the number of nodes present in a given model, per tree
+* 
+* Parameters
+* ==========
+* - model_outputs
+*       Pointer to fitted single-variable model object from function 'fit_iforest'.
+* - model_outputs_ext
+*       Pointer to fitted extended model object from function 'fit_iforest'.
+* - n_nodes[ntrees] (out)
+*       Number of nodes in tree of the model, including non-terminal nodes.
+* - n_terminal[ntrees] (out)
+*       Number of terminal nodes in each tree of the model.
+* - nthreads
+*       Number of parallel threads to use.
+*/
+void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads);
+void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads);
+
 
 
 /* Calculate distance or similarity between data points
@@ -931,8 +966,8 @@ void predict_iforest(double numeric_data[], int categ_data[],
 *       assumed to be the first 'n_from' rows.
 *       Ignored when 'tmat' is passed.
 */
-void calc_similarity(double numeric_data[], int categ_data[],
-                     double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+void calc_similarity(real_t numeric_data[], int categ_data[],
+                     real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                      double tmat[], double rmat[], size_t n_from);
@@ -1004,11 +1039,12 @@ void calc_similarity(double numeric_data[], int categ_data[],
 *       Pointer to fitted imputation node obects for the same trees as in 'model_outputs' or 'model_outputs_ext',
 *       as produced from function 'fit_iforest',
 */
-void impute_missing_values(double numeric_data[], int categ_data[], bool is_col_major,
-                           double Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
+void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
+                           real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                            size_t nrows, int nthreads,
                            IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                            Imputer &imputer);
+
 
 /* Append trees from one model into another
 * 
@@ -1230,5 +1266,3 @@ std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *mo
                                       std::vector<std::vector<std::string>> &categ_levels,
                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
                                       int nthreads);
-
-#endif /* #ifndef ISOTREE_H */
