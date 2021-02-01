@@ -22,7 +22,7 @@
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2020, David Cortes
+*     Copyright (c) 2019-2021, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -75,6 +75,7 @@
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - Xc_ind[nnz]
 *       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns in CSC format.
 * - Xc_indptr[ncols_categ + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
@@ -134,13 +135,16 @@
 *       assumed to be the first 'n_from' rows.
 *       Ignored when 'tmat' is passed.
 */
-void calc_similarity(double numeric_data[], int categ_data[],
-                     double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+template <class real_t, class sparse_ix>
+void calc_similarity(real_t numeric_data[], int categ_data[],
+                     real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                      double tmat[], double rmat[], size_t n_from)
 {
-    PredictionData prediction_data = {numeric_data, categ_data, nrows,
+    PredictionData<real_t, sparse_ix>
+                   prediction_data = {numeric_data, categ_data, nrows,
+                                      false, 0, 0,
                                       Xc, Xc_ind, Xc_indptr,
                                       NULL, NULL, NULL};
 
@@ -199,7 +203,8 @@ void calc_similarity(double numeric_data[], int categ_data[],
     #endif
     
     /* gather and transform the results */
-    gather_sim_result(&worker_memory, NULL,
+    gather_sim_result< PredictionData<real_t, sparse_ix>, InputData<real_t, sparse_ix>, WorkerMemory<ImputedData<sparse_ix>> >
+                     (&worker_memory, NULL,
                       &prediction_data, NULL,
                       model_outputs, model_outputs_ext,
                       tmat, rmat, n_from,
@@ -212,6 +217,7 @@ void calc_similarity(double numeric_data[], int categ_data[],
     #endif
 }
 
+template <class PredictionData>
 void traverse_tree_sim(WorkerForSimilarity   &workspace,
                        PredictionData        &prediction_data,
                        IsoForest             &model_outputs,
@@ -447,6 +453,7 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
     }
 }
 
+template <class PredictionData>
 void traverse_hplane_sim(WorkerForSimilarity     &workspace,
                          PredictionData          &prediction_data,
                          ExtIsoForest            &model_outputs,
@@ -607,6 +614,7 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
 
 }
 
+template <class PredictionData, class InputData, class WorkerMemory>
 void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
                        std::vector<WorkerMemory> *worker_memory_m,
                        PredictionData *prediction_data, InputData *input_data,
@@ -734,6 +742,7 @@ void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
     }
 }
 
+template <class PredictionData>
 void initialize_worker_for_sim(WorkerForSimilarity  &workspace,
                                PredictionData       &prediction_data,
                                IsoForest            *model_outputs,

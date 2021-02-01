@@ -32,6 +32,8 @@ This function serves as an environment-level unpacker that will reconstruct the 
 it is called (i.e. if it's desired to call `predict` from inside multiple functions, use this function before passing the
 freshly-loaded model object to those other functions, and then they will not need to reconstruct the C++ objects anymore),
 in the same way as `predict` or `print`, but without producing any outputs or messages.
+
+It is an equivalent to XGBoost's `xgb.Booster.complete` function.
 }
 \examples{
 ### Warning: this example will generate a temporary .Rds

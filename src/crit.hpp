@@ -22,7 +22,7 @@
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2020, David Cortes
+*     Copyright (c) 2019-2021, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -50,7 +50,8 @@
 #define pw4(x) ((x) * (x) * (x) * (x))
 
 /* https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Higher-order_statistics */
-double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, double x[], MissingAction missing_action)
+template <class real_t>
+double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], MissingAction missing_action)
 {
     long double m = 0;
     long double M2 = 0, M3 = 0, M4 = 0;
@@ -108,8 +109,9 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, double x[], Missing
 
 
 /* TODO: make these compensated sums */
+template <class real_t, class sparse_ix>
 double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-                     double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                     real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      MissingAction missing_action)
 {
     /* ix_arr must be already sorted beforehand */
@@ -307,7 +309,7 @@ double expected_sd_cat(double p[], size_t n, size_t pos[])
         for (size_t cat2 = 0; cat2 < cat1; cat2++)
             cum_var -= p[pos[cat1]] * p[pos[cat2]] / 2.0;
     }
-    return sqrt(std::fmax(cum_var, 1e-8));
+    return std::sqrt(std::fmax(cum_var, 0.));
 }
 
 double expected_sd_cat(size_t counts[], double p[], size_t n, size_t pos[])
@@ -352,32 +354,13 @@ double expected_sd_cat_single(size_t counts[], double p[], size_t n, size_t pos[
         }
 
     }
-    return sqrt(fmax(cum_var, 1e-8));
+    return std::sqrt(std::fmax(cum_var, 0.));
 }
 
-inline double numeric_gain(size_t cnt_left, size_t cnt_right,
-                    long double sum_left, long double sum_right,
-                    long double sum_sq_left, long double sum_sq_right,
-                    double sd_full, long double cnt)
-{
-    long double residual =
-        (long double) cnt_left  * calc_sd_raw_l(cnt_left,  sum_left,  sum_sq_left) +
-        (long double) cnt_right * calc_sd_raw_l(cnt_right, sum_right, sum_sq_right);
-    return 1 - residual / (cnt * sd_full);
-}
-
-inline double numeric_gain_no_div(size_t cnt_left, size_t cnt_right,
-                           long double sum_left, long double sum_right,
-                           long double sum_sq_left, long double sum_sq_right,
-                           double sd_full, long double cnt)
-{
-    long double residual =
-        (long double) cnt_left  * calc_sd_raw_l(cnt_left,  sum_left,  sum_sq_left) +
-        (long double) cnt_right * calc_sd_raw_l(cnt_right, sum_right, sum_sq_right);
-    return sd_full - residual / cnt;
-}
-
-inline double categ_gain(size_t cnt_left, size_t cnt_right,
+/* Note: this isn't exactly comparable to the pooled gain from numeric variables,
+   but among all the possible options, this is what happens to end up in the most
+   similar scale when considering standardized gain. */
+double categ_gain(size_t cnt_left, size_t cnt_right,
                   long double s_left, long double s_right,
                   long double base_info, long double cnt)
 {
@@ -389,113 +372,331 @@ inline double categ_gain(size_t cnt_left, size_t cnt_right,
 }
 
 
-#define avg_between(a, b) (((a) + (b)) / 2)
-#define sd_gain(sd, sd_left, sd_right) (1.0 - ((sd_left) + (sd_right)) / (2.0 * (sd)))
+/*  A couple notes about gain calculation:
+
+    Here one wants to find the best split point, maximizing either:
+        (1/sigma) * (sigma - (1/n)*(n_left*sigma_left + n_right*sigma_right))
+    or:
+        (1/sigma) * (sigma - (1/2)*(sigma_left + sigma_right))
+    
+    All the algorithms here use the sorted-indices approach, which is
+    an exact method (note that there's still room for optimization by adding the
+    unsorted approach for small sample sizes and for sparse matrices).
+
+    A naive approach would move observations one at a time from right
+    to left using this formula:
+        sigma = (ssq - s^2/n) / n
+        ssq = sum(x^2)
+        s = sum(x)
+    But such approach has poor numerical precision, and this library is
+    aimed precisely at cases in which there are outliers in the data.
+    It's possible to improve the numerical precision by standardizing the
+    data beforehand, but this library uses instead a more exact two-pass
+    sigma calculation observation-by-observation (from left to right and
+    from right to left, keeping the calculations of the first pass in an
+    array and calculating gain in the second pass), but there's
+    other methods too.
+
+    If one is aiming at maximizing the pooled gain, it's possible to
+    simplify either the gain or the increase in gain without involving
+    'ssq'. Assuming one already has 'ssq' and 's' calculated for the left and
+    right partitions, and one wants to move one ovservation from right to left,
+    the following hold:
+        s_right = s - s_left
+        ssq_right = ssq - ssq_left
+        n_right = n - n_left
+    If one then moves observation x, these are updated as follows:
+        s_left_new = s_left + x
+        s_right_new = s - s_left - x
+        ssq_left_new = ssq_left + x^2
+        ssq_right_new = ssq - ssq_left - x^2
+        n_left_new = n_left + 1
+        n_right_new = n - n_left - 1
+    Gain is then:
+        (1/sigma) * (sigma - (1/n)*({ssq_left_new - s_left_new^2/n_left_new} + {ssq_right_new - s_right_new^2/n_right_new}))
+    Which simplifies to:
+        1 - (1/(sigma*n))(ssq - ( (s_left + x)^2/(n_left+1)  +  (s - (s_left + x))^2/(n - (n_left+1)) ))
+    Since 'sigma', n', and 'ssq' are constant, they can be ignored when determining the
+    maximum gain - that is, one is interest in finding the point that maximizes:
+        (s_left+x)^2/(n_left+1) + (s-(s_left+x))^2/(n-(n_left+1))
+    And this calculation will be robust-enough when dealing with numbers that were
+    already standardized beforehand, as the extended model does at each step.
+    Note however that, when fitting this model, one is usually interested in evaluating
+    the actual gain, standardized by the standard deviation, as it will try different
+    linear combinations which will give different standard deviations, so this simpler
+    formula cannot be applied unless only one linear combination is probed.
+        
+    One can also look at:
+        diff_gain = (1/sigma) * (gain_new - gain)
+    Which can be simplified to something that doesn't include sums of squares:
+        (1/(sigma*n))*(  -s_left^2/n_left  -  (s-s_left)^2/(n-n_left)  +  (s_left+x)^2/(n_left+1)  +  (s-(s_left+x))^2/(n-(n_left+1))  )
+    And this calculation would in theory allow getting the actual standardized gain.
+    In practice however, this calculation can have poor numerical precision when the
+    sample size is large, so the functions here do not even attempt at calculating it,
+    and this is the reason why the two-pass approach is preferred.
+
+    The averaged SD formula unfortunately doesn't reduce to something that would involve
+    only sums.
+*/
+
+/*  TODO: maybe it's not a good idea to use the two-pass approach with un-standardized
+    variables at large sample sizes (ndim=1), considering that they come in sorted order.
+    Maybe it should instead use sums of centered squares: sigma = sqrt((x-mean(x))^2/n)
+    The sums of centered squares method is also likely to be more precise. */
+
+
+#define avg_between(a, b) ((a) + ((b)-(a))/2.)
+#define sd_gain(sd, sd_left, sd_right) (1. - ((sd_left) + (sd_right)) / (2. * (sd)))
+#define pooled_gain(sd, cnt, sd_left, sd_right, cnt_left, cnt_right) \
+    (1. - (1./(sd))*(  ( ((real_t)(cnt_left))/(cnt) )*(sd_left) + ( ((real_t)(cnt_right)/(cnt)) )*(sd_right)  ))
+
+
+/* TODO: make this a compensated sum */
+template <class real_t, class real_t_>
+double find_split_rel_gain_t(real_t_ *restrict x, size_t n, double &split_point)
+{
+    real_t this_gain;
+    real_t best_gain = -HUGE_VAL;
+    real_t sum_left = 0, sum_right = 0, sum_tot = 0;
+    for (size_t row = 0; row < n; row++)
+        sum_tot += x[row];
+    for (size_t row = 0; row < n-1; row++)
+    {
+        sum_left += x[row];
+        if (x[row] == x[row+1])
+            continue;
+
+        sum_right = sum_tot - sum_left;
+        this_gain =   sum_left  * (sum_left  / (real_t)(row+1))
+                    + sum_right * (sum_right / (real_t)(n-row-1));
+        if (this_gain > best_gain)
+        {
+            best_gain = this_gain;
+            split_point = avg_between(x[row], x[row+1]);
+        }
+    }
+    if (best_gain <= -HUGE_VAL)
+        return best_gain;
+    else
+        return std::fmax((double)best_gain, std::numeric_limits<double>::epsilon());
+}
+
+template <class real_t_>
+double find_split_rel_gain(real_t_ *restrict x, size_t n, double &split_point)
+{
+    if (n < THRESHOLD_LONG_DOUBLE)
+        return find_split_rel_gain_t<double, real_t_>(x, n, split_point);
+    else
+        return find_split_rel_gain_t<long double, real_t_>(x, n, split_point);
+}
+
+template <class real_t, class real_t_>
+double find_split_rel_gain_t(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix)
+{
+    real_t this_gain;
+    real_t best_gain = -HUGE_VAL;
+    real_t sum_left = 0, sum_right = 0, sum_tot = 0;
+    for (size_t row = st; row <= end; row++)
+        sum_tot += x[ix_arr[row]] - xmean;
+    for (size_t row = st; row < end; row++)
+    {
+        sum_left += x[ix_arr[row]] - xmean;
+        if (x[ix_arr[row]] == x[ix_arr[row+1]])
+            continue;
+
+        sum_right = sum_tot - sum_left;
+        this_gain =   sum_left  * (sum_left  / (real_t)(row - st + 1))
+                    + sum_right * (sum_right / (real_t)(end - row));
+        if (this_gain > best_gain)
+        {
+            best_gain = this_gain;
+            split_point = avg_between(x[ix_arr[row]], x[ix_arr[row+1]]);
+            split_ix = row;
+        }
+    }
+    if (best_gain <= -HUGE_VAL)
+        return best_gain;
+    else
+        return std::fmax((double)best_gain, std::numeric_limits<double>::epsilon());
+}
+
+template <class real_t_>
+double find_split_rel_gain(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix)
+{
+    if ((end-st+1) < THRESHOLD_LONG_DOUBLE)
+        return find_split_rel_gain_t<double, real_t_>(x, xmean, ix_arr, st, end, split_point, split_ix);
+    else
+        return find_split_rel_gain_t<long double, real_t_>(x, xmean, ix_arr, st, end, split_point, split_ix);
+}
+
+template <class real_t, class real_t_>
+real_t calc_sd_right_to_left(real_t_ *restrict x, size_t n, double *restrict sd_arr)
+{
+    real_t running_mean = 0;
+    real_t running_ssq = 0;
+    real_t mean_prev = x[n-1];
+    for (size_t row = 0; row < n-1; row++)
+    {
+        running_mean   += (x[n-row-1] - running_mean) / (real_t)(row+1);
+        running_ssq    += (x[n-row-1] - running_mean) * (x[n-row-1] - mean_prev);
+        mean_prev       =  running_mean;
+        sd_arr[n-row-1] = (row == 0)? 0. : std::sqrt(running_ssq / (real_t)(row+1));
+    }
+    running_mean   += (x[0] - running_mean) / (real_t)n;
+    running_ssq    += (x[0] - running_mean) * (x[0] - mean_prev);
+    return std::sqrt(running_ssq / (real_t)n);
+}
+
+template <class real_t, class real_t_>
+real_t calc_sd_right_to_left(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr)
+{
+    real_t running_mean = 0;
+    real_t running_ssq = 0;
+    real_t mean_prev = x[ix_arr[end]] - xmean;
+    size_t n = end - st + 1;
+    for (size_t row = 0; row < n-1; row++)
+    {
+        running_mean   += ((x[ix_arr[end-row]] - xmean) - running_mean) / (real_t)(row+1);
+        running_ssq    += ((x[ix_arr[end-row]] - xmean) - running_mean) * ((x[ix_arr[end-row]] - xmean) - mean_prev);
+        mean_prev       =  running_mean;
+        sd_arr[n-row-1] = (row == 0)? 0. : std::sqrt(running_ssq / (real_t)(row+1));
+    }
+    running_mean   += ((x[ix_arr[st]] - xmean) - running_mean) / (real_t)n;
+    running_ssq    += ((x[ix_arr[st]] - xmean) - running_mean) * ((x[ix_arr[st]] - xmean) - mean_prev);
+    return std::sqrt(running_ssq / (real_t)n);
+}
+
+template <class real_t, class real_t_>
+double find_split_std_gain_t(real_t_ *restrict x, size_t n, double *restrict sd_arr,
+                             GainCriterion criterion, double min_gain, double &split_point)
+{
+    real_t full_sd = calc_sd_right_to_left<real_t>(x, n, sd_arr);
+    real_t running_mean = 0;
+    real_t running_ssq = 0;
+    real_t mean_prev = x[0];
+    real_t best_gain = -HUGE_VAL;
+    real_t this_sd, this_gain;
+    real_t n_ = (real_t)n;
+    for (size_t row = 0; row < n-1; row++)
+    {
+        running_mean   += (x[row] - running_mean) / (real_t)(row+1);
+        running_ssq    += (x[row] - running_mean) * (x[row] - mean_prev);
+        mean_prev       =  running_mean;
+        if (x[row] == x[row+1])
+            continue;
+
+        this_sd = (row == 0)? 0. : std::sqrt(running_ssq / (real_t)(row+1));
+        this_gain = (criterion == Pooled)?
+                    pooled_gain(full_sd, n_, this_sd, sd_arr[row+1], row+1, n-row-1)
+                        :
+                    sd_gain(full_sd, this_sd, sd_arr[row+1]);
+        if (this_gain > best_gain && this_gain > min_gain)
+        {
+            best_gain = this_gain;
+            split_point = avg_between(x[row], x[row+1]);
+        }
+    }
+    return best_gain;
+}
+
+template <class real_t_>
+double find_split_std_gain(real_t_ *restrict x, size_t n, double *restrict sd_arr,
+                           GainCriterion criterion, double min_gain, double &split_point)
+{
+    if (n < THRESHOLD_LONG_DOUBLE)
+        return find_split_std_gain_t<double, real_t_>(x, n, sd_arr, criterion, min_gain, split_point);
+    else
+        return find_split_std_gain_t<long double, real_t_>(x, n, sd_arr, criterion, min_gain, split_point);
+}
+
+template <class real_t, class real_t_>
+double find_split_std_gain_t(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
+                             GainCriterion criterion, double min_gain, double &split_point, size_t &split_ix)
+{
+    real_t full_sd = calc_sd_right_to_left<real_t>(x, xmean, ix_arr, st, end, sd_arr);
+    real_t running_mean = 0;
+    real_t running_ssq = 0;
+    real_t mean_prev = x[ix_arr[st]] - xmean;
+    real_t best_gain = -HUGE_VAL;
+    real_t n = (real_t)(end - st + 1);
+    real_t this_sd, this_gain;
+    for (size_t row = st; row < end; row++)
+    {
+        running_mean   += ((x[ix_arr[row]] - xmean) - running_mean) / (real_t)(row-st+1);
+        running_ssq    += ((x[ix_arr[row]] - xmean) - running_mean) * ((x[ix_arr[row]] - xmean) - mean_prev);
+        mean_prev       =  running_mean;
+        if (x[ix_arr[row]] == x[ix_arr[row+1]])
+            continue;
+
+        this_sd = (row == st)? 0. : std::sqrt(running_ssq / (real_t)(row-st+1));
+        this_gain = (criterion == Pooled)?
+                    pooled_gain(full_sd, n, this_sd, sd_arr[row-st+1], row-st+1, end-row)
+                        :
+                    sd_gain(full_sd, this_sd, sd_arr[row-st+1]);
+        if (this_gain > best_gain && this_gain > min_gain)
+        {
+            best_gain = this_gain;
+            split_point = avg_between(x[ix_arr[row]], x[ix_arr[row+1]]);
+            split_ix = row;
+        }
+    }
+    return best_gain;
+}
+
+template <class real_t_>
+double find_split_std_gain(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
+                           GainCriterion criterion, double min_gain, double &split_point, size_t &split_ix)
+{
+    if ((end-st+1) < THRESHOLD_LONG_DOUBLE)
+        return find_split_std_gain_t<double, real_t_>(x, xmean, ix_arr, st, end, sd_arr, criterion, min_gain, split_point, split_ix);
+    else
+        return find_split_std_gain_t<long double, real_t_>(x, xmean, ix_arr, st, end, sd_arr, criterion, min_gain, split_point, split_ix);
+}
+
 
 /* for split-criterion in hyperplanes (see below for version aimed at single-variable splits) */
-double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion, double min_gain,
+double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
+                        double min_gain, bool as_relative_gain, double *restrict buffer_sd,
                         double &split_point, double &xmin, double &xmax)
 {
     /* Note: the input 'x' is supposed to be a linear combination of standardized variables, so
        all numbers are assumed to be small and in the same scale */
+    double gain;
 
     /* here it's assumed the 'x' vector matches exactly with 'ix_arr' + 'st' */
     if (n == 2)
     {
+        if (x[0] == x[1]) return -HUGE_VAL;
         split_point = avg_between(x[0], x[1]);
-        return 0;
+        gain        = 1.;
+        if (gain > min_gain)
+            return gain;
+        else
+            return 0.;
     }
 
     /* sort in ascending order */
     std::sort(x, x + n);
-    if (x[0] == x[n-1]) return -HUGE_VAL;
     xmin = x[0]; xmax = x[n-1];
+    if (x[0] == x[n-1]) return -HUGE_VAL;
 
-    /* compute sum - sum_sq - sd in one pass */
-    long double sum = 0;
-    long double sum_sq = 0;
-    double sd_full;
-    for (size_t row = 0; row < n; row++)
-    {
-        sum    += x[row];
-        sum_sq += square(x[row]);
-    }
-    sd_full = calc_sd_raw(n, sum, sum_sq);
-
-    /* try splits by moving observations one at a time from right to left */
-    long double sum_left = 0;
-    long double sum_sq_left = 0;
-    long double sum_right = sum;
-    long double sum_sq_right = sum_sq;
-    double this_gain = -HUGE_VAL;
-    double best_gain = -HUGE_VAL;
-
-    switch(criterion)
-    {
-        case Averaged:
-        {
-            for (size_t row = 0; row < n-1; row++)
-            {
-                sum_left     += x[row];
-                sum_sq_left  += square(x[row]);
-                sum_right    -= x[row];
-                sum_sq_right -= square(x[row]);
-
-                if (x[row] == x[row + 1]) continue;
-
-                this_gain = sd_gain(sd_full,
-                                    calc_sd_raw(row + 1,     sum_left,  sum_sq_left),
-                                    calc_sd_raw(n - row - 1, sum_right, sum_sq_right)
-                                    );
-                if (this_gain > min_gain && this_gain > best_gain)
-                {
-                    best_gain = this_gain;
-                    split_point = avg_between(x[row], x[row + 1]);
-                }
-            }
-            break;
-        }
-
-        case Pooled:
-        {
-            long double cnt = (long double) n;
-            for (size_t row = 0; row < n-1; row++)
-            {
-                sum_left     += x[row];
-                sum_sq_left  += square(x[row]);
-                sum_right    -= x[row];
-                sum_sq_right -= square(x[row]);
-
-                if (x[row] == x[row + 1]) continue;
-
-                this_gain = numeric_gain(row + 1, n - row - 1,
-                                         sum_left, sum_right,
-                                         sum_sq_left, sum_sq_right,
-                                         sd_full, cnt
-                                        );
-
-                if (this_gain > min_gain && this_gain > best_gain)
-                {
-                    best_gain = this_gain;
-                    split_point = avg_between(x[row], x[row + 1]);
-                }
-            }
-            break;
-        }
-    }
-
-    if (best_gain <= -HUGE_VAL && this_gain <= min_gain && this_gain > -HUGE_VAL)
-        return 0;
+    if (criterion == Pooled && as_relative_gain && min_gain <= 0)
+        gain = find_split_rel_gain(x, n, split_point);
     else
-        return best_gain;
+        gain = find_split_std_gain(x, n, buffer_sd, criterion, min_gain, split_point);
+    /* Note: a gain of -Inf signals that the data is unsplittable. Zero signals it's below the minimum. */
+    return std::fmax(0., gain);
 }
 
 /* for split-criterion in single-variable splits */
-#define std_val(x, m, sd) ( ((x) - (m)) / (sd)  )
-double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *restrict x,
+template <class real_t_>
+double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, real_t_ *restrict x,
+                        double *restrict buffer_sd, bool as_relative_gain,
                         size_t &split_ix, double &split_point, double &xmin, double &xmax,
                         GainCriterion criterion, double min_gain, MissingAction missing_action)
 {
+    double gain;
+
     /* move NAs to the front if there's any, exclude them from calculations */
     if (missing_action != Fail)
         st = move_NAs_to_front(ix_arr, st, end, x);
@@ -503,9 +704,15 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *
     if (st >= end) return -HUGE_VAL;
     else if (st == (end-1))
     {
+        if (x[ix_arr[st]] == x[ix_arr[end]])
+            return -HUGE_VAL;
         split_point = avg_between(x[ix_arr[st]], x[ix_arr[end]]);
         split_ix    = st;
-        return 0;
+        gain        = 1.;
+        if (gain > min_gain)
+            return gain;
+        else
+            return 0.;
     }
 
     /* sort in ascending order */
@@ -513,105 +720,32 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, double *
     if (x[ix_arr[st]] == x[ix_arr[end]]) return -HUGE_VAL;
     xmin = x[ix_arr[st]]; xmax = x[ix_arr[end]];
 
-    /* Note: these variables are not standardized beforehand, so a single-pass gain
-       calculation for both branches would suffer from numerical instability and perhaps give
-       negative standard deviations if the sample size is large or the values have different
-       orders of magnitude */
+    /* unlike the previous case for the extended model, the data here has not been centered,
+       which could make the standard deviations have poor precision. It's nevertheless not
+       necessary for this mean to have good precision, since it's only meant for centering,
+       so it can be calculated inexactly with simd instructions. */
+    real_t_ xmean = 0;
+    for (size_t ix = st; ix <= end; ix++)
+        xmean += x[ix_arr[ix]];
+    xmean /= (real_t_)(end - st + 1);
 
-    /* first get mean and sd */
-    double x_mean, x_sd;
-    calc_mean_and_sd(ix_arr, st, end, x,
-                     Fail, x_sd, x_mean);
-
-    /* compute sum - sum_sq - sd in one pass, on the standardized values */
-    double zval;
-    long double sum = 0;
-    long double sum_sq = 0;
-    double sd_full;
-    for (size_t row = st; row <= end; row++)
-    {
-        zval    = std_val(x[ix_arr[row]], x_mean, x_sd);
-        sum    += zval;
-        sum_sq += square(zval);
-    }
-    sd_full = calc_sd_raw(end - st + 1, sum, sum_sq);
-
-    /* try splits by moving observations one at a time from right to left */
-    long double sum_left = 0;
-    long double sum_sq_left = 0;
-    long double sum_right = sum;
-    long double sum_sq_right = sum_sq;
-    double this_gain = -HUGE_VAL;
-    double best_gain = -HUGE_VAL;
-
-    switch(criterion)
-    {
-        case Averaged:
-        {
-            for (size_t row = st; row < end; row++)
-            {
-                zval          = std_val(x[ix_arr[row]], x_mean, x_sd);
-                sum_left     += zval;
-                sum_sq_left  += square(zval);
-                sum_right    -= zval;
-                sum_sq_right -= square(zval);
-
-                if (x[ix_arr[row]] == x[ix_arr[row + 1]]) continue;
-
-                this_gain = sd_gain(sd_full,
-                                    calc_sd_raw(row - st + 1, sum_left,  sum_sq_left),
-                                    calc_sd_raw(end - row,    sum_right, sum_sq_right)
-                                    );
-                if (this_gain > min_gain && this_gain > best_gain)
-                {
-                    best_gain = this_gain;
-                    split_point = avg_between(x[ix_arr[row]], x[ix_arr[row + 1]]);
-                    split_ix = row;
-                }
-            }
-            break;
-        }
-
-        case Pooled:
-        {
-            long double cnt = (long double)(end - st + 1);
-            for (size_t row = st; row < end; row++)
-            {
-                zval          = std_val(x[ix_arr[row]], x_mean, x_sd);
-                sum_left     += zval;
-                sum_sq_left  += square(zval);
-                sum_right    -= zval;
-                sum_sq_right -= square(zval);
-
-                if (x[ix_arr[row]] == x[ix_arr[row + 1]]) continue;
-
-                this_gain = numeric_gain_no_div(row - st + 1, end - row,
-                                                sum_left, sum_right,
-                                                sum_sq_left, sum_sq_right,
-                                                sd_full, cnt
-                                               );
-
-                if (this_gain > min_gain && this_gain > best_gain)
-                {
-                    best_gain   = this_gain;
-                    split_point = avg_between(x[ix_arr[row]], x[ix_arr[row + 1]]);
-                    split_ix    = row;
-                }
-            }
-            break;
-        }
-    }
-
-    if (best_gain <= -HUGE_VAL && this_gain <= min_gain && this_gain > -HUGE_VAL)
-        return 0;
+    if (criterion == Pooled && as_relative_gain && min_gain <= 0)
+        gain = find_split_rel_gain(x, xmean, ix_arr, st, end, split_point, split_ix);
     else
-        return best_gain;
+        gain = find_split_std_gain(x, xmean, ix_arr, st, end, buffer_sd, criterion, min_gain, split_point, split_ix);
+    /* Note: a gain of -Inf signals that the data is unsplittable. Zero signals it's below the minimum. */
+    return std::fmax(0., gain);
 }
 
-/* TODO: implement algorithm that works with unsorted 'x' to use with sparse data */
+/* TODO: here it should only need to look at the non-zero entries. It can then use the
+   same algorithm as above, but putting an extra check to see where do the zeros fit in
+   the sorted order of the non-zero entries while calculating gains and SDs, and then
+   call the 'divide_subset' function after-the-fact to reach the same end result.
+   It should be much faster than this if the non-zero entries are few. */
+template <class real_t_, class sparse_ix>
 double eval_guided_crit(size_t ix_arr[], size_t st, size_t end,
-                        size_t col_num, double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                        double buffer_arr[], size_t buffer_pos[],
+                        size_t col_num, real_t_ Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                        double buffer_arr[], size_t buffer_pos[], bool as_relative_gain,
                         double &split_point, double &xmin, double &xmax,
                         GainCriterion criterion, double min_gain, MissingAction missing_action)
 {
@@ -619,8 +753,9 @@ double eval_guided_crit(size_t ix_arr[], size_t st, size_t end,
             col_num, Xc, Xc_ind, Xc_indptr,
             buffer_arr);
     std::iota(buffer_pos, buffer_pos + (end - st + 1), (size_t)0);
-    size_t temp;
-    return eval_guided_crit(buffer_pos, 0, end - st, buffer_arr, temp, split_point,
+    size_t ignored;
+    return eval_guided_crit(buffer_pos, 0, end - st, buffer_arr, buffer_arr + (end-st+1),
+                            as_relative_gain, ignored, split_point,
                             xmin, xmax, criterion, min_gain, missing_action);
 }
 

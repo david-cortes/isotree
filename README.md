@@ -157,7 +157,7 @@ See file [isotree_cpp_ex.cpp](https://github.com/david-cortes/isotree/blob/maste
 
 # Known issues
 
-When setting a random seed and using more than one thread, the results of some functions are not 100% reproducible to the last decimal - especially not for imputations. This is due to parallelized aggregations, and thus the only "fix" is to limit oneself to only one thread. The trees themselves are however not affected by this, and neither is the isolation depth (main functionality of the package).
+When setting a random seed and using more than one thread, the results of the imputation functions are not 100% reproducible to the last decimal. This is due to parallelized aggregations, and thus the only "fix" is to limit oneself to only one thread. The trees themselves are however not affected by this, and neither is the isolation depth (main functionality of the package).
 
 # References
 

@@ -31,13 +31,19 @@ class build_ext_subclass( build_ext ):
                 ### Note: MSVC never implemented C++11
         elif (c == "clang") or (c == "clang++"):
             for e in self.extensions:
-                e.extra_compile_args = ['-fopenmp', '-O2', '-march=native', '-std=c++17']
+                e.extra_compile_args = ['-fopenmp', '-O3', '-march=native', '-std=c++17']
                 e.extra_link_args    = ['-fopenmp']
                 ### Note: when passing C++11 to CLANG, it complains about C++17 features in CYTHON_FALLTHROUGH
         else: # gcc
             for e in self.extensions:
-                e.extra_compile_args = ['-fopenmp', '-O2', '-march=native', '-std=c++11']
+                e.extra_compile_args = ['-fopenmp', '-O3', '-march=native', '-std=c++11']
                 e.extra_link_args    = ['-fopenmp']
+
+                ### when testing with clang:
+                # e.extra_compile_args = ['-fopenmp=libiomp5', '-O3', '-march=native', '-std=c++11']
+                # e.extra_link_args    = ['-fopenmp=libiomp5']
+                # e.extra_compile_args = ['-fopenmp=libiomp5', '-O2', '-march=native', '-std=c++11', '-stdlib=libc++', '-lc++abi']
+                # e.extra_link_args    = ['-fopenmp=libiomp5', '-lc++abi']
 
                 # e.extra_compile_args = ['-O2', '-march=native', '-std=c++11']
 
@@ -76,7 +82,7 @@ if platform[:3] != "dar":
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.1.31',
+    version = '0.2.0',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',
@@ -85,9 +91,8 @@ setup(
     cmdclass = {'build_ext': build_ext_subclass},
     ext_modules = [Extension(
                                 "isotree._cpp_interface",
-                                sources=["isotree/cpp_interface.pyx", "src/fit_model.cpp", "src/isoforest.cpp",
-                                         "src/extended.cpp", "src/helpers_iforest.cpp", "src/predict.cpp", "src/utils.cpp",
-                                         "src/crit.cpp", "src/dist.cpp", "src/impute.cpp", "src/mult.cpp", "src/dealloc.cpp",
+                                sources=["isotree/cpp_interface.pyx",
+                                         "src/dealloc.cpp",
                                          "src/merge_models.cpp", "src/serialize.cpp", "src/sql.cpp"],
                                 include_dirs=[np.get_include(), ".", "./src", cereal_dir],
                                 language="c++",

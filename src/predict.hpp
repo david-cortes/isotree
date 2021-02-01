@@ -22,7 +22,7 @@
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2020, David Cortes
+*     Copyright (c) 2019-2021, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -42,34 +42,58 @@
 *     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#include "isotree.hpp" 
+#include "isotree.hpp"
+
+/* TODO: implement a faster predict function for CSC matrices that would
+   take the observations down the tree with an array of row indices. */
+
 
 /* Predict outlier score, average depth, or terminal node numbers
 * 
 * Parameters
 * ==========
 * - numeric_data[nrows * ncols_numeric]
-*       Pointer to numeric data for which to make predictions. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to numeric data for which to make predictions. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'is_col_major').
 *       Pass NULL if there are no dense numeric columns.
 *       Can only pass one of 'numeric_data', 'Xc' + 'Xc_ind' + 'Xc_indptr', 'Xr' + 'Xr_ind' + 'Xr_indptr'.
 * - categ_data[nrows * ncols_categ]
-*       Pointer to categorical data for which to make predictions. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to categorical data for which to make predictions. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'is_col_major').
 *       Pass NULL if there are no categorical columns.
 *       Each category should be represented as an integer, and these integers must start at zero and
 *       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
 *       present when the model was fit (note that they are not treated as being ordinal, this is just
 *       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
 *       must be the same as was used in the data to which the model was fit.
+* - is_col_major
+*       Whether 'numeric_data' and 'categ_data' come in column-major order, like the data to which the
+*       model was fit. If passing 'false', will assume they are in row-major order. Note that most of
+*       the functions in this library work only with column-major order, but here both are suitable
+*       and row-major is preferred. Both arrays must have the same orientation (row/column major).
+* - ncols_numeric
+*       Number of columns in 'numeric_data'. This is ignored when the data is sparse or comes
+*       in column-major order. Note that the number of columns must not be lower than the number
+*       of columns to which the model was fit, and when using column-major order, must have
+*       the same number of columns as the data to which the model was fit (i.e. cannot have
+*       new columns).
+* - ncols_categ
+*       Number of columns in 'categ_data'. This is ignored when the data comes
+*       in column-major order. Note that the number of columns must not be lower than the number
+*       of columns to which the model was fit, and when using column-major order, must have
+*       the same number of columns as the data to which the model was fit (i.e. cannot have
+*       new columns).
 * - Xc[nnz]
 *       Pointer to numeric data in sparse numeric matrix in CSC format (column-compressed).
 *       Pass NULL if there are no sparse numeric columns.
 *       Can only pass one of 'numeric_data', 'Xc' + 'Xc_ind' + 'Xc_indptr', 'Xr' + 'Xr_ind' + 'Xr_indptr'.
 * - Xc_ind[nnz]
 *       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns in CSC format.
 * - Xc_indptr[ncols_categ + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
@@ -81,6 +105,7 @@
 *       Can only pass one of 'numeric_data', 'Xc' + 'Xc_ind' + 'Xc_indptr', 'Xr' + 'Xr_ind' + 'Xr_indptr'. 
 * - Xr_ind[nnz]
 *       Pointer to column indices to which each non-zero entry in 'Xr' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns in CSR format.
 * - Xr_indptr[nrows + 1]
 *       Pointer to row index pointers that tell at entry [row] where does row 'row'
@@ -117,15 +142,19 @@
 *       when passing this parameter, and as such, there will be some overhead regardless of
 *       the actual number of rows. Pass NULL if only average depths or outlier scores are desired.
 */
-void predict_iforest(double numeric_data[], int categ_data[],
-                     double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                     double Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
+template <class real_t, class sparse_ix>
+void predict_iforest(real_t numeric_data[], int categ_data[],
+                     bool is_col_major, size_t ncols_numeric, size_t ncols_categ,
+                     real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                     real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                      size_t nrows, int nthreads, bool standardize,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                      double output_depths[],   sparse_ix tree_num[])
 {
     /* put data in a struct for passing it in fewer lines */
-    PredictionData prediction_data = {numeric_data, categ_data, nrows,
+    PredictionData<real_t, sparse_ix>
+                   prediction_data = {numeric_data, categ_data, nrows,
+                                      is_col_major, ncols_numeric, ncols_categ,
                                       Xc, Xc_ind, Xc_indptr,
                                       Xr, Xr_ind, Xr_indptr};
 
@@ -165,7 +194,9 @@ void predict_iforest(double numeric_data[], int categ_data[],
                     output_depths[row] += traverse_itree(tree,
                                                          *model_outputs,
                                                          prediction_data,
-                                                         NULL, NULL, 0,
+                                                         (std::vector<ImputeNode>*)NULL,
+                                                         (ImputedData<sparse_ix>*)NULL,
+                                                         (double)0,
                                                          (size_t) row,
                                                          (tree_num == NULL)? NULL : tree_num + nrows * (&tree - &(model_outputs->trees[0])),
                                                          (size_t) 0);
@@ -210,7 +241,8 @@ void predict_iforest(double numeric_data[], int categ_data[],
                                     *model_outputs_ext,
                                     prediction_data,
                                     output_depths[row],
-                                    NULL, NULL,
+                                    (std::vector<ImputeNode>*)NULL,
+                                    (ImputedData<sparse_ix>*)NULL,
                                     (tree_num == NULL)? NULL : tree_num + nrows * (&hplane - &(model_outputs_ext->hplanes[0])),
                                     (size_t) row);
                 }
@@ -235,7 +267,7 @@ void predict_iforest(double numeric_data[], int categ_data[],
     if (standardize)
         #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, output_depths, depth_divisor)
         for (size_t_for row = 0; row < nrows; row++)
-            output_depths[row] = exp2( - output_depths[row] / depth_divisor );
+            output_depths[row] = std::exp2( - output_depths[row] / depth_divisor );
     else
         #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, output_depths, ntrees)
         for (size_t_for row = 0; row < nrows; row++)
@@ -252,8 +284,7 @@ void predict_iforest(double numeric_data[], int categ_data[],
 }
 
 
-/* TODO: these functions would be faster if done with row-major order,
-   should at least give the option of taking arrays as row-major. */
+template <class PredictionData, class sparse_ix>
 void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                                IsoForest             &model_outputs,
                                PredictionData        &prediction_data,
@@ -263,6 +294,7 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
 {
     size_t curr_lev = 0;
     double xval;
+    int    cval;
     while (true)
     {
         if (tree[curr_lev].score > 0)
@@ -279,7 +311,12 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
             {
                 case Numeric:
                 {
-                    xval = prediction_data.numeric_data[row +  tree[curr_lev].col_num * prediction_data.nrows];
+                    xval =  prediction_data.numeric_data[
+                                prediction_data.is_col_major?
+                                (row +  tree[curr_lev].col_num * prediction_data.nrows)
+                                    :
+                                (tree[curr_lev].col_num + row * prediction_data.ncols_numeric)
+                            ];
                     curr_lev = (xval <= tree[curr_lev].num_split)?
                                 tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                     output_depth -= (xval < tree[curr_lev].range_low) || (xval > tree[curr_lev].range_high);
@@ -288,6 +325,12 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
 
                 case Categorical:
                 {
+                    cval =  prediction_data.categ_data[
+                                prediction_data.is_col_major?
+                                (row +  tree[curr_lev].col_num * prediction_data.nrows)
+                                    :
+                                (tree[curr_lev].col_num + row * prediction_data.ncols_categ)
+                            ];
                     switch(model_outputs.cat_split_type)
                     {
                         case SubSet:
@@ -295,12 +338,9 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
 
                             if (!tree[curr_lev].cat_split.size()) /* this is for binary columns */
                             {
-                                if (prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows] <= 1)
+                                if (cval <= 1)
                                 {
-                                    curr_lev = (
-                                                prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows]
-                                                    == 0
-                                                )?
+                                    curr_lev = (cval == 0)?
                                                 tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                                 }
 
@@ -317,30 +357,21 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                                 {
                                     case Random:
                                     {
-                                        curr_lev = (tree[curr_lev].cat_split[
-                                                                prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows]
-                                                                ]
-                                                    )?
+                                        curr_lev = (tree[curr_lev].cat_split[cval])?
                                                     tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                                         break;
                                     }
 
                                     case Smallest:
                                     {
-                                        if (
-                                            prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows]
-                                                >= (int)tree[curr_lev].cat_split.size()
-                                            )
+                                        if (cval >= (int)tree[curr_lev].cat_split.size())
                                         {
                                             curr_lev =  (tree[curr_lev].pct_tree_left < .5)? tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                                         }
 
                                         else
                                         {
-                                            curr_lev = (tree[curr_lev].cat_split[
-                                                                    prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows]
-                                                                    ]
-                                                        )?
+                                            curr_lev = (tree[curr_lev].cat_split[cval])?
                                                         tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                                         }
                                         break;
@@ -352,11 +383,7 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
 
                         case SingleCateg:
                         {
-                            curr_lev = (
-                                        prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows]
-                                            ==
-                                        tree[curr_lev].chosen_cat
-                                        )?
+                            curr_lev = (cval == tree[curr_lev].chosen_cat)?
                                         tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                             break;
                         }
@@ -368,7 +395,9 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
     }
 }
 
+enum NumericConfig {DenseRowMajor, DenseColMajor, SparseCSR, SparseCSC};
 
+template <class PredictionData, class sparse_ix, class ImputedData>
 double traverse_itree(std::vector<IsoTree>     &tree,
                       IsoForest                &model_outputs,
                       PredictionData           &prediction_data,
@@ -380,10 +409,21 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                       size_t                   curr_lev)
 {
     double xval;
+    int    cval;
     double range_penalty = 0;
 
-    sparse_ix *row_st = NULL, *row_end = NULL;
+    NumericConfig numeric_config;
     if (prediction_data.Xr_indptr != NULL)
+        numeric_config = SparseCSR;
+    else if (prediction_data.Xc_indptr != NULL)
+        numeric_config = SparseCSC;
+    else if (prediction_data.is_col_major)
+        numeric_config = DenseColMajor;
+    else
+        numeric_config = DenseRowMajor;
+
+    sparse_ix *row_st = NULL, *row_end = NULL;
+    if (numeric_config == SparseCSR)
     {
         row_st  = prediction_data.Xr_ind + prediction_data.Xr_indptr[row];
         row_end = prediction_data.Xr_ind + prediction_data.Xr_indptr[row + 1];
@@ -407,13 +447,32 @@ double traverse_itree(std::vector<IsoTree>     &tree,
             {
                 case Numeric:
                 {
+                    switch(numeric_config)
+                    {
+                        case DenseRowMajor:
+                        {
+                            xval = prediction_data.numeric_data[tree[curr_lev].col_num + row * prediction_data.ncols_numeric];
+                            break;
+                        }
 
-                    if (prediction_data.Xc_indptr == NULL && prediction_data.Xr_indptr == NULL)
-                        xval = prediction_data.numeric_data[row +  tree[curr_lev].col_num * prediction_data.nrows];
-                    else if (prediction_data.Xc_indptr != NULL)
-                        xval = extract_spC(prediction_data, row, tree[curr_lev].col_num);
-                    else
-                        xval = extract_spR(prediction_data, row_st, row_end, tree[curr_lev].col_num);
+                        case DenseColMajor:
+                        {
+                            xval = prediction_data.numeric_data[row +  tree[curr_lev].col_num * prediction_data.nrows];
+                            break;
+                        }
+
+                        case SparseCSR:
+                        {
+                            xval = extract_spR(prediction_data, row_st, row_end, tree[curr_lev].col_num);
+                            break;
+                        }
+
+                        case SparseCSC:
+                        {
+                            xval = extract_spC(prediction_data, row, tree[curr_lev].col_num);
+                            break;
+                        }
+                    }
 
                     if (isnan(xval))
                     {
@@ -425,11 +484,11 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                                     tree[curr_lev].pct_tree_left
                                         * traverse_itree(tree, model_outputs, prediction_data,
                                                          impute_nodes, imputed_data, curr_weight * tree[curr_lev].pct_tree_left,
-                                                         row, NULL, tree[curr_lev].tree_left)
+                                                         row, (sparse_ix*)NULL, tree[curr_lev].tree_left)
                                     + (1 - tree[curr_lev].pct_tree_left)
                                         * traverse_itree(tree, model_outputs, prediction_data,
                                                          impute_nodes, imputed_data, curr_weight * (1 - tree[curr_lev].pct_tree_left),
-                                                         row, NULL, tree[curr_lev].tree_right)
+                                                         row, (sparse_ix*)NULL, tree[curr_lev].tree_right)
                                     - range_penalty;
                             }
 
@@ -449,7 +508,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
 
                     else
                     {
-                        curr_lev = (xval <=tree[curr_lev].num_split)?
+                        curr_lev = (xval <= tree[curr_lev].num_split)?
                                     tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                         range_penalty += (xval < tree[curr_lev].range_low) || (xval > tree[curr_lev].range_high);
                     }
@@ -458,8 +517,13 @@ double traverse_itree(std::vector<IsoTree>     &tree,
 
                 case Categorical:
                 {
-
-                    if (prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows] < 0)
+                    cval =  prediction_data.categ_data[
+                                prediction_data.is_col_major?
+                                (row +  tree[curr_lev].col_num * prediction_data.nrows)
+                                    :
+                                (tree[curr_lev].col_num * row * prediction_data.ncols_categ)
+                            ];
+                    if (cval < 0)
                     {
                         switch(model_outputs.missing_action)
                         {
@@ -469,11 +533,11 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                                     tree[curr_lev].pct_tree_left
                                         * traverse_itree(tree, model_outputs, prediction_data,
                                                          impute_nodes, imputed_data, curr_weight * tree[curr_lev].pct_tree_left,
-                                                         row, NULL, tree[curr_lev].tree_left)
+                                                         row, (sparse_ix*)NULL, tree[curr_lev].tree_left)
                                     + (1 - tree[curr_lev].pct_tree_left)
                                         * traverse_itree(tree, model_outputs, prediction_data,
                                                          impute_nodes, imputed_data, curr_weight * (1 - tree[curr_lev].pct_tree_left),
-                                                         row, NULL, tree[curr_lev].tree_right)
+                                                         row, (sparse_ix*)NULL, tree[curr_lev].tree_right)
                                     - range_penalty;
                             }
 
@@ -497,11 +561,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                         {
                             case SingleCateg:
                             {
-                                curr_lev = (
-                                            prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows]
-                                                ==
-                                            tree[curr_lev].chosen_cat
-                                            )?
+                                curr_lev = (cval == tree[curr_lev].chosen_cat)?
                                             tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                                 break;
                             }
@@ -511,12 +571,9 @@ double traverse_itree(std::vector<IsoTree>     &tree,
 
                                 if (!tree[curr_lev].cat_split.size())
                                 {
-                                    if (prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows] <= 1)
+                                    if (cval <= 1)
                                     {
-                                        curr_lev = (
-                                                    prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows]
-                                                        == 0
-                                                    )?
+                                        curr_lev = (cval == 0)?
                                                     tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                                     }
 
@@ -536,11 +593,11 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                                                     tree[curr_lev].pct_tree_left
                                                         * traverse_itree(tree, model_outputs, prediction_data,
                                                                          impute_nodes, imputed_data, curr_weight * tree[curr_lev].pct_tree_left,
-                                                                         row, NULL, tree[curr_lev].tree_left)
+                                                                         row, (sparse_ix*)NULL, tree[curr_lev].tree_left)
                                                     + (1 - tree[curr_lev].pct_tree_left)
                                                         * traverse_itree(tree, model_outputs, prediction_data,
                                                                          impute_nodes, imputed_data, curr_weight * (1 - tree[curr_lev].pct_tree_left),
-                                                                         row, NULL, tree[curr_lev].tree_right)
+                                                                         row, (sparse_ix*)NULL, tree[curr_lev].tree_right)
                                                     - range_penalty;
                                             }
                                         }
@@ -553,30 +610,21 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                                     {
                                         case Random:
                                         {
-                                            curr_lev = (tree[curr_lev].cat_split[
-                                                                    prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows]
-                                                                    ]
-                                                        )?
+                                            curr_lev = (tree[curr_lev].cat_split[cval])?
                                                         tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                                             break;
                                         }
 
                                         case Smallest:
                                         {
-                                            if (
-                                                prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows]
-                                                    >= (int)tree[curr_lev].cat_split.size()
-                                                )
+                                            if (cval >= (int)tree[curr_lev].cat_split.size())
                                             {
                                                 curr_lev =  (tree[curr_lev].pct_tree_left < .5)? tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                                             }
 
                                             else
                                             {
-                                                curr_lev = (tree[curr_lev].cat_split[
-                                                                        prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows]
-                                                                        ]
-                                                            )?
+                                                curr_lev = (tree[curr_lev].cat_split[cval])?
                                                             tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                                             }
                                             break;
@@ -584,34 +632,25 @@ double traverse_itree(std::vector<IsoTree>     &tree,
 
                                         case Weighted:
                                         {
-                                            if (
-                                                prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows]
-                                                    >= (int)tree[curr_lev].cat_split.size()
-                                                ||
-                                                tree[curr_lev].cat_split[
-                                                            prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows]
-                                                            ]
-                                                    == (-1)
-                                                )
+                                            if (cval >= (int)tree[curr_lev].cat_split.size()
+                                                    ||
+                                                tree[curr_lev].cat_split[cval] == (-1))
                                             {
                                                 return
                                                     tree[curr_lev].pct_tree_left
                                                         * traverse_itree(tree, model_outputs, prediction_data,
                                                                          impute_nodes, imputed_data, curr_weight * tree[curr_lev].pct_tree_left,
-                                                                         row, NULL, tree[curr_lev].tree_left)
+                                                                         row, (sparse_ix*)NULL, tree[curr_lev].tree_left)
                                                     + (1 - tree[curr_lev].pct_tree_left)
                                                         * traverse_itree(tree, model_outputs, prediction_data,
                                                                          impute_nodes, imputed_data, curr_weight * (1 - tree[curr_lev].pct_tree_left),
-                                                                         row, NULL, tree[curr_lev].tree_right)
+                                                                         row, (sparse_ix*)NULL, tree[curr_lev].tree_right)
                                                     - range_penalty;
                                             }
 
                                             else
                                             {
-                                                curr_lev = (tree[curr_lev].cat_split[
-                                                                        prediction_data.categ_data[row +  tree[curr_lev].col_num * prediction_data.nrows]
-                                                                        ]
-                                                            )?
+                                                curr_lev = (tree[curr_lev].cat_split[cval])?
                                                             tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                                             }
                                             break;
@@ -631,6 +670,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
 
 /* this is a simpler version for situations in which there is
    only numeric data in dense arrays and no missing values */
+template <class PredictionData, class sparse_ix>
 void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
                           ExtIsoForest            &model_outputs,
                           PredictionData          &prediction_data,
@@ -654,9 +694,19 @@ void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
         else
         {
             hval = 0;
-            for (size_t col = 0; col < hplane[curr_lev].col_num.size(); col++)
-                hval += (prediction_data.numeric_data[row +  hplane[curr_lev].col_num[col] * prediction_data.nrows] 
-                         - hplane[curr_lev].mean[col]) * hplane[curr_lev].coef[col];
+            if (prediction_data.is_col_major)
+            {
+                for (size_t col = 0; col < hplane[curr_lev].col_num.size(); col++)
+                    hval += (prediction_data.numeric_data[row +  hplane[curr_lev].col_num[col] * prediction_data.nrows] 
+                             - hplane[curr_lev].mean[col]) * hplane[curr_lev].coef[col];
+            }
+
+            else
+            {
+                for (size_t col = 0; col < hplane[curr_lev].col_num.size(); col++)
+                    hval += (prediction_data.numeric_data[hplane[curr_lev].col_num[col] + row * prediction_data.ncols_numeric] 
+                             - hplane[curr_lev].mean[col]) * hplane[curr_lev].coef[col];
+            }
         }
 
         output_depth -= (hval < hplane[curr_lev].range_low) ||
@@ -667,6 +717,7 @@ void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
 }
 
 /* this is the full version that works with potentially missing values, sparse matrices, and categoricals */
+template <class PredictionData, class sparse_ix, class ImputedData>
 void traverse_hplane(std::vector<IsoHPlane>   &hplane,
                      ExtIsoForest             &model_outputs,
                      PredictionData           &prediction_data,
@@ -683,8 +734,18 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
 
     size_t ncols_numeric, ncols_categ;
 
-    sparse_ix *row_st = NULL, *row_end = NULL;
+    NumericConfig numeric_config;
     if (prediction_data.Xr_indptr != NULL)
+        numeric_config = SparseCSR;
+    else if (prediction_data.Xc_indptr != NULL)
+        numeric_config = SparseCSC;
+    else if (prediction_data.is_col_major)
+        numeric_config = DenseColMajor;
+    else
+        numeric_config = DenseRowMajor;
+
+    sparse_ix *row_st = NULL, *row_end = NULL;
+    if (numeric_config == SparseCSR)
     {
         row_st  = prediction_data.Xr_ind + prediction_data.Xr_indptr[row];
         row_end = prediction_data.Xr_ind + prediction_data.Xr_indptr[row + 1];
@@ -714,12 +775,32 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
                 {
                     case Numeric:
                     {
-                        if (prediction_data.Xc_indptr == NULL && prediction_data.Xr_indptr == NULL)
-                            xval = prediction_data.numeric_data[row +  hplane[curr_lev].col_num[col] * prediction_data.nrows];
-                        else if (prediction_data.Xc_indptr != NULL)
-                            xval = extract_spC(prediction_data, row, hplane[curr_lev].col_num[col]);
-                        else
-                            xval = extract_spR(prediction_data, row_st, row_end, hplane[curr_lev].col_num[col]);
+                        switch(numeric_config)
+                        {
+                            case DenseRowMajor:
+                            {
+                                xval = prediction_data.numeric_data[hplane[curr_lev].col_num[col] + row * prediction_data.ncols_numeric];
+                                break;
+                            }
+
+                            case DenseColMajor:
+                            {
+                                xval = prediction_data.numeric_data[row +  hplane[curr_lev].col_num[col] * prediction_data.nrows];
+                                break;
+                            }
+
+                            case SparseCSR:
+                            {
+                                xval = extract_spR(prediction_data, row_st, row_end, hplane[curr_lev].col_num[col]);
+                                break;
+                            }
+
+                            case SparseCSC:
+                            {
+                                xval = extract_spC(prediction_data, row, hplane[curr_lev].col_num[col]);
+                                break;
+                            }
+                        }
 
                         if (is_na_or_inf(xval))
                         {
@@ -746,7 +827,12 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
 
                     case Categorical:
                     {
-                        cval = prediction_data.categ_data[row +  hplane[curr_lev].col_num[col] * prediction_data.nrows];
+                        cval = prediction_data.categ_data[
+                            prediction_data.is_col_major?
+                            (row +  hplane[curr_lev].col_num[col] * prediction_data.nrows)
+                                :
+                            (hplane[curr_lev].col_num[col] + row * prediction_data.ncols_categ)
+                        ];
                         if (cval < 0)
                         {
                             if (model_outputs.missing_action != Fail)
@@ -797,11 +883,13 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
     }
 }
 
+template <class PredictionData>
 double extract_spC(PredictionData &prediction_data, size_t row, size_t col_num)
 {
-    sparse_ix *search_res = std::lower_bound(prediction_data.Xc_ind + prediction_data.Xc_indptr[col_num],
+    decltype(prediction_data.Xc_indptr)
+               search_res = std::lower_bound(prediction_data.Xc_ind + prediction_data.Xc_indptr[col_num],
                                              prediction_data.Xc_ind + prediction_data.Xc_indptr[col_num + 1],
-                                             (sparse_ix) row);
+                                             (decltype(*prediction_data.Xc_indptr)) row);
     if (
         search_res == (prediction_data.Xc_ind + prediction_data.Xc_indptr[col_num + 1])
             ||
@@ -812,6 +900,7 @@ double extract_spC(PredictionData &prediction_data, size_t row, size_t col_num)
         return prediction_data.Xc[search_res - prediction_data.Xc_ind];
 }
 
+template <class PredictionData, class sparse_ix>
 double extract_spR(PredictionData &prediction_data, sparse_ix *row_st, sparse_ix *row_end, size_t col_num)
 {
     if (row_end == row_st)
@@ -823,6 +912,7 @@ double extract_spR(PredictionData &prediction_data, sparse_ix *row_st, sparse_ix
         return prediction_data.Xr[search_res - prediction_data.Xr_ind];
 }
 
+template <class sparse_ix>
 void get_num_nodes(IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads)
 {
     std::fill(n_terminal, n_terminal + model_outputs.trees.size(), 0);
@@ -837,6 +927,7 @@ void get_num_nodes(IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse
     }
 }
 
+template <class sparse_ix>
 void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads)
 {
     std::fill(n_terminal, n_terminal + model_outputs.hplanes.size(), 0);

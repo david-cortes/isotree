@@ -1,24 +1,15 @@
 cmake_minimum_required (VERSION 3.9)
-project (isotree VERSION 0.1.31)
+project (isotree VERSION 0.2.0)
 set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-set(SRC_FILES ${PROJECT_SOURCE_DIR}/src/crit.cpp
+set(SRC_FILES ${PROJECT_SOURCE_DIR}/src/instantiate_model.cpp
               ${PROJECT_SOURCE_DIR}/src/dealloc.cpp
-              ${PROJECT_SOURCE_DIR}/src/dist.cpp
-              ${PROJECT_SOURCE_DIR}/src/extended.cpp
-              ${PROJECT_SOURCE_DIR}/src/fit_model.cpp
-              ${PROJECT_SOURCE_DIR}/src/helpers_iforest.cpp
-              ${PROJECT_SOURCE_DIR}/src/impute.cpp
-              ${PROJECT_SOURCE_DIR}/src/isoforest.cpp
-              ${PROJECT_SOURCE_DIR}/src/mult.cpp
-              ${PROJECT_SOURCE_DIR}/src/predict.cpp
               ${PROJECT_SOURCE_DIR}/src/merge_models.cpp
               ${PROJECT_SOURCE_DIR}/src/serialize.cpp
-              ${PROJECT_SOURCE_DIR}/src/sql.cpp
-              ${PROJECT_SOURCE_DIR}/src/utils.cpp)
+              ${PROJECT_SOURCE_DIR}/src/sql.cpp)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 set(BUILD_SHARED_LIBS True)
 add_library(isotree SHARED ${SRC_FILES})

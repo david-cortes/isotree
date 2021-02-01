@@ -22,7 +22,7 @@
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2020, David Cortes
+*     Copyright (c) 2019-2021, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -44,6 +44,7 @@
 */
 #include "isotree.hpp"
 
+template <class InputData, class WorkerMemory>
 void split_itree_recursive(std::vector<IsoTree>     &trees,
                            WorkerMemory             &workspace,
                            InputData                &input_data,
@@ -109,115 +110,94 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
         /* evaluate gain for all columns */
         trees.back().score = -HUGE_VAL; /* this is used to track the best gain */
-        if (input_data.Xc_indptr == NULL)
+        workspace.col_sampler.prepare_full_pass();
+        while (workspace.col_sampler.sample_col(workspace.col_chosen))
         {
-            for (size_t col = 0; col < input_data.ncols_numeric; col++)
+            if (interrupt_switch) return;
+
+            if (workspace.col_chosen < input_data.ncols_numeric)
             {
-                workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                       input_data.numeric_data + col * input_data.nrows,
-                                                       workspace.split_ix, workspace.this_split_point,
-                                                       workspace.xmin, workspace.xmax,
-                                                       workspace.criterion, model_params.min_gain,
-                                                       model_params.missing_action);
-                if (workspace.this_gain <= -HUGE_VAL)
+                if (input_data.Xc_indptr == NULL)
                 {
-                    workspace.cols_possible[col] = false;
+                    workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                           input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                                           workspace.buffer_dbl.data(), false,
+                                                           workspace.split_ix, workspace.this_split_point,
+                                                           workspace.xmin, workspace.xmax,
+                                                           workspace.criterion, model_params.min_gain,
+                                                           model_params.missing_action);
                 }
 
-                else if (workspace.this_gain > trees.back().score)
+                else
                 {
-                    trees.back().score     = workspace.this_gain;
-                    trees.back().col_num   = col;
-                    trees.back().num_split = workspace.this_split_point;
-                    if (model_params.penalize_range)
-                    {
-                        trees.back().range_low  = workspace.xmin - workspace.xmax + trees.back().num_split;
-                        trees.back().range_high = workspace.xmax - workspace.xmin + trees.back().num_split;
-                    }
+                    workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                           workspace.col_chosen, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                           workspace.buffer_dbl.data(), workspace.buffer_szt.data(), false,
+                                                           workspace.this_split_point, workspace.xmin, workspace.xmax,
+                                                           workspace.criterion, model_params.min_gain, model_params.missing_action);
                 }
             }
 
-        }
-
-        else
-        {
-            for (size_t col = 0; col < input_data.ncols_numeric; col++)
+            else
             {
                 workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                       col, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                                       workspace.buffer_dbl.data(), workspace.buffer_szt.data(),
-                                                       workspace.this_split_point, workspace.xmin, workspace.xmax,
-                                                       workspace.criterion, model_params.min_gain, model_params.missing_action);
-                if (workspace.this_gain <= -HUGE_VAL)
-                {
-                    workspace.cols_possible[col] = false;
-                }
-
-                else if (workspace.this_gain > trees.back().score)
-                {
-                    trees.back().score     = workspace.this_gain;
-                    trees.back().col_num   = col;
-                    trees.back().num_split = workspace.this_split_point;
-                    if (model_params.penalize_range)
-                    {
-                        trees.back().range_low  = workspace.xmin - workspace.xmax + trees.back().num_split;
-                        trees.back().range_high = workspace.xmax - workspace.xmin + trees.back().num_split;
-                    }
-                }
+                                                       input_data.categ_data + (workspace.col_chosen - input_data.ncols_numeric) * input_data.nrows,
+                                                       input_data.ncat[workspace.col_chosen - input_data.ncols_numeric],
+                                                       workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
+                                                       workspace.buffer_dbl.data(), workspace.this_categ, workspace.this_split_categ.data(),
+                                                       workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                       model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
             }
-        }
 
-        for (size_t col = 0; col < input_data.ncols_categ; col++)
-        {
-            workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                   input_data.categ_data + col * input_data.nrows, input_data.ncat[col],
-                                                   workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
-                                                   workspace.buffer_dbl.data(), workspace.this_categ, workspace.this_split_categ.data(),
-                                                   workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
-                                                   model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
             if (workspace.this_gain <= -HUGE_VAL)
             {
-                workspace.cols_possible[col + input_data.ncols_numeric] = false;
+                workspace.col_sampler.drop_col(workspace.col_chosen);
             }
 
             else if (workspace.this_gain > trees.back().score)
             {
-                trees.back().score    = workspace.this_gain;
-                trees.back().col_num  = col + input_data.ncols_numeric;
-                switch(model_params.cat_split_type)
+                if (workspace.col_chosen < input_data.ncols_numeric)
                 {
-                    case SingleCateg:
+                    trees.back().score     = workspace.this_gain;
+                    trees.back().col_num   = workspace.col_chosen;
+                    trees.back().col_type  = Numeric;
+                    trees.back().num_split = workspace.this_split_point;
+                    if (model_params.penalize_range)
                     {
-                        trees.back().chosen_cat = workspace.this_categ;
-                        break;
+                        trees.back().range_low  = workspace.xmin - workspace.xmax + trees.back().num_split;
+                        trees.back().range_high = workspace.xmax - workspace.xmin + trees.back().num_split;
                     }
+                }
 
-                    case SubSet:
+                else
+                {
+                    trees.back().score    = workspace.this_gain;
+                    trees.back().col_num  = workspace.col_chosen - input_data.ncols_numeric;
+                    trees.back().col_type = Categorical;
+                    switch(model_params.cat_split_type)
                     {
-                        trees.back().cat_split.assign(workspace.this_split_categ.begin(),
-                                                      workspace.this_split_categ.begin() + input_data.ncat[col]);
-                        break;
+                        case SingleCateg:
+                        {
+                            trees.back().chosen_cat = workspace.this_categ;
+                            break;
+                        }
+
+                        case SubSet:
+                        {
+                            trees.back().cat_split.assign(workspace.this_split_categ.begin(),
+                                                          workspace.this_split_categ.begin()
+                                                            + input_data.ncat[workspace.col_chosen - input_data.ncols_numeric]);
+                            break;
+                        }
                     }
                 }
             }
         }
-
 
         if (trees.back().score <= 0.)
             goto terminal_statistics;
         else
             trees.back().score = 0.;
-
-        if (trees.back().col_num < input_data.ncols_numeric)
-        {
-            trees.back().col_type = Numeric;
-        }
-
-        else
-        {
-            trees.back().col_type  = Categorical;
-            trees.back().col_num  -= input_data.ncols_numeric;
-        }
     }
 
     /* case2: column is chosen at random */
@@ -252,122 +232,62 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         else
             workspace.criterion = NoCrit;
 
-        if (workspace.go_to_shuffle)
-            goto probe_all;
 
-
-        /* pick column at random */
-        decide_column(input_data.ncols_numeric, input_data.ncols_categ,
-                      trees.back().col_num, trees.back().col_type,
-                      workspace.rnd_generator, workspace.runif,
-                      workspace.col_sampler);
-
-        /* get the range of possible splits */
-        get_split_range(workspace, input_data, model_params, trees.back());
-
-        /* if it's not possible to split, will have to try more */
-        if (workspace.unsplittable)
+        if (!workspace.col_sampler.has_weights())
         {
-            /* keep track of which columns are tried */
-            add_unsplittable_col(workspace, trees.back(), input_data);
-
-            /* try more random columns for {(1/2) * ncols} times */
-            workspace.ncols_tried = 1;
-            do
+            while (workspace.col_sampler.sample_col(trees.back().col_num, workspace.rnd_generator))
             {
-                decide_column(input_data.ncols_numeric, input_data.ncols_categ,
-                              trees.back().col_num, trees.back().col_type,
-                              workspace.rnd_generator, workspace.runif,
-                              workspace.col_sampler);
-                if (check_is_splittable_col(workspace, trees.back(), input_data))
-                {
-                    get_split_range(workspace, input_data, model_params, trees.back());
-                    if (!workspace.unsplittable)
-                        break;
-                    else
-                        add_unsplittable_col(workspace, trees.back(), input_data);
-                }
-                workspace.ncols_tried++;
+                if (interrupt_switch) return;
+                
+                get_split_range(workspace, input_data, model_params, trees.back());
+                if (workspace.unsplittable)
+                    workspace.col_sampler.drop_col(trees.back().col_num + (trees.back().col_type == Numeric)? (size_t)0 : input_data.ncols_numeric);
+                else
+                    goto produce_split;
             }
-            while (workspace.ncols_tried < input_data.ncols_tot / 2);
+            goto terminal_statistics;
+        }
 
-            /* if that didn't work, try to check all columns in random order */
-            if (workspace.unsplittable)
+        else
+        {
+            if (workspace.try_all)
+                workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
+            workspace.ntried = 0;
+            size_t threshold_shuffle = (workspace.col_sampler.get_remaining_cols() + 1) / 2;
+
+            while (
+                    workspace.try_all?
+                    workspace.col_sampler.sample_col(trees.back().col_num)
+                        :
+                    workspace.col_sampler.sample_col(trees.back().col_num, workspace.rnd_generator)
+                   )
             {
-                probe_all:
-                workspace.go_to_shuffle = true;
-                if (!workspace.col_sampler.is_initialized())
+                if (interrupt_switch) return;
+
+                get_split_range(workspace, input_data, model_params, trees.back());
+                if (workspace.unsplittable)
                 {
-                    if (workspace.cols_shuffled.size() < input_data.ncols_tot)
-                        workspace.cols_shuffled.resize(input_data.ncols_tot);
-                    std::iota(workspace.cols_shuffled.begin(), workspace.cols_shuffled.end(), (size_t)0);
-                    std::shuffle(workspace.cols_shuffled.begin(), workspace.cols_shuffled.end(), workspace.rnd_generator);
+                    workspace.col_sampler.drop_col(trees.back().col_num + (trees.back().col_type == Numeric)? (size_t)0 : input_data.ncols_numeric);
+                    workspace.ntried++;
+                    if (!workspace.try_all && workspace.ntried >= threshold_shuffle)
+                    {
+                        workspace.try_all = true;
+                        workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
+                    }
                 }
 
                 else
                 {
-                    workspace.col_sampler.shuffle_cols(workspace.cols_shuffled, workspace.rnd_generator);
+                    goto produce_split;
                 }
-                
-                for (size_t col : workspace.cols_shuffled)
-                {
-                    if (!workspace.cols_possible[col]) continue;
-                    
-                    if (col < input_data.ncols_numeric)
-                    {
-                        if (input_data.Xc_indptr == NULL)
-                            get_range(workspace.ix_arr.data(), input_data.numeric_data + input_data.nrows * col,
-                                      workspace.st, workspace.end, model_params.missing_action,
-                                      workspace.xmin, workspace.xmax, workspace.unsplittable);
-                        else
-                            get_range(workspace.ix_arr.data(), workspace.st, workspace.end, col,
-                                      input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                      model_params.missing_action, workspace.xmin, workspace.xmax, workspace.unsplittable);
-                    }
-
-                    else
-                    {
-                        get_categs(workspace.ix_arr.data(), input_data.categ_data + input_data.nrows * (col - input_data.ncols_numeric),
-                                   workspace.st, workspace.end, input_data.ncat[col - input_data.ncols_numeric],
-                                   model_params.missing_action, workspace.categs.data(), workspace.npresent, workspace.unsplittable);
-                    }
-
-                    if (workspace.unsplittable)
-                    {
-                        workspace.cols_possible[col] = !workspace.unsplittable;
-                        workspace.col_sampler.drop_col(col);
-                    }
-
-                    else
-                    {
-                        if (col < input_data.ncols_numeric)
-                        {
-                            trees.back().col_num  = col;
-                            trees.back().col_type = Numeric;
-                        }
-
-                        else
-                        {
-                            trees.back().col_num  = col - input_data.ncols_numeric;
-                            trees.back().col_type = Categorical;
-                        }
-
-                        goto picked_col;
-                    }
-                }
-                goto terminal_statistics;
             }
-
-            /* finally, check the range if needed, and later decide on the split point */
-            picked_col:
-            if (workspace.criterion == NoCrit)
-                get_split_range(workspace, input_data, model_params, trees.back());
+            goto terminal_statistics;
         }
-
     }
 
 
     /* for numeric, choose a random point, or pick the best point as determined earlier */
+    produce_split:
     if (trees.back().col_type == Numeric)
     {
         if (workspace.determine_split)
@@ -388,6 +308,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                     {
                         eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
                                          input_data.numeric_data + trees.back().col_num * input_data.nrows,
+                                         workspace.buffer_dbl.data(), true,
                                          workspace.split_ix, trees.back().num_split,
                                          workspace.xmin, workspace.xmax,
                                          workspace.criterion, model_params.min_gain,
@@ -395,6 +316,11 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                         if (model_params.missing_action == Fail) /* data is already split */
                         {
                             workspace.split_ix++;
+                            if (model_params.penalize_range)
+                            {
+                                trees.back().range_low  = workspace.xmin - workspace.xmax + trees.back().num_split;
+                                trees.back().range_high = workspace.xmax - workspace.xmin + trees.back().num_split;
+                            }
                             goto follow_branches;
                         }
                     }
@@ -403,7 +329,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                     {
                         eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
                                          trees.back().col_num, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                         workspace.buffer_dbl.data(), workspace.buffer_szt.data(),
+                                         workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
                                          trees.back().num_split, workspace.xmin, workspace.xmax,
                                          workspace.criterion, model_params.min_gain,
                                          model_params.missing_action);

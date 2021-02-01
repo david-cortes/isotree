@@ -22,7 +22,7 @@
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2020, David Cortes
+*     Copyright (c) 2019-2021, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -91,13 +91,49 @@
     size_t log2ceil(size_t x) {return (size_t)(ceill(log2l((long double) x)));}
 #endif
 
-/* http://fredrik-j.blogspot.com/2009/02/how-not-to-compute-harmonic-numbers.html
-   https://en.wikipedia.org/wiki/Harmonic_number */
 #define THRESHOLD_EXACT_H 256 /* above this will get approximated */
+
+/* adapted from cephes */
+#define EULERS_GAMMA 0.577215664901532860606512
+double digamma(double x)
+{
+    double y, z, z2;
+
+    /* check for positive integer up to 10 */
+    if( (x <= THRESHOLD_EXACT_H) && (x == floor(x)) )
+        return harmonic(x - 1) - EULERS_GAMMA;
+
+    if( x < 1.0e17 )
+    {
+        z = 1.0/(x * x);
+        z2 = square(z);
+        y = z * ( 8.33333333333333333333E-2
+                 -8.33333333333333333333E-3*z
+                 +3.96825396825396825397E-3*z2
+                 -4.16666666666666666667E-3*z2*z
+                 +7.57575757575757575758E-3*square(z2)
+                 -2.10927960927960927961E-2*square(z2)*z
+                 +8.33333333333333333333E-2*square(z2)*z2);
+    }
+    else {
+        y = 0.0;
+    }
+
+    y = log(x)  -  (0.5/x)  -  y;
+    return y;
+}
+
+/* http://fredrik-j.blogspot.com/2009/02/how-not-to-compute-harmonic-numbers.html
+   https://en.wikipedia.org/wiki/Harmonic_number
+   https://github.com/scikit-learn/scikit-learn/pull/19087 */
 double harmonic(size_t n)
 {
     if (n > THRESHOLD_EXACT_H)
-        return logl((long double)n) + (long double)0.5772156649;
+        return logl((long double)n) + (long double)EULERS_GAMMA
+                + 0.5 * (1./(long double)n)
+                - 0.5 * (1./square((long double)n))
+                      * ( 1./6. -   (1./square((long double)n))
+                                  * (1./60. - (1./126.)*(1./square((long double)n))) );
     else
         return harmonic_recursive((double)1, (double)(n + 1));
 }
@@ -126,21 +162,24 @@ double expected_avg_depth(size_t sample_size)
         case 9: return 4609.0/1260.0;
         default:
         {
-            return 2 * (harmonic(sample_size) - 1);
+            return 2. * (harmonic(sample_size) - 1.);
         }
     }
 }
 
+/* Note: H(x) = psi(x+1) + gamma */
 double expected_avg_depth(long double approx_sample_size)
 {
-    if (approx_sample_size < 1.5)
+    if (approx_sample_size <= 1)
         return 0;
-    else if (approx_sample_size < 2.5)
-        return 1;
-    else if (approx_sample_size <= THRESHOLD_EXACT_H)
-        return expected_avg_depth((size_t) roundl(approx_sample_size));
+    else if (approx_sample_size < (long double)INT32_MAX)
+        return 2. * (digamma(approx_sample_size + 1.) + EULERS_GAMMA - 1.);
     else
-        return 2 * logl(approx_sample_size) - (long double)1.4227843351;
+        return 2. * logl(approx_sample_size) + 2.*((long double)EULERS_GAMMA - 1.)
+                + (1./approx_sample_size)
+                - (1./square(approx_sample_size))
+                   * ( 1./6. -   (1./square(approx_sample_size))
+                               * (1./60. - (1./126.)*(1./square(approx_sample_size))) );
 }
 
 /* https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree */
@@ -372,28 +411,8 @@ void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool 
             dmat[i + i * n] = 0;
 }
 
-/* Note: do NOT divide by (n-1) as in some situations it will still need to calculate
-   the standard deviation with 1-2 observations only (e.g. when using the extended model
-   and some column has many rows but only 2 non-missing values, or when using the non-pooled
-   std criterion) */
-#define SD_MIN 1e-12
-double calc_sd_raw(size_t cnt, long double sum, long double sum_sq)
-{
-    if (cnt <= 1)
-        return 0.;
-    else
-        return sqrtl(fmaxl(SD_MIN, (sum_sq - (square(sum) / (long double)cnt)) / (long double)cnt ));
-}
-
-long double calc_sd_raw_l(size_t cnt, long double sum, long double sum_sq)
-{
-    if (cnt <= 1)
-        return 0.;
-    else
-        return sqrtl(fmaxl(SD_MIN, (sum_sq - (square(sum) / (long double)cnt)) / (long double)cnt ));
-}
-
-void build_btree_sampler(std::vector<double> &btree_weights, double *restrict sample_weights,
+template <class real_t>
+void build_btree_sampler(std::vector<double> &btree_weights, real_t *restrict sample_weights,
                          size_t nrows, size_t &log2_n, size_t &btree_offset)
 {
     /* build a perfectly-balanced binary search tree in which each node will
@@ -405,11 +424,12 @@ void build_btree_sampler(std::vector<double> &btree_weights, double *restrict sa
         btree_weights.assign(btree_weights.size(), 0);
     btree_offset = pow2(log2_n) - 1;
 
-    std::copy(sample_weights, sample_weights + nrows, btree_weights.begin() + btree_offset);
+    for (size_t ix = 0; ix < nrows; ix++)
+        btree_weights[ix + btree_offset] = std::fmax(0., sample_weights[ix]);
     for (size_t ix = btree_weights.size() - 1; ix > 0; ix--)
         btree_weights[ix_parent(ix)] += btree_weights[ix];
     
-    if (is_na_or_inf(btree_weights[0]))
+    if (isnan(btree_weights[0]) || btree_weights[0] <= 0)
     {
         fprintf(stderr, "Numeric precision error with sample weights, will not use them.\n");
         log2_n = 0;
@@ -418,9 +438,10 @@ void build_btree_sampler(std::vector<double> &btree_weights, double *restrict sa
     }
 }
 
+template <class real_t>
 void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_replacement,
                         RNG_engine &rnd_generator, std::vector<size_t> &ix_all,
-                        double sample_weights[], std::vector<double> &btree_weights,
+                        real_t sample_weights[], std::vector<double> &btree_weights,
                         size_t log2_n, size_t btree_offset, std::vector<bool> &is_repeated)
 {
     size_t ntake = ix_arr.size();
@@ -454,6 +475,10 @@ void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_rep
        https://stackoverflow.com/questions/57599509/c-random-non-repeated-integers-with-weights */
     else if (sample_weights != NULL)
     {
+        /* TODO: here could instead generate only 1 random number from zero to the full weight,
+           and then subtract from it as it goes down every level. Would have less precision
+           but should still work fine. */
+
         double rnd_subrange, w_left;
         double curr_subrange;
         size_t curr_ix;
@@ -465,7 +490,7 @@ void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_rep
             curr_subrange = btree_weights[0];
             for (size_t lev = 0; lev < log2_n; lev++)
             {
-                rnd_subrange = std::uniform_real_distribution<double>(0, curr_subrange)(rnd_generator);
+                rnd_subrange = std::uniform_real_distribution<double>(0., curr_subrange)(rnd_generator);
                 w_left = btree_weights[ix_child(curr_ix)];
                 curr_ix = ix_child(curr_ix) + (rnd_subrange >= w_left);
                 curr_subrange = btree_weights[curr_ix];
@@ -584,7 +609,8 @@ void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_rep
 }
 
 /* https://stackoverflow.com/questions/57599509/c-random-non-repeated-integers-with-weights */
-void weighted_shuffle(size_t *restrict outp, size_t n, double *restrict weights, double *restrict buffer_arr, RNG_engine &rnd_generator)
+template <class real_t>
+void weighted_shuffle(size_t *restrict outp, size_t n, real_t *restrict weights, double *restrict buffer_arr, RNG_engine &rnd_generator)
 {
     /* determine smallest power of two that is larger than N */
     size_t tree_levels = log2ceil(n);
@@ -595,16 +621,24 @@ void weighted_shuffle(size_t *restrict outp, size_t n, double *restrict weights,
     /* compute sums for the tree leaves at each node */
     size_t offset = pow2(tree_levels) - 1;
     for (size_t ix = 0; ix < n; ix++) {
-        buffer_arr[ix + offset] = weights[ix];
+        buffer_arr[ix + offset] = std::fmax(0., weights[ix]);
     }
     for (size_t ix = pow2(tree_levels+1) - 1; ix > 0; ix--) {
         buffer_arr[ix_parent(ix)] += buffer_arr[ix];
     }
 
+    /* if the weights are invalid, produce an unweighted shuffle */
+    if (isnan(buffer_arr[0]) || buffer_arr[0] <= 0)
+    {
+        std::iota(outp, outp + n, (size_t)0);
+        std::shuffle(outp, outp + n, rnd_generator);
+        return;
+    }
+
     /* sample according to uniform distribution */
     double rnd_subrange, w_left;
     double curr_subrange;
-    int curr_ix;
+    size_t curr_ix;
 
     for (size_t el = 0; el < n; el++)
     {
@@ -632,15 +666,15 @@ void weighted_shuffle(size_t *restrict outp, size_t n, double *restrict weights,
                                   + buffer_arr[ix_child(curr_ix) + 1];
         }
     }
-
 }
 
-/* This one samples with replacement. Algorithm is the same as above but keeps
-   the weights after taking each sample. */
-void WeightedColSampler::initialize(double weights[], size_t n)
+/*  This one samples with replacement. When using weights, the algorithm is the
+    same as for the row sampler, but keeping the weights after taking each iteration. */
+template <class real_t>
+void ColumnSampler::initialize(real_t weights[], size_t n_cols)
 {
-    this->n = n;
-    this->tree_levels = log2ceil(n);
+    this->n_cols = n_cols;
+    this->tree_levels = log2ceil(n_cols);
     if (!this->tree_weights.size())
         this->tree_weights.resize(pow2(this->tree_levels + 1), 0);
     else {
@@ -651,97 +685,196 @@ void WeightedColSampler::initialize(double weights[], size_t n)
 
     /* compute sums for the tree leaves at each node */
     this->offset = pow2(this->tree_levels) - 1;
-    for (size_t ix = 0; ix < this->n; ix++) {
-        this->tree_weights[ix + this->offset] = weights[ix];
-    }
-    for (size_t ix = pow2(this->tree_levels+1) - 1; ix > 0; ix--) {
+    for (size_t ix = 0; ix < this->n_cols; ix++)
+        this->tree_weights[ix + this->offset] = std::fmax(0., weights[ix]);
+    for (size_t ix = this->tree_weights.size() - 1; ix > 0; ix--)
         this->tree_weights[ix_parent(ix)] += tree_weights[ix];
+
+    /* if the weights are invalid, make it an unweighted sampler */
+    if (isnan(this->tree_weights[0]) || this->tree_weights[0] <= 0)
+    {
+        this->tree_weights.clear();
+        this->tree_weights.shrink_to_fit();
+        this->initialize(n_cols);
+    }
+
+    this->n_dropped = 0;
+}
+
+bool ColumnSampler::has_weights()
+{
+    return this->tree_weights.size() > 0;
+}
+
+void ColumnSampler::initialize(size_t n_cols)
+{
+    if (!this->has_weights())
+    {
+        this->n_cols = n_cols;
+        this->curr_pos = n_cols;
+        this->col_indices.resize(n_cols);
+        std::iota(this->col_indices.begin(), this->col_indices.end(), (size_t)0);
     }
 }
 
-void WeightedColSampler::drop_col(size_t col)
+void ColumnSampler::drop_col(size_t col)
 {
-    if (this->is_initialized())
+    if (!this->has_weights())
     {
+        std::swap(this->col_indices[this->last_given], this->col_indices[--this->curr_pos]);
+        if (this->curr_col) this->curr_col--;
+    }
+
+    else
+    {
+        this->n_dropped++;
         size_t curr_ix = col + this->offset;
-        if (this->tree_weights[curr_ix] > 0)
+        this->tree_weights[curr_ix] = 0.;
+        for (size_t lev = 0; lev < this->tree_levels; lev++)
         {
-            this->tree_weights[curr_ix] = 0.;
+            curr_ix = ix_parent(curr_ix);
+            this->tree_weights[curr_ix] =   this->tree_weights[ix_child(curr_ix)]
+                                          + this->tree_weights[ix_child(curr_ix) + 1];
+        }
+    }
+}
+
+void ColumnSampler::prepare_full_pass()
+{
+    this->curr_col = 0;
+
+    if (this->has_weights())
+    {
+        if (this->col_indices.size() < this->n_cols)
+            this->col_indices.resize(this->n_cols);
+        this->curr_pos = 0;
+        for (size_t col = 0; col < this->n_cols; col++)
+        {
+            if (this->tree_weights[col + this->offset] > 0)
+                this->col_indices[this->curr_pos++] = col;
+        }
+    }
+}
+
+bool ColumnSampler::sample_col(size_t &col, RNG_engine &rnd_generator)
+{
+    if (!this->has_weights())
+    {
+        switch(this->curr_pos)
+        {
+            case 0: return false;
+            case 1:
+            {
+                this->last_given = 0;
+                col = this->col_indices[0];
+                return true;
+            }
+            default:
+            {
+                this->last_given = std::uniform_int_distribution<size_t>(0, this->curr_pos-1)(rnd_generator);
+                col = this->col_indices[this->last_given];
+                return true;
+            }
+        }
+    }
+
+    else
+    {
+        /* TODO: here could instead generate only 1 random number from zero to the full weight,
+           and then subtract from it as it goes down every level. Would have less precision
+           but should still work fine. */
+        size_t curr_ix = 0;
+        double rnd_subrange, w_left;
+        double curr_subrange = this->tree_weights[0];
+        if (curr_subrange <= 0)
+            return false;
+
+        for (size_t lev = 0; lev < tree_levels; lev++)
+        {
+            rnd_subrange = std::uniform_real_distribution<double>(0., curr_subrange)(rnd_generator);
+            w_left = this->tree_weights[ix_child(curr_ix)];
+            curr_ix = ix_child(curr_ix) + (rnd_subrange >= w_left);
+            curr_subrange = this->tree_weights[curr_ix];
+        }
+
+        col = curr_ix - this->offset;
+        return true;
+    }
+}
+
+bool ColumnSampler::sample_col(size_t &col)
+{
+    if (this->curr_pos == this->curr_col || this->curr_pos == 0)
+        return false;
+    this->last_given = this->curr_col;
+    col = this->col_indices[this->curr_col++];
+    return true;
+}
+
+void ColumnSampler::shuffle_remainder(RNG_engine &rnd_generator)
+{
+    if (!this->has_weights())
+    {
+        this->prepare_full_pass();
+        std::shuffle(this->col_indices.begin(),
+                     this->col_indices.begin() + this->curr_pos,
+                     rnd_generator);
+    }
+
+    else
+    {
+        if (this->tree_weights[0] <= 0)
+            return;
+        std::vector<double> curr_weights = this->tree_weights;
+        this->curr_pos = 0;
+        this->curr_col = 0;
+
+        if (this->col_indices.size() < this->n_cols)
+            this->col_indices.resize(this->n_cols);
+
+        double rnd_subrange, w_left;
+        double curr_subrange;
+        size_t curr_ix;
+
+        for (this->curr_pos = 0; this->curr_pos < this->n_cols; this->curr_pos++)
+        {
+            curr_ix = 0;
+            curr_subrange = curr_weights[0];
+            if (curr_subrange <= 0)
+                return;
+
+            for (size_t lev = 0; lev < this->tree_levels; lev++)
+            {
+                rnd_subrange = std::uniform_real_distribution<double>(0., curr_subrange)(rnd_generator);
+                w_left = curr_weights[ix_child(curr_ix)];
+                curr_ix = ix_child(curr_ix) + (rnd_subrange >= w_left);
+                curr_subrange = curr_weights[curr_ix];
+            }
+
+            /* finally, add element from this iteration */
+            this->col_indices[this->curr_pos] = curr_ix - this->offset;
+
+            /* now remove the weight of the chosen element */
+            curr_weights[curr_ix] = 0;
             for (size_t lev = 0; lev < this->tree_levels; lev++)
             {
                 curr_ix = ix_parent(curr_ix);
-                this->tree_weights[curr_ix] =   this->tree_weights[ix_child(curr_ix)]
-                                              + this->tree_weights[ix_child(curr_ix) + 1];
+                curr_weights[curr_ix] =   curr_weights[ix_child(curr_ix)]
+                                        + curr_weights[ix_child(curr_ix) + 1];
             }
         }
     }
 }
 
-size_t WeightedColSampler::sample_col(RNG_engine &rnd_generator)
-{
-    size_t curr_ix = 0;
-    double rnd_subrange, w_left;
-    double curr_subrange = this->tree_weights[0];
-    for (size_t lev = 0; lev < tree_levels; lev++)
-    {
-        rnd_subrange = std::uniform_real_distribution<double>(0., curr_subrange)(rnd_generator);
-        w_left = this->tree_weights[ix_child(curr_ix)];
-        curr_ix = ix_child(curr_ix) + (rnd_subrange >= w_left);
-        curr_subrange = this->tree_weights[curr_ix];
-    }
 
-    return curr_ix - this->offset;
+size_t ColumnSampler::get_remaining_cols()
+{
+    if (!this->has_weights())
+        return this->curr_pos;
+    else
+        return this->n_cols - this->n_dropped;
 }
 
-void WeightedColSampler::shuffle_cols(std::vector<size_t> &out, RNG_engine &rnd_generator)
-{
-    out.reserve(this->n);
-    out.resize(this->n);
-    std::vector<double> curr_weight = this->tree_weights;
-    size_t n_available = 0;
-    double rnd_subrange, w_left;
-    double curr_subrange;
-    int curr_ix;
-
-    for (size_t el = 0; el < this->n; el++)
-    {
-        /* go down the tree by drawing a random number and
-           checking if it falls in the left or right sub-ranges */
-        curr_ix = 0;
-        curr_subrange = curr_weight[0];
-        if (curr_subrange == 0)
-            break;
-
-        for (size_t lev = 0; lev < this->tree_levels; lev++)
-        {
-            rnd_subrange = std::uniform_real_distribution<double>(0., curr_subrange)(rnd_generator);
-            w_left = curr_weight[ix_child(curr_ix)];
-            curr_ix = ix_child(curr_ix) + (rnd_subrange >= w_left);
-            curr_subrange = curr_weight[curr_ix];
-        }
-
-        /* finally, add element from this iteration */
-        out[el] = curr_ix - this->offset;
-
-        /* now remove the weight of the chosen element */
-        curr_weight[curr_ix] = 0;
-        for (size_t lev = 0; lev < this->tree_levels; lev++)
-        {
-            curr_ix = ix_parent(curr_ix);
-            curr_weight[curr_ix] =   curr_weight[ix_child(curr_ix)]
-                                   + curr_weight[ix_child(curr_ix) + 1];
-        }
-
-        n_available++;
-    }
-
-    out.resize(n_available);
-}
-
-bool WeightedColSampler::is_initialized()
-{
-    return this->tree_weights.size() > 0;
-}
 
 /* For hyperplane intersections */
 size_t divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, double split_point)
@@ -762,7 +895,8 @@ size_t divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, d
 }
 
 /* For numerical columns */
-void divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, double split_point,
+template <class real_t>
+void divide_subset_split(size_t ix_arr[], real_t x[], size_t st, size_t end, double split_point,
                          MissingAction missing_action, size_t &st_NA, size_t &end_NA, size_t &split_ix)
 {
     size_t temp;
@@ -814,8 +948,9 @@ void divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, dou
 }
 
 /* For sparse numeric columns */
+template <class real_t, class sparse_ix>
 void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-                         double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[], double split_point,
+                         real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[], double split_point,
                          MissingAction missing_action, size_t &st_NA, size_t &end_NA, size_t &split_ix)
 {
     /* TODO: this is a mess, needs refactoring */
@@ -1367,7 +1502,8 @@ void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end,
 }
 
 /* for regular numeric columns */
-void get_range(size_t ix_arr[], double x[], size_t st, size_t end,
+template <class real_t>
+void get_range(size_t ix_arr[], real_t x[], size_t st, size_t end,
                MissingAction missing_action, double &xmin, double &xmax, bool &unsplittable)
 {
     xmin =  HUGE_VAL;
@@ -1396,8 +1532,9 @@ void get_range(size_t ix_arr[], double x[], size_t st, size_t end,
 }
 
 /* for sparse inputs */
+template <class real_t, class sparse_ix>
 void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-               double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+               real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                MissingAction missing_action, double &xmin, double &xmax, bool &unsplittable)
 {
     /* ix_arr must already be sorted beforehand */
@@ -1527,7 +1664,8 @@ long double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t
         return -HUGE_VAL;
 }
 
-size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, double x[])
+template <class real_t>
+size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, real_t x[])
 {
     size_t st_non_na = st;
     size_t temp;
@@ -1546,7 +1684,8 @@ size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, double x[])
     return st_non_na;
 }
 
-size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, size_t col_num, double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[])
+template <class real_t, class sparse_ix>
+size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, size_t col_num, real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[])
 {
     size_t st_non_na = st;
     size_t temp;
@@ -1620,8 +1759,9 @@ size_t center_NAs(size_t *restrict ix_arr, size_t st_left, size_t st, size_t cur
     return curr_pos;
 }
 
+template <class real_t, class sparse_ix>
 void todense(size_t ix_arr[], size_t st, size_t end,
-             size_t col_num, double *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+             size_t col_num, real_t *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
              double *restrict buffer_arr)
 {
     std::fill(buffer_arr, buffer_arr + (end - st + 1), (double)0);
@@ -1653,7 +1793,7 @@ void todense(size_t ix_arr[], size_t st, size_t end,
     }
 }
 
-/* TODO: remove this once SciPy implements it for 'size_t' */
+template <class sparse_ix>
 bool check_indices_are_sorted(sparse_ix indices[], size_t n)
 {
     if (n <= 1)
@@ -1666,7 +1806,8 @@ bool check_indices_are_sorted(sparse_ix indices[], size_t n)
     return true;
 }
 
-void sort_csc_indices(double *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr, size_t ncols_numeric)
+template <class real_t, class sparse_ix>
+void sort_csc_indices(real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr, size_t ncols_numeric)
 {
     std::vector<double> buffer_sorted_vals;
     std::vector<sparse_ix> buffer_sorted_ix;
@@ -1698,6 +1839,9 @@ void sort_csc_indices(double *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix
         }
     }
 }
+
+bool interrupt_switch = false;
+bool handle_is_locked = false;
 
 /* Function to handle interrupt signals */
 void set_interrup_global_variable(int s)
@@ -1739,33 +1883,41 @@ SignalSwitcher::SignalSwitcher()
 {
     #pragma omp critical
     {
-        interrupt_switch = false;
-        this->old_sig = signal(SIGINT, set_interrup_global_variable);
-        this->is_active = true;
+        if (!handle_is_locked)
+        {
+            handle_is_locked = true;
+            interrupt_switch = false;
+            this->old_sig = signal(SIGINT, set_interrup_global_variable);
+            this->is_active = true;
+        }
+
+        else {
+            this->is_active = false;
+        }
     }
 }
 
 SignalSwitcher::~SignalSwitcher()
 {
+    #ifndef _FOR_PYTHON
     #pragma omp critical
     {
-        if (this->is_active)
-            signal(SIGINT, this->old_sig);
-        this->is_active = false;
-        #ifndef _FOR_PYTHON
-        interrupt_switch = false;
-        #endif
+        if (this->is_active && handle_is_locked)
+            interrupt_switch = false;
     }
+    #endif
+    this->restore_handle();
 }
 
 void SignalSwitcher::restore_handle()
 {
     #pragma omp critical
     {
-        if (this->is_active)
+        if (this->is_active && handle_is_locked)
         {
             signal(SIGINT, this->old_sig);
             this->is_active = false;
+            handle_is_locked = false;
         }
     }
 }

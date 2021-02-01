@@ -35,8 +35,8 @@ Note also that, if using sparse matrices from package `Matrix`, converting to `d
   closer to one further away points, and closer to 0.5 average distance.
   \item `"avg_sep"` for the non-standardized average separation depth.
   \item `"tree_num"` for the terminal node number for each tree - if choosing this option,
-  will return a list containing both the outlier score and the terminal node numbers, under entries
-  `score` and `tree_num`, respectively.
+  will return a list containing both the average isolation depth and the terminal node numbers, under entries
+  `avg_depth` and `tree_num`, respectively.
   \item `"impute"` for imputation of missing values in `newdata`.
 }}
 
@@ -55,10 +55,14 @@ or `"avg_sep"`, will calculate pairwise distances/separation between the points 
 }
 \value{
 The requested prediction type, which can be: \itemize{
-\item A vector with one entry per row in `newdata` (for output types `"score"`, `"avg_depth"`, `"tree_num"`).
-\item A square matrix or vector with the upper triangular part of a square matrix
-(for output types `"dist"`, `"avg_sep"`, with no `refdata`)
-\item A matrix with points in `newdata` as rows and points in `refdata` as columns
+\item A numeric vector with one entry per row in `newdata` (for output types `"score"`, `"avg_depth"`).
+\item A list with entries `avg_depth` (numeric vector)
+and `tree_num` (integer matrix indicating the terminal node number under each tree for each
+observation, with trees as columns), for output type
+`"tree_num"`.
+\item A numeric square matrix or vector with the upper triangular part of a square matrix
+(for output types `"dist"`, `"avg_sep"`, with no `refdata`).
+\item A numeric matrix with points in `newdata` as rows and points in `refdata` as columns
 (for output types `"dist"`, `"avg_sep"`, with `refdata`).
 \item The same type as the input `newdata` (for output type `"impute"`).}
 }
@@ -71,8 +75,11 @@ The standardized outlier score is calculated according to the original paper's f
 \eqn{\bar{d}}{avg(depth)} is the average depth under each tree at which an observation
 becomes isolated (a remainder is extrapolated if the actual terminal node is not isolated),
 and \eqn{c(n)}{c(nobs)} is the expected isolation depth if observations were uniformly random
-(see references under \link{isolation.forest} for details). This distribution should be centered
-around 0.5, unless using non-random splits (parameters
+(see references under \link{isolation.forest} for details). The actual calculation
+of \eqn{c(n)}{c(nobs)} however differs from the paper as this package uses more exact procedures
+for calculation of harmonic numbers.
+
+The distribution of outlier scores should be centered around 0.5, unless using non-random splits (parameters
 `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_split_avg_gain`, `prob_split_pooled_gain`)
 and/or range penalizations (which are on by default).
 
@@ -92,7 +99,7 @@ terminal node numbers will generate index mappings on the fly for all tree nodes
 
 The outlier scores/depth predict functionality is optimized for making predictions on one or a
 few rows at a time - for making large batches of predictions, it might be faster to use the
-`output_score=TRUE` in `isolation.forest`.
+option `output_score=TRUE` in `isolation.forest`.
 }
 \seealso{
 \link{isolation.forest} \link{unpack.isolation.forest}

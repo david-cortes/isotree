@@ -22,7 +22,7 @@
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2020, David Cortes
+*     Copyright (c) 2019-2021, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -43,23 +43,36 @@
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef ISOTREE_H
-#define ISOTREE_H
-
 /* Standard headers */
 #include <stddef.h>
+#include <cstdint>
 #include <vector>
 
-/* For sparse matrices */
-#ifdef _FOR_R
-    #define sparse_ix int
-#else
-    #define sparse_ix size_t
+/*  The library has overloaded functions supporting different input types.
+    Note that, while 'float' type is supported, it will
+    be slower to fit models to them as the models internally use
+    'double' and 'long double', and it's not recommended to use.
+
+    In order to use the library with different types than the ones
+    suggested here, add something like this before including the
+    library header:
+      #define real_t float
+      #define sparse_ix int
+      #include "isotree.hpp"
+    The header may be included multiple times if required. */
+#ifndef real_t
+    #define real_t double     /* supported: float, double */
+#endif
+#ifndef sparse_ix
+    #define sparse_ix size_t  /* supported: int, int64_t, size_t */
 #endif
 
 #ifndef _ENABLE_CEREAL
 #define _ENABLE_CEREAL
 #endif
+
+#ifndef ISOTREE_H
+#define ISOTREE_H
 
 
 /* Types used through the package */
@@ -118,8 +131,8 @@ typedef struct IsoTree {
             this->remainder
             );
     }
-    IsoTree() {};
     #endif
+    IsoTree() = default;
 
 } IsoTree;
 
@@ -163,8 +176,8 @@ typedef struct IsoHPlane {
             this->remainder
             );
     }
-    IsoHPlane() {};
     #endif
+    IsoHPlane() = default;
 } IsoHPlane;
 
 /* Note: don't use long doubles in the outside outputs or there will be issues with MINGW in windows */
@@ -193,8 +206,8 @@ typedef struct IsoForest {
             this->orig_sample_size
             );
     }
-    IsoForest() {};
     #endif
+    IsoForest() = default;
 } IsoForest;
 
 typedef struct ExtIsoForest {
@@ -220,8 +233,8 @@ typedef struct ExtIsoForest {
             this->orig_sample_size
             );
     }
-    ExtIsoForest() {};
     #endif
+    ExtIsoForest() = default;
 } ExtIsoForest;
 
 typedef struct ImputeNode {
@@ -244,7 +257,7 @@ typedef struct ImputeNode {
             );
     }
     #endif
-    ImputeNode() {};
+    ImputeNode() = default;
 
     ImputeNode(size_t parent)
     {
@@ -276,11 +289,11 @@ typedef struct Imputer {
     }
     #endif
 
-    Imputer() {};
+    Imputer() = default;
 
 } Imputer;
 
-
+#endif /* ISOTREE_H */
 
 /*  Fit Isolation Forest model, or variant of it such as SCiForest
 * 
@@ -322,6 +335,7 @@ typedef struct Imputer {
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - Xc_ind[nnz]
 *       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns.
 * - Xc_indptr[ncols_numeric + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
@@ -531,8 +545,12 @@ typedef struct Imputer {
 *       Seed that will be used to generate random numbers used by the model.
 * - nthreads
 *       Number of parallel threads to use. Note that, the more threads, the more memory will be
-*       allocated, even if the thread does not end up being used. Ignored when not building with
-*       OpenMP support.
+*       allocated, even if the thread does not end up being used.
+*       Be aware that most of the operations are bound by memory bandwidth, which means that
+*       adding more threads will not result in a linear speed-up. For some types of data
+*       (e.g. large sparse matrices with small sample sizes), adding more threads might result
+*       in only a very modest speed up (e.g. 1.5x faster with 4x more threads),
+*       even if all threads look fully utilized.
 * 
 * Returns
 * =======
@@ -563,15 +581,15 @@ typedef struct Imputer {
 * [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 */
 int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                double numeric_data[],  size_t ncols_numeric,
+                real_t numeric_data[],  size_t ncols_numeric,
                 int    categ_data[],    size_t ncols_categ,    int ncat[],
-                double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                 size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
-                double sample_weights[], bool with_replacement, bool weight_as_sample,
+                real_t sample_weights[], bool with_replacement, bool weight_as_sample,
                 size_t nrows, size_t sample_size, size_t ntrees, size_t max_depth,
                 bool   limit_depth, bool penalize_range,
                 bool   standardize_dist, double tmat[],
-                double output_depths[], bool standardize_depth,
+                real_t output_depths[], bool standardize_depth,
                 double col_weights[], bool weigh_by_kurt,
                 double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
                 double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
@@ -580,6 +598,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
                 uint64_t random_seed, int nthreads);
+
 
 
 /* Add additional trees to already-fitted isolation forest model
@@ -630,6 +649,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - Xc_ind[nnz]
 *       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns.
 * - Xc_indptr[ncols_numeric + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
@@ -716,13 +736,13 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Seed that will be used to generate random numbers used by the model.
 */
 int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-             double numeric_data[],  size_t ncols_numeric,
+             real_t numeric_data[],  size_t ncols_numeric,
              int    categ_data[],    size_t ncols_categ,    int ncat[],
-             double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-             size_t ndim, size_t ntry, CoefType coef_type,
-             double sample_weights[], size_t nrows, size_t max_depth,
+             real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+             size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
+             real_t sample_weights[], size_t nrows, size_t max_depth,
              bool   limit_depth,   bool penalize_range,
-             double col_weights[], bool weigh_by_kurt,
+             real_t col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
              double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
              double min_gain, MissingAction missing_action,
@@ -737,27 +757,47 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * Parameters
 * ==========
 * - numeric_data[nrows * ncols_numeric]
-*       Pointer to numeric data for which to make predictions. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to numeric data for which to make predictions. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'is_col_major').
 *       Pass NULL if there are no dense numeric columns.
 *       Can only pass one of 'numeric_data', 'Xc' + 'Xc_ind' + 'Xc_indptr', 'Xr' + 'Xr_ind' + 'Xr_indptr'.
 * - categ_data[nrows * ncols_categ]
-*       Pointer to categorical data for which to make predictions. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to categorical data for which to make predictions. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'is_col_major').
 *       Pass NULL if there are no categorical columns.
 *       Each category should be represented as an integer, and these integers must start at zero and
 *       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
 *       present when the model was fit (note that they are not treated as being ordinal, this is just
 *       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
 *       must be the same as was used in the data to which the model was fit.
+* - is_col_major
+*       Whether 'numeric_data' and 'categ_data' come in column-major order, like the data to which the
+*       model was fit. If passing 'false', will assume they are in row-major order. Note that most of
+*       the functions in this library work only with column-major order, but here both are suitable
+*       and row-major is preferred. Both arrays must have the same orientation (row/column major).
+* - ncols_numeric
+*       Number of columns in 'numeric_data'. This is ignored when the data is sparse or comes
+*       in column-major order. Note that the number of columns must not be lower than the number
+*       of columns to which the model was fit, and when using column-major order, must have
+*       the same number of columns as the data to which the model was fit (i.e. cannot have
+*       new columns).
+* - ncols_categ
+*       Number of columns in 'categ_data'. This is ignored when the data comes
+*       in column-major order. Note that the number of columns must not be lower than the number
+*       of columns to which the model was fit, and when using column-major order, must have
+*       the same number of columns as the data to which the model was fit (i.e. cannot have
+*       new columns).
 * - Xc[nnz]
 *       Pointer to numeric data in sparse numeric matrix in CSC format (column-compressed).
 *       Pass NULL if there are no sparse numeric columns.
 *       Can only pass one of 'numeric_data', 'Xc' + 'Xc_ind' + 'Xc_indptr', 'Xr' + 'Xr_ind' + 'Xr_indptr'.
 * - Xc_ind[nnz]
 *       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns in CSC format.
 * - Xc_indptr[ncols_categ + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
@@ -769,6 +809,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Can only pass one of 'numeric_data', 'Xc' + 'Xc_ind' + 'Xc_indptr', 'Xr' + 'Xr_ind' + 'Xr_indptr'. 
 * - Xr_ind[nnz]
 *       Pointer to column indices to which each non-zero entry in 'Xr' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns in CSR format.
 * - Xr_indptr[nrows + 1]
 *       Pointer to row index pointers that tell at entry [row] where does row 'row'
@@ -805,12 +846,34 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       when passing this parameter, and as such, there will be some overhead regardless of
 *       the actual number of rows. Pass NULL if only average depths or outlier scores are desired.
 */
-void predict_iforest(double numeric_data[], int categ_data[],
-                     double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                     double Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
+void predict_iforest(real_t numeric_data[], int categ_data[],
+                     bool is_col_major, size_t ncols_numeric, size_t ncols_categ,
+                     real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                     real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                      size_t nrows, int nthreads, bool standardize,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                      double output_depths[],   sparse_ix tree_num[]);
+
+
+
+/* Get the number of nodes present in a given model, per tree
+* 
+* Parameters
+* ==========
+* - model_outputs
+*       Pointer to fitted single-variable model object from function 'fit_iforest'.
+* - model_outputs_ext
+*       Pointer to fitted extended model object from function 'fit_iforest'.
+* - n_nodes[ntrees] (out)
+*       Number of nodes in tree of the model, including non-terminal nodes.
+* - n_terminal[ntrees] (out)
+*       Number of terminal nodes in each tree of the model.
+* - nthreads
+*       Number of parallel threads to use.
+*/
+void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads);
+void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads);
+
 
 
 /* Calculate distance or similarity between data points
@@ -843,6 +906,7 @@ void predict_iforest(double numeric_data[], int categ_data[],
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - Xc_ind[nnz]
 *       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns in CSC format.
 * - Xc_indptr[ncols_categ + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
@@ -902,8 +966,8 @@ void predict_iforest(double numeric_data[], int categ_data[],
 *       assumed to be the first 'n_from' rows.
 *       Ignored when 'tmat' is passed.
 */
-void calc_similarity(double numeric_data[], int categ_data[],
-                     double Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+void calc_similarity(real_t numeric_data[], int categ_data[],
+                     real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                      double tmat[], double rmat[], size_t n_from);
@@ -914,18 +978,18 @@ void calc_similarity(double numeric_data[], int categ_data[],
 * Parameters
 * ==========
 * - numeric_data[nrows * ncols_numeric] (in, out)
-*       Pointer to numeric data in which missing values will be imputed. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to numeric data in which missing values will be imputed. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'is_col_major').
 *       Pass NULL if there are no dense numeric columns.
 *       Can only pass one of 'numeric_data', 'Xr' + 'Xr_ind' + 'Xr_indptr'.
 *       Imputations will overwrite values in this same array.
-* - ncols_numeric
-*       Number of numeric columns in the data (whether they come in a sparse matrix or dense array).
 * - categ_data[nrows * ncols_categ]
-*       Pointer to categorical data in which missing values will be imputed. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to categorical data in which missing values will be imputed. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'is_col_major').
 *       Pass NULL if there are no categorical columns.
 *       Each category should be represented as an integer, and these integers must start at zero and
 *       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
@@ -933,6 +997,11 @@ void calc_similarity(double numeric_data[], int categ_data[],
 *       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
 *       must be the same as was used in the data to which the model was fit.
 *       Imputations will overwrite values in this same array.
+* - is_col_major
+*       Whether 'numeric_data' and 'categ_data' come in column-major order, like the data to which the
+*       model was fit. If passing 'false', will assume they are in row-major order. Note that most of
+*       the functions in this library work only with column-major order, but here both are suitable
+*       and row-major is preferred. Both arrays must have the same orientation (row/column major).
 * - ncols_categ
 *       Number of categorical columns in the data.
 * - ncat[ncols_categ]
@@ -946,6 +1015,7 @@ void calc_similarity(double numeric_data[], int categ_data[],
 *       Imputations will overwrite values in this same array.
 * - Xr_ind[nnz]
 *       Pointer to column indices to which each non-zero entry in 'Xr' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns in CSR format.
 * - Xr_indptr[nrows + 1]
 *       Pointer to row index pointers that tell at entry [row] where does row 'row'
@@ -969,11 +1039,12 @@ void calc_similarity(double numeric_data[], int categ_data[],
 *       Pointer to fitted imputation node obects for the same trees as in 'model_outputs' or 'model_outputs_ext',
 *       as produced from function 'fit_iforest',
 */
-void impute_missing_values(double numeric_data[], int categ_data[],
-                           double Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
+void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
+                           real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                            size_t nrows, int nthreads,
                            IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                            Imputer &imputer);
+
 
 /* Append trees from one model into another
 * 
@@ -1195,5 +1266,3 @@ std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *mo
                                       std::vector<std::vector<std::string>> &categ_levels,
                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
                                       int nthreads);
-
-#endif /* #ifndef ISOTREE_H */

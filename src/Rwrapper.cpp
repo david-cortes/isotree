@@ -22,7 +22,7 @@
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2020, David Cortes
+*     Copyright (c) 2019-2021, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -58,6 +58,18 @@
 
 /* This is the package's header */
 #include "isotree.hpp"
+
+/* Library is templated, base R comes with only these 2 types though */
+#include "model_joined.hpp"
+#define real_t double
+#define sparse_ix int
+#include "instantiate_model.hpp"
+
+
+/*  Note: the R version calls the 'sort_csc_indices' templated function,
+    so it's not enough to just include 'isotree_exportable.hpp' and let
+    the templates be instantiated elsewhere. */
+
 
 SEXP alloc_RawVec(void *data)
 {
@@ -172,8 +184,8 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     int*        categ_data_ptr      =  NULL;
     int*        ncat_ptr            =  NULL;
     double*     Xc_ptr              =  NULL;
-    sparse_ix*  Xc_ind_ptr          =  NULL;
-    sparse_ix*  Xc_indptr_ptr       =  NULL;
+    int      *  Xc_ind_ptr          =  NULL;
+    int      *  Xc_indptr_ptr       =  NULL;
     double*     sample_weights_ptr  =  NULL;
     double*     col_weights_ptr     =  NULL;
     std::vector<double> Xcpp;
@@ -401,8 +413,8 @@ Rcpp::RawVector fit_tree(SEXP model_R_ptr,
     int*        categ_data_ptr      =  NULL;
     int*        ncat_ptr            =  NULL;
     double*     Xc_ptr              =  NULL;
-    sparse_ix*  Xc_ind_ptr          =  NULL;
-    sparse_ix*  Xc_indptr_ptr       =  NULL;
+    int      *  Xc_ind_ptr          =  NULL;
+    int      *  Xc_indptr_ptr       =  NULL;
     double*     sample_weights_ptr  =  NULL;
     double*     col_weights_ptr     =  NULL;
     std::vector<double> Xcpp;
@@ -535,12 +547,12 @@ void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
     double*     Xc_ptr              =  NULL;
-    sparse_ix*  Xc_ind_ptr          =  NULL;
-    sparse_ix*  Xc_indptr_ptr       =  NULL;
+    int      *  Xc_ind_ptr          =  NULL;
+    int      *  Xc_indptr_ptr       =  NULL;
     double*     Xr_ptr              =  NULL;
-    sparse_ix*  Xr_ind_ptr          =  NULL;
-    sparse_ix*  Xr_indptr_ptr       =  NULL;
-    sparse_ix*  tree_num_ptr        =  NULL;
+    int      *  Xr_ind_ptr          =  NULL;
+    int      *  Xr_indptr_ptr       =  NULL;
+    int      *  tree_num_ptr        =  NULL;
     std::vector<double> Xcpp;
 
     if (X_num.size())
@@ -596,12 +608,13 @@ void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector
         if (Xr.size())    Xr_ptr           = set_R_nan_as_C_nan(Xr_ptr, Xr.size(), Xcpp, nthreads);
     }
 
-    predict_iforest(numeric_data_ptr, categ_data_ptr,
-                    Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
-                    Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
-                    nrows, nthreads, standardize,
-                    model_ptr, ext_model_ptr,
-                    depths_ptr, tree_num_ptr);
+    predict_iforest<double, int>(numeric_data_ptr, categ_data_ptr,
+                                 true, (size_t)0, (size_t)0,
+                                 Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
+                                 Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
+                                 nrows, nthreads, standardize,
+                                 model_ptr, ext_model_ptr,
+                                 depths_ptr, tree_num_ptr);
 }
 
 // [[Rcpp::export(rng = false)]]
@@ -615,8 +628,8 @@ void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericVector dm
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
     double*     Xc_ptr              =  NULL;
-    sparse_ix*  Xc_ind_ptr          =  NULL;
-    sparse_ix*  Xc_indptr_ptr       =  NULL;
+    int      *  Xc_ind_ptr          =  NULL;
+    int      *  Xc_indptr_ptr       =  NULL;
     std::vector<double> Xcpp;
 
     if (X_num.size())
@@ -680,8 +693,8 @@ Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
     double*     Xr_ptr              =  NULL;
-    sparse_ix*  Xr_ind_ptr          =  NULL;
-    sparse_ix*  Xr_indptr_ptr       =  NULL;
+    int      *  Xr_ind_ptr          =  NULL;
+    int      *  Xr_indptr_ptr       =  NULL;
 
     if (X_num.size())
     {
@@ -715,7 +728,7 @@ Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
     Imputer* imputer_ptr = static_cast<Imputer*>(R_ExternalPtrAddr(imputer_R_ptr));
 
 
-    impute_missing_values(numeric_data_ptr, categ_data_ptr,
+    impute_missing_values(numeric_data_ptr, categ_data_ptr, true,
                           Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
                           nrows, nthreads,
                           model_ptr, ext_model_ptr,

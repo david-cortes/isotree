@@ -22,7 +22,7 @@
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2020, David Cortes
+*     Copyright (c) 2019-2021, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -52,18 +52,18 @@
 * Parameters
 * ==========
 * - numeric_data[nrows * ncols_numeric] (in, out)
-*       Pointer to numeric data in which missing values will be imputed. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to numeric data in which missing values will be imputed. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'is_col_major').
 *       Pass NULL if there are no dense numeric columns.
 *       Can only pass one of 'numeric_data', 'Xr' + 'Xr_ind' + 'Xr_indptr'.
 *       Imputations will overwrite values in this same array.
-* - ncols_numeric
-*       Number of numeric columns in the data (whether they come in a sparse matrix or dense array).
 * - categ_data[nrows * ncols_categ]
-*       Pointer to categorical data in which missing values will be imputed. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to categorical data in which missing values will be imputed. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'is_col_major').
 *       Pass NULL if there are no categorical columns.
 *       Each category should be represented as an integer, and these integers must start at zero and
 *       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
@@ -71,6 +71,11 @@
 *       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
 *       must be the same as was used in the data to which the model was fit.
 *       Imputations will overwrite values in this same array.
+* - is_col_major
+*       Whether 'numeric_data' and 'categ_data' come in column-major order, like the data to which the
+*       model was fit. If passing 'false', will assume they are in row-major order. Note that most of
+*       the functions in this library work only with column-major order, but here both are suitable
+*       and row-major is preferred. Both arrays must have the same orientation (row/column major).
 * - ncols_categ
 *       Number of categorical columns in the data.
 * - ncat[ncols_categ]
@@ -84,6 +89,7 @@
 *       Imputations will overwrite values in this same array.
 * - Xr_ind[nnz]
 *       Pointer to column indices to which each non-zero entry in 'Xr' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
 *       Pass NULL if there are no sparse numeric columns in CSR format.
 * - Xr_indptr[nrows + 1]
 *       Pointer to row index pointers that tell at entry [row] where does row 'row'
@@ -107,13 +113,16 @@
 *       Pointer to fitted imputation node obects for the same trees as in 'model_outputs' or 'model_outputs_ext',
 *       as produced from function 'fit_iforest',
 */
-void impute_missing_values(double numeric_data[], int categ_data[],
-                           double Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
+template <class real_t, class sparse_ix>
+void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
+                           real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                            size_t nrows, int nthreads,
                            IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                            Imputer &imputer)
 {
-    PredictionData prediction_data = {numeric_data, categ_data, nrows,
+    PredictionData<real_t, sparse_ix>
+                   prediction_data = {numeric_data, categ_data, nrows,
+                                      is_col_major, imputer.ncols_numeric, imputer.ncols_categ,
                                       NULL, NULL, NULL,
                                       Xr, Xr_ind, Xr_indptr};
 
@@ -128,9 +137,9 @@ void impute_missing_values(double numeric_data[], int categ_data[],
     if ((size_t)nthreads > end)
         nthreads = (int)end;
     #ifdef _OPENMP
-        std::vector<ImputedData> imp_memory(nthreads);
+        std::vector<ImputedData<sparse_ix>> imp_memory(nthreads);
     #else
-        std::vector<ImputedData> imp_memory(1);
+        std::vector<ImputedData<sparse_ix>> imp_memory(1);
     #endif
 
 
@@ -151,7 +160,7 @@ void impute_missing_values(double numeric_data[], int categ_data[],
                                &imp_memory[omp_get_thread_num()],
                                (double) 1,
                                ix_arr[row],
-                               NULL,
+                               (sparse_ix*)NULL,
                                (size_t) 0);
             }
 
@@ -178,7 +187,7 @@ void impute_missing_values(double numeric_data[], int categ_data[],
                                 temp,
                                 &imputer.imputer_tree[&hplane - &(model_outputs_ext->hplanes[0])],
                                 &imp_memory[omp_get_thread_num()],
-                                NULL,
+                                (sparse_ix*)NULL,
                                 ix_arr[row]);
             }
 
@@ -189,6 +198,7 @@ void impute_missing_values(double numeric_data[], int categ_data[],
 
 }
 
+template <class InputData>
 void initialize_imputer(Imputer &imputer, InputData &input_data, size_t ntrees, int nthreads)
 {
     imputer.ncols_numeric  =  input_data.ncols_numeric;
@@ -264,6 +274,7 @@ void initialize_imputer(Imputer &imputer, InputData &input_data, size_t ntrees, 
 
 
 /* https://en.wikipedia.org/wiki/Kahan_summation_algorithm */
+template <class InputData, class WorkerMemory>
 void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
                        InputData  &input_data, ModelParams  &model_params,
                        std::vector<ImputeNode> &imputer_tree,
@@ -656,6 +667,7 @@ void drop_nonterminal_imp_node(std::vector<ImputeNode>  &imputer_tree,
     imputer_tree.shrink_to_fit();
 }
 
+template <class ImputedData>
 void combine_imp_single(ImputedData &imp_addfrom, ImputedData &imp_addto)
 {
     size_t col;
@@ -681,6 +693,7 @@ void combine_imp_single(ImputedData &imp_addfrom, ImputedData &imp_addto)
     }
 }
 
+template <class ImputedData, class WorkerMemory>
 void combine_tree_imputations(WorkerMemory &workspace,
                               std::vector<ImputedData> &impute_vec,
                               std::unordered_map<size_t, ImputedData> &impute_map,
@@ -705,6 +718,7 @@ void combine_tree_imputations(WorkerMemory &workspace,
 }
 
 
+template <class ImputedData>
 void add_from_impute_node(ImputeNode &imputer, ImputedData &imputed_data, double w)
 {
     size_t col;
@@ -731,6 +745,7 @@ void add_from_impute_node(ImputeNode &imputer, ImputedData &imputed_data, double
 }
 
 
+template <class InputData, class WorkerMemory>
 void add_from_impute_node(ImputeNode &imputer, WorkerMemory &workspace, InputData &input_data)
 {
     if (workspace.impute_vec.size())
@@ -794,7 +809,7 @@ void add_from_impute_node(ImputeNode &imputer, WorkerMemory &workspace, InputDat
     }
 }
 
-template <class imp_arr>
+template <class imp_arr, class InputData>
 void apply_imputation_results(imp_arr    &impute_vec,
                               Imputer    &imputer,
                               InputData  &input_data,
@@ -809,7 +824,7 @@ void apply_imputation_results(imp_arr    &impute_vec,
 
         for (size_t col = 0; col < input_data.ncols_numeric; col++)
         {
-            for (sparse_ix ix = input_data.Xc_indptr[col]; ix < input_data.Xc_indptr[col + 1]; ix++)
+            for (auto ix = input_data.Xc_indptr[col]; ix < input_data.Xc_indptr[col + 1]; ix++)
             {
                 if (is_na_or_inf(input_data.Xc[ix]))
                 {
@@ -867,6 +882,7 @@ void apply_imputation_results(imp_arr    &impute_vec,
     }
 }
 
+template <class ImputedData, class InputData>
 void apply_imputation_results(std::vector<ImputedData> &impute_vec,
                               std::unordered_map<size_t, ImputedData> &impute_map,
                               Imputer   &imputer,
@@ -880,6 +896,7 @@ void apply_imputation_results(std::vector<ImputedData> &impute_vec,
 }
 
 
+template <class PredictionData, class ImputedData>
 void apply_imputation_results(PredictionData  &prediction_data,
                               ImputedData     &imp,
                               Imputer         &imputer,
@@ -887,17 +904,36 @@ void apply_imputation_results(PredictionData  &prediction_data,
 {
     size_t col;
     size_t pos = 0;
-    for (size_t ix = 0; ix < imp.n_missing_num; ix++)
+    if (prediction_data.is_col_major)
     {
-        col = imp.missing_num[ix];
-        if (imp.num_weight[ix] > 0 && !is_na_or_inf(imp.num_sum[ix]))
-            prediction_data.numeric_data[row + col * prediction_data.nrows]
-                =
-            imp.num_sum[ix] / imp.num_weight[ix];
-        else
-            prediction_data.numeric_data[row + col * prediction_data.nrows]
-                =
-            imputer.col_means[col];
+        for (size_t ix = 0; ix < imp.n_missing_num; ix++)
+        {
+            col = imp.missing_num[ix];
+            if (imp.num_weight[ix] > 0 && !is_na_or_inf(imp.num_sum[ix]))
+                prediction_data.numeric_data[row + col * prediction_data.nrows]
+                    =
+                imp.num_sum[ix] / imp.num_weight[ix];
+            else
+                prediction_data.numeric_data[row + col * prediction_data.nrows]
+                    =
+                imputer.col_means[col];
+        }
+    }
+
+    else
+    {
+        for (size_t ix = 0; ix < imp.n_missing_num; ix++)
+        {
+            col = imp.missing_num[ix];
+            if (imp.num_weight[ix] > 0 && !is_na_or_inf(imp.num_sum[ix]))
+                prediction_data.numeric_data[col + row * imputer.ncols_numeric]
+                    =
+                imp.num_sum[ix] / imp.num_weight[ix];
+            else
+                prediction_data.numeric_data[col + row * imputer.ncols_numeric]
+                    =
+                imputer.col_means[col];
+        }
     }
 
     if (prediction_data.Xr != NULL)
@@ -917,22 +953,43 @@ void apply_imputation_results(PredictionData  &prediction_data,
             }
         }
 
-    for (size_t ix = 0; ix < imp.n_missing_cat; ix++)
+    if (prediction_data.is_col_major)
     {
-        col = imp.missing_cat[ix];
-        prediction_data.categ_data[row + col * prediction_data.nrows]
-                    =
-        std::distance(imp.cat_sum[col].begin(),
-                      std::max_element(imp.cat_sum[col].begin(), imp.cat_sum[col].end()));
-
-        if (prediction_data.categ_data[row + col * prediction_data.nrows] == 0 && imp.cat_sum[col][0] <= 0)
+        for (size_t ix = 0; ix < imp.n_missing_cat; ix++)
+        {
+            col = imp.missing_cat[ix];
             prediction_data.categ_data[row + col * prediction_data.nrows]
-                =
-            imputer.col_modes[col];
+                        =
+            std::distance(imp.cat_sum[col].begin(),
+                          std::max_element(imp.cat_sum[col].begin(), imp.cat_sum[col].end()));
+
+            if (prediction_data.categ_data[row + col * prediction_data.nrows] == 0 && imp.cat_sum[col][0] <= 0)
+                prediction_data.categ_data[row + col * prediction_data.nrows]
+                    =
+                imputer.col_modes[col];
+        }
+    }
+
+    else
+    {
+        for (size_t ix = 0; ix < imp.n_missing_cat; ix++)
+        {
+            col = imp.missing_cat[ix];
+            prediction_data.categ_data[col + row * imputer.ncols_categ]
+                        =
+            std::distance(imp.cat_sum[col].begin(),
+                          std::max_element(imp.cat_sum[col].begin(), imp.cat_sum[col].end()));
+
+            if (prediction_data.categ_data[col + row * imputer.ncols_categ] == 0 && imp.cat_sum[col][0] <= 0)
+                prediction_data.categ_data[col + row * imputer.ncols_categ]
+                    =
+                imputer.col_modes[col];
+        }
     }
 }
 
 
+template <class ImputedData, class InputData>
 void initialize_impute_calc(ImputedData &imp, InputData &input_data, size_t row)
 {
     imp.n_missing_num = 0;
@@ -953,12 +1010,12 @@ void initialize_impute_calc(ImputedData &imp, InputData &input_data, size_t row)
     else if (input_data.Xc_indptr != NULL)
     {
         imp.missing_sp.resize(input_data.ncols_numeric);
-        sparse_ix *res;
+        decltype(input_data.Xc_indptr) res;
         for (size_t col = 0; col < input_data.ncols_numeric; col++)
         {
             res = std::lower_bound(input_data.Xc_ind + input_data.Xc_indptr[col],
                                    input_data.Xc_ind + input_data.Xc_indptr[col + 1],
-                                   (sparse_ix) row);
+                                   (decltype(input_data.Xc_indptr[0])) row);
             if (
                 res != input_data.Xc_ind + input_data.Xc_indptr[col + 1] && 
                 *res == row && 
@@ -986,6 +1043,7 @@ void initialize_impute_calc(ImputedData &imp, InputData &input_data, size_t row)
     }
 }
 
+template <class ImputedData, class PredictionData>
 void initialize_impute_calc(ImputedData &imp, PredictionData &prediction_data, Imputer &imputer, size_t row)
 {
     imp.n_missing_num = 0;
@@ -996,9 +1054,20 @@ void initialize_impute_calc(ImputedData &imp, PredictionData &prediction_data, I
     {
         if (!imp.missing_num.size())
             imp.missing_num.resize(imputer.ncols_numeric);
-        for (size_t col = 0; col < imputer.ncols_numeric; col++)
-            if (is_na_or_inf(prediction_data.numeric_data[row + col * prediction_data.nrows]))
-                imp.missing_num[imp.n_missing_num++] = col;
+
+        if (prediction_data.is_col_major)
+        {
+            for (size_t col = 0; col < imputer.ncols_numeric; col++)
+                if (is_na_or_inf(prediction_data.numeric_data[row + col * prediction_data.nrows]))
+                    imp.missing_num[imp.n_missing_num++] = col;
+        }
+
+        else
+        {
+            for (size_t col = 0; col < imputer.ncols_numeric; col++)
+                if (is_na_or_inf(prediction_data.numeric_data[col + row * imputer.ncols_numeric]))
+                    imp.missing_num[imp.n_missing_num++] = col;
+        }
 
         if (!imp.num_sum.size())
         {
@@ -1038,10 +1107,23 @@ void initialize_impute_calc(ImputedData &imp, PredictionData &prediction_data, I
     {
         if (!imp.missing_cat.size())
             imp.missing_cat.resize(imputer.ncols_categ);
-        for (size_t col = 0; col < imputer.ncols_categ; col++)
+
+        if (prediction_data.is_col_major)
         {
-            if (prediction_data.categ_data[row + col * prediction_data.nrows] < 0)
-                imp.missing_cat[imp.n_missing_cat++] = col;
+            for (size_t col = 0; col < imputer.ncols_categ; col++)
+            {
+                if (prediction_data.categ_data[row + col * prediction_data.nrows] < 0)
+                    imp.missing_cat[imp.n_missing_cat++] = col;
+            }
+        }
+
+        else
+        {
+            for (size_t col = 0; col < imputer.ncols_categ; col++)
+            {
+                if (prediction_data.categ_data[col + row * imputer.ncols_categ] < 0)
+                    imp.missing_cat[imp.n_missing_cat++] = col;
+            }
         }
 
         if (!imp.cat_weight.size())
@@ -1063,11 +1145,13 @@ void initialize_impute_calc(ImputedData &imp, PredictionData &prediction_data, I
     }
 }
 
-ImputedData::ImputedData(InputData &input_data, size_t row)
-{
-    initialize_impute_calc(*this, input_data, row);
-}
+// template class ImputedData <class InputData>
+// ImputedData::ImputedData(InputData &input_data, size_t row)
+// {
+//     initialize_impute_calc(*this, input_data, row);
+// }
 
+template <class ImputedData, class InputData>
 void allocate_imp_vec(std::vector<ImputedData> &impute_vec, InputData &input_data, int nthreads)
 {
     impute_vec.resize(input_data.nrows);
@@ -1078,6 +1162,7 @@ void allocate_imp_vec(std::vector<ImputedData> &impute_vec, InputData &input_dat
 }
 
 
+template <class ImputedData, class InputData>
 void allocate_imp_map(std::unordered_map<size_t, ImputedData> &impute_map, InputData &input_data)
 {
     for (size_t row = 0; row < input_data.nrows; row++)
@@ -1085,6 +1170,7 @@ void allocate_imp_map(std::unordered_map<size_t, ImputedData> &impute_map, Input
             impute_map[row] = ImputedData(input_data, row);
 }
 
+template <class ImputedData, class InputData>
 void allocate_imp(InputData &input_data,
                   std::vector<ImputedData> &impute_vec,
                   std::unordered_map<size_t, ImputedData> &impute_map,
@@ -1098,6 +1184,7 @@ void allocate_imp(InputData &input_data,
         allocate_imp_vec(impute_vec, input_data, nthreads);
 }
 
+template <class ImputedData, class InputData>
 void check_for_missing(InputData &input_data,
                        std::vector<ImputedData> &impute_vec,
                        std::unordered_map<size_t, ImputedData> &impute_map,
@@ -1145,6 +1232,7 @@ void check_for_missing(InputData &input_data,
     allocate_imp(input_data, impute_vec, impute_map, nthreads);
 }
 
+template <class PredictionData>
 size_t check_for_missing(PredictionData  &prediction_data,
                          Imputer         &imputer,
                          size_t          ix_arr[],
@@ -1156,15 +1244,34 @@ size_t check_for_missing(PredictionData  &prediction_data,
     for (size_t_for row = 0; row < prediction_data.nrows; row++)
     {
         if (prediction_data.numeric_data != NULL)
-            for (size_t col = 0; col < imputer.ncols_numeric; col++)
+        {
+            if (prediction_data.is_col_major)
             {
-                if (is_na_or_inf(prediction_data.numeric_data[row + col * prediction_data.nrows]))
+                for (size_t col = 0; col < imputer.ncols_numeric; col++)
                 {
-                    has_missing[row] = true;
-                    break;
+                    if (is_na_or_inf(prediction_data.numeric_data[row + col * prediction_data.nrows]))
+                    {
+                        has_missing[row] = true;
+                        break;
+                    }
                 }
             }
+
+            else
+            {
+                for (size_t col = 0; col < imputer.ncols_numeric; col++)
+                {
+                    if (is_na_or_inf(prediction_data.numeric_data[col + row * imputer.ncols_numeric]))
+                    {
+                        has_missing[row] = true;
+                        break;
+                    }
+                }
+            }
+        }
+
         else if (prediction_data.Xr != NULL)
+        {
             for (size_t ix = prediction_data.Xr_indptr[row]; ix < prediction_data.Xr_indptr[row + 1]; ix++)
             {
                 if (is_na_or_inf(prediction_data.Xr[ix]))
@@ -1173,16 +1280,34 @@ size_t check_for_missing(PredictionData  &prediction_data,
                     break;
                 }
             }
+        }
 
         if (!has_missing[row])
-            for (size_t col = 0; col < imputer.ncols_categ; col++)
+        {
+            if (prediction_data.is_col_major)
             {
-                if (prediction_data.categ_data[row + col * prediction_data.nrows] < 0)
+                for (size_t col = 0; col < imputer.ncols_categ; col++)
                 {
-                    has_missing[row] = true;
-                    break;
+                    if (prediction_data.categ_data[row + col * prediction_data.nrows] < 0)
+                    {
+                        has_missing[row] = true;
+                        break;
+                    }
                 }
             }
+
+            else
+            {
+                for (size_t col = 0; col < imputer.ncols_categ; col++)
+                {
+                    if (prediction_data.categ_data[col + row * imputer.ncols_categ] < 0)
+                    {
+                        has_missing[row] = true;
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     size_t st = 0;

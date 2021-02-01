@@ -8,6 +8,23 @@ from ._cpp_interface import isoforest_cpp_obj, _sort_csc_indices
 
 __all__ = ["IsolationForest"]
 
+### Helpers
+def _get_num_dtype(X_num=None, sample_weights=None, column_weights=None):
+    if X_num is not None:
+        return np.empty(0, dtype=X_num.dtype)
+    elif sample_weights is not None:
+        return np.empty(0, dtype=column_weights.dtype)
+    elif column_weights is not None:
+        return np.empty(0, dtype=sample_weights.dtype)
+    else:
+        return np.empty(0, dtype=ctypes.c_double)
+
+def _get_int_dtype(X_num):
+    if (X_num is not None) and (issparse(X_num)):
+        return np.empty(0, dtype=X_num.indices.dtype)
+    else:
+        return np.empty(0, dtype=ctypes.c_size_t)
+
 class IsolationForest:
     """
     Isolation Forest model
@@ -26,36 +43,44 @@ class IsolationForest:
 
     Note
     ----
-    The model offers many tunable parameters. The most likely candidate to tune is 'prob_pick_pooled_gain', for
-    which higher values tend to result in a better ability to flag outliers in the training data
-    at the expense of hindered performance when making predictions on new data (calling method 'predict') and poorer
-    generalizability to inputs with values outside the variables' ranges to which the model was fit
-    (see plots generated from the examples in GitHub notebook for a better idea of the difference). The next candidate to tune is
-    'prob_pick_avg_gain' (along with 'sample_size'), for which high values tend to result in models that are more likely
-    to flag values outside of the variables' ranges and fewer ghost regions, at the expense of fewer flagged outliers
-    in the original data.
+    The default parameters in this software do not correspond to the suggested parameters in
+    any of the references.
+    In particular, the following default values are likely to cause huge differences when compared to the
+    defaults in other software: ``ndim``, ``sample_size``, ``ntrees``, ``penalize_range``. The defaults here are
+    nevertheless more likely to result in better models.
 
     Note
     ----
-    The default parameters set up for this implementation will not scale to large datasets. In particular,
-    if the amount of data is large, it's advised to set a smaller sample size for each tree, and fit fewer of them.
+    The model offers many tunable parameters. Assuming that ``ntrees`` is high-enough for the data,
+    the most likely candidate to tune is ``prob_pick_pooled_gain`` (along with perhaps disabling
+    ``penalize_range`` alongside this option), for which higher values tend to
+    result in a better ability to flag outliers in the training data at the expense of hindered
+    performance when making predictions on new data (calling method ``predict``) and poorer
+    generalizability to inputs with values outside the variables' ranges to which the model was fit
+    (see plots generated from the examples in GitHub notebook for a better idea of the difference). The next candidates to tune is
+    ``sample_size`` - the default is to use all rows, but in some datasets introducing sub-sampling can help,
+    especially for the single-variable model. After that, next candidate to tune is ``prob_pick_avg_gain``,
+    for which high values tend to result in models that are more likely to flag values outside of the variables'
+    ranges.
+
+    Note
+    ----
+    The default parameters will not scale to large datasets. In particular,
+    if the amount of data is large, it's suggested to set a smaller sample size for each tree (parameter ``sample_size``)
+    and to fit fewer of them (parameter ``ntrees``).
     As well, the default option for 'missing_action' might slow things down significantly.
     See the documentation of the parameters for more details.
+    These defaults can also result in very big model sizes in memory and as serialized
+    files (e.g. models that weight over 10GB) when the number of rows in the data is large.
+    Using fewer trees, smaller sample sizes, and shallower trees can help to reduce model
+    sizes if that becomes a problem.
 
     Note
     ----
-    When calculating gain, the variables are standardized at each step, so there is no need to center/scale the
-    data beforehand.
-
-    Note
-    ----
-    When using sparse matrices, calculations such as standard deviations, gain, and kurtosis, will use procedures
-    that rely on calculating sums of squared numbers. This is not a problem if most of the entries are zero and the
-    numbers are small, but if passing dense matrices as sparse and/or the entries in the sparse matrices have values
-    in wildly different orders of magnitude (e.g. 0.0001 and 10000000), the calculations might be incorrect due to loss of
-    numeric precision, and the results might not be as good. For dense matrices it uses more numerically-robust
-    techniques (which would add a large computational overhead in sparse matrices), so it's not a problem to have values
-    with different orders of magnitude.
+    When using more than one dimension for splits (i.e. splitting hyperplanes, see ``ndim``) and when
+    calculating gain, the variables are standardized at each step, so there is no need to center/scale the
+    data beforehand. The gain calculations are also standardized according to the standard deviation when
+    using ``ntry>1`` or ``ndim==1``, in order to avoid differences in the scale of the coefficients.
 
     Parameters
     ----------
@@ -81,6 +106,9 @@ class IsolationForest:
         in [1] and [2], while if passing values greater than 1, will produce the extended model described in [3] and [4].
         Recommended value in [4] is 2, while [3] recommends a low value such as 2 or 3. Models with values higher than 1
         are referred hereafter as the extended model (as in [3]).
+
+        Note that, when using ``ndim>1``, the variables are standardized at each step as suggested in [4],
+        which makes the models slightly different than in [3].
     ntry : int
         In the extended model with non-random splits, how many random combinations to try for determining the best gain.
         Only used when deciding splits by gain (see documentation for parameters 'prob_pick_avg_gain' and 'prob_pick_pooled_gain').
@@ -114,7 +142,9 @@ class IsolationForest:
         When splits are
         not made according to any of 'prob_pick_avg_gain', 'prob_pick_pooled_gain', 'prob_split_avg_gain',
         'prob_split_pooled_gain', both the column and the split point are decided at random. Default setting for [1], [2], [3] is
-        zero, and default for [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5].
+        zero, and default for [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5],
+        but note that the code in [5] suffers from a mathematical error in the calculation of running standard deviations,
+        so the results from it might not match with this library's.
         
         Note that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable model, every single tree will have
         the exact same splits.
@@ -252,6 +282,13 @@ class IsolationForest:
         sample, so if not using sub-samples, it's better to pass column weights calculated externally. For
         categorical columns, will calculate expected kurtosis if the column was converted to numerical by
         assigning to each category a random number ~ Unif(0, 1).
+
+        Note that when using sparse matrices, the calculation of kurtosis will rely on a procedure that
+        uses sums of squares and higher-power numbers, which has less numerical precision than the
+        calculation used for dense inputs, and as such, the results might differ slightly.
+
+        Using this option makes the model more likely to pick the columns that have anomalous values
+        when viewed as a 1-d distribution, and can bring a large improvement in some datasets.
     coefs : str, one of "normal" or "uniform"
         For the extended model, whether to sample random coefficients according to a normal distribution ~ N(0, 1)
         (as proposed in [3]) or according to a uniform distribution ~ Unif(-1, +1) as proposed in [4]. Ignored for the
@@ -289,7 +326,7 @@ class IsolationForest:
         in this regard regardless of how many observations end up there. Implemented for testing purposes
         and not recommended to change from the default. Ignored when passing 'build_imputer' = 'False'.
     random_seed : int
-        Seed that will be used to generate random numbers used by the model.
+        Seed that will be used for random number generation.
     random_state : RandomState
         NumPy random state object - if passed, will be used to generate an integer for 'random_seed', and
         the value that was originally passed to 'random_seed' will be ignored. This is only kept as
@@ -298,6 +335,11 @@ class IsolationForest:
         Number of parallel threads to use. If passing a negative number, will use
         the maximum number of available threads in the system. Note that, the more threads,
         the more memory will be allocated, even if the thread does not end up being used.
+        Be aware that most of the operations are bound by memory bandwidth, which means that
+        adding more threads will not result in a linear speed-up. For some types of data
+        (e.g. large sparse matrices with small sample sizes), adding more threads might result
+        in only a very modest speed up (e.g. 1.5x faster with 4x more threads),
+        even if all threads look fully utilized.
 
     Attributes
     ----------
@@ -555,7 +597,9 @@ class IsolationForest:
         else:
             seed = self.random_seed
 
-        self._cpp_obj.fit_model(X_num, X_cat, ncat, sample_weights, column_weights,
+        self._cpp_obj.fit_model(_get_num_dtype(X_num, sample_weights, column_weights),
+                                _get_int_dtype(X_num),
+                                X_num, X_cat, ncat, sample_weights, column_weights,
                                 ctypes.c_size_t(nrows).value,
                                 ctypes.c_size_t(self._ncols_numeric).value,
                                 ctypes.c_size_t(self._ncols_categ).value,
@@ -704,7 +748,9 @@ class IsolationForest:
         else:
             seed = self.random_seed
 
-        depths, tmat, dmat, X_num, X_cat = self._cpp_obj.fit_model(X_num, X_cat, ncat, None, column_weights,
+        depths, tmat, dmat, X_num, X_cat = self._cpp_obj.fit_model(_get_num_dtype(X_num, None, column_weights),
+                                                                   _get_int_dtype(X_num),
+                                                                   X_num, X_cat, ncat, None, column_weights,
                                                                    ctypes.c_size_t(nrows).value,
                                                                    ctypes.c_size_t(self._ncols_numeric).value,
                                                                    ctypes.c_size_t(self._ncols_categ).value,
@@ -760,7 +806,10 @@ class IsolationForest:
         if X.__class__.__name__ == "DataFrame":
             ### https://stackoverflow.com/questions/25039626/how-do-i-find-numeric-columns-in-pandas
             X_num = X.select_dtypes(include = [np.number, np.datetime64]).to_numpy()
-            X_num = np.asfortranarray(X_num).astype(ctypes.c_double)
+            if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
+                X_num = X_num.astype(ctypes.c_double)
+            if not np.isfortran(X_num):
+                X_num = np.asfortranarray(X_num)
             X_cat = X.select_dtypes(include = [pd.CategoricalDtype, "object", "bool"]).copy()
             if (X_num.shape[1] + X_cat.shape[1]) == 0:
                 raise ValueError("Input data has no columns of numeric or categorical type.")
@@ -808,35 +857,44 @@ class IsolationForest:
                     # https://github.com/pandas-dev/pandas/issues/30618
                     if self._cat_mapping[cl].__class__.__name__ == "CategoricalIndex":
                         self._cat_mapping[cl] = self._cat_mapping[cl].to_numpy()
-                X_cat = np.asfortranarray(X_cat).astype(ctypes.c_int)
+                if X_cat.dtype != ctypes.c_int:
+                    X_cat = X_cat.astype(ctypes.c_int)
+                if not np.isfortran(X_cat):
+                    X_cat = np.asfortranarray(X_cat)
 
         else:
             if len(X.shape) != 2:
                 raise ValueError("Input data must be two-dimensional.")
 
-            if X.__class__.__name__ == "ndarray":
-                X = np.asfortranarray(X).astype(ctypes.c_double)
-            elif issparse(X):
-                if isspmatrix_csc(X):
-                    if ((X.indptr.dtype != ctypes.c_size_t) or
-                        (X.indices.dtype != ctypes.c_size_t) or
-                        (X.data.dtype != ctypes.c_double)
-                    ):
-                        X = X.copy()
-                    if X.indptr.dtype == ctypes.c_size_t:
-                        _sort_csc_indices(X)
-                    else:
-                        X.sort_indices()
-                else:
+            if issparse(X):
+                avoid_sort = False
+                if not isspmatrix_csc(X):
                     warnings.warn("Sparse matrices are only supported in CSC format, will be converted.")
                     X = csc_matrix(X)
+                    avoid_sort = True
                 if X.nnz == 0:
                     raise ValueError("'X' has no non-zero entries")
-                X.data    = X.data.astype(ctypes.c_double)
-                X.indices = X.indices.astype(ctypes.c_size_t)
-                X.indptr  = X.indptr.astype(ctypes.c_size_t)
+
+                if ((X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
+                    (X.indices.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
+                    (X.data.dtype not in [ctypes.c_double, ctypes.c_float])
+                ):
+                    X = X.copy()
+                if X.data.dtype not in [ctypes.c_double, ctypes.c_float]:
+                    X.data    = X.data.astype(ctypes.c_double)
+                if (X.indptr.dtype != X.indices.dtype) or (X.indices.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]):
+                    X.indices = X.indices.astype(ctypes.c_size_t)
+                if (X.indptr.dtype != X.indices.dtype) or (X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]):
+                    X.indptr  = X.indptr.astype(ctypes.c_size_t)
+                if not avoid_sort:
+                    _sort_csc_indices(X)
             else:
-                X = np.asfortranarray(np.array(X)).astype(ctypes.c_double)
+                if (X.__class__.__name__ == "ndarray") and (X.dtype not in [ctypes.c_double, ctypes.c_float]):
+                    X = X.astype(ctypes.c_double)
+                if (X.__class__.__name__ != "ndarray") or (not np.isfortran(X)):
+                    X = np.asfortranarray(X)
+                if X.dtype not in [ctypes.c_double, ctypes.c_float]:
+                    X = X.astype(ctypes.c_double)
 
             self._ncols_numeric = X.shape[1]
             self._ncols_categ   = 0
@@ -863,7 +921,11 @@ class IsolationForest:
             ncat = None
 
         if sample_weights is not None:
-            sample_weights = np.array(sample_weights).reshape(-1).astype(ctypes.c_double)
+            sample_weights = np.array(sample_weights).reshape(-1)
+            if (X_num is not None) and (X_num.dtype != sample_weights.dtype):
+                sample_weights = sample_weights.astype(X_num.dtype)
+            if sample_weights.dtype not in [ctypes.c_double, ctypes.c_float]:
+                sample_weights = sample_weights.astype(ctypes.c_double)
             if sample_weights.shape[0] != nrows:
                 raise ValueError("'sample_weights' has different number of rows than 'X'.")
 
@@ -874,12 +936,20 @@ class IsolationForest:
             ncols += X_cat.shape[1]
 
         if column_weights is not None:
-            column_weights = np.array(column_weights).reshape(-1).astype(ctypes.c_double)
+            column_weights = np.array(column_weights).reshape(-1)
+            if (X_num is not None) and (X_num.dtype != column_weights.dtype):
+                column_weights = column_weights.astype(X_num.dtype)
+            if column_weights.dtype not in [ctypes.c_double, ctypes.c_float]:
+                column_weights = column_weights.astype(ctypes.c_double)
             if ncols != column_weights.shape[0]:
                 raise ValueError("'column_weights' has %d entries, but data has %d columns." % (column_weights.shape[0], ncols))
             if (X_num is not None) and (X_cat is not None):
                 column_weights = np.r_[column_weights[X.columns.values == self.cols_numeric_],
                                        column_weights[X.columns.values == self.cols_categ_]]
+
+        if (sample_weights is not None) and (column_weights is not None) and (sample_weights.dtype != column_weights.dtype):
+            sample_weights = sample_weights.astype(ctypes.c_double)
+            column_weights = column_weights.astype(ctypes.c_double)
 
         if self.ndim > 1:
             if self.ndim > ncols:
@@ -891,7 +961,7 @@ class IsolationForest:
 
         return X_num, X_cat, ncat, sample_weights, column_weights, nrows
 
-    def _process_data_new(self, X, allow_csr = True, allow_csc = True):
+    def _process_data_new(self, X, allow_csr = True, allow_csc = True, prefer_row_major = False):
         if X.__class__.__name__ == "DataFrame":
             if (self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]) > 0:
                 missing_cols = np.setdiff1d(np.array(X.columns.values), np.r_[self.cols_numeric_, self.cols_categ_])
@@ -900,7 +970,10 @@ class IsolationForest:
 
                 if self._ncols_numeric > 0:
                     X_num = X[self.cols_numeric_].to_numpy()
-                    X_num = np.asfortranarray(X_num).astype(ctypes.c_double)
+                    if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
+                        X_num = X_num.astype(ctypes.c_double)
+                    if (not prefer_row_major) and (not np.isfortran(X_num)):
+                        X_num = np.asfortranarray(X_num)
                     nrows = X_num.shape[0]
                 else:
                     X_num = None
@@ -910,7 +983,10 @@ class IsolationForest:
                     for cl in range(self._ncols_categ):
                         X_cat[self.cols_categ_[cl]] = pd.Categorical(X_cat[self.cols_categ_[cl]], self._cat_mapping[cl]).codes
                     X_cat = X_cat.to_numpy()
-                    X_cat = np.asfortranarray(X_cat).astype(ctypes.c_int)
+                    if X_cat.dtype != ctypes.c_int:
+                        X_cat = X_cat.astype(ctypes.c_int)
+                    if (not prefer_row_major) and (not np.isfortran(X_cat)):
+                        X_cat = np.asfortranarray(X_cat)
                     nrows = X_cat.shape[0]
                 else:
                     X_cat = None
@@ -919,10 +995,20 @@ class IsolationForest:
                 if X.shape[1] != self._ncols_numeric:
                     raise ValueError("Input has different number of columns than data to which model was fit.")
                 X_num = X.to_numpy()
-                X_num = np.asfortranarray(X_num).astype(ctypes.c_double)
+                if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
+                    X_num = X_num.astype(ctypes.c_double)
+                if (not prefer_row_major) and (not np.isfortran(X_num)):
+                    X_num = np.asfortranarray(X_num)
                 X_cat = None
                 nrows = X_num.shape[0]
 
+            if (X_num is not None) and (X_cat is not None) and (np.isfortran(X_num) != np.isfortran(X_cat)):
+                if prefer_row_major:
+                    X_num = np.ascontiguousarray(X_num)
+                    X_cat = np.ascontiguousarray(X_cat)
+                else:
+                    X_num = np.asfortranarray(X_num)
+                    X_cat = np.asfortranarray(X_cat)
 
         else:
             if self._ncols_categ > 0:
@@ -934,12 +1020,15 @@ class IsolationForest:
             
             X_cat = None
             if issparse(X):
+                avoid_sort = False
                 if isspmatrix_csr(X) and not allow_csr:
                     warnings.warn("Cannot predict from CSR sparse matrix, will convert to CSC.")
                     X = csc_matrix(X)
+                    avoid_sort = True
                 elif isspmatrix_csc(X) and not allow_csc:
                     warnings.warn("Method supports sparse matrices only in CSR format, will convert sparse format.")
                     X = csr_matrix(X)
+                    avoid_sort = True
                 elif (not isspmatrix_csc(X)) and (not isspmatrix_csr(X)):
                     msg  = "Sparse matrix inputs only supported as CSC"
                     if allow_csr:
@@ -947,26 +1036,31 @@ class IsolationForest:
                     msg += " format, will convert to CSC."
                     warnings.warn(msg)
                     X = csc_matrix(X)
-                else:
-                    if ((X.indptr.dtype != ctypes.c_size_t) or
-                        (X.indices.dtype != ctypes.c_size_t) or
-                        (X.data.dtype != ctypes.c_double)
-                    ):
-                        X = X.copy()
-                    if X.indptr.dtype == ctypes.c_size_t:
-                        _sort_csc_indices(X)
-                    else:
-                        X.sort_indices()
+                    avoid_sort = True
 
-                X = X.copy() ### avoid modifying it in-place
-                X.data    = X.data.astype(ctypes.c_double)
-                X.indices = X.indices.astype(ctypes.c_size_t)
-                X.indptr  = X.indptr.astype(ctypes.c_size_t)
-                X_num     = X
+                if ((X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
+                    (X.indices.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
+                    (X.data.dtype not in [ctypes.c_double, ctypes.c_float])
+                ):
+                    X = X.copy()
+                if X.data.dtype not in [ctypes.c_double, ctypes.c_float]:
+                    X.data    = X.data.astype(ctypes.c_double)
+                if (X.indptr.dtype != X.indices.dtype) or (X.indices.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]):
+                    X.indices = X.indices.astype(ctypes.c_size_t)
+                if (X.indptr.dtype != X.indices.dtype) or (X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]):
+                    X.indptr  = X.indptr.astype(ctypes.c_size_t)
+                if not avoid_sort:
+                    _sort_csc_indices(X)
+                X_num = X
             else:
                 if X.__class__.__name__ != "ndarray":
-                    X = np.array(X)
-                X_num = np.asfortranarray(X).astype(ctypes.c_double)
+                    if prefer_row_major:
+                        X = np.array(X)
+                    else:
+                        X = np.asfortranarray(X)
+                if X.dtype not in [ctypes.c_double, ctypes.c_float]:
+                    X = X.astype(ctypes.c_double)
+                X_num = X
             nrows = X_num.shape[0]
 
         return X_num, X_cat, nrows
@@ -1053,7 +1147,7 @@ class IsolationForest:
         """
         assert self.is_fitted_
         assert output in ["score", "avg_depth", "tree_num"]
-        X_num, X_cat, nrows = self._process_data_new(X)
+        X_num, X_cat, nrows = self._process_data_new(X, prefer_row_major = True)
         if output == "tree_num":
             if self.missing_action == "divide":
                 raise ValueError("Cannot output tree number when using 'missing_action' = 'divide'.")
@@ -1062,7 +1156,8 @@ class IsolationForest:
             if nrows == 1:
                 warnings.warn("Predicting tree number is slow, not recommended to do for 1 row at a time.")
 
-        depths, tree_num = self._cpp_obj.predict(X_num, X_cat, self._is_extended_,
+        depths, tree_num = self._cpp_obj.predict(_get_num_dtype(X_num, None, None), _get_int_dtype(X_num),
+                                                 X_num, X_cat, self._is_extended_,
                                                  ctypes.c_size_t(nrows).value,
                                                  ctypes.c_int(self.nthreads).value,
                                                  ctypes.c_bool(output == "score").value,
@@ -1138,11 +1233,12 @@ class IsolationForest:
             else:
                 X = np.vstack([X, X_ref])
 
-        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False)
+        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False, prefer_row_major = False)
         if nrows == 1:
             raise ValueError("Cannot calculate pairwise distances for only 1 row.")
 
-        tmat, dmat, rmat = self._cpp_obj.dist(X_num, X_cat, self._is_extended_,
+        tmat, dmat, rmat = self._cpp_obj.dist(_get_num_dtype(X_num, None, None), _get_int_dtype(X_num),
+                                              X_num, X_cat, self._is_extended_,
                                               ctypes.c_size_t(nrows).value,
                                               ctypes.c_int(self.nthreads).value,
                                               ctypes.c_bool(self.assume_full_distr).value,
@@ -1185,8 +1281,14 @@ class IsolationForest:
         if self.missing_action == "fail":
             raise ValueError("Cannot impute missing values when using 'missing_action' = 'fail'.")
 
-        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = True, allow_csc = False)
-        X_num, X_cat = self._cpp_obj.impute(X_num, X_cat,
+        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = True, allow_csc = False, prefer_row_major = True)
+        if X.__class__.__name__ != "DataFrame":
+            if X_num is not None:
+                X_num = X_num.copy()
+            if X_cat is not None:
+                X_cat = X_cat.copy()
+        X_num, X_cat = self._cpp_obj.impute(_get_num_dtype(X_num, None, None), _get_int_dtype(X_num),
+                                            X_num, X_cat,
                                             ctypes.c_bool(self._is_extended_).value,
                                             ctypes.c_size_t(nrows).value,
                                             ctypes.c_int(self.nthreads).value)
@@ -1268,13 +1370,24 @@ class IsolationForest:
         if not self.is_fitted_:
             return self.fit(X = X, sample_weights = sample_weights, column_weights = column_weights)
         
-        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False)
+        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False, prefer_row_major = False)
         if sample_weights is not None:
-            sample_weights = sample_weights.reshape(-1).astype(ctypes.c_double)
+            sample_weights = np.array(sample_weights).reshape(-1)
+            if (X_num is not None) and (X_num.dtype != sample_weights.dtype):
+                sample_weights = sample_weights.astype(X_num.dtype)
+            if sample_weights.dtype not in [ctypes.c_double, ctypes.c_float]:
+                sample_weights = sample_weights.astype(ctypes.c_double)
             assert sample_weights.shape[0] == X.shape[0]
         if column_weights is not None:
-            column_weights = column_weights.reshape(-1).astype(ctypes.c_double)
+            column_weights = np.array(column_weights).reshape(-1)
+            if (X_num is not None) and (X_num.dtype != column_weights.dtype):
+                column_weights = column_weights.astype(X_num.dtype)
+            if column_weights.dtype not in [ctypes.c_double, ctypes.c_float]:
+                column_weights = column_weights.astype(ctypes.c_double)
             assert column_weights.shape[0] == X.shape[1]
+        if (sample_weights is not None) and (column_weights is not None) and (sample_weights.dtype != column_weights.dtype):
+            sample_weights = sample_weights.astype(ctypes.c_double)
+            column_weights = column_weights.astype(ctypes.c_double)
         ncat = None
         if self._ncols_categ > 0:
             ncat = np.array([arr.shape[0] for arr in self._cat_mapping]).astype(ctypes.c_int)
@@ -1287,7 +1400,9 @@ class IsolationForest:
             max_depth = self.max_depth
             limit_depth = False
 
-        self._cpp_obj.fit_tree(X_num, X_cat, ncat, sample_weights, column_weights,
+        self._cpp_obj.fit_tree(_get_num_dtype(X_num, sample_weights, column_weights),
+                               _get_int_dtype(X_num),
+                               X_num, X_cat, ncat, sample_weights, column_weights,
                                ctypes.c_size_t(nrows).value,
                                ctypes.c_size_t(self._ncols_numeric).value,
                                ctypes.c_size_t(self._ncols_categ).value,
@@ -1417,6 +1532,9 @@ class IsolationForest:
         for de-serialization. If using ``ndim=1``, it will be an object of class ``IsoForest``, and if
         using ``ndim>1``, will be an object of class ``ExtIsoForest``. The imputer file, if produced, will
         be an object of class ``Imputer``.
+
+        Be aware that this function will write raw bytes from memory as-is without compression,
+        so the file sizes can end up being much larger than when using ``pickle``.
         
         The metadata is not used in the C++ version, but is necessary for the R and Python versions.
 
