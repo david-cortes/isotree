@@ -808,6 +808,11 @@ class IsolationForest:
 
         Note
         ----
+        If using 'penalize_range' = 'True', the resulting scores/depths from this function might differ a bit
+        from those of 'fit' + 'predict' ran separately.
+
+        Note
+        ----
         Sample weights are not supported for this method.
 
         Parameters
@@ -1494,11 +1499,6 @@ class IsolationForest:
         Will fit the model and output imputed missing values. Intended to be used as part of SciKit-learn
         pipelining. Note that this is just a wrapper over 'fit_predict' with parameter 'output_imputed' = 'True'.
         See the documentation of 'fit_predict' for details.
-
-        Note
-        ----
-        If using 'penalize_range' = 'True', the resulting scores/depths from this function might differ a bit
-        from those of 'fit' + 'predict' ran separately.
 
         Parameters
         ----------
