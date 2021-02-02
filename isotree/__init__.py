@@ -25,6 +25,29 @@ def _get_int_dtype(X_num):
     else:
         return np.empty(0, dtype=ctypes.c_size_t)
 
+def _is_row_major(X_num):
+    if (X_num is None) or (issparse(X_num)):
+        return False
+    else:
+        return X_num.strides[1] == X_num.dtype.itemsize
+
+def _is_col_major(X_num):
+    return not _is_row_major(X_num)
+
+def _copy_if_subview(X_num):
+    ### TODO: the C++ functions should accept a 'leading dimension'
+    ### parameter so as to avoid copying the data here
+    if (X_num is not None) and (not issparse(X_num)):
+        col_major = _is_col_major(X_num)
+        leading_dimension = int(X_num.strides[1 if col_major else 0] / X_num.dtype.itemsize)
+        if leading_dimension != X_num.shape[0 if col_major else 1]:
+            X_num = X_num.copy()
+        elif (len(X_num.strides) != 2) or (not X_num.flags.aligned):
+            X_num = X_num.copy()
+        if _is_col_major(X_num) != col_major:
+            X_num = np.asfortranarray(X_num)
+    return X_num
+
 class IsolationForest:
     """
     Isolation Forest model
@@ -327,19 +350,26 @@ class IsolationForest:
         and not recommended to change from the default. Ignored when passing 'build_imputer' = 'False'.
     random_seed : int
         Seed that will be used for random number generation.
-    random_state : RandomState
-        NumPy random state object - if passed, will be used to generate an integer for 'random_seed', and
-        the value that was originally passed to 'random_seed' will be ignored. This is only kept as
-        a workaround for using this object in SciKit-Learn pipelines.
     nthreads : int
         Number of parallel threads to use. If passing a negative number, will use
-        the maximum number of available threads in the system. Note that, the more threads,
+        the same formula as joblib does for calculating number of threads (which is
+        n_cpus + 1 + n_jobs - i.e. pass -1 to use all available threads). Note that, the more threads,
         the more memory will be allocated, even if the thread does not end up being used.
         Be aware that most of the operations are bound by memory bandwidth, which means that
         adding more threads will not result in a linear speed-up. For some types of data
         (e.g. large sparse matrices with small sample sizes), adding more threads might result
         in only a very modest speed up (e.g. 1.5x faster with 4x more threads),
         even if all threads look fully utilized.
+    n_estimators : None or int
+        Synonym for ``ntrees``, kept for better compatibility with scikit-learn.
+    max_samples : None or int
+        Synonym for ``sample_size``, kept for better compatibility with scikit-learn.
+    n_jobs : None or int
+        Synonym for ``nthreads``, kept for better compatibility with scikit-learn.
+    random_state : None, int, or RandomState
+        Synonym for ``random_seed``, kept for better compatibility with scikit-learn.
+    bootstrap : None or bool
+        Synonym for ``sample_with_replacement``, kept for better compatibility with scikit-learn.
 
     Attributes
     ----------
@@ -382,8 +412,76 @@ class IsolationForest:
                  coefs = "normal", assume_full_distr = True,
                  build_imputer = False, min_imp_obs = 3,
                  depth_imp = "higher", weigh_imp_rows = "inverse",
-                 random_seed = 1, random_state = None,
-                 nthreads = -1):
+                 random_seed = 1, nthreads = -1,
+                 n_estimators = None, max_samples = None,
+                 n_jobs = None, random_state = None, bootstrap = None):
+        self.sample_size = sample_size
+        self.ntrees = ntrees
+        self.ndim = ndim
+        self.ntry = ntry
+        self.max_depth = max_depth
+        self.prob_pick_avg_gain = prob_pick_avg_gain
+        self.prob_pick_pooled_gain = prob_pick_pooled_gain
+        self.prob_split_avg_gain = prob_split_avg_gain
+        self.prob_split_pooled_gain = prob_split_pooled_gain
+        self.min_gain = min_gain
+        self.missing_action = missing_action
+        self.new_categ_action = new_categ_action
+        self.categ_split_type = categ_split_type
+        self.all_perm = all_perm
+        self.coef_by_prop = coef_by_prop
+        self.recode_categ = recode_categ
+        self.weights_as_sample_prob = weights_as_sample_prob
+        self.sample_with_replacement = sample_with_replacement
+        self.penalize_range = penalize_range
+        self.weigh_by_kurtosis = weigh_by_kurtosis
+        self.coefs = coefs
+        self.assume_full_distr = assume_full_distr
+        self.build_imputer = build_imputer
+        self.min_imp_obs = min_imp_obs
+        self.depth_imp = depth_imp
+        self.weigh_imp_rows = weigh_imp_rows
+        self.random_seed = random_seed
+        self.nthreads = nthreads
+        self.n_estimators = n_estimators
+        self.max_samples = max_samples
+        self.n_jobs = n_jobs
+        self.random_state = random_state
+        self.bootstrap = bootstrap
+
+        self._reset_obj()
+
+    def _init(self):
+        self._initialize_full(
+                 sample_size = self.sample_size if (self.max_samples is None) else self.max_samples,
+                 ntrees = self.ntrees if (self.n_estimators is None) else self.n_estimators,
+                 ndim = self.ndim, ntry = self.ntry, max_depth = self.max_depth,
+                 prob_pick_avg_gain = self.prob_pick_avg_gain, prob_pick_pooled_gain = self.prob_pick_pooled_gain,
+                 prob_split_avg_gain = self.prob_split_avg_gain, prob_split_pooled_gain = self.prob_split_pooled_gain,
+                 min_gain = self.min_gain, missing_action = self.missing_action, new_categ_action = self.new_categ_action,
+                 categ_split_type = self.categ_split_type, all_perm = self.all_perm,
+                 coef_by_prop = self.coef_by_prop, recode_categ = self.recode_categ,
+                 weights_as_sample_prob = self.weights_as_sample_prob,
+                 sample_with_replacement = self.sample_with_replacement if (self.bootstrap is None) else self.bootstrap,
+                 penalize_range = self.penalize_range, weigh_by_kurtosis = self.weigh_by_kurtosis,
+                 coefs = self.coefs, assume_full_distr = self.assume_full_distr,
+                 build_imputer = self.build_imputer, min_imp_obs = self.min_imp_obs,
+                 depth_imp = self.depth_imp, weigh_imp_rows = self.weigh_imp_rows,
+                 random_seed = self.random_seed if (self.random_state is None) else self.random_state,
+                 nthreads = self.nthreads if (self.n_jobs is None) else self.n_jobs)
+
+    def _initialize_full(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3, max_depth = "auto",
+                 prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
+                 prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
+                 min_gain = 0., missing_action = "auto", new_categ_action = "auto",
+                 categ_split_type = "subset", all_perm = False,
+                 coef_by_prop = False, recode_categ = True,
+                 weights_as_sample_prob = True, sample_with_replacement = False,
+                 penalize_range = True, weigh_by_kurtosis = False,
+                 coefs = "normal", assume_full_distr = True,
+                 build_imputer = False, min_imp_obs = 3,
+                 depth_imp = "higher", weigh_imp_rows = "inverse",
+                 random_seed = 1, nthreads = -1):
         if sample_size is not None:
             assert sample_size > 0
             assert isinstance(sample_size, int)
@@ -398,12 +496,14 @@ class IsolationForest:
         assert isinstance(ndim, int)
         assert ntry >= 1
         assert isinstance(ntry, int)
-        assert random_seed >= 1
+        if isinstance(random_seed, np.random.RandomState):
+            random_seed = random_seed.randint(np.iinfo(np.int32).max)
+        if isinstance(random_seed, np.random.Generator):
+            random_seed = random_seed.integers(np.iinfo(np.int32).max)
+        random_seed = int(random_seed)
+        assert random_seed >= 0
         assert isinstance(min_imp_obs, int)
         assert min_imp_obs >= 1
-
-        if random_state is not None:
-            assert isinstance(random_state, np.random.RandomState) or isinstance(random_state, int)
 
         assert missing_action    in ["divide",        "impute",   "fail",   "auto"]
         assert new_categ_action  in ["weighted",      "smallest", "random", "impute", "auto"]
@@ -464,8 +564,8 @@ class IsolationForest:
 
         if nthreads is None:
             nthreads = 1
-        elif nthreads < 1:
-            nthreads = multiprocessing.cpu_count()
+        elif nthreads < 0:
+            nthreads = multiprocessing.cpu_count() + 1 + nthreads
 
         assert nthreads > 0
         assert isinstance(nthreads, int)
@@ -488,7 +588,6 @@ class IsolationForest:
         self.weigh_imp_rows          =  weigh_imp_rows
         self.min_imp_obs             =  min_imp_obs
         self.random_seed             =  random_seed
-        self.random_state            =  random_state
         self.nthreads                =  nthreads
 
         self.all_perm                =  bool(all_perm)
@@ -510,8 +609,58 @@ class IsolationForest:
         self._ncols_numeric =  0
         self._ncols_categ   =  0
         self.is_fitted_     =  False
+        self._ntrees        =  0
         self._cpp_obj       =  isoforest_cpp_obj()
         self._is_extended_  =  self.ndim > 1
+
+    def get_params(self, deep=True):
+        """
+        Get parameters for this estimator.
+
+        Kept for compatibility with scikit-learn.
+
+        Parameters
+        ----------
+        deep : bool
+            Ignored.
+
+        Returns
+        -------
+        params : dict
+            Parameter names mapped to their values.
+        """
+        import inspect
+        return {param.name:getattr(self, param.name) for param in inspect.signature(self.__init__).parameters.values()}
+
+    def set_params(self, **params):
+        """
+        Set the parameters of this estimator.
+
+        Kept for compatibility with scikit-learn.
+
+        Note
+        ----
+        Setting any parameter other than the number of threads will reset the model
+        - that is, if it was fitted to some data, the fitted model will be lost.
+        
+        Parameters
+        ----------
+        **params : dict
+            Estimator parameters.
+
+        Returns
+        -------
+        self : estimator instance
+            Estimator instance.
+        """
+        if not (len(params) == 1 and ("nthreads" in params or "n_jobs" in params)):
+            self.is_fitted_ = False
+        valid_params = self.get_params(deep=False)
+        for k,v in params.items():
+            if k not in valid_params:
+                raise ValueError("Invalid parameter: ", k)
+            setattr(self, k, v)
+        return self
 
     def __str__(self):
         msg = ""
@@ -525,7 +674,7 @@ class IsolationForest:
         if self.ndim > 1:
             msg += "Splitting by %d variables at a time\n" % self.ndim
         if self.is_fitted_:
-            msg += "Consisting of %d trees\n" % self.ntrees
+            msg += "Consisting of %d trees\n" % self._ntrees
             if self._ncols_numeric > 0:
                 msg += "Numeric columns: %d\n" % self._ncols_numeric
             if self._ncols_categ:
@@ -571,6 +720,7 @@ class IsolationForest:
         self : obj
             This object.
         """
+        self._init()
         if self.sample_size is None and sample_weights is not None and self.weights_as_sample_prob:
             raise ValueError("Sampling weights are only supported when using sub-samples for each tree.")
         if column_weights is not None and self.weigh_by_kurtosis:
@@ -637,6 +787,7 @@ class IsolationForest:
                                 ctypes.c_uint64(seed).value,
                                 ctypes.c_int(self.nthreads).value)
         self.is_fitted_ = True
+        self._ntrees = self.ntrees
         return self
 
     def fit_predict(self, X, column_weights = None, output_outlierness = "score",
@@ -699,6 +850,7 @@ class IsolationForest:
             with keys "pred" (array(n_samples,)), "dist" (array(n_samples * (n_samples - 1) / 2,) or array(n_samples, n_samples)),
             "imputed" (array-like(n_samples, n_columns)), according to whether each output type is present.
         """
+        self._init()
         if self.sample_size is not None:
             raise ValueError("Cannot use 'fit_predict' when the sample size is limited.")
         if self.sample_with_replacement:
@@ -788,6 +940,7 @@ class IsolationForest:
                                                                    ctypes.c_uint64(seed).value,
                                                                    ctypes.c_int(self.nthreads).value)
         self.is_fitted_ = True
+        self._ntrees = self.ntrees
 
         if (not output_distance) and (not output_imputed):
             return depths
@@ -808,7 +961,7 @@ class IsolationForest:
             X_num = X.select_dtypes(include = [np.number, np.datetime64]).to_numpy()
             if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
                 X_num = X_num.astype(ctypes.c_double)
-            if not np.isfortran(X_num):
+            if not _is_col_major(X_num):
                 X_num = np.asfortranarray(X_num)
             X_cat = X.select_dtypes(include = [pd.CategoricalDtype, "object", "bool"]).copy()
             if (X_num.shape[1] + X_cat.shape[1]) == 0:
@@ -859,7 +1012,7 @@ class IsolationForest:
                         self._cat_mapping[cl] = self._cat_mapping[cl].to_numpy()
                 if X_cat.dtype != ctypes.c_int:
                     X_cat = X_cat.astype(ctypes.c_int)
-                if not np.isfortran(X_cat):
+                if not _is_col_major(X_cat):
                     X_cat = np.asfortranarray(X_cat)
 
         else:
@@ -877,6 +1030,7 @@ class IsolationForest:
 
                 if ((X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
                     (X.indices.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
+                    (X.indptr.dtype != X.indices.dtype) or
                     (X.data.dtype not in [ctypes.c_double, ctypes.c_float])
                 ):
                     X = X.copy()
@@ -888,10 +1042,11 @@ class IsolationForest:
                     X.indptr  = X.indptr.astype(ctypes.c_size_t)
                 if not avoid_sort:
                     _sort_csc_indices(X)
+            
             else:
                 if (X.__class__.__name__ == "ndarray") and (X.dtype not in [ctypes.c_double, ctypes.c_float]):
                     X = X.astype(ctypes.c_double)
-                if (X.__class__.__name__ != "ndarray") or (not np.isfortran(X)):
+                if (X.__class__.__name__ != "ndarray") or (not _is_col_major(X)):
                     X = np.asfortranarray(X)
                 if X.dtype not in [ctypes.c_double, ctypes.c_float]:
                     X = X.astype(ctypes.c_double)
@@ -959,6 +1114,9 @@ class IsolationForest:
                 warnings.warn(msg)
                 self.ndim = ncols
 
+        X_num = _copy_if_subview(X_num)
+        X_cat = _copy_if_subview(X_cat)
+
         return X_num, X_cat, ncat, sample_weights, column_weights, nrows
 
     def _process_data_new(self, X, allow_csr = True, allow_csc = True, prefer_row_major = False):
@@ -972,7 +1130,7 @@ class IsolationForest:
                     X_num = X[self.cols_numeric_].to_numpy()
                     if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
                         X_num = X_num.astype(ctypes.c_double)
-                    if (not prefer_row_major) and (not np.isfortran(X_num)):
+                    if (not prefer_row_major) and (not _is_col_major(X_num)):
                         X_num = np.asfortranarray(X_num)
                     nrows = X_num.shape[0]
                 else:
@@ -985,7 +1143,7 @@ class IsolationForest:
                     X_cat = X_cat.to_numpy()
                     if X_cat.dtype != ctypes.c_int:
                         X_cat = X_cat.astype(ctypes.c_int)
-                    if (not prefer_row_major) and (not np.isfortran(X_cat)):
+                    if (not prefer_row_major) and (not _is_col_major(X_cat)):
                         X_cat = np.asfortranarray(X_cat)
                     nrows = X_cat.shape[0]
                 else:
@@ -997,12 +1155,12 @@ class IsolationForest:
                 X_num = X.to_numpy()
                 if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
                     X_num = X_num.astype(ctypes.c_double)
-                if (not prefer_row_major) and (not np.isfortran(X_num)):
+                if (not prefer_row_major) and (not _is_col_major(X_num)):
                     X_num = np.asfortranarray(X_num)
                 X_cat = None
                 nrows = X_num.shape[0]
 
-            if (X_num is not None) and (X_cat is not None) and (np.isfortran(X_num) != np.isfortran(X_cat)):
+            if (X_num is not None) and (X_cat is not None) and (_is_col_major(X_num) != _is_col_major(X_cat)):
                 if prefer_row_major:
                     X_num = np.ascontiguousarray(X_num)
                     X_cat = np.ascontiguousarray(X_cat)
@@ -1030,16 +1188,27 @@ class IsolationForest:
                     X = csr_matrix(X)
                     avoid_sort = True
                 elif (not isspmatrix_csc(X)) and (not isspmatrix_csr(X)):
-                    msg  = "Sparse matrix inputs only supported as CSC"
-                    if allow_csr:
-                        msg += " or CSR"
-                    msg += " format, will convert to CSC."
-                    warnings.warn(msg)
-                    X = csc_matrix(X)
+                    msg  = "Sparse matrix inputs only supported as "
+                    if allow_csc:
+                        msg += "CSC"
+                        if allow_csr:
+                            msg += " or CSR"
+                    else:
+                        msg += "CSR"
+                    msg += " format, will convert to "
+                    if allow_csc:
+                        msg += "CSC."
+                        warnings.warn(msg)
+                        X = csc_matrix(X)
+                    else:
+                        msg += "CSR."
+                        warnings.warn(msg)
+                        X = csr_matrix(X)
                     avoid_sort = True
 
                 if ((X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
                     (X.indices.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
+                    (X.indptr.dtype != X.indices.dtype) or
                     (X.data.dtype not in [ctypes.c_double, ctypes.c_float])
                 ):
                     X = X.copy()
@@ -1052,6 +1221,7 @@ class IsolationForest:
                 if not avoid_sort:
                     _sort_csc_indices(X)
                 X_num = X
+            
             else:
                 if X.__class__.__name__ != "ndarray":
                     if prefer_row_major:
@@ -1060,8 +1230,13 @@ class IsolationForest:
                         X = np.asfortranarray(X)
                 if X.dtype not in [ctypes.c_double, ctypes.c_float]:
                     X = X.astype(ctypes.c_double)
+                if (not prefer_row_major) and (not _is_col_major(X)):
+                    X = np.asfortranarray(X)
                 X_num = X
             nrows = X_num.shape[0]
+
+        X_num = _copy_if_subview(X_num)
+        X_cat = _copy_if_subview(X_cat)
 
         return X_num, X_cat, nrows
 
@@ -1167,6 +1342,25 @@ class IsolationForest:
             return depths
         else:
             return tree_num
+
+    def decision_function(self, X):
+        """
+        Wrapper for 'predict' with 'output=score'
+
+        This function is kept for compatibility with SciKit-Learn.
+
+        Parameters
+        ----------
+        X : array or array-like (n_samples, n_features)
+            Observations for which to predict outlierness or average isolation depth. Can pass
+            a NumPy array, Pandas DataFrame, or SciPy sparse CSC or CSR matrix.
+
+        Returns
+        -------
+        score : array(n_samples,)
+            Outlier scores for the rows in 'X' (the higher, the most anomalous).
+        """
+        return self.predict(X, output="score")
 
     def predict_distance(self, X, output = "dist", square_mat = False, X_ref = None):
         """
@@ -1362,13 +1556,21 @@ class IsolationForest:
         self : obj
             This object.
         """
+        if not self.is_fitted_:
+            self._init()
         if (sample_weights is not None) and (self.weights_as_sample_prob):
             raise ValueError("Cannot use sampling weights with 'partial_fit'.")
         if (column_weights is not None) and (self.weigh_by_kurtosis):
             raise ValueError("Cannot pass column weights when weighting columns by kurtosis.")
 
         if not self.is_fitted_:
-            return self.fit(X = X, sample_weights = sample_weights, column_weights = column_weights)
+            trees_restore = self.ntrees
+            try:
+                self.ntrees = 1
+                self.fit(X = X, sample_weights = sample_weights, column_weights = column_weights)
+            finally:
+                self.ntrees = trees_restore
+            return self
         
         X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False, prefer_row_major = False)
         if sample_weights is not None:
@@ -1428,7 +1630,7 @@ class IsolationForest:
                                self.weigh_imp_rows,
                                ctypes.c_bool(self.all_perm).value,
                                ctypes.c_int(self.nthreads).value)
-        self.ntrees += 1
+        self._ntrees += 1
         return self
 
     def get_num_nodes(self):
@@ -1494,7 +1696,7 @@ class IsolationForest:
             warnings.warn("Merging models with categorical features might give wrong results.")
 
         self._cpp_obj.append_trees_from_other(other._cpp_obj, self._is_extended_)
-        self.ntrees += other.ntrees
+        self._ntrees += other._ntrees
 
         return self
 
@@ -1734,7 +1936,7 @@ class IsolationForest:
                 tree = int(tree)
             assert isinstance(tree, int)
             assert tree >= 0
-            assert tree < self.ntrees
+            assert tree < self._ntrees
             single_tree = True
         else:
             tree = 0
@@ -1806,7 +2008,7 @@ class IsolationForest:
 
         params = {
             "sample_size" : self.sample_size,
-            "ntrees" : int(self.ntrees),  ## is in c++
+            "ntrees" : int(self._ntrees),  ## is in c++
             "ntry" : int(self.ntry),
             "max_depth" : self.max_depth,
             "prob_pick_avg_gain" : float(self.prob_pick_avg_gain),
@@ -1849,6 +2051,7 @@ class IsolationForest:
 
         self.sample_size = metadata["params"]["sample_size"]
         self.ntrees = metadata["params"]["ntrees"]
+        self._ntrees = self.ntrees
         self.ntry = metadata["params"]["ntry"]
         self.max_depth = metadata["params"]["max_depth"]
         self.prob_pick_avg_gain = metadata["params"]["prob_pick_avg_gain"]

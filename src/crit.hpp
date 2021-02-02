@@ -109,6 +109,8 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], Missing
 
 
 /* TODO: make these compensated sums */
+/* TODO: can this use the same algorithm as above but with a correction at the end,
+   like it was done for the variance? */
 template <class real_t, class sparse_ix>
 double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],

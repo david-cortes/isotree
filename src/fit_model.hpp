@@ -356,6 +356,11 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     if (ndim == 0 && model_outputs == NULL)
         throw std::runtime_error("Must pass 'ndim>0' in the extended model.\n");
 
+
+    /* TODO: this function should also accept the array as a memoryview with a
+       leading dimension that might not correspond to the number of columns,
+       so as to avoid having to make deep copies of memoryviews in python. */
+
     /* calculate maximum number of categories to use later */
     int max_categ = 0;
     for (size_t col = 0; col < ncols_categ; col++)
