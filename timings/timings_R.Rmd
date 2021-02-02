@@ -1,0 +1,422 @@
+---
+title: "timings_R"
+author: "David Cortes"
+date: "2/2/2021"
+output:
+  html_document:
+    toc: true
+    theme: united
+---
+
+# Timing Isolation Forest libraries
+
+This document produces timings on fitting Isolation Forest (iForest) models to 2 datasets of different sizes using the libraries [IsoTree](https://github.com/david-cortes/isotree), [IsolationForest](https://sourceforge.net/projects/iforest/), [IsoFor](https://github.com/Zelazny7/isofor), and [Solitude](https://github.com/talegari/solitude).
+
+All of the models produce 100 trees of the same fixed sample sizes. Some are run single-threaded and some multi-threaded where supported. The CPU used is an AMD Ryzen 2 2700 running at 3.2GHz and having 16 threads.
+
+The second dataset was not benchmarked for all libraries because some of them would run out of memory and/or take a very unreasonable amount of time to finish.
+
+******
+
+Libraries used throughout the document:
+```{r, message=FALSE, results=FALSE, warning=FALSE, comment=FALSE}
+library(R.matlab) #https://github.com/HenrikBengtsson/R.matlab
+library(readsparse) #https://github.com/david-cortes/readsparse
+library(microbenchmark) #https://github.com/joshuaulrich/microbenchmark/
+library(isotree) #https://github.com/david-cortes/isotree
+library(IsolationForest) #https://sourceforge.net/projects/iforest
+library(isofor) #https://github.com/Zelazny7/isofor
+library(solitude) #https://github.com/talegari/solitude
+```
+
+### Small dataset: Satellite (6435 rows, 36 columns)
+
+Data was taken from the ODDS repository - [link](http://odds.cs.stonybrook.edu/satellite-dataset/).
+
+
+```{r}
+X = readMat("satellite.mat")$X
+X_df = as.data.frame(X)
+cat(dim(X))
+```
+
+******
+
+Timing isotree, single-variable model:
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=256L,
+									ndim=1, missing_action="fail",
+									nthreads=1L)
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=1024L,
+									ndim=1, missing_action="fail",
+									nthreads=1L)
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=6435L,
+									ndim=1, missing_action="fail",
+									nthreads=1L)
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=256L,
+									ndim=1, missing_action="fail",
+									nthreads=parallel::detectCores())
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=1024L,
+									ndim=1, missing_action="fail",
+									nthreads=parallel::detectCores())
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=6435L,
+									ndim=1, missing_action="fail",
+									nthreads=parallel::detectCores())
+}, times=7L)
+```
+
+Timing isotree, extended model:
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=256L,
+									ndim=2, missing_action="fail",
+									nthreads=1L)
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=1024L,
+									ndim=2, missing_action="fail",
+									nthreads=1L)
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=6435L,
+									ndim=2, missing_action="fail",
+									nthreads=1L)
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=256L,
+									ndim=2, missing_action="fail",
+									nthreads=parallel::detectCores())
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=1024L,
+									ndim=2, missing_action="fail",
+									nthreads=parallel::detectCores())
+}, times=1L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=6435L,
+									ndim=2, missing_action="fail",
+									nthreads=parallel::detectCores())
+}, times=1L)
+```
+
+Timing IsolatonForest:
+```{r}
+microbenchmark({
+	iso = IsolationForest::IsolationTrees(X_df, ntree=100L, rowSamp=TRUE, nRowSamp=256L)
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = IsolationForest::IsolationTrees(X_df, ntree=100L, rowSamp=TRUE, nRowSamp=1024L)
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = IsolationForest::IsolationTrees(X_df, ntree=100L, rowSamp=FALSE, nRowSamp=6435L)
+}, times=7L)
+```
+
+Timing isofor:
+
+```{r}
+microbenchmark({
+	iso = isofor::iForest(X, nt=100L, phi=256L)
+}, times=1L)
+```
+
+```{r}
+microbenchmark({
+	iso = isofor::iForest(X, nt=100L, phi=1024L)
+}, times=1L)
+```
+
+```{r}
+microbenchmark({
+	iso = isofor::iForest(X, nt=100L, phi=6435L)
+}, times=1L)
+```
+
+Timing solitude:
+
+```{r}
+microbenchmark({
+	iso = solitude::isolationForest$new(num_trees=100L, sample_size=256L,
+										replace=FALSE, nproc=1L)
+	sink("/dev/null")
+	suppressMessages(iso$fit(X_df))
+	sink()
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = solitude::isolationForest$new(num_trees=100L, sample_size=1024L,
+										replace=FALSE, nproc=1L)
+	sink("/dev/null")
+	suppressMessages(iso$fit(X_df))
+	sink()
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = solitude::isolationForest$new(num_trees=100L, sample_size=6435L,
+										replace=FALSE, nproc=1L)
+	sink("/dev/null")
+	suppressMessages(iso$fit(X_df))
+	sink()
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = solitude::isolationForest$new(num_trees=100L, sample_size=256L,
+										replace=FALSE, nproc=parallel::detectCores())
+	sink("/dev/null")
+	suppressMessages(iso$fit(X_df))
+	sink()
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = solitude::isolationForest$new(num_trees=100L, sample_size=1024L,
+										replace=FALSE, nproc=parallel::detectCores())
+	sink("/dev/null")
+	suppressMessages(iso$fit(X_df))
+	sink()
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = solitude::isolationForest$new(num_trees=100L, sample_size=6435L,
+										replace=FALSE, nproc=parallel::detectCores())
+	sink("/dev/null")
+	suppressMessages(iso$fit(X_df))
+	sink()
+}, times=7L)
+```
+
+### Mid-sized dataset: CovType (581,012 rows, 54 columns)
+
+Dataset was taken from [LibSVM's webpage](https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/).
+
+```{r, message=FALSE, results=FALSE, warning=FALSE, comment=FALSE}
+gc()
+```
+```{r}
+X = readsparse::read.sparse("covtype.libsvm.binary")
+X = as.matrix(X$X)
+X_df = as.data.frame(X)
+cat(dim(X))
+```
+
+******
+
+Timing isotree, single-variable model:
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=256L,
+									ndim=1, missing_action="fail",
+									nthreads=1L)
+}, times=3L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=1024L,
+									ndim=1, missing_action="fail",
+									nthreads=1L)
+}, times=3L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=10000L,
+									ndim=1, missing_action="fail",
+									nthreads=1L)
+}, times=3L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=256L,
+									ndim=1, missing_action="fail",
+									nthreads=parallel::detectCores())
+}, times=3L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=1024L,
+									ndim=1, missing_action="fail",
+									nthreads=parallel::detectCores())
+}, times=3L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=10000L,
+									ndim=1, missing_action="fail",
+									nthreads=parallel::detectCores())
+}, times=3L)
+```
+
+Timing isotree, extended model:
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=256L,
+									ndim=2, missing_action="fail",
+									nthreads=1L)
+}, times=3L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=1024L,
+									ndim=2, missing_action="fail",
+									nthreads=1L)
+}, times=3L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=10000L,
+									ndim=2, missing_action="fail",
+									nthreads=1L)
+}, times=3L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=256L,
+									ndim=2, missing_action="fail",
+									nthreads=parallel::detectCores())
+}, times=3L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=1024L,
+									ndim=2, missing_action="fail",
+									nthreads=parallel::detectCores())
+}, times=3L)
+```
+
+```{r}
+microbenchmark({
+	iso = isotree::isolation.forest(X, ntrees=100L, sample_size=10000L,
+									ndim=2, missing_action="fail",
+									nthreads=parallel::detectCores())
+}, times=3L)
+```
+
+IsolationForest runs out of memory and would take too long, not benchmarked.
+
+isofor would take too long, not benchmarked.
+
+Timing solitude:
+
+```{r}
+microbenchmark({
+	iso = solitude::isolationForest$new(num_trees=100L, sample_size=256L,
+										replace=FALSE, nproc=1L)
+	sink("/dev/null")
+	suppressMessages(iso$fit(X_df))
+	sink()
+}, times=1L)
+```
+
+```{r}
+microbenchmark({
+	iso = solitude::isolationForest$new(num_trees=100L, sample_size=1024L,
+										replace=FALSE, nproc=1L)
+	sink("/dev/null")
+	suppressMessages(iso$fit(X_df))
+	sink()
+}, times=1L)
+```
+
+```{r}
+microbenchmark({
+	iso = solitude::isolationForest$new(num_trees=100L, sample_size=10000L,
+										replace=FALSE, nproc=1L)
+	sink("/dev/null")
+	suppressMessages(iso$fit(X_df))
+	sink()
+}, times=1L)
+```
+
+```{r}
+microbenchmark({
+	iso = solitude::isolationForest$new(num_trees=100L, sample_size=256L,
+										replace=FALSE, nproc=parallel::detectCores())
+	sink("/dev/null")
+	suppressMessages(iso$fit(X_df))
+	sink()
+}, times=1L)
+```
+
+```{r}
+microbenchmark({
+	iso = solitude::isolationForest$new(num_trees=100L, sample_size=1024L,
+										replace=FALSE, nproc=parallel::detectCores())
+	sink("/dev/null")
+	suppressMessages(iso$fit(X_df))
+	sink()
+}, times=1L)
+```
+
+```{r}
+microbenchmark({
+	iso = solitude::isolationForest$new(num_trees=100L, sample_size=10000L,
+										replace=FALSE, nproc=parallel::detectCores())
+	sink("/dev/null")
+	suppressMessages(iso$fit(X_df))
+	sink()
+}, times=1L)
+```
