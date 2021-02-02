@@ -74,17 +74,16 @@ class IsolationForest:
 
     Note
     ----
-    The model offers many tunable parameters. Assuming that ``ntrees`` is high-enough for the data,
-    the most likely candidate to tune is ``prob_pick_pooled_gain`` (along with perhaps disabling
+    The model offers many tunable parameters. The most likely candidate to tune is
+    ``prob_pick_pooled_gain`` (along with perhaps disabling
     ``penalize_range`` alongside this option), for which higher values tend to
     result in a better ability to flag outliers in the training data at the expense of hindered
     performance when making predictions on new data (calling method ``predict``) and poorer
     generalizability to inputs with values outside the variables' ranges to which the model was fit
     (see plots generated from the examples in GitHub notebook for a better idea of the difference). The next candidates to tune is
     ``sample_size`` - the default is to use all rows, but in some datasets introducing sub-sampling can help,
-    especially for the single-variable model. After that, next candidate to tune is ``prob_pick_avg_gain``,
-    for which high values tend to result in models that are more likely to flag values outside of the variables'
-    ranges.
+    especially for the single-variable model. In smaller datasets, one might also want to experiment
+    with ``weigh_by_kurtosis`` and perhaps lower ``ndim``.
 
     Note
     ----
