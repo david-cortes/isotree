@@ -11,6 +11,7 @@ isolation.forest(
   ndim = min(3, NCOL(df)),
   ntry = 3,
   max_depth = ceiling(log2(sample_size)),
+  ncols_per_tree = NCOL(df),
   prob_pick_avg_gain = 0,
   prob_pick_pooled_gain = 0,
   prob_split_avg_gain = 0,

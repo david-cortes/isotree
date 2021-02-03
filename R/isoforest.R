@@ -518,6 +518,7 @@
 isolation.forest <- function(df,
                              sample_size = NROW(df), ntrees = 500, ndim = min(3, NCOL(df)),
                              ntry = 3, max_depth = ceiling(log2(sample_size)),
+                             ncols_per_tree = NCOL(df),
                              prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
                              prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
                              min_gain = 0, missing_action = ifelse(ndim > 1, "impute", "divide"),
@@ -534,12 +535,13 @@ isolation.forest <- function(df,
                              random_seed = 1, nthreads = parallel::detectCores()) {
     ### validate inputs
     if (NROW(sample_size) != 1 || sample_size < 5) { stop("'sample_size' must be an integer >= 5.") }
-    check.pos.int(ntrees,       "ntrees")
-    check.pos.int(ndim,         "ndim")
-    check.pos.int(ntry,         "ntry")
-    check.pos.int(max_depth,    "max_depth")
-    check.pos.int(min_imp_obs,  "min_imp_obs")
-    check.pos.int(random_seed,  "random_seed")
+    check.pos.int(ntrees,          "ntrees")
+    check.pos.int(ndim,            "ndim")
+    check.pos.int(ntry,            "ntry")
+    check.pos.int(max_depth,       "max_depth")
+    check.pos.int(min_imp_obs,     "min_imp_obs")
+    check.pos.int(random_seed,     "random_seed")
+    check.pos.int(ncols_per_tree,  "ncols_per_tree")
     
     allowed_missing_action    <-  c("divide",       "impute",   "fail")
     allowed_new_categ_action  <-  c("weighted",     "smallest", "random", "impute")
@@ -659,14 +661,15 @@ isolation.forest <- function(df,
         column_weights <- get.empty.vector()
     }
     
-    sample_size  <-  as.integer(sample_size)
-    ntrees       <-  as.integer(ntrees)
-    ndim         <-  as.integer(ndim)
-    ntry         <-  as.integer(ntry)
-    max_depth    <-  as.integer(max_depth)
-    min_imp_obs  <-  as.integer(min_imp_obs)
-    random_seed  <-  as.integer(random_seed)
-    nthreads     <-  as.integer(nthreads)
+    sample_size     <-  as.integer(sample_size)
+    ntrees          <-  as.integer(ntrees)
+    ndim            <-  as.integer(ndim)
+    ntry            <-  as.integer(ntry)
+    max_depth       <-  as.integer(max_depth)
+    min_imp_obs     <-  as.integer(min_imp_obs)
+    random_seed     <-  as.integer(random_seed)
+    nthreads        <-  as.integer(nthreads)
+    ncols_per_tree  <-  as.integer(ncols_per_tree)
     
     prob_pick_avg_gain       <-  as.numeric(prob_pick_avg_gain)
     prob_pick_pooled_gain    <-  as.numeric(prob_pick_pooled_gain)
@@ -702,7 +705,7 @@ isolation.forest <- function(df,
                              pdata$sample_weights, pdata$column_weights,
                              pdata$nrows, pdata$ncols_num, pdata$ncols_cat, ndim, ntry,
                              coefs, coef_by_prop, sample_with_replacement, weights_as_sample_prob,
-                             sample_size, ntrees,  max_depth, FALSE,
+                             sample_size, ntrees,  max_depth, ncols_per_tree, FALSE,
                              penalize_range, output_dist, TRUE, square_dist,
                              output_score, TRUE, weigh_by_kurtosis,
                              prob_pick_avg_gain, prob_split_avg_gain,
@@ -728,6 +731,7 @@ isolation.forest <- function(df,
         params  =  list(
             sample_size = sample_size, ntrees = ntrees, ndim = ndim,
             ntry = ntry, max_depth = max_depth,
+            ncols_per_tree = ncols_per_tree,
             prob_pick_avg_gain = prob_pick_avg_gain,
             prob_pick_pooled_gain = prob_pick_pooled_gain,
             prob_split_avg_gain = prob_split_avg_gain,
@@ -1113,7 +1117,7 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
                                              pdata$nrows, model$metadata$ncols_num, model$metadata$ncols_cat,
                                              model$params$ndim, model$params$ntry,
                                              model$params$coefs, model$params$coef_by_prop,
-                                             model$params$max_depth,
+                                             model$params$max_depth, model$params$ncols_per_tree,
                                              FALSE, model$params$penalize_range,
                                              model$params$weigh_by_kurtosis,
                                              model$params$prob_pick_avg_gain, model$params$prob_split_avg_gain,

@@ -145,6 +145,11 @@ class IsolationForest:
         remaining isolation depth for them is estimated assuming the data and splits are both uniformly random (separation depth
         follows a similar process with expected value calculated as in [6]). Default setting for [1], [2], [3], [4] is "auto",
         but it's recommended to pass higher values if using the model for purposes other than outlier detection.
+    ncols_per_tree : None or int
+        Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
+        similar to the 'mtry' parameter of random forests.
+        In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
+        If passing ``None``, will use the full number of available columns.
     prob_pick_avg_gain : float(0, 1)
         * For the single-variable model (``ndim=1``), this parameter indicates the probability
           of making each split by choosing a column and split point in that
@@ -401,7 +406,8 @@ class IsolationForest:
            arXiv preprint arXiv:1911.06646 (2019).
     .. [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
     """
-    def __init__(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3, max_depth = "auto",
+    def __init__(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3,
+                 max_depth = "auto", ncols_per_tree = None,
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
                  prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
@@ -420,6 +426,7 @@ class IsolationForest:
         self.ndim = ndim
         self.ntry = ntry
         self.max_depth = max_depth
+        self.ncols_per_tree = ncols_per_tree
         self.prob_pick_avg_gain = prob_pick_avg_gain
         self.prob_pick_pooled_gain = prob_pick_pooled_gain
         self.prob_split_avg_gain = prob_split_avg_gain
@@ -455,7 +462,8 @@ class IsolationForest:
         self._initialize_full(
                  sample_size = self.sample_size if (self.max_samples is None) else self.max_samples,
                  ntrees = self.ntrees if (self.n_estimators is None) else self.n_estimators,
-                 ndim = self.ndim, ntry = self.ntry, max_depth = self.max_depth,
+                 ndim = self.ndim, ntry = self.ntry,
+                 max_depth = self.max_depth, ncols_per_tree = self.ncols_per_tree,
                  prob_pick_avg_gain = self.prob_pick_avg_gain, prob_pick_pooled_gain = self.prob_pick_pooled_gain,
                  prob_split_avg_gain = self.prob_split_avg_gain, prob_split_pooled_gain = self.prob_split_pooled_gain,
                  min_gain = self.min_gain, missing_action = self.missing_action, new_categ_action = self.new_categ_action,
@@ -470,7 +478,8 @@ class IsolationForest:
                  random_seed = self.random_seed if (self.random_state is None) else self.random_state,
                  nthreads = self.nthreads if (self.n_jobs is None) else self.n_jobs)
 
-    def _initialize_full(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3, max_depth = "auto",
+    def _initialize_full(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3,
+                 max_depth = "auto", ncols_per_tree = None,
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
                  prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
@@ -485,6 +494,9 @@ class IsolationForest:
         if sample_size is not None:
             assert sample_size > 0
             assert isinstance(sample_size, int)
+        if ncols_per_tree is not None:
+            assert ncols_per_tree > 0
+            assert isinstance(ncols_per_tree, int)
         assert ntrees > 0
         assert isinstance(ntrees, int)
         if (max_depth != "auto") and (max_depth is not None):
@@ -575,6 +587,7 @@ class IsolationForest:
         self.ndim                    =  ndim
         self.ntry                    =  ntry
         self.max_depth               =  max_depth
+        self.ncols_per_tree          =  ncols_per_tree
         self.prob_pick_avg_gain      =  prob_pick_avg_gain
         self.prob_pick_pooled_gain   =  prob_pick_pooled_gain
         self.prob_split_avg_gain     =  prob_split_avg_gain
@@ -765,6 +778,11 @@ class IsolationForest:
             max_depth = self.max_depth
             limit_depth = False
 
+        if self.ncols_per_tree is None:
+            ncols_per_tree = 0
+        else:
+            ncols_per_tree = self.ncols_per_tree
+
         if isinstance(self.random_state, np.random.RandomState):
             seed = self.random_state.randint(np.iinfo(np.int32).max)
         else:
@@ -785,6 +803,7 @@ class IsolationForest:
                                 ctypes.c_size_t(sample_size).value,
                                 ctypes.c_size_t(self.ntrees).value,
                                 ctypes.c_size_t(max_depth).value,
+                                ctypes.c_size_t(ncols_per_tree).value,
                                 ctypes.c_bool(limit_depth).value,
                                 ctypes.c_bool(self.penalize_range).value,
                                 ctypes.c_bool(False).value,
@@ -923,6 +942,11 @@ class IsolationForest:
             max_depth = self.max_depth
             limit_depth = False
 
+        if self.ncols_per_tree is None:
+            ncols_per_tree = 0
+        else:
+            ncols_per_tree = self.ncols_per_tree
+
         if isinstance(self.random_state, np.random.RandomState):
             seed = self.random_state.randint(np.iinfo(np.int32).max)
         else:
@@ -943,6 +967,7 @@ class IsolationForest:
                                                                    ctypes.c_size_t(nrows).value,
                                                                    ctypes.c_size_t(self.ntrees).value,
                                                                    ctypes.c_size_t(max_depth).value,
+                                                                   ctypes.c_size_t(ncols_per_tree).value,
                                                                    ctypes.c_bool(limit_depth).value,
                                                                    ctypes.c_bool(self.penalize_range).value,
                                                                    ctypes.c_bool(output_distance is not None).value,
@@ -1625,6 +1650,11 @@ class IsolationForest:
             max_depth = self.max_depth
             limit_depth = False
 
+        if self.ncols_per_tree is None:
+            ncols_per_tree = 0
+        else:
+            ncols_per_tree = self.ncols_per_tree
+
         self._cpp_obj.fit_tree(_get_num_dtype(X_num, sample_weights, column_weights),
                                _get_int_dtype(X_num),
                                X_num, X_cat, ncat, sample_weights, column_weights,
@@ -1636,6 +1666,7 @@ class IsolationForest:
                                self.coefs,
                                ctypes.c_bool(self.coef_by_prop).value,
                                ctypes.c_size_t(max_depth).value,
+                               ctypes.c_size_t(ncols_per_tree).value,
                                ctypes.c_bool(limit_depth).value,
                                ctypes.c_bool(self.penalize_range).value,
                                ctypes.c_bool(self.weigh_by_kurtosis).value,
@@ -2034,6 +2065,7 @@ class IsolationForest:
             "ntrees" : int(self._ntrees),  ## is in c++
             "ntry" : int(self.ntry),
             "max_depth" : self.max_depth,
+            "ncols_per_tree" : self.ncols_per_tree,
             "prob_pick_avg_gain" : float(self.prob_pick_avg_gain),
             "prob_pick_pooled_gain" : float(self.prob_pick_pooled_gain),
             "prob_split_avg_gain" : float(self.prob_split_avg_gain),
@@ -2077,6 +2109,7 @@ class IsolationForest:
         self._ntrees = self.ntrees
         self.ntry = metadata["params"]["ntry"]
         self.max_depth = metadata["params"]["max_depth"]
+        self.ncols_per_tree = metadata["params"]["ncols_per_tree"]
         self.prob_pick_avg_gain = metadata["params"]["prob_pick_avg_gain"]
         self.prob_pick_pooled_gain = metadata["params"]["prob_pick_pooled_gain"]
         self.prob_split_avg_gain = metadata["params"]["prob_split_avg_gain"]

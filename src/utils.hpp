@@ -688,16 +688,22 @@ void ColumnSampler::initialize(real_t weights[], size_t n_cols)
     for (size_t ix = 0; ix < this->n_cols; ix++)
         this->tree_weights[ix + this->offset] = std::fmax(0., weights[ix]);
     for (size_t ix = this->tree_weights.size() - 1; ix > 0; ix--)
-        this->tree_weights[ix_parent(ix)] += tree_weights[ix];
+        this->tree_weights[ix_parent(ix)] += this->tree_weights[ix];
 
     /* if the weights are invalid, make it an unweighted sampler */
     if (isnan(this->tree_weights[0]) || this->tree_weights[0] <= 0)
     {
-        this->tree_weights.clear();
-        this->tree_weights.shrink_to_fit();
-        this->initialize(n_cols);
+        this->drop_weights();
     }
 
+    this->n_dropped = 0;
+}
+
+void ColumnSampler::drop_weights()
+{
+    this->tree_weights.clear();
+    this->tree_weights.shrink_to_fit();
+    this->initialize(n_cols);
     this->n_dropped = 0;
 }
 
@@ -714,6 +720,99 @@ void ColumnSampler::initialize(size_t n_cols)
         this->curr_pos = n_cols;
         this->col_indices.resize(n_cols);
         std::iota(this->col_indices.begin(), this->col_indices.end(), (size_t)0);
+    }
+}
+
+/* TODO: this one should instead call the same function for sampling rows,
+   and should be done at the time of initialization so as to avoid allocating
+   and filling the whole array. That way it'd be faster and use less memory. */
+void ColumnSampler::leave_m_cols(size_t m, RNG_engine &rnd_generator)
+{
+    if (m == 0 || m >= this->n_cols)
+        return;
+
+    if (!this->has_weights())
+    {
+        size_t chosen;
+        if (m <= this->n_cols / 4)
+        {
+            for (this->curr_pos = 0; this->curr_pos < m; this->curr_pos++)
+            {
+                chosen = std::uniform_int_distribution<size_t>(0, this->n_cols - this->curr_pos)(rnd_generator);
+                std::swap(this->col_indices[this->curr_pos + chosen], this->col_indices[this->curr_pos]);
+            }
+        }
+
+        else if ((long double)m >= (long double)(3./4.) * (long double)this->n_cols)
+        {
+            for (this->curr_pos = this->n_cols; this->curr_pos > this->n_cols - m; this->curr_pos--)
+            {
+                chosen = std::uniform_int_distribution<size_t>(0, this->curr_pos)(rnd_generator);
+                std::swap(this->col_indices[chosen], this->col_indices[this->curr_pos]);
+            }
+            this->curr_pos = m;
+        }
+
+        else
+        {
+            std::shuffle(this->col_indices.begin(), this->col_indices.end(), rnd_generator);
+            this->curr_pos = m;
+        }
+    }
+
+    else
+    {
+        std::vector<double> curr_weights = this->tree_weights;
+        std::fill(this->tree_weights.begin(), this->tree_weights.end(), 0.);
+        double rnd_subrange, w_left;
+        double curr_subrange;
+        size_t curr_ix;
+
+        for (size_t col = 0; col < m; col++)
+        {
+            curr_ix = 0;
+            curr_subrange = curr_weights[0];
+            if (curr_subrange <= 0)
+            {
+                if (col == 0)
+                {
+                    this->drop_weights();
+                    return;
+                }
+
+                else
+                {
+                    m = col;
+                    goto rebuild_tree;
+                }
+            }
+
+            for (size_t lev = 0; lev < this->tree_levels; lev++)
+            {
+                rnd_subrange = std::uniform_real_distribution<double>(0., curr_subrange)(rnd_generator);
+                w_left = curr_weights[ix_child(curr_ix)];
+                curr_ix = ix_child(curr_ix) + (rnd_subrange >= w_left);
+                curr_subrange = curr_weights[curr_ix];
+            }
+
+            this->tree_weights[curr_ix] = curr_weights[curr_ix];
+
+            /* now remove the weight of the chosen element */
+            curr_weights[curr_ix] = 0;
+            for (size_t lev = 0; lev < this->tree_levels; lev++)
+            {
+                curr_ix = ix_parent(curr_ix);
+                curr_weights[curr_ix] =   curr_weights[ix_child(curr_ix)]
+                                        + curr_weights[ix_child(curr_ix) + 1];
+            }
+        }
+
+        /* rebuild the tree after getting new weights */
+        rebuild_tree:
+        for (size_t ix = this->tree_weights.size() - 1; ix > 0; ix--)
+            this->tree_weights[ix_parent(ix)] += this->tree_weights[ix];
+
+        this->n_dropped = this->n_cols - m;
     }
 }
 

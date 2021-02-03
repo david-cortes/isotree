@@ -413,6 +413,7 @@ typedef struct {
     bool      with_replacement;
     size_t    sample_size;
     size_t    ntrees;
+    size_t    ncols_per_tree;
     size_t    max_depth;
     bool      penalize_range;
     uint64_t  random_seed;
@@ -438,7 +439,7 @@ typedef struct {
 
     UseDepthImp   depth_imp;      /* only when building NA imputer */
     WeighImpRows  weigh_imp_rows; /* only when building NA imputer */
-    size_t        min_imp_obs;     /* only when building NA imputer */
+    size_t        min_imp_obs;    /* only when building NA imputer */
 } ModelParams;
 
 template <class sparse_ix=size_t>
@@ -492,6 +493,8 @@ public:
     template <class real_t=double>
     void initialize(real_t weights[], size_t n_cols);
     void initialize(size_t n_cols);
+    void drop_weights();
+    void leave_m_cols(size_t m, RNG_engine &rnd_generator);
     bool sample_col(size_t &col, RNG_engine &rnd_generator);
     void prepare_full_pass();        /* when passing through all columns */
     bool sample_col(size_t &col); /* when passing through all columns */
@@ -616,7 +619,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                 size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
                 real_t sample_weights[], bool with_replacement, bool weight_as_sample,
-                size_t nrows, size_t sample_size, size_t ntrees, size_t max_depth,
+                size_t nrows, size_t sample_size, size_t ntrees,
+                size_t max_depth, size_t ncols_per_tree,
                 bool   limit_depth, bool penalize_range,
                 bool   standardize_dist, double tmat[],
                 double output_depths[], bool standardize_depth,
@@ -634,7 +638,8 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              int    categ_data[],    size_t ncols_categ,    int ncat[],
              real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
              size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
-             real_t sample_weights[], size_t nrows, size_t max_depth,
+             real_t sample_weights[], size_t nrows,
+             size_t max_depth,     size_t ncols_per_tree,
              bool   limit_depth,   bool penalize_range,
              real_t col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_avg, double prob_split_by_gain_avg,

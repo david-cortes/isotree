@@ -64,7 +64,7 @@ int main()
                 NULL, NULL, NULL,
                 2, 3, Normal, false,
                 NULL, false, false,
-                nrow, nrow, 500, 0,
+                nrow, nrow, 500, 0, 0,
                 true, true,
                 false, NULL,
                 NULL, false,

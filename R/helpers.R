@@ -367,6 +367,7 @@ export.metadata <- function(model) {
         ntrees = model$params$ntrees,  ## is in c++
         ntry = model$params$ntry,
         max_depth = model$params$max_depth,
+        ncols_per_tree = model$params$ncols_per_tree,
         prob_pick_avg_gain = model$params$prob_pick_avg_gain,
         prob_pick_pooled_gain = model$params$prob_pick_pooled_gain,
         prob_split_avg_gain = model$params$prob_split_avg_gain,
@@ -397,6 +398,7 @@ take.metadata <- function(metadata) {
         params  =  list(
             sample_size = metadata$params$sample_size, ntrees = metadata$params$ntrees, ndim = metadata$model_info$ndim,
             ntry = metadata$params$ntry, max_depth = metadata$params$max_depth,
+            ncols_per_tree = metadata$params$ncols_per_tree,
             prob_pick_avg_gain = metadata$params$prob_pick_avg_gain,
             prob_pick_pooled_gain = metadata$params$prob_pick_pooled_gain,
             prob_split_avg_gain = metadata$params$prob_split_avg_gain,

@@ -380,6 +380,12 @@ typedef struct Imputer {
 *       author's code in [5] is 10.
 * - max_depth
 *       Maximum depth of the binary trees to grow. Will get overwritten if passing 'limit_depth' = 'true'.
+* - ncols_per_tree
+*       Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
+*       similar to the 'mtry' parameter of random forests.
+*       In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
+*       If passing zero, will use the full number of available columns.
+*       Recommended value: 0.
 * - limit_depth
 *       Whether to automatically set the maximum depth to the corresponding depth of a balanced binary tree with number of
 *       terminal nodes corresponding to the sub-sample size (the reason being that, if trying to detect outliers, an outlier
@@ -586,7 +592,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                 size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
                 real_t sample_weights[], bool with_replacement, bool weight_as_sample,
-                size_t nrows, size_t sample_size, size_t ntrees, size_t max_depth,
+                size_t nrows, size_t sample_size, size_t ntrees,
+                size_t max_depth,   size_t ncols_per_tree,
                 bool   limit_depth, bool penalize_range,
                 bool   standardize_dist, double tmat[],
                 real_t output_depths[], bool standardize_depth,
@@ -676,6 +683,9 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - max_depth
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
+* - ncols_per_tree
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
 * - limit_depth
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
@@ -740,7 +750,8 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              int    categ_data[],    size_t ncols_categ,    int ncat[],
              real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
              size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
-             real_t sample_weights[], size_t nrows, size_t max_depth,
+             real_t sample_weights[], size_t nrows,
+             size_t max_depth,     size_t ncols_per_tree,
              bool   limit_depth,   bool penalize_range,
              real_t col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
