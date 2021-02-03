@@ -60,6 +60,9 @@
 #' Recommended value in references [1], [2], [3], [4] is 256, while the default value in the author's code in reference [5] is
 #' `NROW(df)` (same as in here).
 #' 
+#' If passing a number between zero and one, will assume it means taking a sample size that represents
+#' that proportion of the rows in the data.
+#' 
 #' Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
 #' model needs more trees and/or bigger samples to reach convergence (unless using non-random
 #' splits, in which case the distribution is likely to be centered around a much lower number).
@@ -90,6 +93,12 @@
 #' (separation depth follows a similar process with expected value calculated as in reference [6]). Default setting
 #' for references [1], [2], [3], [4] is the same as the default here, but it's recommended to pass higher values if
 #' using the model for purposes other than outlier detection.
+#' @param ncols_per_tree Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
+#' similar to the 'mtry' parameter of random forests.
+#' In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
+#' 
+#' If passing a number between zero and one, will assume it means taking a sample size that represents
+#' that proportion of the columns in the data.
 #' @param prob_pick_avg_gain \itemize{
 #' \item For the single-variable model (`ndim=1`), this parameter indicates the probability
 #' of making each split by choosing a column and split point in that
@@ -535,6 +544,11 @@ isolation.forest <- function(df,
                              random_seed = 1, nthreads = parallel::detectCores()) {
     ### validate inputs
     if (NROW(sample_size) != 1 || sample_size < 5) { stop("'sample_size' must be an integer >= 5.") }
+    if (NROW(ncols_per_tree) != 1) { stop("'ncols_per_tree' must be an integer or proportion.") }
+    if ((sample_size > 0) && (sample_size <= 1))
+        sample_size = as.integer(ceiling(sample_size * NROW(df)))
+    if ((ncols_per_tree > 0) && (ncols_per_tree <= 1))
+        ncols_per_tree = as.integer(ceiling(ncols_per_tree * NCOL(df)))
     check.pos.int(ntrees,          "ntrees")
     check.pos.int(ndim,            "ndim")
     check.pos.int(ntry,            "ntry")

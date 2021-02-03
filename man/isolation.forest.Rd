@@ -62,6 +62,9 @@ Other input and column types are not supported.}
 Recommended value in references [1], [2], [3], [4] is 256, while the default value in the author's code in reference [5] is
 `NROW(df)` (same as in here).
 
+If passing a number between zero and one, will assume it means taking a sample size that represents
+that proportion of the rows in the data.
+
 Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
 model needs more trees and/or bigger samples to reach convergence (unless using non-random
 splits, in which case the distribution is likely to be centered around a much lower number).}
@@ -96,6 +99,13 @@ the remaining isolation depth for them is estimated assuming the data and splits
 (separation depth follows a similar process with expected value calculated as in reference [6]). Default setting
 for references [1], [2], [3], [4] is the same as the default here, but it's recommended to pass higher values if
 using the model for purposes other than outlier detection.}
+
+\item{ncols_per_tree}{Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
+similar to the 'mtry' parameter of random forests.
+In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
+
+If passing a number between zero and one, will assume it means taking a sample size that represents
+that proportion of the columns in the data.}
 
 \item{prob_pick_avg_gain}{\itemize{
 \item For the single-variable model (`ndim=1`), this parameter indicates the probability

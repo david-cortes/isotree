@@ -107,10 +107,13 @@ class IsolationForest:
 
     Parameters
     ----------
-    sample_size : int or None
+    sample_size : int, float(0,1), or None
         Sample size of the data sub-samples with which each binary tree will be built. If passing 'None', each
         tree will be built using the full data. Recommended value in [1], [2], [3] is 256, while
         the default value in the author's code in [5] is 'None' here.
+
+        If passing a number between zero and one, will assume it means taking a sample size that represents
+        that proportion of the rows in the data.
 
         Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
         model needs more trees and/or bigger samples to reach convergence (unless using non-random
@@ -145,11 +148,15 @@ class IsolationForest:
         remaining isolation depth for them is estimated assuming the data and splits are both uniformly random (separation depth
         follows a similar process with expected value calculated as in [6]). Default setting for [1], [2], [3], [4] is "auto",
         but it's recommended to pass higher values if using the model for purposes other than outlier detection.
-    ncols_per_tree : None or int
+    ncols_per_tree : None, int, or float(0,1)
         Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
         similar to the 'mtry' parameter of random forests.
         In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
-        If passing ``None``, will use the full number of available columns.
+
+        If passing a number between zero and one, will assume it means taking a sample size that represents
+        that proportion of the columns in the data.
+
+        If passing ``None`` (the default), will use the full number of available columns.
     prob_pick_avg_gain : float(0, 1)
         * For the single-variable model (``ndim=1``), this parameter indicates the probability
           of making each split by choosing a column and split point in that
@@ -493,10 +500,16 @@ class IsolationForest:
                  random_seed = 1, nthreads = -1):
         if sample_size is not None:
             assert sample_size > 0
-            assert isinstance(sample_size, int)
+            if sample_size > 1:
+                assert isinstance(sample_size, int)
+            elif sample_size == 1:
+                sample_size = None
         if ncols_per_tree is not None:
             assert ncols_per_tree > 0
-            assert isinstance(ncols_per_tree, int)
+            if ncols_per_tree > 1:
+                assert isinstance(ncols_per_tree, int)
+            elif ncols_per_tree == 1:
+                ncols_per_tree = None
         assert ntrees > 0
         assert isinstance(ntrees, int)
         if (max_depth != "auto") and (max_depth is not None):
@@ -757,7 +770,7 @@ class IsolationForest:
             This object.
         """
         self._init()
-        if self.sample_size is None and sample_weights is not None and self.weights_as_sample_prob:
+        if (self.sample_size is None) and (sample_weights is not None) and (self.weights_as_sample_prob):
             raise ValueError("Sampling weights are only supported when using sub-samples for each tree.")
         if column_weights is not None and self.weigh_by_kurtosis:
             raise ValueError("Cannot pass column weights when weighting columns by kurtosis.")
@@ -766,6 +779,10 @@ class IsolationForest:
 
         if self.sample_size is None:
             sample_size = nrows
+        elif self.sample_size < 1:
+            sample_size = int(np.ceil(self.sample_size * nrows))
+            if sample_size == 1:
+                raise ValueError("Sampling proportion amounts to a single row.")
         else:
             sample_size = self.sample_size
         if self.max_depth == "auto":
@@ -780,6 +797,13 @@ class IsolationForest:
 
         if self.ncols_per_tree is None:
             ncols_per_tree = 0
+        elif self.ncols_per_tree < 1:
+            ncols_tot = 0
+            if X_num is not None:
+                ncols_tot += X_num.shape[1]
+            if X_cat is not None:
+                ncols_tot += X_cat.shape[1]
+            ncols_per_tree = int(np.ceil(self.ncols_per_tree * ncols_tot))
         else:
             ncols_per_tree = self.ncols_per_tree
 
@@ -944,6 +968,13 @@ class IsolationForest:
 
         if self.ncols_per_tree is None:
             ncols_per_tree = 0
+        elif self.ncols_per_tree < 1:
+            ncols_tot = 0
+            if X_num is not None:
+                ncols_tot += X_num.shape[1]
+            if X_cat is not None:
+                ncols_tot += X_cat.shape[1]
+            ncols_per_tree = int(np.ceil(self.ncols_per_tree * ncols_tot))
         else:
             ncols_per_tree = self.ncols_per_tree
 
@@ -1652,6 +1683,13 @@ class IsolationForest:
 
         if self.ncols_per_tree is None:
             ncols_per_tree = 0
+        elif self.ncols_per_tree < 1:
+            ncols_tot = 0
+            if X_num is not None:
+                ncols_tot += X_num.shape[1]
+            if X_cat is not None:
+                ncols_tot += X_cat.shape[1]
+            ncols_per_tree = int(np.ceil(self.ncols_per_tree * ncols_tot))
         else:
             ncols_per_tree = self.ncols_per_tree
 
