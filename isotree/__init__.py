@@ -4,6 +4,7 @@ import warnings
 import multiprocessing
 import ctypes
 import json
+from copy import deepcopy
 from ._cpp_interface import isoforest_cpp_obj, _sort_csc_indices
 
 __all__ = ["IsolationForest"]
@@ -611,6 +612,29 @@ class IsolationForest:
         self._ntrees        =  0
         self._cpp_obj       =  isoforest_cpp_obj()
         self._is_extended_  =  self.ndim > 1
+
+    def copy(self):
+        """
+        Get a deep copy of this object
+
+        Returns
+        -------
+        copied : obj
+            A deep copy of this object
+        """
+        if not self.is_fitted_:
+            self._cpp_obj = isoforest_cpp_obj()
+            return deepcopy(self)
+        else:
+            obj_restore = self._cpp_obj
+            obj_new = self._cpp_obj.deepcopy()
+            try:
+                self._cpp_obj = None
+                out = deepcopy(self)
+            finally:
+                self._cpp_obj = obj_restore
+            out._cpp_obj = obj_new
+            return out
 
     def get_params(self, deep=True):
         """

@@ -275,6 +275,9 @@ cdef extern from "model_joined.hpp":
 
     void sort_csc_indices[real_t_, sparse_ix_](real_t_ *Xc, sparse_ix_ *Xc_ind, sparse_ix_ *Xc_indptr, size_t ncols_numeric) nogil except +
 
+cdef extern from "python_helpers.hpp":
+    model_t deepcopy_obj[model_t](model_t obj)
+
 
 ctypedef fused sparse_ix:
     int
@@ -344,6 +347,13 @@ cdef class isoforest_cpp_obj:
         dealloc_IsoForest(self.isoforest)
         dealloc_IsoExtForest(self.ext_isoforest)
         dealloc_Imputer(self.imputer)
+
+    def deepcopy(self):
+        other = isoforest_cpp_obj()
+        other.isoforest = deepcopy_obj(self.isoforest)
+        other.ext_isoforest = deepcopy_obj(self.ext_isoforest)
+        other.imputer = deepcopy_obj(self.imputer)
+        return other
 
     def get_cpp_obj(self, is_extended):
         if is_extended:
