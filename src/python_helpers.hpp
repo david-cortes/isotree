@@ -45,11 +45,28 @@
 
 #ifdef _FOR_PYTHON
 
+#include "isotree.hpp"
+
 template <class T>
 T deepcopy_obj(T obj)
 {
 	T res = obj;
 	return res;
+}
+
+IsoForest get_IsoForest()
+{
+	return IsoForest();
+}
+
+ExtIsoForest get_ExtIsoForest()
+{
+	return ExtIsoForest();
+}
+
+Imputer get_Imputer()
+{
+	return Imputer();
 }
 
 #endif

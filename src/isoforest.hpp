@@ -119,34 +119,87 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             {
                 if (input_data.Xc_indptr == NULL)
                 {
-                    workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                           input_data.numeric_data + workspace.col_chosen * input_data.nrows,
-                                                           workspace.buffer_dbl.data(), false,
-                                                           workspace.split_ix, workspace.this_split_point,
-                                                           workspace.xmin, workspace.xmax,
-                                                           workspace.criterion, model_params.min_gain,
-                                                           model_params.missing_action);
+                    if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                        workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                               input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                                               workspace.buffer_dbl.data(), false,
+                                                               workspace.split_ix, workspace.this_split_point,
+                                                               workspace.xmin, workspace.xmax,
+                                                               workspace.criterion, model_params.min_gain,
+                                                               model_params.missing_action);
+                    else if (workspace.weights_arr.size())
+                        workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                        input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                                                        workspace.buffer_dbl.data(), false,
+                                                                        workspace.split_ix, workspace.this_split_point,
+                                                                        workspace.xmin, workspace.xmax,
+                                                                        workspace.criterion, model_params.min_gain,
+                                                                        model_params.missing_action,
+                                                                        workspace.weights_arr);
+                    else
+                        workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                        input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                                                        workspace.buffer_dbl.data(), false,
+                                                                        workspace.split_ix, workspace.this_split_point,
+                                                                        workspace.xmin, workspace.xmax,
+                                                                        workspace.criterion, model_params.min_gain,
+                                                                        model_params.missing_action,
+                                                                        workspace.weights_map);
                 }
 
                 else
                 {
-                    workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                           workspace.col_chosen, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                                           workspace.buffer_dbl.data(), workspace.buffer_szt.data(), false,
-                                                           workspace.this_split_point, workspace.xmin, workspace.xmax,
-                                                           workspace.criterion, model_params.min_gain, model_params.missing_action);
+                    if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                        workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                               workspace.col_chosen, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                               workspace.buffer_dbl.data(), workspace.buffer_szt.data(), false,
+                                                               workspace.this_split_point, workspace.xmin, workspace.xmax,
+                                                               workspace.criterion, model_params.min_gain, model_params.missing_action);
+                    else if (workspace.weights_arr.size())
+                        workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                        workspace.col_chosen, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                                        workspace.buffer_dbl.data(), workspace.buffer_szt.data(), false,
+                                                                        workspace.this_split_point, workspace.xmin, workspace.xmax,
+                                                                        workspace.criterion, model_params.min_gain, model_params.missing_action,
+                                                                        workspace.weights_arr);
+                    else
+                        workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                        workspace.col_chosen, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                                        workspace.buffer_dbl.data(), workspace.buffer_szt.data(), false,
+                                                                        workspace.this_split_point, workspace.xmin, workspace.xmax,
+                                                                        workspace.criterion, model_params.min_gain, model_params.missing_action,
+                                                                        workspace.weights_map);
                 }
             }
 
             else
             {
-                workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                       input_data.categ_data + (workspace.col_chosen - input_data.ncols_numeric) * input_data.nrows,
-                                                       input_data.ncat[workspace.col_chosen - input_data.ncols_numeric],
-                                                       workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
-                                                       workspace.buffer_dbl.data(), workspace.this_categ, workspace.this_split_categ.data(),
-                                                       workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
-                                                       model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
+                if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                    workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                           input_data.categ_data + (workspace.col_chosen - input_data.ncols_numeric) * input_data.nrows,
+                                                           input_data.ncat[workspace.col_chosen - input_data.ncols_numeric],
+                                                           workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
+                                                           workspace.buffer_dbl.data(), workspace.this_categ, workspace.this_split_categ.data(),
+                                                           workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                           model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
+                else if (workspace.weights_arr.size())
+                    workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                    input_data.categ_data + (workspace.col_chosen - input_data.ncols_numeric) * input_data.nrows,
+                                                                    input_data.ncat[workspace.col_chosen - input_data.ncols_numeric],
+                                                                    workspace.buffer_szt.data(),
+                                                                    workspace.buffer_dbl.data(), workspace.this_categ, workspace.this_split_categ.data(),
+                                                                    workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                                    model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
+                                                                    workspace.weights_arr);
+                else
+                    workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                    input_data.categ_data + (workspace.col_chosen - input_data.ncols_numeric) * input_data.nrows,
+                                                                    input_data.ncat[workspace.col_chosen - input_data.ncols_numeric],
+                                                                    workspace.buffer_szt.data(),
+                                                                    workspace.buffer_dbl.data(), workspace.this_categ, workspace.this_split_categ.data(),
+                                                                    workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                                    model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
+                                                                    workspace.weights_map);
             }
 
             if (workspace.this_gain <= -HUGE_VAL)
@@ -306,13 +359,32 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                 {
                     if (input_data.Xc_indptr == NULL)
                     {
-                        eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                         input_data.numeric_data + trees.back().col_num * input_data.nrows,
-                                         workspace.buffer_dbl.data(), true,
-                                         workspace.split_ix, trees.back().num_split,
-                                         workspace.xmin, workspace.xmax,
-                                         workspace.criterion, model_params.min_gain,
-                                         model_params.missing_action);
+                        if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                            eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                             input_data.numeric_data + trees.back().col_num * input_data.nrows,
+                                             workspace.buffer_dbl.data(), true,
+                                             workspace.split_ix, trees.back().num_split,
+                                             workspace.xmin, workspace.xmax,
+                                             workspace.criterion, model_params.min_gain,
+                                             model_params.missing_action);
+                        else if (workspace.weights_arr.size())
+                            eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                      input_data.numeric_data + trees.back().col_num * input_data.nrows,
+                                                      workspace.buffer_dbl.data(), true,
+                                                      workspace.split_ix, trees.back().num_split,
+                                                      workspace.xmin, workspace.xmax,
+                                                      workspace.criterion, model_params.min_gain,
+                                                      model_params.missing_action,
+                                                      workspace.weights_arr);
+                        else
+                            eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                      input_data.numeric_data + trees.back().col_num * input_data.nrows,
+                                                      workspace.buffer_dbl.data(), true,
+                                                      workspace.split_ix, trees.back().num_split,
+                                                      workspace.xmin, workspace.xmax,
+                                                      workspace.criterion, model_params.min_gain,
+                                                      model_params.missing_action,
+                                                      workspace.weights_map);
                         if (model_params.missing_action == Fail) /* data is already split */
                         {
                             workspace.split_ix++;
@@ -327,12 +399,29 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
                     else
                     {
-                        eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                         trees.back().col_num, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                         workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
-                                         trees.back().num_split, workspace.xmin, workspace.xmax,
-                                         workspace.criterion, model_params.min_gain,
-                                         model_params.missing_action);
+                        if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                            eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                             trees.back().col_num, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                             workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
+                                             trees.back().num_split, workspace.xmin, workspace.xmax,
+                                             workspace.criterion, model_params.min_gain,
+                                             model_params.missing_action);
+                        else if (workspace.weights_arr.size())
+                            eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                      trees.back().col_num, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                      workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
+                                                      trees.back().num_split, workspace.xmin, workspace.xmax,
+                                                      workspace.criterion, model_params.min_gain,
+                                                      model_params.missing_action,
+                                                      workspace.weights_arr);
+                        else
+                            eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                      trees.back().col_num, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                      workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
+                                                      trees.back().num_split, workspace.xmin, workspace.xmax,
+                                                      workspace.criterion, model_params.min_gain,
+                                                      model_params.missing_action,
+                                                      workspace.weights_map);
                     }
                     break;
                 }
@@ -392,12 +481,29 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
                             default:
                             {
-                                eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                 input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
-                                                 workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
-                                                 workspace.buffer_dbl.data(), trees.back().chosen_cat, workspace.this_split_categ.data(),
-                                                 workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
-                                                 model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
+                                if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                                    eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                     input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
+                                                     workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
+                                                     workspace.buffer_dbl.data(), trees.back().chosen_cat, workspace.this_split_categ.data(),
+                                                     workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                     model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
+                                else if (workspace.weights_arr.size())
+                                    eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                              input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
+                                                              workspace.buffer_szt.data(),
+                                                              workspace.buffer_dbl.data(), trees.back().chosen_cat, workspace.this_split_categ.data(),
+                                                              workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                              model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
+                                                              workspace.weights_arr);
+                                else
+                                    eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                              input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
+                                                              workspace.buffer_szt.data(),
+                                                              workspace.buffer_dbl.data(), trees.back().chosen_cat, workspace.this_split_categ.data(),
+                                                              workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                              model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
+                                                              workspace.weights_map);
                                 break;
                             }
                         }
@@ -444,12 +550,29 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                             default:
                             {
                                 trees.back().cat_split.resize(input_data.ncat[trees.back().col_num]);
-                                eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                 input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
-                                                 workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
-                                                 workspace.buffer_dbl.data(), trees.back().chosen_cat, trees.back().cat_split.data(),
-                                                 workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
-                                                 model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
+                                if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                                    eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                     input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
+                                                     workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
+                                                     workspace.buffer_dbl.data(), trees.back().chosen_cat, trees.back().cat_split.data(),
+                                                     workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                     model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
+                                else if (workspace.weights_arr.size())
+                                    eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                              input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
+                                                              workspace.buffer_szt.data(),
+                                                              workspace.buffer_dbl.data(), trees.back().chosen_cat, trees.back().cat_split.data(),
+                                                              workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                              model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
+                                                              workspace.weights_arr);
+                                else
+                                    eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                              input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
+                                                              workspace.buffer_szt.data(),
+                                                              workspace.buffer_dbl.data(), trees.back().chosen_cat, trees.back().cat_split.data(),
+                                                              workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                              model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
+                                                              workspace.weights_map);
                                 break;
                             }
                         }

@@ -1015,7 +1015,7 @@ void initialize_impute_calc(ImputedData &imp, InputData &input_data, size_t row)
         {
             res = std::lower_bound(input_data.Xc_ind + input_data.Xc_indptr[col],
                                    input_data.Xc_ind + input_data.Xc_indptr[col + 1],
-                                   (decltype(input_data.Xc_indptr[0])) row);
+                                   row);
             if (
                 res != input_data.Xc_ind + input_data.Xc_indptr[col + 1] && 
                 *res == row && 

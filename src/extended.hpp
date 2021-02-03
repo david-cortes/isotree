@@ -115,6 +115,21 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         workspace.ntry = 1;
     }
 
+    if (workspace.criterion != NoCrit && (workspace.weights_arr.size() || workspace.weights_map.size()))
+    {
+        if (workspace.weights_arr.size())
+        {
+            for (size_t row = workspace.st; row <= workspace.end; row++)
+                workspace.sample_weights[row-workspace.st] = workspace.weights_arr[workspace.ix_arr[row]];
+        }
+
+        else
+        {
+            for (size_t row = workspace.st; row <= workspace.end; row++)
+                workspace.sample_weights[row-workspace.st] = workspace.weights_map[workspace.ix_arr[row]];
+        }
+    }
+
     workspace.ntaken_best = 0;
 
     for (size_t attempt = 0; attempt < workspace.ntry; attempt++)
@@ -184,10 +199,25 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 
         /* evaluate gain if necessary */
         if (workspace.criterion != NoCrit)
-            workspace.this_gain = eval_guided_crit(workspace.comb_val.data(), workspace.end - workspace.st + 1,
-                                                   workspace.criterion, model_params.min_gain, workspace.ntry == 1,
-                                                   workspace.buffer_dbl.data(), workspace.this_split_point,
-                                                   workspace.xmin, workspace.xmax);
+        {
+            if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                workspace.this_gain = eval_guided_crit(workspace.comb_val.data(), workspace.end - workspace.st + 1,
+                                                       workspace.criterion, model_params.min_gain, workspace.ntry == 1,
+                                                       workspace.buffer_dbl.data(), workspace.this_split_point,
+                                                       workspace.xmin, workspace.xmax);
+            else if (workspace.weights_arr.size())
+                workspace.this_gain = eval_guided_crit_weighted(workspace.comb_val.data(), workspace.end - workspace.st + 1,
+                                                                workspace.criterion, model_params.min_gain, workspace.ntry == 1,
+                                                                workspace.buffer_dbl.data(), workspace.this_split_point,
+                                                                workspace.xmin, workspace.xmax,
+                                                                workspace.sample_weights.data(), workspace.buffer_szt.data());
+            else
+                workspace.this_gain = eval_guided_crit_weighted(workspace.comb_val.data(), workspace.end - workspace.st + 1,
+                                                                workspace.criterion, model_params.min_gain, workspace.ntry == 1,
+                                                                workspace.buffer_dbl.data(), workspace.this_split_point,
+                                                                workspace.xmin, workspace.xmax,
+                                                                workspace.sample_weights.data(), workspace.buffer_szt.data());
+        }
         
         /* pass to the output object */
         if (workspace.ntry == 1 || workspace.this_gain > hplanes.back().score)
@@ -447,27 +477,94 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
 
             if (input_data.Xc_indptr == NULL)
             {
-                calc_mean_and_sd(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                 input_data.numeric_data + workspace.col_chosen * input_data.nrows,
-                                 model_params.missing_action, workspace.ext_sd, workspace.ext_mean[workspace.ntaken]);
-                add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
-                                input_data.numeric_data + workspace.col_chosen * input_data.nrows,
-                                workspace.ext_coef[workspace.ntaken], workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
-                                workspace.ext_fill_val[workspace.ntaken], model_params.missing_action,
-                                workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true);
+                if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                {
+                    calc_mean_and_sd(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                     input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                     model_params.missing_action, workspace.ext_sd, workspace.ext_mean[workspace.ntaken]);
+                    add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                                    input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                    workspace.ext_coef[workspace.ntaken], workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
+                                    workspace.ext_fill_val[workspace.ntaken], model_params.missing_action,
+                                    workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true);
+                }
+                else if (workspace.weights_arr.size())
+                {
+                    calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                              input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                              workspace.weights_arr,
+                                              model_params.missing_action, workspace.ext_sd,
+                                              workspace.ext_mean[workspace.ntaken]);
+                    add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                                             input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                             workspace.ext_coef[workspace.ntaken], workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
+                                             workspace.ext_fill_val[workspace.ntaken], model_params.missing_action,
+                                             workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
+                                             workspace.weights_arr);
+                }
+
+                else
+                {
+                    calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                              input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                              workspace.weights_map,
+                                              model_params.missing_action, workspace.ext_sd,
+                                              workspace.ext_mean[workspace.ntaken]);
+                    add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                                             input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                             workspace.ext_coef[workspace.ntaken], workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
+                                             workspace.ext_fill_val[workspace.ntaken], model_params.missing_action,
+                                             workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
+                                             workspace.weights_map);
+                }
             }
 
             else
             {
-                calc_mean_and_sd(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
-                                 input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                 workspace.ext_sd, workspace.ext_mean[workspace.ntaken]);
-                add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                workspace.col_chosen, workspace.comb_val.data(),
-                                input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                workspace.ext_coef[workspace.ntaken], workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
-                                workspace.ext_fill_val[workspace.ntaken], model_params.missing_action,
-                                workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true);
+                if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                {
+                    calc_mean_and_sd(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
+                                     input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                     workspace.ext_sd, workspace.ext_mean[workspace.ntaken]);
+                    add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                    workspace.col_chosen, workspace.comb_val.data(),
+                                    input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                    workspace.ext_coef[workspace.ntaken], workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
+                                    workspace.ext_fill_val[workspace.ntaken], model_params.missing_action,
+                                    workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true);
+                }
+
+                else if (workspace.weights_arr.size())
+                {
+                    calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
+                                              input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                              workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
+                                              workspace.weights_arr);
+                    add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                             workspace.col_chosen, workspace.comb_val.data(),
+                                             input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                             workspace.ext_coef[workspace.ntaken], workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
+                                             workspace.ext_fill_val[workspace.ntaken], model_params.missing_action,
+                                             workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
+                                             workspace.weights_arr);
+                }
+
+                else
+                {
+                    calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
+                                              input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                              workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
+                                              workspace.weights_map);
+                    add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                             workspace.col_chosen, workspace.comb_val.data(),
+                                             input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                             workspace.ext_coef[workspace.ntaken], workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
+                                             workspace.ext_fill_val[workspace.ntaken], model_params.missing_action,
+                                             workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
+                                             workspace.weights_map);
+                }
+
+                
             }
             break;
         }
@@ -480,13 +577,40 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
                 {
                     workspace.chosen_cat[workspace.ntaken] = choose_cat_from_present(workspace, input_data, workspace.col_chosen);
                     workspace.ext_fill_new[workspace.ntaken] = workspace.coef_norm(workspace.rnd_generator);
-                    add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
-                                    input_data.categ_data + workspace.col_chosen * input_data.nrows,
-                                    input_data.ncat[workspace.col_chosen],
-                                    NULL, workspace.ext_fill_new[workspace.ntaken],
-                                    workspace.chosen_cat[workspace.ntaken],
-                                    workspace.ext_fill_val[workspace.ntaken], workspace.ext_fill_new[workspace.ntaken],
-                                    NULL, NULL, model_params.new_cat_action, model_params.missing_action, SingleCateg, true);
+                    if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                    {
+                        add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                                        input_data.categ_data + workspace.col_chosen * input_data.nrows,
+                                        input_data.ncat[workspace.col_chosen],
+                                        NULL, workspace.ext_fill_new[workspace.ntaken],
+                                        workspace.chosen_cat[workspace.ntaken],
+                                        workspace.ext_fill_val[workspace.ntaken], workspace.ext_fill_new[workspace.ntaken],
+                                        NULL, NULL, model_params.new_cat_action, model_params.missing_action, SingleCateg, true);
+                    }
+
+                    else if (workspace.weights_arr.size())
+                    {
+                        add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                                                 input_data.categ_data + workspace.col_chosen * input_data.nrows,
+                                                 input_data.ncat[workspace.col_chosen],
+                                                 NULL, workspace.ext_fill_new[workspace.ntaken],
+                                                 workspace.chosen_cat[workspace.ntaken],
+                                                 workspace.ext_fill_val[workspace.ntaken], workspace.ext_fill_new[workspace.ntaken],
+                                                 NULL, model_params.new_cat_action, model_params.missing_action, SingleCateg, true,
+                                                 workspace.weights_arr);
+                    }
+
+                    else
+                    {
+                        add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                                                 input_data.categ_data + workspace.col_chosen * input_data.nrows,
+                                                 input_data.ncat[workspace.col_chosen],
+                                                 NULL, workspace.ext_fill_new[workspace.ntaken],
+                                                 workspace.chosen_cat[workspace.ntaken],
+                                                 workspace.ext_fill_val[workspace.ntaken], workspace.ext_fill_new[workspace.ntaken],
+                                                 NULL, model_params.new_cat_action, model_params.missing_action, SingleCateg, true,
+                                                 workspace.weights_map);
+                    }
 
                     break;
                 }
@@ -519,13 +643,41 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
                             workspace.ext_cat_coef[workspace.ntaken][ix] = workspace.buffer_dbl[sorted_ix[ix]];
                     }
 
-                    add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
-                                    input_data.categ_data + workspace.col_chosen * input_data.nrows,
-                                    input_data.ncat[workspace.col_chosen],
-                                    workspace.ext_cat_coef[workspace.ntaken].data(), (double)0, (int)0,
-                                    workspace.ext_fill_val[workspace.ntaken], workspace.ext_fill_new[workspace.ntaken],
-                                    workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ + 1,
-                                    model_params.new_cat_action, model_params.missing_action, SubSet, true);
+                    if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                    {
+                        add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                                        input_data.categ_data + workspace.col_chosen * input_data.nrows,
+                                        input_data.ncat[workspace.col_chosen],
+                                        workspace.ext_cat_coef[workspace.ntaken].data(), (double)0, (int)0,
+                                        workspace.ext_fill_val[workspace.ntaken], workspace.ext_fill_new[workspace.ntaken],
+                                        workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ + 1,
+                                        model_params.new_cat_action, model_params.missing_action, SubSet, true);
+                    }
+
+                    else if (workspace.weights_arr.size())
+                    {
+                        add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                                                 input_data.categ_data + workspace.col_chosen * input_data.nrows,
+                                                 input_data.ncat[workspace.col_chosen],
+                                                 workspace.ext_cat_coef[workspace.ntaken].data(), (double)0, (int)0,
+                                                 workspace.ext_fill_val[workspace.ntaken], workspace.ext_fill_new[workspace.ntaken],
+                                                 workspace.buffer_szt.data(),
+                                                 model_params.new_cat_action, model_params.missing_action, SubSet, true,
+                                                 workspace.weights_arr);
+                    }
+
+                    else
+                    {
+                        add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                                                 input_data.categ_data + workspace.col_chosen * input_data.nrows,
+                                                 input_data.ncat[workspace.col_chosen],
+                                                 workspace.ext_cat_coef[workspace.ntaken].data(), (double)0, (int)0,
+                                                 workspace.ext_fill_val[workspace.ntaken], workspace.ext_fill_new[workspace.ntaken],
+                                                 workspace.buffer_szt.data(),
+                                                 model_params.new_cat_action, model_params.missing_action, SubSet, true,
+                                                 workspace.weights_map);
+                    }
+
                     break;
                 }
             }

@@ -889,7 +889,7 @@ double extract_spC(PredictionData &prediction_data, size_t row, size_t col_num)
     decltype(prediction_data.Xc_indptr)
                search_res = std::lower_bound(prediction_data.Xc_ind + prediction_data.Xc_indptr[col_num],
                                              prediction_data.Xc_ind + prediction_data.Xc_indptr[col_num + 1],
-                                             (decltype(*prediction_data.Xc_indptr)) row);
+                                             row);
     if (
         search_res == (prediction_data.Xc_ind + prediction_data.Xc_indptr[col_num + 1])
             ||

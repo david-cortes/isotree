@@ -279,6 +279,12 @@ cdef extern from "model_joined.hpp":
 cdef extern from "python_helpers.hpp":
     model_t deepcopy_obj[model_t](model_t obj)
 
+    IsoForest get_IsoForest()
+
+    ExtIsoForest get_ExtIsoForest()
+
+    Imputer get_Imputer()
+
 
 ctypedef fused sparse_ix:
     int
@@ -493,14 +499,14 @@ cdef class isoforest_cpp_obj:
         dealloc_IsoExtForest(self.ext_isoforest)
         dealloc_Imputer(self.imputer)
         if ndim == 1:
-            self.isoforest      =  IsoForest()
+            self.isoforest      =  get_IsoForest()
             model_ptr           =  &self.isoforest
         else:
-            self.ext_isoforest  =  ExtIsoForest()
+            self.ext_isoforest  =  get_ExtIsoForest()
             ext_model_ptr       =  &self.ext_isoforest
 
         if build_imputer:
-            self.imputer = Imputer()
+            self.imputer = get_Imputer()
             imputer_ptr  = &self.imputer
 
         cdef int ret_val = 0

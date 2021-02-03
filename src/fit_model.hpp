@@ -1070,6 +1070,12 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
 
             if (model_params.weigh_by_kurt)
                 min_size_szt = std::max(min_size_szt, input_data.ncols_tot);
+
+            if (gain && (workspace.weights_arr.size() || workspace.weights_map.size()))
+            {
+                workspace.sample_weights.resize(model_params.sample_size);
+                min_size_szt = std::max(min_size_szt, model_params.sample_size);
+            }
         }
 
         /* now resize */
@@ -1106,31 +1112,73 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
 
             if (input_data.Xc_indptr == NULL)
             {
+
                 for (size_t col = 0; col < input_data.ncols_numeric; col++)
-                    kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                      input_data.numeric_data + col * input_data.nrows,
-                                                      model_params.missing_action);
+                {
+                    if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                        kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                          input_data.numeric_data + col * input_data.nrows,
+                                                          model_params.missing_action);
+                    else if (workspace.weights_arr.size())
+                        kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                   input_data.numeric_data + col * input_data.nrows,
+                                                                   model_params.missing_action, workspace.weights_arr);
+                    else
+                        kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                   input_data.numeric_data + col * input_data.nrows,
+                                                                   model_params.missing_action, workspace.weights_map);
+                }
             }
 
             else
             {
                 std::sort(workspace.ix_arr.begin(), workspace.ix_arr.end());
                 for (size_t col = 0; col < input_data.ncols_numeric; col++)
-                    kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end, col,
-                                                      input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                                      model_params.missing_action);
+                {
+                    if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                        kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end, col,
+                                                          input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                          model_params.missing_action);
+                    else if (workspace.weights_arr.size())
+                        kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, col,
+                                                                   input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                                   model_params.missing_action, workspace.weights_arr);
+                    else
+                        kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, col,
+                                                                   input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                                   model_params.missing_action, workspace.weights_map);
+                }
             }
 
             for (size_t col = 0; col < input_data.ncols_categ; col++)
-                kurt_weights[col + input_data.ncols_numeric] =
-                    calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                  input_data.categ_data + col * input_data.nrows, input_data.ncat[col],
-                                  workspace.buffer_szt.data(), workspace.buffer_dbl.data(),
-                                  model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator);
+            {
+                if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                    kurt_weights[col + input_data.ncols_numeric] =
+                        calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                      input_data.categ_data + col * input_data.nrows, input_data.ncat[col],
+                                      workspace.buffer_szt.data(), workspace.buffer_dbl.data(),
+                                      model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator);
+                else if (workspace.weights_arr.size())
+                    kurt_weights[col + input_data.ncols_numeric] =
+                        calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                               input_data.categ_data + col * input_data.nrows, input_data.ncat[col],
+                                               workspace.buffer_dbl.data(),
+                                               model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator,
+                                               workspace.weights_arr);
+                else
+                    kurt_weights[col + input_data.ncols_numeric] =
+                        calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                               input_data.categ_data + col * input_data.nrows, input_data.ncat[col],
+                                               workspace.buffer_dbl.data(),
+                                               model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator,
+                                               workspace.weights_map);
+            }
 
             for (auto &w : kurt_weights) w = std::fmax(1e-8, -1. + w);
             workspace.col_sampler.initialize(kurt_weights.data(), kurt_weights.size());
         }
+
+        
 
         else
         {
@@ -1151,29 +1199,64 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                 {
                     if (input_data.Xc_indptr == NULL)
                     {
-                        kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                          input_data.numeric_data + col * input_data.nrows,
-                                                          model_params.missing_action);
+                        if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                            kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                              input_data.numeric_data + col * input_data.nrows,
+                                                              model_params.missing_action);
+                        else if (workspace.weights_arr.size())
+                            kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                       input_data.numeric_data + col * input_data.nrows,
+                                                                       model_params.missing_action, workspace.weights_arr);
+                        else
+                            kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                       input_data.numeric_data + col * input_data.nrows,
+                                                                       model_params.missing_action, workspace.weights_map);
                         kurt_weights[col] = std::fmax(1e-8, -1. + kurt_weights[col]);
                     }
 
                     else
                     {
-                        kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end, col,
-                                                          input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                                          model_params.missing_action);
+                        if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                            kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end, col,
+                                                              input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                              model_params.missing_action);
+                        else if (workspace.weights_arr.size())
+                            kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, col,
+                                                                       input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                                       model_params.missing_action, workspace.weights_arr);
+                        else
+                            kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, col,
+                                                                       input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                                       model_params.missing_action, workspace.weights_map);
                         kurt_weights[col] = std::fmax(1e-8, -1. + kurt_weights[col]);
                     }
                 }
 
                 else
                 {
-                    kurt_weights[col] =
-                        calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                      input_data.categ_data + (col - input_data.ncols_numeric) * input_data.nrows,
-                                      input_data.ncat[col - input_data.ncols_numeric],
-                                      workspace.buffer_szt.data(), workspace.buffer_dbl.data(),
-                                      model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator);
+                    if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                        kurt_weights[col] =
+                            calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                          input_data.categ_data + (col - input_data.ncols_numeric) * input_data.nrows,
+                                          input_data.ncat[col - input_data.ncols_numeric],
+                                          workspace.buffer_szt.data(), workspace.buffer_dbl.data(),
+                                          model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator);
+                    else if (workspace.weights_arr.size())
+                        kurt_weights[col] =
+                            calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                  input_data.categ_data + (col - input_data.ncols_numeric) * input_data.nrows,
+                                                  input_data.ncat[col - input_data.ncols_numeric],
+                                                  workspace.buffer_dbl.data(),
+                                                  model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator,
+                                                  workspace.weights_arr);
+                    else
+                        kurt_weights[col] =
+                            calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                  input_data.categ_data + (col - input_data.ncols_numeric) * input_data.nrows,
+                                                  input_data.ncat[col - input_data.ncols_numeric],
+                                                  workspace.buffer_dbl.data(),
+                                                  model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator,
+                                                  workspace.weights_map);
                     kurt_weights[col] = std::fmax(1e-8, -1. + kurt_weights[col]);
                 }
             }

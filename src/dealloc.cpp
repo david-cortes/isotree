@@ -42,6 +42,8 @@
 *     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#ifdef _FOR_PYTHON
+
 #include "isotree.hpp"
 
 /* Reason behind this file: Cython (as of v0.29) will not auto-deallocate
@@ -64,3 +66,5 @@ void dealloc_Imputer(Imputer &imputer)
 {
     imputer.~Imputer();
 }
+
+#endif
