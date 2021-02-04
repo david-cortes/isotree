@@ -33,7 +33,10 @@ def _is_row_major(X_num):
         return X_num.strides[1] == X_num.dtype.itemsize
 
 def _is_col_major(X_num):
-    return not _is_row_major(X_num)
+    if (X_num is None) or (issparse(X_num)):
+        return False
+    else:
+        return X_num.strides[0] == X_num.dtype.itemsize
 
 def _copy_if_subview(X_num):
     ### TODO: the C++ functions should accept a 'leading dimension'
@@ -41,9 +44,12 @@ def _copy_if_subview(X_num):
     if (X_num is not None) and (not issparse(X_num)):
         col_major = _is_col_major(X_num)
         leading_dimension = int(X_num.strides[1 if col_major else 0] / X_num.dtype.itemsize)
-        if leading_dimension != X_num.shape[0 if col_major else 1]:
-            X_num = X_num.copy()
-        elif (len(X_num.strides) != 2) or (not X_num.flags.aligned):
+        if (
+                (leading_dimension != X_num.shape[0 if col_major else 1]) or
+                (len(X_num.strides) != 2) or
+                (not X_num.flags.aligned) or
+                (not _is_row_major(X_num) and not _is_col_major(X_num))
+            ):
             X_num = X_num.copy()
         if _is_col_major(X_num) != col_major:
             X_num = np.asfortranarray(X_num)
