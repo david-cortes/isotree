@@ -738,7 +738,7 @@ void ColumnSampler::leave_m_cols(size_t m, RNG_engine &rnd_generator)
         {
             for (this->curr_pos = 0; this->curr_pos < m; this->curr_pos++)
             {
-                chosen = std::uniform_int_distribution<size_t>(0, this->n_cols - this->curr_pos)(rnd_generator);
+                chosen = std::uniform_int_distribution<size_t>(0, this->n_cols - this->curr_pos - 1)(rnd_generator);
                 std::swap(this->col_indices[this->curr_pos + chosen], this->col_indices[this->curr_pos]);
             }
         }
@@ -747,7 +747,7 @@ void ColumnSampler::leave_m_cols(size_t m, RNG_engine &rnd_generator)
         {
             for (this->curr_pos = this->n_cols; this->curr_pos > this->n_cols - m; this->curr_pos--)
             {
-                chosen = std::uniform_int_distribution<size_t>(0, this->curr_pos)(rnd_generator);
+                chosen = std::uniform_int_distribution<size_t>(0, this->curr_pos-1)(rnd_generator);
                 std::swap(this->col_indices[chosen], this->col_indices[this->curr_pos]);
             }
             this->curr_pos = m;

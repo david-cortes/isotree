@@ -602,7 +602,7 @@ isolation.forest <- function(df,
     if (is.null(min_gain) || NROW(min_gain) > 1 || is.na(min_gain) || min_gain < 0)
         stop("'min_gain' must be a decimal non-negative number.")
 
-    if ((ndim == 1) && (sample_size == NROW(df)) && (prob_pick_avg_gain >= 1 || prob_pick_pooled_gain >= 1)) {
+    if ((ndim == 1) && (sample_size == NROW(df)) && (prob_pick_avg_gain >= 1 || prob_pick_pooled_gain >= 1) && !sample_with_replacement) {
         warning(paste0("Passed parameters for deterministic single-variable splits ",
                        "with no sub-sampling. ",
                        "Every tree fitted will end up doing exactly the same splits. ",
