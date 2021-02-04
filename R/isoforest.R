@@ -173,8 +173,8 @@
 #'   model (recommended for it).
 #'   \item `"fail"`, which will assume there are no missing values and will trigger undefined behavior if it encounters any.
 #' }
-#' In the extended model, infinite values will be treated as missing. Note that passing `"fail"` might
-#' crash the R process if there turn out to be missing values, but will otherwise produce faster fitting and prediction
+#' In the extended model, infinite values will be treated as missing.
+#' Passing `"fail"` will produce faster fitting and prediction
 #' times along with decreased model object sizes. Models from references [1], [2], [3], [4] correspond to `"fail"` here.
 #' @param new_categ_action What to do after splitting a categorical feature when new data that reaches that split has categories that
 #' the sub-sample from which the split was done did not have. Options are

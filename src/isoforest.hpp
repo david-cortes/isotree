@@ -202,7 +202,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                                                     workspace.weights_map);
             }
 
-            if (workspace.this_gain <= -HUGE_VAL)
+            if (workspace.this_gain <= -HUGE_VAL || isnan(workspace.this_gain))
             {
                 workspace.col_sampler.drop_col(workspace.col_chosen);
             }
@@ -433,6 +433,9 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                 trees.back().range_high = workspace.xmax - workspace.xmin + trees.back().num_split;
             }
         }
+
+        if (model_params.missing_action == Fail && isnan(trees.back().num_split))
+            throw std::runtime_error("Data has missing values. Try using a different value for 'missing_action'.\n");
         
         if (input_data.Xc_indptr == NULL)
             divide_subset_split(workspace.ix_arr.data(), input_data.numeric_data + input_data.nrows * trees.back().col_num,

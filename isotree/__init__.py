@@ -242,8 +242,9 @@ class IsolationForest:
             Will assume there are no missing values and will trigger undefined behavior if it encounters any.
         ``"auto"``:
             Will use "divide" for the single-variable model and "impute" for the extended model.
-        In the extended model, infinite values will be treated as missing. Note that passing "fail" might crash the Python process
-        if there turn out to be missing values, but will otherwise produce faster fitting and prediction times along with decreased
+        
+        In the extended model, infinite values will be treated as missing.
+        Passing "fail" will produce faster fitting and prediction times along with decreased
         model object sizes.
         Models from [1], [2], [3], [4] correspond to "fail" here.
     new_categ_action : str, one of "weighted" (single-variable only), "impute" (extended only), "smallest", "random"
@@ -550,7 +551,7 @@ class IsolationForest:
             prob_split_avg_gain    /= s
             prob_split_pooled_gain /= s
 
-        if (ndim == 1) and (sample_size is None) and ((prob_pick_avg_gain >= 1) or (prob_pick_pooled_gain >= 1)):
+        if (ndim == 1) and (sample_size is None) and ((prob_pick_avg_gain >= 1) or (prob_pick_pooled_gain >= 1)) and (not sample_with_replacement):
             msg  = "Passed parameters for deterministic single-variable splits"
             msg += " with no sub-sampling. "
             msg += "Every tree fitted will end up doing exactly the same splits. "

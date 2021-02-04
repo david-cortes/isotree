@@ -359,6 +359,9 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         }
     }
 
+    if (model_params.missing_action == Fail && is_na_or_inf(hplanes.back().split_point))
+        throw std::runtime_error("Data has missing values. Try using a different value for 'missing_action'.\n");
+
     /* divide */
     workspace.split_ix = divide_subset_split(workspace.ix_arr.data(), workspace.comb_val.data(),
                                              workspace.st, workspace.end, hplanes.back().split_point);

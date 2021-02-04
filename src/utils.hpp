@@ -1627,7 +1627,7 @@ void get_range(size_t ix_arr[], real_t x[], size_t st, size_t end,
         }
     }
 
-    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL);
+    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
 }
 
 /* for sparse inputs */
@@ -1723,7 +1723,7 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
         xmin = std::fmin(xmin, 0);
         xmax = std::fmax(xmax, 0);
     }
-    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL);
+    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
 
 }
 
