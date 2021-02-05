@@ -44,6 +44,12 @@
 */
 #include "isotree.hpp"
 
+
+#ifndef LITTLE_ENDIAN
+    constexpr static const int ONE = 1;
+    #define LITTLE_ENDIAN (*((unsigned char*)&ONE))
+#endif
+
 /* ceil(log2(x)) done with bit-wise operations ensures perfect precision (and it's faster too)
    https://stackoverflow.com/questions/2589096/find-most-significant-bit-left-most-that-is-set-in-a-bit-array
    https://stackoverflow.com/questions/11376288/fast-computing-of-log2-for-64-bit-integers  */
@@ -55,6 +61,7 @@
         };
     size_t log2ceil( size_t v )
     {
+        if (LITTLE_ENDIAN == 0) return (size_t)(ceill(log2l((long double) v)));
 
         v--;
         v |= v >> 1; // first round down to one less than a power of 2
@@ -78,6 +85,8 @@
 
     size_t log2ceil(size_t value)
     {
+        if (LITTLE_ENDIAN == 0) return (size_t)(ceill(log2l((long double) value)));
+        
         value--;
         value |= value >> 1;
         value |= value >> 2;
