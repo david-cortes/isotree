@@ -38,10 +38,15 @@
 #' result in a better ability to flag outliers in the training data (`df`) at the expense of hindered
 #' performance when making predictions on new data (calling function `predict`) and poorer
 #' generalizability to inputs with values outside the variables' ranges to which the model was fit
-#' (see plots generated from the examples for a better idea of the difference). The next candidates to tune is
+#' (see plots generated from the examples for a better idea of the difference). The next candidate to tune is
 #' `sample_size` - the default is to use all rows, but in some datasets introducing sub-sampling can help,
 #' especially for the single-variable model. In smaller datasets, one might also want to experiment
 #' with `weigh_by_kurtosis` and perhaps lower `ndim`.
+#' 
+#' @details When using more than one dimension for splits (i.e. splitting hyperplanes, see `ndim`) and when
+#' calculating gain, the variables are standardized at each step, so there is no need to center/scale the
+#' data beforehand. The gain calculations are also standardized according to the standard deviation when
+#' using `ntry>1` or `ndim==1`, in order to avoid differences in the magnitudes of the coefficients.
 #' 
 #' @param df Data to which to fit the model. Supported inputs type are:\itemize{
 #' \item A `data.frame`, also accepted as `data.table` or `tibble`.
@@ -94,7 +99,7 @@
 #' for references [1], [2], [3], [4] is the same as the default here, but it's recommended to pass higher values if
 #' using the model for purposes other than outlier detection.
 #' @param ncols_per_tree Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
-#' similar to the 'mtry' parameter of random forests.
+#' somewhat similar to the 'mtry' parameter of random forests.
 #' In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
 #' 
 #' If passing a number between zero and one, will assume it means taking a sample size that represents
@@ -519,10 +524,6 @@
 #'   head(hypothyroid[order(-pred_iso), ], 20)
 #' }
 #' }
-#' @details When using more than one dimension for splits (i.e. splitting hyperplanes, see `ndim`) and when
-#' calculating gain, the variables are standardized at each step, so there is no need to center/scale the
-#' data beforehand. The gain calculations are also standardized according to the standard deviation when
-#' using `ntry>1` or `ndim==1`, in order to avoid differences in the scale of the coefficients.
 #' @export
 isolation.forest <- function(df,
                              sample_size = NROW(df), ntrees = 500, ndim = min(3, NCOL(df)),

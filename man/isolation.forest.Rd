@@ -101,7 +101,7 @@ for references [1], [2], [3], [4] is the same as the default here, but it's reco
 using the model for purposes other than outlier detection.}
 
 \item{ncols_per_tree}{Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
-similar to the 'mtry' parameter of random forests.
+somewhat similar to the 'mtry' parameter of random forests.
 In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
 
 If passing a number between zero and one, will assume it means taking a sample size that represents
@@ -186,8 +186,8 @@ splits at a node is below this  threshold, that node becomes a terminal node.}
   model (recommended for it).
   \item `"fail"`, which will assume there are no missing values and will trigger undefined behavior if it encounters any.
 }
-In the extended model, infinite values will be treated as missing. Note that passing `"fail"` might
-crash the R process if there turn out to be missing values, but will otherwise produce faster fitting and prediction
+In the extended model, infinite values will be treated as missing.
+Passing `"fail"` will produce faster fitting and prediction
 times along with decreased model object sizes. Models from references [1], [2], [3], [4] correspond to `"fail"` here.}
 
 \item{new_categ_action}{What to do after splitting a categorical feature when new data that reaches that split has categories that
@@ -389,7 +389,7 @@ The model offers many tunable parameters. The most likely candidate to tune is
 result in a better ability to flag outliers in the training data (`df`) at the expense of hindered
 performance when making predictions on new data (calling function `predict`) and poorer
 generalizability to inputs with values outside the variables' ranges to which the model was fit
-(see plots generated from the examples for a better idea of the difference). The next candidates to tune is
+(see plots generated from the examples for a better idea of the difference). The next candidate to tune is
 `sample_size` - the default is to use all rows, but in some datasets introducing sub-sampling can help,
 especially for the single-variable model. In smaller datasets, one might also want to experiment
 with `weigh_by_kurtosis` and perhaps lower `ndim`.
@@ -398,7 +398,7 @@ with `weigh_by_kurtosis` and perhaps lower `ndim`.
 When using more than one dimension for splits (i.e. splitting hyperplanes, see `ndim`) and when
 calculating gain, the variables are standardized at each step, so there is no need to center/scale the
 data beforehand. The gain calculations are also standardized according to the standard deviation when
-using `ntry>1` or `ndim==1`, in order to avoid differences in the scale of the coefficients.
+using `ntry>1` or `ndim==1`, in order to avoid differences in the magnitudes of the coefficients.
 }
 \examples{
 ### Example 1: detect an obvious outlier

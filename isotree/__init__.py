@@ -87,7 +87,7 @@ class IsolationForest:
     result in a better ability to flag outliers in the training data at the expense of hindered
     performance when making predictions on new data (calling method ``predict``) and poorer
     generalizability to inputs with values outside the variables' ranges to which the model was fit
-    (see plots generated from the examples in GitHub notebook for a better idea of the difference). The next candidates to tune is
+    (see plots generated from the examples in GitHub notebook for a better idea of the difference). The next candidate to tune is
     ``sample_size`` - the default is to use all rows, but in some datasets introducing sub-sampling can help,
     especially for the single-variable model. In smaller datasets, one might also want to experiment
     with ``weigh_by_kurtosis`` and perhaps lower ``ndim``.
@@ -109,7 +109,7 @@ class IsolationForest:
     When using more than one dimension for splits (i.e. splitting hyperplanes, see ``ndim``) and when
     calculating gain, the variables are standardized at each step, so there is no need to center/scale the
     data beforehand. The gain calculations are also standardized according to the standard deviation when
-    using ``ntry>1`` or ``ndim==1``, in order to avoid differences in the scale of the coefficients.
+    using ``ntry>1`` or ``ndim==1``, in order to avoid differences in the magnitudes of the coefficients.
 
     Parameters
     ----------
@@ -156,7 +156,7 @@ class IsolationForest:
         but it's recommended to pass higher values if using the model for purposes other than outlier detection.
     ncols_per_tree : None, int, or float(0,1)
         Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
-        similar to the 'mtry' parameter of random forests.
+        somewhat similar to the 'mtry' parameter of random forests.
         In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
 
         If passing a number between zero and one, will assume it means taking a sample size that represents
