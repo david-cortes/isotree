@@ -44,11 +44,14 @@
 */
 #include "isotree.hpp"
 
-
-#ifndef LITTLE_ENDIAN
+#if defined(__LITTLE_ENDIAN) && defined(__BYTE_ORDER)
+    #define IS_LITTLE_ENDIAN (__BYTE_ORDER == __LITTLE_ENDIAN)
+#else
     constexpr static const int ONE = 1;
-    #define LITTLE_ENDIAN (*((unsigned char*)&ONE))
+    #define LITTLE_ENDIAN ((*((unsigned char*)&ONE)) > 0)
 #endif
+
+/* http://esr.ibiblio.org/?p=5095 */
 
 /* ceil(log2(x)) done with bit-wise operations ensures perfect precision (and it's faster too)
    https://stackoverflow.com/questions/2589096/find-most-significant-bit-left-most-that-is-set-in-a-bit-array
@@ -61,7 +64,7 @@
         };
     size_t log2ceil( size_t v )
     {
-        if (LITTLE_ENDIAN == 0) return (size_t)(ceill(log2l((long double) v)));
+        if (!IS_LITTLE_ENDIAN) return (size_t)(ceill(log2l((long double) v)));
 
         v--;
         v |= v >> 1; // first round down to one less than a power of 2
@@ -85,7 +88,7 @@
 
     size_t log2ceil(size_t value)
     {
-        if (LITTLE_ENDIAN == 0) return (size_t)(ceill(log2l((long double) value)));
+        if (!IS_LITTLE_ENDIAN) return (size_t)(ceill(log2l((long double) value)));
         
         value--;
         value |= value >> 1;
