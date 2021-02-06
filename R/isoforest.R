@@ -1169,6 +1169,10 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
 #' in the same way as `predict` or `print`, but without producing any outputs or messages.
 #' 
 #' It is an equivalent to XGBoost's `xgb.Booster.complete` function.
+#' @details If using this function to de-serialize a model in a production system, one might
+#' want to delete the serialized bytes inside the object afterwards in order to free up memory.
+#' These are under `model$cpp_obj$serialized` (plus `model$cpp_obj$imp_ser` if building with imputer)
+#' - e.g.: `model$cpp_obj$serialized = NULL; model$cpp_obj$imp_ser = NULL; gc()`.
 #' @param model An Isolation Forest object as returned by `isolation.forest`, which has been just loaded from a disk
 #' file through `readRDS`, `load`, or a session restart.
 #' @return The same model object that was passed as input. Object is modified in-place
@@ -1432,6 +1436,11 @@ export.isotree.model <- function(model, file, ...) {
 #' Note: If the model was fit to a ``DataFrame`` using Pandas' own Boolean types,
 #' take a look at the metadata to check if these columns will be taken as booleans
 #' (R logicals) or as categoricals with string values `"True"` or `"False"`.
+#' 
+#' If using this function to de-serialize a model in a production system, one might
+#' want to delete the serialized bytes inside the object afterwards in order to free up memory.
+#' These are under `model$cpp_obj$serialized` (plus `model$cpp_obj$imp_ser` if building with imputer)
+#' - e.g.: `model$cpp_obj$serialized = NULL; model$cpp_obj$imp_ser = NULL; gc()`.
 #' @return An isolation forest model, as if it had been constructed through
 #' \link{isolation.forest}.
 #' @seealso \link{export.isotree.model} \link{unpack.isolation.forest}

@@ -31,6 +31,11 @@ and that the files are readable through them.
 Note: If the model was fit to a ``DataFrame`` using Pandas' own Boolean types,
 take a look at the metadata to check if these columns will be taken as booleans
 (R logicals) or as categoricals with string values `"True"` or `"False"`.
+
+If using this function to de-serialize a model in a production system, one might
+want to delete the serialized bytes inside the object afterwards in order to free up memory.
+These are under `model$cpp_obj$serialized` (plus `model$cpp_obj$imp_ser` if building with imputer)
+- e.g.: `model$cpp_obj$serialized = NULL; model$cpp_obj$imp_ser = NULL; gc()`.
 }
 \seealso{
 \link{export.isotree.model} \link{unpack.isolation.forest}

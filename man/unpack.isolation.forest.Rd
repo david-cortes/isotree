@@ -35,6 +35,12 @@ in the same way as `predict` or `print`, but without producing any outputs or me
 
 It is an equivalent to XGBoost's `xgb.Booster.complete` function.
 }
+\details{
+If using this function to de-serialize a model in a production system, one might
+want to delete the serialized bytes inside the object afterwards in order to free up memory.
+These are under `model$cpp_obj$serialized` (plus `model$cpp_obj$imp_ser` if building with imputer)
+- e.g.: `model$cpp_obj$serialized = NULL; model$cpp_obj$imp_ser = NULL; gc()`.
+}
 \examples{
 ### Warning: this example will generate a temporary .Rds
 ### file in your temp folder, and will then delete it
