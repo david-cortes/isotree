@@ -44,15 +44,6 @@
 */
 #include "isotree.hpp"
 
-#if defined(__LITTLE_ENDIAN) && defined(__BYTE_ORDER)
-    #define IS_LITTLE_ENDIAN (__BYTE_ORDER == __LITTLE_ENDIAN)
-#else
-    constexpr static const int ONE = 1;
-    #define LITTLE_ENDIAN ((*((unsigned char*)&ONE)) > 0)
-#endif
-
-/* http://esr.ibiblio.org/?p=5095 */
-
 /* ceil(log2(x)) done with bit-wise operations ensures perfect precision (and it's faster too)
    https://stackoverflow.com/questions/2589096/find-most-significant-bit-left-most-that-is-set-in-a-bit-array
    https://stackoverflow.com/questions/11376288/fast-computing-of-log2-for-64-bit-integers  */

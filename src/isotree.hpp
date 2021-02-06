@@ -99,11 +99,25 @@ typedef void (*sig_t_)(int);
     #define RNG_engine std::default_random_engine
 #endif
 
+/* Some operations here are done with bit-shifting and might not work
+   correctly on non-standard platforms */
+/* TODO: use the built-in enum from C++20 once compilers implement it  */
+#if defined(__LITTLE_ENDIAN) && defined(__BYTE_ORDER)
+    #define IS_LITTLE_ENDIAN (__BYTE_ORDER == __LITTLE_ENDIAN)
+#else
+    constexpr static const int ONE = 1;
+    #define IS_LITTLE_ENDIAN ((*((unsigned char*)&ONE)) > 0)
+#endif
+
 /* Short functions */
 #define ix_parent(ix) (((ix) - 1) / 2)  /* integer division takes care of deciding left-right */
 #define ix_child(ix)  (2 * (ix) + 1)
 /* https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int */
-#define pow2(n) ( ((size_t) 1) << (n) )
+#if defined(__LITTLE_ENDIAN) && defined(__BYTE_ORDER) && (IS_LITTLE_ENDIAN == 1)
+    #define pow2(n) ( ((size_t) 1) << (n) )
+#else
+    #define pow2(n) ((size_t)powl((long double)2, (long double)n))
+#endif
 #define square(x) ((x) * (x))
 /* https://stackoverflow.com/questions/2249731/how-do-i-get-bit-by-bit-data-from-an-integer-value-in-c */
 #define extract_bit(number, bit) (((number) >> (bit)) & 1)
