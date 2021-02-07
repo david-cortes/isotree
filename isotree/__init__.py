@@ -77,7 +77,8 @@ class IsolationForest:
     any of the references.
     In particular, the following default values are likely to cause huge differences when compared to the
     defaults in other software: ``ndim``, ``sample_size``, ``ntrees``, ``penalize_range``. The defaults here are
-    nevertheless more likely to result in better models.
+    nevertheless more likely to result in better models. In order to mimic scikit-learn for example, one
+    would need to pass ``ndim=1``, ``sample_size=256``, ``ntrees=100``, ``missing_action="fail"``, ``nthreads=1``.
 
     Note
     ----
@@ -1101,6 +1102,7 @@ class IsolationForest:
                     # https://github.com/pandas-dev/pandas/issues/30618
                     if self._cat_mapping[cl].__class__.__name__ == "CategoricalIndex":
                         self._cat_mapping[cl] = self._cat_mapping[cl].to_numpy()
+                X_cat = X_cat.to_numpy()
                 if X_cat.dtype != ctypes.c_int:
                     X_cat = X_cat.astype(ctypes.c_int)
                 if not _is_col_major(X_cat):
@@ -1213,7 +1215,7 @@ class IsolationForest:
     def _process_data_new(self, X, allow_csr = True, allow_csc = True, prefer_row_major = False):
         if X.__class__.__name__ == "DataFrame":
             if (self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]) > 0:
-                missing_cols = np.setdiff1d(np.array(X.columns.values), np.r_[self.cols_numeric_, self.cols_categ_])
+                missing_cols = np.setdiff1d(np.r_[self.cols_numeric_, self.cols_categ_], np.array(X.columns.values))
                 if missing_cols.shape[0] > 0:
                     raise ValueError("Input data is missing %d columns - example: [%s]" % (missing_cols.shape[0], ", ".join(missing_cols[:3])))
 

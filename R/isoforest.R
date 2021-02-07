@@ -20,7 +20,8 @@
 #' any of the references.
 #' In particular, the following default values are likely to cause huge differences when compared to the
 #' defaults in other software: `ndim`, `sample_size`, `ntrees`, `penalize_range`. The defaults here are
-#' nevertheless more likely to result in better models.
+#' nevertheless more likely to result in better models. In order to mimic scikit-learn for example, one
+#' would need to pass `ndim=1`, `sample_size=256`, `ntrees=100`, `missing_action="fail"`, `nthreads=1`.
 #' 
 #' Note that the default parameters will not scale to large datasets. In particular,
 #' if the amount of data is large, it's suggested to set a smaller sample size for each tree (parameter `sample_size`),
