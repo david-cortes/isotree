@@ -100,6 +100,10 @@ terminal node numbers will generate index mappings on the fly for all tree nodes
 The outlier scores/depth predict functionality is optimized for making predictions on one or a
 few rows at a time - for making large batches of predictions, it might be faster to use the
 option `output_score=TRUE` in `isolation.forest`.
+
+When imputing missing values, if the input data is a `data.frame` and the model was fit to a
+`data.frame`, the input may contain new columns (i.e. not present when the model was fitted),
+which will be output as-is. If it is a matrix or sparse matrix, should not contain any new columns.
 }
 \seealso{
 \link{isolation.forest} \link{unpack.isolation.forest}

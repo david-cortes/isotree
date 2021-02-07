@@ -1335,16 +1335,31 @@ class IsolationForest:
 
     def _rearrange_imputed(self, orig, X_num, X_cat):
         if orig.__class__.__name__ == "DataFrame":
+            ncols_imputed = 0
             if X_num is not None:
                 df_num = pd.DataFrame(X_num, columns = self.cols_numeric_)
+                ncols_imputed += df_num.shape[1]
             if X_cat is not None:
                 df_cat = pd.DataFrame(X_cat, columns = self.cols_categ_)
                 for cl in range(self.cols_categ_.shape[0]):
                     df_cat[self.cols_categ_[cl]] = pd.Categorical.from_codes(df_cat[self.cols_categ_[cl]], self._cat_mapping[cl])
+                ncols_imputed += df_cat.shape[1]
+            
+            if orig.columns.values.shape[0] != ncols_imputed:
+                cols_new = np.setdiff1d(orig.columns.values, np.r_[self.cols_numeric_, self.cols_categ_])
+                if (X_num is not None) and (X_cat is None):
+                    out = pd.concat([df_num, orig[cols_new]], axis = 1)
+                elif (X_num is None) and (X_cat is not None):
+                    out = pd.concat([df_cat, orig[cols_new]], axis = 1)
+                else:
+                    out = pd.concat([df_num, df_cat, orig[cols_new]], axis = 1)
+                out = out[orig.columns.values]
+                return out
+
             if (X_num is not None) and (X_cat is None):
-                return df_num
+                return df_num[orig.columns.values]
             elif (X_num is None) and (X_cat is not None):
-                return df_cat
+                return df_cat[orig.columns.values]
             else:
                 df = pd.concat([df_num, df_cat], axis = 1)
                 df = df[orig.columns.values]
@@ -1547,6 +1562,16 @@ class IsolationForest:
         Note
         ----
         In order to use this functionality, the model must have been built with imputation capabilities ('build_imputer' = 'True').
+
+        Note
+        ----
+        Categorical columns, if imputed, will always come out with pandas categorical dtype.
+
+        Note
+        ----
+        If the input type is a DataFrame and the model itself was also fitted to a DataFrame, the input
+        may contain new columns (i.e. not present when the model was fitted),
+        which will be output as-is. If it is an array or sparse matrix, should not contain any new columns.
 
         Parameters
         ----------

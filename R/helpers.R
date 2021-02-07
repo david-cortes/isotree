@@ -330,8 +330,18 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, df, model, trans_CSC=
                                        df_cat, model$metadata$cat_levs,
                                        SIMPLIFY = FALSE))
         
-        df_merged <- cbind(df_num, df_cat)
-        df_merged <- df_merged[, names(df)]
+        if (NROW(df_num) && NROW(df_cat)) {
+            df_merged <- cbind(df_num, df_cat)
+        } else if (NROW(df_num)) {
+            df_merged <- df_num
+        } else {
+            df_merged <- df_cat
+        }
+        new_cols <- setdiff(names(df), names(df_merged))
+        if (NROW(new_cols)) {
+            df_merged <- cbind(df_merged, df[, new_cols, drop=FALSE])
+        }
+        df_merged <- df_merged[, names(df), drop=FALSE]
         return(df_merged)
     }
 }
