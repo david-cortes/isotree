@@ -125,7 +125,7 @@ void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *
         {
             w_this = w[ix_arr[row]];
             cnt += w_this;
-            m += (x[ix_arr[row]] - m) / cnt;
+            m += w_this * (x[ix_arr[row]] - m) / cnt;
             s += w_this * ((x[ix_arr[row]] - m) * (x[ix_arr[row]] - m_prev));
             m_prev = m;
         }
@@ -270,7 +270,7 @@ void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, size_t co
                 w_this = w[*row];
                 if (added == 0) m_prev = Xc[curr_pos];
                 added += w_this;
-                m += (Xc[curr_pos] - m) / added;
+                m += w_this * (Xc[curr_pos] - m) / added;
                 s += w_this * ((Xc[curr_pos] - m) * (Xc[curr_pos] - m_prev));
                 m_prev = m;
             }

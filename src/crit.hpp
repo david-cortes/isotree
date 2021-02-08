@@ -315,10 +315,10 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, size_t col
         {
             if (Xc_ind[curr_pos] == *row)
             {
-                s1 += pw1(Xc[curr_pos]);
-                s2 += pw2(Xc[curr_pos]);
-                s3 += pw3(Xc[curr_pos]);
-                s4 += pw4(Xc[curr_pos]);
+                s1 += w_this * pw1(Xc[curr_pos]);
+                s2 += w_this * pw2(Xc[curr_pos]);
+                s3 += w_this * pw3(Xc[curr_pos]);
+                s4 += w_this * pw4(Xc[curr_pos]);
 
                 if (row == ix_arr + end || curr_pos == end_col) break;
                 curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *(++row)) - Xc_ind;
@@ -787,7 +787,7 @@ long double calc_sd_right_to_left_weighted(real_t_ *restrict x, size_t n, double
     {
         w_this = w[sorted_ix[n-row-1]];
         cnt += w_this;
-        running_mean   += (x[sorted_ix[n-row-1]] - running_mean) / cnt;
+        running_mean   += w_this * (x[sorted_ix[n-row-1]] - running_mean) / cnt;
         running_ssq    += w_this * ((x[sorted_ix[n-row-1]] - running_mean) * (x[sorted_ix[n-row-1]] - mean_prev));
         mean_prev       =  running_mean;
         sd_arr[n-row-1] = (row == 0)? 0. : std::sqrt(running_ssq / cnt);
@@ -833,7 +833,7 @@ long double calc_sd_right_to_left_weighted(real_t_ *restrict x, real_t_ xmean, s
     {
         w_this = w[ix_arr[end-row]];
         cnt += w_this;
-        running_mean   += ((x[ix_arr[end-row]] - xmean) - running_mean) / cnt;
+        running_mean   += w_this * ((x[ix_arr[end-row]] - xmean) - running_mean) / cnt;
         running_ssq    += w_this * (((x[ix_arr[end-row]] - xmean) - running_mean) * ((x[ix_arr[end-row]] - xmean) - mean_prev));
         mean_prev       =  running_mean;
         sd_arr[n-row-1] = (row == 0)? 0. : std::sqrt(running_ssq / cnt);
@@ -908,7 +908,7 @@ double find_split_std_gain_weighted(real_t *restrict x, size_t n, double *restri
     {
         w_this = w[row];
         currw += w_this;
-        running_mean   += (x[sorted_ix[row]] - running_mean) / currw;
+        running_mean   += w_this * (x[sorted_ix[row]] - running_mean) / currw;
         running_ssq    += w_this * ((x[sorted_ix[row]] - running_mean) * (x[sorted_ix[row]] - mean_prev));
         mean_prev       =  running_mean;
         if (x[sorted_ix[row]] == x[sorted_ix[row+1]])
@@ -989,7 +989,7 @@ double find_split_std_gain_weighted(real_t *restrict x, real_t xmean, size_t ix_
     {
         w_this = w[ix_arr[row]];
         currw += w_this;
-        running_mean   += ((x[ix_arr[row]] - xmean) - running_mean) / currw;
+        running_mean   += w_this * ((x[ix_arr[row]] - xmean) - running_mean) / currw;
         running_ssq    += w_this * (((x[ix_arr[row]] - xmean) - running_mean) * ((x[ix_arr[row]] - xmean) - mean_prev));
         mean_prev       =  running_mean;
         if (x[ix_arr[row]] == x[ix_arr[row+1]])

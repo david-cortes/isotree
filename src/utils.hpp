@@ -673,6 +673,7 @@ void weighted_shuffle(size_t *restrict outp, size_t n, real_t *restrict weights,
 
 /*  This one samples with replacement. When using weights, the algorithm is the
     same as for the row sampler, but keeping the weights after taking each iteration. */
+/*  TODO: this column sampler could use coroutines from C++20 once compilers implement them. */
 template <class real_t>
 void ColumnSampler::initialize(real_t weights[], size_t n_cols)
 {
