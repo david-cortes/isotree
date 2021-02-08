@@ -103,6 +103,12 @@ pip install --no-use-pep517 isotree
 
 * R:
 
+Latest version (recommended):
+```r
+remotes::install_github("david-cortes/isotree")
+```
+
+Older version from CRAN:
 ```r
 install.packages("isotree")
 ```

@@ -71,7 +71,8 @@
 #' 
 #' Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
 #' model needs more trees and/or bigger samples to reach convergence (unless using non-random
-#' splits, in which case the distribution is likely to be centered around a much lower number).
+#' splits, in which case the distribution is likely to be centered around a much lower number),
+#' or that the distributions in the data are too skewed for random uniform splits.
 #' @param ntrees Number of binary trees to build for the model. Recommended value in reference [1] is 100, while the
 #' default value in the author's code in reference [5] is 10. In general, the number of trees required for good results
 #' is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
@@ -79,7 +80,8 @@
 #' 
 #' Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
 #' model needs more trees and/or bigger samples to reach convergence (unless using non-random
-#' splits, in which case the distribution is likely to be centered around a much lower number).
+#' splits, in which case the distribution is likely to be centered around a much lower number),
+#' or that the distributions in the data are too skewed for random uniform splits.
 #' @param ndim Number of columns to combine to produce a split. If passing 1, will produce the single-variable model described
 #' in references [1] and [2], while if passing values greater than 1, will produce the extended model described in
 #' references [3] and [4].
