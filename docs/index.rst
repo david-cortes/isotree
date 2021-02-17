@@ -34,6 +34,9 @@ Methods
 * `set_params <#isotree.IsolationForest.set_params>`_
 * `transform <#isotree.IsolationForest.transform>`_
 
+IsolationForest
+===============
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
