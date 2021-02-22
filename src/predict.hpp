@@ -190,7 +190,7 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
 
             #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
                     shared(worker_memory, model_outputs, prediction_data, tree_num)
-            for (size_t tree = 0; tree < model_outputs->trees.size(); tree++)
+            for (size_t_for tree = 0; tree < model_outputs->trees.size(); tree++)
             {
                 if (!worker_memory[omp_get_thread_num()].depths.size())
                 {
@@ -242,7 +242,7 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
 
             #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
                     shared(worker_memory, model_outputs_ext, prediction_data, tree_num)
-            for (size_t tree = 0; tree < model_outputs_ext->hplanes.size(); tree++)
+            for (size_t_for tree = 0; tree < model_outputs_ext->hplanes.size(); tree++)
             {
                 if (!worker_memory[omp_get_thread_num()].depths.size())
                 {
@@ -281,7 +281,9 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
             std::fill(output_depths, output_depths + prediction_data.nrows, (double)0);
             for (auto &workspace : worker_memory)
                 if (workspace.depths.size())
+                    #ifndef _MSC_VER
                     #pragma omp simd
+                    #endif
                     for (size_t row = 0; row < prediction_data.nrows; row++)
                         output_depths[row] += workspace.depths[row];
         }

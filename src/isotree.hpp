@@ -113,7 +113,7 @@ typedef void (*sig_t_)(int);
 #define ix_parent(ix) (((ix) - 1) / 2)  /* integer division takes care of deciding left-right */
 #define ix_child(ix)  (2 * (ix) + 1)
 /* https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int */
-#if defined(__LITTLE_ENDIAN) && defined(__BYTE_ORDER) && (IS_LITTLE_ENDIAN == 1)
+#if defined(__LITTLE_ENDIAN) && defined(__BYTE_ORDER) && (__BYTE_ORDER == __LITTLE_ENDIAN)
     #define pow2(n) ( ((size_t) 1) << (n) )
 #else
     #define pow2(n) ((size_t)powl((long double)2, (long double)n))
@@ -140,7 +140,7 @@ typedef void (*sig_t_)(int);
 /* MSVC is stuck with an OpenMP version that's 19 years old at the time of writing and does not support unsigned iterators */
 #ifdef _OPENMP
     #if (_OPENMP < 200801) || defined(_WIN32) || defined(_WIN64) /* OpenMP < 3.0 */
-        #define size_t_for long
+        #define size_t_for long long
     #else
         #define size_t_for size_t
     #endif
