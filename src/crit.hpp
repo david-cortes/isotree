@@ -315,6 +315,8 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, size_t col
         {
             if (Xc_ind[curr_pos] == *row)
             {
+                w_this = w[*row];
+                
                 s1 += w_this * pw1(Xc[curr_pos]);
                 s2 += w_this * pw2(Xc[curr_pos]);
                 s3 += w_this * pw3(Xc[curr_pos]);

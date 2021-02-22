@@ -602,6 +602,15 @@ typedef struct WorkerForSimilarity {
     bool                assume_full_distr; /* doesn't need to have one copy per worker */
 } WorkerForSimilarity;
 
+typedef struct WorkerForPredictCSC {
+    std::vector<size_t> ix_arr;
+    size_t              st;
+    size_t              end;
+    std::vector<double> comb_val;
+    std::vector<double> weights_arr;
+    std::vector<double> depths;
+} WorkerForPredictCSC;
+
 class RecursionState {
 public:
     size_t  st;
@@ -740,6 +749,29 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
                      ImputedData             *imputed_data,
                      sparse_ix *restrict      tree_num,
                      size_t                   row);
+template <class PredictionData, class sparse_ix>
+void traverse_itree_csc(WorkerForPredictCSC   &workspace,
+                        std::vector<IsoTree>  &trees,
+                        IsoForest             &model_outputs,
+                        PredictionData        &prediction_data,
+                        sparse_ix             *tree_num,
+                        size_t                curr_tree,
+                        bool                  has_range_penalty);
+template <class PredictionData, class sparse_ix>
+void traverse_hplane_csc(WorkerForPredictCSC      &workspace,
+                         std::vector<IsoHPlane>   &hplanes,
+                         ExtIsoForest             &model_outputs,
+                         PredictionData           &prediction_data,
+                         sparse_ix                *tree_num,
+                         size_t                   curr_tree,
+                         bool                     has_range_penalty);
+template <class PredictionData>
+void add_csc_range_penalty(WorkerForPredictCSC  &workspace,
+                           PredictionData       &prediction_data,
+                           double               *weights_arr,
+                           size_t               col_num,
+                           double               range_low,
+                           double               range_high);
 template <class PredictionData>
 double extract_spC(PredictionData &prediction_data, size_t row, size_t col_num);
 template <class PredictionData, class sparse_ix>

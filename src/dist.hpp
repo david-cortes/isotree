@@ -369,7 +369,7 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
     {
         case Impute:
         {
-            split_ix = (trees.back().pct_tree_left >= .5)? end_NA : st_NA;
+            split_ix = (trees[curr_tree].pct_tree_left >= .5)? end_NA : st_NA;
         }
 
         case Fail:
@@ -385,7 +385,7 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
             }
 
 
-            if (split_ix < orig_end)
+            if (split_ix <= orig_end)
             {
                 workspace.st  = split_ix;
                 workspace.end = orig_end;
@@ -400,6 +400,8 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
 
         case Divide: /* new_cat_action = 'Weighted' will also fall here */
         {
+          /* TODO: maybe here it shouldn't copy the whole ix_arr,
+             but then it'd need to re-generate it from outside too */
             std::vector<double> weights_arr;
             std::vector<size_t> ix_arr;
             if (end_NA > workspace.st)
@@ -422,7 +424,7 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
                                   trees[curr_tree].tree_left);
             }
 
-            if (st_NA < orig_end)
+            if (st_NA <= orig_end)
             {
                 workspace.st = st_NA;
                 workspace.end = orig_end;
@@ -514,6 +516,7 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
     size_t ncols_numeric = 0;
     size_t ncols_categ   = 0;
     std::fill(workspace.comb_val.begin(), workspace.comb_val.begin() + (workspace.end - workspace.st + 1), 0);
+    double unused;
     if (prediction_data.categ_data != NULL || prediction_data.Xc_indptr != NULL)
     {
         for (size_t col = 0; col < hplanes[curr_tree].col_num.size(); col++)
@@ -526,14 +529,14 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
                         add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                         prediction_data.numeric_data + prediction_data.nrows * hplanes[curr_tree].col_num[col],
                                         hplanes[curr_tree].coef[ncols_numeric], (double)0, hplanes[curr_tree].mean[ncols_numeric],
-                                        (model_outputs.missing_action == Fail)?  workspace.comb_val[0] : hplanes[curr_tree].fill_val[col],
+                                        (model_outputs.missing_action == Fail)?  unused : hplanes[curr_tree].fill_val[col],
                                         model_outputs.missing_action, NULL, NULL, false);
                     else
                         add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end,
                                         hplanes[curr_tree].col_num[col], workspace.comb_val.data(),
                                         prediction_data.Xc, prediction_data.Xc_ind, prediction_data.Xc_indptr,
                                         hplanes[curr_tree].coef[ncols_numeric], (double)0, hplanes[curr_tree].mean[ncols_numeric],
-                                        (model_outputs.missing_action == Fail)?  workspace.comb_val[0] : hplanes[curr_tree].fill_val[col],
+                                        (model_outputs.missing_action == Fail)?  unused : hplanes[curr_tree].fill_val[col],
                                         model_outputs.missing_action, NULL, NULL, false);
                     ncols_numeric++;
                     break;
@@ -549,7 +552,7 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
                                             prediction_data.categ_data + prediction_data.nrows * hplanes[curr_tree].col_num[col],
                                             (int)0, NULL, hplanes[curr_tree].fill_new[ncols_categ],
                                             hplanes[curr_tree].chosen_cat[ncols_categ],
-                                            (model_outputs.missing_action == Fail)?  workspace.comb_val[0] : hplanes[curr_tree].fill_val[col],
+                                            (model_outputs.missing_action == Fail)?  unused : hplanes[curr_tree].fill_val[col],
                                             workspace.comb_val[0], NULL, NULL, model_outputs.new_cat_action,
                                             model_outputs.missing_action, SingleCateg, false);
                             break;
@@ -561,7 +564,7 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
                                             prediction_data.categ_data + prediction_data.nrows * hplanes[curr_tree].col_num[col],
                                             (int) hplanes[curr_tree].cat_coef[ncols_categ].size(),
                                             hplanes[curr_tree].cat_coef[ncols_categ].data(), (double) 0, (int) 0,
-                                            (model_outputs.missing_action == Fail)? workspace.comb_val[0] : hplanes[curr_tree].fill_val[col],
+                                            (model_outputs.missing_action == Fail)? unused : hplanes[curr_tree].fill_val[col],
                                             hplanes[curr_tree].fill_new[ncols_categ], NULL, NULL,
                                             model_outputs.new_cat_action, model_outputs.missing_action, SubSet, false);
                             break;
@@ -581,7 +584,7 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
             add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                             prediction_data.numeric_data + prediction_data.nrows * hplanes[curr_tree].col_num[col],
                             hplanes[curr_tree].coef[col], (double)0, hplanes[curr_tree].mean[col],
-                            (model_outputs.missing_action == Fail)?  workspace.comb_val[0] : hplanes[curr_tree].fill_val[col],
+                            (model_outputs.missing_action == Fail)?  unused : hplanes[curr_tree].fill_val[col],
                             model_outputs.missing_action, NULL, NULL, false);
     }
 
@@ -601,7 +604,7 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
                             hplanes[curr_tree].hplane_left);
     }
 
-    if (split_ix < orig_end)
+    if (split_ix <= orig_end)
     {
         workspace.st  = split_ix;
         workspace.end = orig_end;

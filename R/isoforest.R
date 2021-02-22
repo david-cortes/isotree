@@ -232,6 +232,8 @@
 #' as proposed in reference [4] and implemented in the authors' original code in reference [5]. Not used in single-variable model
 #' when splitting by categorical variables.
 #' 
+#' It's recommended to turn this off for faster predictions on sparse CSC matrices.
+#' 
 #' Note that this can make a very large difference in the results when using `prob_pick_pooled_gain`.
 #' 
 #' Be aware that this option can make the distribution of outlier scores a bit different
@@ -816,8 +818,11 @@ isolation.forest <- function(df,
 #' 
 #' Note that when passing `type` = `"impute"` and `newdata` is a sparse matrix, under some situations it might get modified in-place.
 #' 
-#' Note also that, if using sparse matrices from package `Matrix`, converting to `dgRMatrix` might require using
+#' Note also that, if using sparse matrices from package `Matrix`, converting to `dgRMatrix` (when required) might require using
 #' `as(m, "RsparseMatrix")` instead of `dgRMatrix` directly.
+#' Nevertheless, if `newdata` is sparse and one wants to obtain the outlier score or average depth or tree
+#' numbers, it's highly recommended to pass it in CSC (`dgCMatrix`) format as it will be much faster
+#' when the number of trees or rows is large.
 #' @param type Type of prediction to output. Options are:
 #' \itemize{
 #'   \item `"score"` for the standardized outlier score, where values closer to 1 indicate more outlierness, while values
@@ -914,6 +919,8 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
     if ((object$metadata$ncols_cat > 0) && NROW(intersect(class(newdata), get.types.spmat(TRUE, TRUE, TRUE)))) {
         stop("Cannot pass sparse inputs if the model was fit to categorical variables.")
     }
+    if ((type == "tree_num") && (object$metadata$ncols_cat > 0) && (object$params$new_categ_action == "weighted"))
+        stop("Cannot output tree number when using 'new_categ_action' = 'weighted'.")
     if ("numeric" %in% class(newdata) && is.null(dim(newdata))) {
         newdata <- matrix(newdata, nrow=1)
     }

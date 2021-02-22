@@ -1058,6 +1058,8 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 {
     /* TODO: this is a mess, needs refactoring */
     /* TODO: when moving zeros, would be better to instead move by '>' (opposite as in here) */
+    /* TODO: should create an extra version to go along with 'predict' that would
+       add the range penalty right here to spare operations. */
     if (Xc_indptr[col_num] == Xc_indptr[col_num + 1])
     {
         if (missing_action == Fail)
@@ -1253,7 +1255,7 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                 if (Xc_ind[curr_pos] == *row)
                 {
                     if (isnan(Xc[curr_pos])) has_NAs = true;
-                    if (Xc[curr_pos] <= split_point && !isnan(Xc[curr_pos]))
+                    if (!isnan(Xc[curr_pos]) && Xc[curr_pos] <= split_point)
                     {
                         temp       = ix_arr[st];
                         ix_arr[st] = *row;

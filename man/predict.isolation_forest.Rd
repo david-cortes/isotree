@@ -22,8 +22,11 @@ for which to predict outlierness, distance, or imputations of missing values.
 
 Note that when passing `type` = `"impute"` and `newdata` is a sparse matrix, under some situations it might get modified in-place.
 
-Note also that, if using sparse matrices from package `Matrix`, converting to `dgRMatrix` might require using
-`as(m, "RsparseMatrix")` instead of `dgRMatrix` directly.}
+Note also that, if using sparse matrices from package `Matrix`, converting to `dgRMatrix` (when required) might require using
+`as(m, "RsparseMatrix")` instead of `dgRMatrix` directly.
+Nevertheless, if `newdata` is sparse and one wants to obtain the outlier score or average depth or tree
+numbers, it's highly recommended to pass it in CSC (`dgCMatrix`) format as it will be much faster
+when the number of trees or rows is large.}
 
 \item{type}{Type of prediction to output. Options are:
 \itemize{

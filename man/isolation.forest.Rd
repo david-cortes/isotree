@@ -247,6 +247,8 @@ reasonable range in the data being split (given by `2 * range` in data and cente
 as proposed in reference [4] and implemented in the authors' original code in reference [5]. Not used in single-variable model
 when splitting by categorical variables.
 
+It's recommended to turn this off for faster predictions on sparse CSC matrices.
+
 Note that this can make a very large difference in the results when using `prob_pick_pooled_gain`.
 
 Be aware that this option can make the distribution of outlier scores a bit different

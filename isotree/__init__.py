@@ -317,6 +317,8 @@ class IsolationForest:
         as proposed in [4] and implemented in the authors' original code in [5]. Not used in single-variable model
         when splitting by categorical variables.
 
+        It's recommended to turn this off for faster predictions on sparse CSC matrices.
+
         Note that this can make a very large difference in the results when using ``prob_pick_pooled_gain``.
 
         Be aware that this option can make the distribution of outlier scores a bit different
@@ -1392,11 +1394,6 @@ class IsolationForest:
         
         Note
         ----
-        Predictions for sparse data will be much slower than for dense data. Not recommended to pass
-        sparse matrices unless they are too big to fit in memory.
-        
-        Note
-        ----
         In order to save memory when fitting and serializing models, the functionality for outputting
         terminal node number will generate index mappings on the fly for all tree nodes, even if passing only
         1 row, so it's only recommended for batch predictions.
@@ -1418,6 +1415,10 @@ class IsolationForest:
         X : array or array-like (n_samples, n_features)
             Observations for which to predict outlierness or average isolation depth. Can pass
             a NumPy array, Pandas DataFrame, or SciPy sparse CSC or CSR matrix.
+
+            If 'X' is sparse and one wants to obtain the outlier score or average depth or tree
+            numbers, it's highly recommended to pass it in CSC format as it will be much faster
+            when the number of trees or rows is large.
         output : str, one of "score", "avg_depth", "tree_num"
             Desired type of output. If passing "score", will output standardized outlier score.
             If passing "avg_depth" will output average isolation depth without standardizing. If
@@ -1436,7 +1437,7 @@ class IsolationForest:
         if output == "tree_num":
             if self.missing_action == "divide":
                 raise ValueError("Cannot output tree number when using 'missing_action' = 'divide'.")
-            if self.new_categ_action == "weighted":
+            if (self._ncols_categ > 0) and (self.new_categ_action == "weighted"):
                 raise ValueError("Cannot output tree number when using 'new_categ_action' = 'weighted'.")
             if nrows == 1:
                 warnings.warn("Predicting tree number is slow, not recommended to do for 1 row at a time.")
