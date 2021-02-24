@@ -207,7 +207,7 @@ void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
        The difference can be put to a closed form. */
     if (cnt > added)
     {
-        s += (m / (real_t)cnt) * ( m * ((real_t)(cnt-added)/(real_t)added) );
+        s += square(m) * (added * ((real_t)1 - (real_t)added/(real_t)cnt));
         m *= (real_t)added / (real_t)cnt;
     }
 
@@ -303,7 +303,7 @@ void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, size_t co
        The difference can be put to a closed form. */
     if (cnt > added)
     {
-        s += (m / cnt) * ( m * ((cnt-added)/added) );
+        s += square(m) * (added * ((long double)1 - added/cnt));
         m *= added / cnt;
     }
 

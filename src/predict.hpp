@@ -281,7 +281,7 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
             std::fill(output_depths, output_depths + prediction_data.nrows, (double)0);
             for (auto &workspace : worker_memory)
                 if (workspace.depths.size())
-                    #ifndef _MSC_VER
+                    #if !defined(_MSC_VER) && !defined(_WIN32)
                     #pragma omp simd
                     #endif
                     for (size_t row = 0; row < prediction_data.nrows; row++)
@@ -1041,11 +1041,14 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
         return;
     }
 
-    std::sort(workspace.ix_arr.data() + workspace.st, workspace.ix_arr.data() + workspace.end + 1);
+    /* in this case, the indices are sorted in the csc penalty function */
+    if (!(has_range_penalty && model_outputs.missing_action != Divide && curr_tree > 0))
+        std::sort(workspace.ix_arr.data() + workspace.st, workspace.ix_arr.data() + workspace.end + 1);
 
     /* TODO: should mix the splitting function with the range penalty */
     
     /* divide according to tree */
+    size_t orig_end = workspace.end;
     size_t st_NA, end_NA, split_ix;
     divide_subset_split(workspace.ix_arr.data(), workspace.st, workspace.end, trees[curr_tree].col_num,
                         prediction_data.Xc, prediction_data.Xc_ind, prediction_data.Xc_indptr,
@@ -1053,7 +1056,6 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
                         st_NA, end_NA, split_ix);
 
     /* continue splitting recursively */
-    size_t orig_end = workspace.end;
     switch(model_outputs.missing_action)
     {
         case Impute:
@@ -1226,7 +1228,7 @@ void traverse_hplane_csc(WorkerForPredictCSC      &workspace,
     }
 
     std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
-    std::fill(workspace.comb_val.begin(), workspace.comb_val.begin() + (workspace.end - workspace.st + 1), 0);
+    std::fill(workspace.comb_val.begin(), workspace.comb_val.begin() + (workspace.end - workspace.st + 1), 0.);
     double unused;
     for (size_t col = 0; col < hplanes[curr_tree].col_num.size(); col++)
         add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end,
@@ -1241,8 +1243,8 @@ void traverse_hplane_csc(WorkerForPredictCSC      &workspace,
         for (size_t row = workspace.st; row <= workspace.end; row++)
             workspace.depths[workspace.ix_arr[row]]
                 -=
-            (workspace.comb_val[row] < hplanes[curr_tree].range_low) ||
-            (workspace.comb_val[row] > hplanes[curr_tree].range_high);
+            (workspace.comb_val[row - workspace.st] < hplanes[curr_tree].range_low) ||
+            (workspace.comb_val[row - workspace.st] > hplanes[curr_tree].range_high);
     }
 
     /* divide data */
@@ -1285,7 +1287,7 @@ void add_csc_range_penalty(WorkerForPredictCSC  &workspace,
                            double               range_low,
                            double               range_high)
 {
-    std::sort(workspace.ix_arr.data() + workspace.st, workspace.ix_arr.data() + workspace.end);
+    std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
 
     size_t st_col  = prediction_data.Xc_indptr[col_num];
     size_t end_col = prediction_data.Xc_indptr[col_num + 1] - 1;
