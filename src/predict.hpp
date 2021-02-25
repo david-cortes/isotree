@@ -448,13 +448,13 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                 {
                     xval =  prediction_data.numeric_data[
                                 prediction_data.is_col_major?
-                                (row +  tree[curr_lev].col_num * prediction_data.nrows)
+                                (row + tree[curr_lev].col_num * prediction_data.nrows)
                                     :
                                 (tree[curr_lev].col_num + row * prediction_data.ncols_numeric)
                             ];
+                    output_depth -= (xval < tree[curr_lev].range_low) || (xval > tree[curr_lev].range_high);
                     curr_lev = (xval <= tree[curr_lev].num_split)?
                                 tree[curr_lev].tree_left : tree[curr_lev].tree_right;
-                    output_depth -= (xval < tree[curr_lev].range_low) || (xval > tree[curr_lev].range_high);
                     break;
                 }
 
@@ -643,9 +643,9 @@ double traverse_itree(std::vector<IsoTree>     &tree,
 
                     else
                     {
+                        range_penalty += (xval < tree[curr_lev].range_low) || (xval > tree[curr_lev].range_high);
                         curr_lev = (xval <= tree[curr_lev].num_split)?
                                     tree[curr_lev].tree_left : tree[curr_lev].tree_right;
-                        range_penalty += (xval < tree[curr_lev].range_low) || (xval > tree[curr_lev].range_high);
                     }
                     break;
                 }
@@ -1043,7 +1043,7 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
 
     /* in this case, the indices are sorted in the csc penalty function */
     if (!(has_range_penalty && model_outputs.missing_action != Divide && curr_tree > 0))
-        std::sort(workspace.ix_arr.data() + workspace.st, workspace.ix_arr.data() + workspace.end + 1);
+        std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
 
     /* TODO: should mix the splitting function with the range penalty */
     
@@ -1070,14 +1070,12 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
                 workspace.end = split_ix - 1;
 
                 if (has_range_penalty)
-                {
                     add_csc_range_penalty(workspace,
                                           prediction_data,
                                           (double*)NULL,
                                           trees[curr_tree].col_num,
                                           trees[curr_tree].range_low,
                                           trees[curr_tree].range_high);
-                }
 
                 traverse_itree_csc(workspace,
                                    trees,
@@ -1095,14 +1093,12 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
                 workspace.end = orig_end;
 
                 if (has_range_penalty)
-                {
                     add_csc_range_penalty(workspace,
                                           prediction_data,
                                           (double*)NULL,
                                           trees[curr_tree].col_num,
                                           trees[curr_tree].range_low,
                                           trees[curr_tree].range_high);
-                }
 
                 traverse_itree_csc(workspace,
                                    trees,
