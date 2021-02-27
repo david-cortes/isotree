@@ -1210,12 +1210,15 @@ void check_for_missing(InputData &input_data,
         #pragma omp parallel for schedule(static) num_threads(nthreads) shared(input_data)
         for (size_t_for row = 0; row < input_data.nrows; row++)
         {
-            for (size_t col = 0; col < input_data.ncols_numeric; col++)
+            if (input_data.Xc_indptr == NULL)
             {
-                if (is_na_or_inf(input_data.numeric_data[row + col * input_data.nrows]))
+                for (size_t col = 0; col < input_data.ncols_numeric; col++)
                 {
-                    input_data.has_missing[row] = true;
-                    break;
+                    if (is_na_or_inf(input_data.numeric_data[row + col * input_data.nrows]))
+                    {
+                        input_data.has_missing[row] = true;
+                        break;
+                    }
                 }
             }
 
