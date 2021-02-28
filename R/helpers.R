@@ -320,7 +320,6 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE, 
                 (!inherits(df, "sparseVector") && (ncol(df) > metadata$ncols_num)))
             && (enforce_shape || inherits(df, c("RsparseMatrix", "matrix.csr")))
             ) {
-            cat("got into cond\n")
 
             if (inherits(df, c("matrix", "CsparseMatrix")) ||
                 (!NROW(metadata$cols_num) && inherits(df, "data.frame"))) {
