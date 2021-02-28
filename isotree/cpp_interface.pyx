@@ -296,7 +296,7 @@ cdef extern from "other_helpers.hpp":
         real_t_ *rec_Xr, sparse_ix_ *rec_Xr_ind, sparse_ix_ *rec_Xr_indptr,
         int *rec_X_cat, bool_t is_col_major,
         size_t_ *cols_numeric, size_t_ *cols_categ,
-        size_t nrows, size_t ncols_numeric, size_t ncols_categ
+        size_t nrows, size_t ncols, size_t ncols_numeric, size_t ncols_categ
     ) nogil except +
 
 
