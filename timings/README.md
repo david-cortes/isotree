@@ -56,4 +56,4 @@ Speed comparison, fitting 100 trees of varying sample sizes (256, 1024, 10k) to 
 | scikit-learn    | orig   |   4     | Py    |  17.8        | 18.1          | 18.5          |
 | scikit-learn    | orig   |   16    | Py    |  oom         | oom           | oom           |
 
-*Note: these datasets have mostly discrete values. Some libraries such as SciKit-Learn might perform much faster when columns have continuous values*
+*Disclaimer: these datasets have mostly discrete values. Some libraries such as SciKit-Learn might perform much faster when columns have continuous values*

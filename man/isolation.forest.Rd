@@ -26,7 +26,7 @@ isolation.forest(
   recode_categ = TRUE,
   weights_as_sample_prob = TRUE,
   sample_with_replacement = FALSE,
-  penalize_range = TRUE,
+  penalize_range = FALSE,
   weigh_by_kurtosis = FALSE,
   coefs = "normal",
   assume_full_distr = TRUE,
@@ -385,7 +385,7 @@ trees beyond balanced-tree limit. Offers options to vary between randomized and 
 Important: The default parameters in this software do not correspond to the suggested parameters in
 any of the references.
 In particular, the following default values are likely to cause huge differences when compared to the
-defaults in other software: `ndim`, `sample_size`, `ntrees`, `penalize_range`. The defaults here are
+defaults in other software: `ndim`, `sample_size`, `ntrees`. The defaults here are
 nevertheless more likely to result in better models. In order to mimic scikit-learn for example, one
 would need to pass `ndim=1`, `sample_size=256`, `ntrees=100`, `missing_action="fail"`, `nthreads=1`.
 
@@ -400,8 +400,7 @@ Using fewer trees, smaller sample sizes, and shallower trees can help to reduce 
 sizes if that becomes a problem.
 
 The model offers many tunable parameters. The most likely candidate to tune is
-`prob_pick_pooled_gain` (along with perhaps disabling
-`penalize_range` alongside this option), for which higher values tend to
+`prob_pick_pooled_gain`, for which higher values tend to
 result in a better ability to flag outliers in the training data (`df`) at the expense of hindered
 performance when making predictions on new data (calling function `predict`) and poorer
 generalizability to inputs with values outside the variables' ranges to which the model was fit

@@ -76,15 +76,14 @@ class IsolationForest:
     The default parameters in this software do not correspond to the suggested parameters in
     any of the references.
     In particular, the following default values are likely to cause huge differences when compared to the
-    defaults in other software: ``ndim``, ``sample_size``, ``ntrees``, ``penalize_range``. The defaults here are
+    defaults in other software: ``ndim``, ``sample_size``, ``ntrees``. The defaults here are
     nevertheless more likely to result in better models. In order to mimic scikit-learn for example, one
     would need to pass ``ndim=1``, ``sample_size=256``, ``ntrees=100``, ``missing_action="fail"``, ``nthreads=1``.
 
     Note
     ----
     The model offers many tunable parameters. The most likely candidate to tune is
-    ``prob_pick_pooled_gain`` (along with perhaps disabling
-    ``penalize_range`` alongside this option), for which higher values tend to
+    ``prob_pick_pooled_gain``, for which higher values tend to
     result in a better ability to flag outliers in the training data at the expense of hindered
     performance when making predictions on new data (calling method ``predict``) and poorer
     generalizability to inputs with values outside the variables' ranges to which the model was fit
@@ -443,7 +442,7 @@ class IsolationForest:
                  categ_split_type = "subset", all_perm = False,
                  coef_by_prop = False, recode_categ = True,
                  weights_as_sample_prob = True, sample_with_replacement = False,
-                 penalize_range = True, weigh_by_kurtosis = False,
+                 penalize_range = False, weigh_by_kurtosis = False,
                  coefs = "normal", assume_full_distr = True,
                  build_imputer = False, min_imp_obs = 3,
                  depth_imp = "higher", weigh_imp_rows = "inverse",
@@ -2213,7 +2212,7 @@ class IsolationForest:
         ----
         The generated SQL statements will not include range penalizations, thus
         predictions might differ from calls to ``predict`` when using
-        ``penalize_range=True`` (which is the default).
+        ``penalize_range=True``.
 
         Note
         ----

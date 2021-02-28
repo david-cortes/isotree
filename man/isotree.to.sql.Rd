@@ -84,7 +84,7 @@ dataset, the generated SQL might consist of gigabytes of text, and might
 lay well beyond the character limit of commands accepted by SQL vendors.
 \item The generated SQL statements will not include range penalizations, thus
 predictions might differ from calls to `predict` when using
-`penalize_range=TRUE` (which is the default).
+`penalize_range=TRUE`.
 \item The generated SQL statements will only include handling of missing values
 when using `missing_action="impute"`. When using the single-variable
 model with categorical variables + subset splits, the rule buckets might be
