@@ -65,6 +65,8 @@
 #define sparse_ix int
 #include "instantiate_model.hpp"
 
+/* For imputing CSR matrices with differing columns from input */
+#include "other_helpers.hpp"
 
 /*  Note: the R version calls the 'sort_csc_indices' templated function,
     so it's not enough to just include 'isotree_exportable.hpp' and let
@@ -609,7 +611,7 @@ void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector
     }
 
     predict_iforest<double, int>(numeric_data_ptr, categ_data_ptr,
-                                 true, (size_t)0, (size_t)0,
+                                 true, (size_t)0, (size_t)(X_cat.size() > 0),
                                  Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
                                  Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
                                  nrows, nthreads, standardize,
@@ -925,11 +927,471 @@ Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, 
     return out;
 }
 
+/* The functions below make for missing functionality in the
+   'Matrix' and 'SparseM' packages for sub-setting the data */
+
 // [[Rcpp::export(rng = false)]]
 void call_sort_csc_indices(Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr)
 {
     size_t ncols_numeric = Xc_indptr.size() - 1;
     sort_csc_indices(REAL(Xc), INTEGER(Xc_ind), INTEGER(Xc_indptr), ncols_numeric);
+}
+
+// [[Rcpp::export(rng = false)]]
+void call_reconstruct_csr_sliced
+(
+    Rcpp::NumericVector orig_Xr, Rcpp::IntegerVector orig_Xr_indptr,
+    Rcpp::NumericVector rec_Xr, Rcpp::IntegerVector rec_Xr_indptr,
+    size_t nrows
+)
+{
+    reconstruct_csr_sliced<double, int>(
+        REAL(orig_Xr), INTEGER(orig_Xr_indptr),
+        REAL(rec_Xr), INTEGER(rec_Xr_indptr),
+        nrows
+    );
+}
+
+// [[Rcpp::export(rng = false)]]
+void call_reconstruct_csr_with_categ
+(
+    Rcpp::NumericVector orig_Xr, Rcpp::IntegerVector orig_Xr_ind, Rcpp::IntegerVector orig_Xr_indptr,
+    Rcpp::NumericVector rec_Xr, Rcpp::IntegerVector rec_Xr_ind, Rcpp::IntegerVector rec_Xr_indptr,
+    Rcpp::IntegerVector rec_X_cat,
+    Rcpp::IntegerVector cols_numeric, Rcpp::IntegerVector cols_categ,
+    size_t nrows, size_t ncols
+)
+{
+    reconstruct_csr_with_categ<double, int, int>(
+        REAL(orig_Xr), INTEGER(orig_Xr_ind), INTEGER(orig_Xr_indptr),
+        REAL(rec_Xr), INTEGER(rec_Xr_ind), INTEGER(rec_Xr_indptr),
+        INTEGER(rec_X_cat), true,
+        INTEGER(cols_numeric), INTEGER(cols_categ),
+        nrows, ncols, cols_numeric.size(), cols_categ.size()
+    );
+}
+
+// [[Rcpp::export(rng = false)]]
+Rcpp::NumericVector deepcopy_vector(Rcpp::NumericVector inp)
+{
+    return Rcpp::NumericVector(inp.begin(), inp.end());
+}
+
+Rcpp::IntegerMatrix csc_to_dense_int
+(
+    Rcpp::NumericVector Xc,
+    Rcpp::IntegerVector Xc_ind,
+    Rcpp::IntegerVector Xc_indptr,
+    size_t nrows
+)
+{
+    size_t ncols = Xc_indptr.size() - 1;
+    Rcpp::IntegerMatrix out_(nrows, ncols);
+    int *restrict out = INTEGER(out_);
+    for (size_t col = 0; col < ncols; col++)
+    {
+        for (size_t ix = Xc_indptr[col]; ix < Xc_indptr[col+1]; ix++)
+            out[(size_t)Xc_ind[ix] + col*nrows]
+                =
+            (Xc[ix] >= 0 && !ISNAN(Xc[ix]))?
+                (int)Xc[ix] : (int)(-1);
+    }
+    return out_;
+}
+
+template <class real_vec, class int_vec>
+Rcpp::IntegerMatrix csr_to_dense_int
+(
+    real_vec Xr,
+    int_vec Xr_ind,
+    int_vec Xr_indptr,
+    size_t ncols
+)
+{
+    size_t nrows = Xr_indptr.size() - 1;
+    Rcpp::IntegerMatrix out_(nrows, ncols);
+    int *restrict out = INTEGER(out_);
+    for (size_t row = 0; row < nrows; row++)
+    {
+        for (size_t ix = Xr_indptr[row]; ix < Xr_indptr[row+1]; ix++)
+            out[row + (size_t)Xr_ind[ix]*nrows]
+                =
+            (Xr[ix] >= 0 && !ISNAN(Xr[ix]))?
+                (int)Xr[ix] : (int)(-1);
+    }
+    return out_;
+}
+
+// [[Rcpp::export(rng = false)]]
+Rcpp::List call_take_cols_by_slice_csr
+(
+    Rcpp::NumericVector Xr_,
+    Rcpp::IntegerVector Xr_ind_,
+    Rcpp::IntegerVector Xr_indptr,
+    size_t ncols_take,
+    bool as_dense
+)
+{
+    /* Indices need to be sorted beforehand */
+    double *restrict Xr = REAL(Xr_);
+    int *restrict Xr_ind = INTEGER(Xr_ind_);
+    size_t nrows = Xr_indptr.size() - 1;
+    Rcpp::IntegerVector out_Xr_indptr(nrows+1);
+    out_Xr_indptr[0] = 0;
+    size_t total_size = 0;
+    for (size_t row = 0; row < nrows; row++)
+    {
+        for (size_t col = Xr_indptr[row]; col < Xr_indptr[row+1]; col++)
+            total_size += Xr_ind[col] < ncols_take;
+        out_Xr_indptr[row+1] = total_size;
+    }
+
+    Rcpp::NumericVector out_Xr_(total_size);
+    Rcpp::IntegerVector out_Xr_ind_(total_size);
+    double *restrict out_Xr = REAL(out_Xr_);
+    int *restrict out_Xr_ind = INTEGER(out_Xr_ind_);
+
+    size_t n_this;
+    for (size_t row = 0; row < nrows; row++)
+    {
+        n_this = out_Xr_indptr[row+1] - out_Xr_indptr[row];
+        if (n_this) {
+            std::copy(Xr + Xr_indptr[row],
+                      Xr + Xr_indptr[row] + n_this,
+                      out_Xr + out_Xr_indptr[row]);
+            std::copy(Xr_ind + Xr_indptr[row],
+                      Xr_ind + Xr_indptr[row] + n_this,
+                      out_Xr_ind + out_Xr_indptr[row]);
+        }
+    }
+
+    if (!as_dense)
+        return Rcpp::List::create(
+            Rcpp::_["Xr"] = out_Xr_,
+            Rcpp::_["Xr_ind"] = out_Xr_ind_,
+            Rcpp::_["Xr_indptr"] = out_Xr_indptr
+        );
+    else
+        return Rcpp::List::create(
+            Rcpp::_["X_cat"] = csr_to_dense_int(out_Xr_,
+                                                out_Xr_ind_,
+                                                out_Xr_indptr,
+                                                ncols_take)
+        );
+}
+
+// [[Rcpp::export(rng = false)]]
+Rcpp::List call_take_cols_by_index_csr
+(
+    Rcpp::NumericVector Xr,
+    Rcpp::IntegerVector Xr_ind,
+    Rcpp::IntegerVector Xr_indptr,
+    Rcpp::IntegerVector cols_take,
+    bool as_dense
+)
+{
+    /* 'cols_take' should be sorted */
+    size_t n_take = cols_take.size();
+    size_t nrows = Xr_indptr.size() - 1;
+    std::vector<double> out_Xr;
+    std::vector<int> out_Xr_ind;
+    std::vector<int> out_Xr_indptr(nrows + 1);
+
+    int *curr_ptr;
+    int *end_ptr;
+    int *restrict ptr_Xr_ind = INTEGER(Xr_ind);
+    int *restrict ptr_cols_take = INTEGER(cols_take);
+    int *restrict ptr_cols_take_end = ptr_cols_take + n_take;
+    size_t curr_col;
+    int *search_res;
+
+    for (size_t row = 0; row < nrows; row++)
+    {
+        curr_ptr = ptr_Xr_ind + Xr_indptr[row];
+        end_ptr = ptr_Xr_ind + Xr_indptr[row+1];
+        curr_col = 0;
+
+        if (end_ptr == curr_ptr + 1)
+        {
+            search_res = std::lower_bound(ptr_cols_take, ptr_cols_take_end, *curr_ptr);
+            curr_col = std::distance(ptr_cols_take, search_res);
+            if (curr_col < n_take && *search_res == *curr_ptr)
+            {
+                out_Xr.push_back(Xr[std::distance(ptr_Xr_ind, curr_ptr)]);
+                out_Xr_ind.push_back(curr_col);
+            }
+        }
+
+        else
+        if (end_ptr > curr_ptr)
+        {
+            while (true)
+            {
+                curr_ptr = std::lower_bound(curr_ptr, end_ptr, ptr_cols_take[curr_col]);
+                
+                if (curr_ptr >= end_ptr)
+                {
+                    break;
+                }
+
+
+                else if (*curr_ptr == ptr_cols_take[curr_col])
+                {
+                    out_Xr.push_back(Xr[std::distance(ptr_Xr_ind, curr_ptr)]);
+                    out_Xr_ind.push_back(curr_col);
+                    curr_ptr++;
+                    curr_col++;
+
+                    if (curr_ptr >= end_ptr || curr_col >= n_take)
+                        break;
+                }
+
+
+                else
+                {
+                    curr_col = std::distance(
+                        ptr_cols_take,
+                        std::lower_bound(ptr_cols_take + curr_col, ptr_cols_take_end, *curr_ptr)
+                    );
+
+                    if (curr_col >= n_take)
+                        break;
+
+                    if (curr_col == *curr_ptr) {
+                        out_Xr.push_back(Xr[std::distance(ptr_Xr_ind, curr_ptr)]);
+                        out_Xr_ind.push_back(curr_col);
+                        curr_ptr++;
+                        curr_col++;
+                    }
+
+                    if (curr_ptr >= end_ptr || curr_col >= n_take)
+                        break;
+                }
+            }
+        }
+
+        out_Xr_indptr[row+1] = out_Xr.size();
+    }
+
+    if (!as_dense)
+        return Rcpp::List::create(
+            Rcpp::_["Xr"] = Rcpp::NumericVector(out_Xr.begin(), out_Xr.end()),
+            Rcpp::_["Xr_ind"] = Rcpp::IntegerVector(out_Xr_ind.begin(), out_Xr_ind.end()),
+            Rcpp::_["Xr_indptr"] = Rcpp::IntegerVector(out_Xr_indptr.begin(), out_Xr_indptr.end())
+        );
+    else
+        return Rcpp::List::create(
+            Rcpp::_["X_cat"] = csr_to_dense_int(out_Xr,
+                                                out_Xr_ind,
+                                                out_Xr_indptr,
+                                                n_take)
+        );
+}
+
+// [[Rcpp::export(rng = false)]]
+Rcpp::List call_take_cols_by_slice_csc
+(
+    Rcpp::NumericVector Xc,
+    Rcpp::IntegerVector Xc_ind,
+    Rcpp::IntegerVector Xc_indptr,
+    size_t ncols_take,
+    bool as_dense, size_t nrows
+)
+{
+    Rcpp::IntegerVector out_Xc_indptr(ncols_take+1);
+    size_t total_size = Xc_indptr[ncols_take+1];
+    Rcpp::NumericVector out_Xc(REAL(Xc), REAL(Xc) + total_size);
+    Rcpp::IntegerVector out_Xc_ind(INTEGER(Xc_ind), INTEGER(Xc_ind) + total_size);
+
+    if (!as_dense)
+        return Rcpp::List::create(
+            Rcpp::_["Xc"] = out_Xc,
+            Rcpp::_["Xc_ind"] = out_Xc_ind,
+            Rcpp::_["Xc_indptr"] = out_Xc_indptr
+        );
+    else
+        return Rcpp::List::create(
+            Rcpp::_["X_cat"] = csc_to_dense_int(out_Xc,
+                                                out_Xc_ind,
+                                                out_Xc_indptr,
+                                                nrows)
+        );
+}
+
+// [[Rcpp::export(rng = false)]]
+Rcpp::List call_take_cols_by_index_csc
+(
+    Rcpp::NumericVector Xc_,
+    Rcpp::IntegerVector Xc_ind_,
+    Rcpp::IntegerVector Xc_indptr,
+    Rcpp::IntegerVector cols_take,
+    bool as_dense, size_t nrows
+)
+{
+    /* 'cols_take' should be sorted */
+    double *restrict Xc = REAL(Xc_);
+    int *restrict Xc_ind = INTEGER(Xc_ind_);
+    size_t n_take = cols_take.size();
+    Rcpp::IntegerVector out_Xc_indptr(n_take+1);
+    size_t total_size = 0;
+
+    for (size_t col = 0; col < n_take; col++)
+        total_size += Xc_indptr[cols_take[col]+1] - Xc_indptr[cols_take[col]];
+
+    Rcpp::NumericVector out_Xc_(total_size);
+    Rcpp::IntegerVector out_Xc_ind_(total_size);
+    double *restrict out_Xc = REAL(out_Xc_);
+    int *restrict out_Xc_ind = INTEGER(out_Xc_ind_);
+
+    total_size = 0;
+    size_t n_this;
+    out_Xc_indptr[0] = 0;
+    for (size_t col = 0; col < n_take; col++)
+    {
+        n_this = Xc_indptr[cols_take[col]+1] - Xc_indptr[cols_take[col]];
+        if (n_this) {
+            std::copy(Xc + Xc_indptr[cols_take[col]],
+                      Xc + Xc_indptr[cols_take[col]] + n_this,
+                      out_Xc + total_size);
+            std::copy(Xc_ind + Xc_indptr[cols_take[col]],
+                      Xc_ind + Xc_indptr[cols_take[col]] + n_this,
+                      out_Xc_ind + total_size);
+        }
+        total_size += n_this;
+        out_Xc_indptr[col+1] = total_size;
+    }
+
+    if (!as_dense)
+        return Rcpp::List::create(
+            Rcpp::_["Xc"] = out_Xc_,
+            Rcpp::_["Xc_ind"] = out_Xc_ind_,
+            Rcpp::_["Xc_indptr"] = out_Xc_indptr
+        );
+    else
+        return Rcpp::List::create(
+            Rcpp::_["X_cat"] = csc_to_dense_int(out_Xc_,
+                                                out_Xc_ind_,
+                                                out_Xc_indptr,
+                                                nrows)
+        );
+}
+
+// [[Rcpp::export(rng = false)]]
+void copy_csc_cols_by_slice
+(
+    Rcpp::NumericVector out_Xc_,
+    Rcpp::IntegerVector out_Xc_indptr,
+    Rcpp::NumericVector from_Xc_,
+    Rcpp::IntegerVector from_Xc_indptr,
+    size_t n_copy
+)
+{
+    size_t total_size = from_Xc_indptr[n_copy+1];
+    std::copy(REAL(from_Xc_), REAL(from_Xc_) + total_size, REAL(out_Xc_));
+}
+
+// [[Rcpp::export(rng = false)]]
+void copy_csc_cols_by_index
+(
+    Rcpp::NumericVector out_Xc_,
+    Rcpp::IntegerVector out_Xc_indptr,
+    Rcpp::NumericVector from_Xc_,
+    Rcpp::IntegerVector from_Xc_indptr,
+    Rcpp::IntegerVector cols_copy
+)
+{
+    size_t n_copy = cols_copy.size();
+    double *restrict out_Xc = REAL(out_Xc_);
+    double *restrict from_Xc = REAL(from_Xc_);
+
+    for (size_t col = 0; col < n_copy; col++)
+    {
+        std::copy(from_Xc + from_Xc_indptr[col],
+                  from_Xc + from_Xc_indptr[col+1],
+                  out_Xc + out_Xc_indptr[cols_copy[col]]);
+    }
+}
+
+
+// [[Rcpp::export(rng = false)]]
+Rcpp::List assign_csc_cols
+(
+    Rcpp::NumericVector Xc_,
+    Rcpp::IntegerVector Xc_ind_,
+    Rcpp::IntegerVector Xc_indptr,
+    Rcpp::IntegerVector X_cat_,
+    Rcpp::IntegerVector cols_categ,
+    Rcpp::IntegerVector cols_numeric,
+    size_t nrows
+)
+{
+    size_t ncols_tot = (size_t)cols_categ.size() + (size_t)cols_numeric.size();
+    std::vector<double> out_Xc;
+    std::vector<int> out_Xc_ind;
+    std::vector<int> out_Xc_indptr(ncols_tot + 1);
+
+    double *restrict Xc = REAL(Xc_);
+    int *restrict Xc_ind = INTEGER(Xc_ind_);
+    int *restrict X_cat = INTEGER(X_cat_);
+
+    std::unordered_set<int> cols_categ_set(INTEGER(cols_categ), INTEGER(cols_categ) + cols_categ.size());
+    std::unordered_set<int> cols_numeric_set(INTEGER(cols_numeric), INTEGER(cols_numeric) + cols_numeric.size());
+
+    size_t curr_num = 0;
+    size_t curr_cat = 0;
+    bool has_zeros;
+    size_t curr_size;
+
+    for (size_t col = 0; col < ncols_tot; col++)
+    {
+        if (is_in_set((int)col, cols_numeric_set))
+        {
+            std::copy(Xc + Xc_indptr[curr_num],
+                      Xc + Xc_indptr[curr_num+1],
+                      std::back_inserter(out_Xc));
+            std::copy(Xc_ind + Xc_indptr[curr_num],
+                      Xc_ind + Xc_indptr[curr_num+1],
+                      std::back_inserter(out_Xc_ind));
+            curr_num++;
+        }
+
+        else if (is_in_set((int)col, cols_categ_set))
+        {
+            has_zeros = false;
+            for (size_t row = 0; row < nrows; row++)
+                if (X_cat[row + (size_t)curr_cat*nrows] == 0)
+                    has_zeros = true;
+
+            if (!has_zeros) {
+                std::copy(X_cat + (size_t)curr_cat*nrows,
+                          X_cat + ((size_t)curr_cat+1)*nrows,
+                          std::back_inserter(out_Xc));
+                curr_size = out_Xc_ind.size();
+                out_Xc_ind.resize(curr_size + (size_t)nrows);
+                std::iota(out_Xc_ind.begin() + curr_size, out_Xc_ind.end(), (int)0);
+            }
+
+            else {
+                for (size_t row = 0; row < nrows; row++) {
+                    if (X_cat[row + (size_t)curr_cat*nrows] > 0) {
+                        out_Xc.push_back(X_cat[row + (size_t)curr_cat*nrows]);
+                        out_Xc_ind.push_back((int)row);
+                    }
+                }
+            }
+
+            curr_cat++;
+        }
+
+        out_Xc_indptr[col+1] = out_Xc.size();
+    }
+
+
+    return Rcpp::List::create(
+        Rcpp::_["Xc"] = Rcpp::NumericVector(out_Xc.begin(), out_Xc.end()),
+        Rcpp::_["Xc_ind"] = Rcpp::IntegerVector(out_Xc_ind.begin(), out_Xc_ind.end()),
+        Rcpp::_["Xc_indptr"] = Rcpp::IntegerVector(out_Xc_indptr.begin(), out_Xc_indptr.end())
+    );
 }
 
 #endif /* _FOR_R */

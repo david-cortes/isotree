@@ -6,7 +6,6 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(SRC_FILES ${PROJECT_SOURCE_DIR}/src/instantiate_model.cpp
-              ${PROJECT_SOURCE_DIR}/src/dealloc.cpp
               ${PROJECT_SOURCE_DIR}/src/merge_models.cpp
               ${PROJECT_SOURCE_DIR}/src/serialize.cpp
               ${PROJECT_SOURCE_DIR}/src/sql.cpp)

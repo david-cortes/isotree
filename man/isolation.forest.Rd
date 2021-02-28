@@ -10,6 +10,7 @@ isolation.forest(
   ntrees = 500,
   ndim = min(3, NCOL(df)),
   ntry = 3,
+  categ_cols = NULL,
   max_depth = ceiling(log2(sample_size)),
   ncols_per_tree = NCOL(df),
   prob_pick_avg_gain = 0,
@@ -91,7 +92,17 @@ which makes the models slightly different than in [3].}
 
 \item{ntry}{In the extended model with non-random splits, how many random combinations to try for determining the best gain.
 Only used when deciding splits by gain (see documentation for parameters `prob_pick_avg_gain` and `prob_pick_pooled_gain`).
-Recommended value in refernece [4] is 10. Ignored for single-variable model.}
+Recommended value in reference [4] is 10. Ignored for single-variable model.}
+
+\item{categ_cols}{Columns that hold categorical features (should be an integer vector),
+when the data is passed as a matrix.
+Categorical columns should contain only integer values with a continuous numeration starting at zero,
+with negative values and NaN taken as missing,
+and the vector passed here should correspond to the column numbers, with numeration starting
+at one.
+
+This is ignored when the input is passed as a `data.frame` as then it will consider columns as
+categorical depending on their type/class (see the documentation for `df` for details).}
 
 \item{max_depth}{Maximum depth of the binary trees to grow. By default, will limit it to the corresponding
 depth of a balanced binary tree with number of terminal nodes corresponding to the sub-sample size (the reason

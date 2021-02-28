@@ -50,7 +50,7 @@ Example AUC as outlier detector in typical datasets (notebook to produce results
 | eif          | -            | 0.808           |
 | scikit-learn | 0.836        | 0.836           |
 
-*(Note that these are rather small datasets and thus these AUC estimates have very high variance)*
+*(Disclaimer: these are rather small datasets and thus these AUC estimates have high variance)*
 
 # Distance / similarity calculations
 

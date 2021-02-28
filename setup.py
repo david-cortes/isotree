@@ -46,6 +46,7 @@ class build_ext_subclass( build_ext ):
                 # e.extra_link_args    = ['-fopenmp=libiomp5', '-lc++abi']
 
                 # e.extra_compile_args = ['-O2', '-march=native', '-std=c++11']
+                # e.extra_compile_args = ['-O0', '-march=native', '-std=c++11']
 
                 ### for testing (run with `LD_PRELOAD=libasan.so python script.py`)
                 # e.extra_compile_args = ["-std=c++11", "-fsanitize=address", "-static-libasan", "-ggdb"]
@@ -92,7 +93,6 @@ setup(
     ext_modules = [Extension(
                                 "isotree._cpp_interface",
                                 sources=["isotree/cpp_interface.pyx",
-                                         "src/dealloc.cpp",
                                          "src/merge_models.cpp", "src/serialize.cpp", "src/sql.cpp"],
                                 include_dirs=[np.get_include(), ".", "./src", cereal_dir],
                                 language="c++",

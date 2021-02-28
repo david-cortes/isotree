@@ -61,3 +61,43 @@ call_sort_csc_indices <- function(Xc, Xc_ind, Xc_indptr) {
     invisible(.Call(`_isotree_call_sort_csc_indices`, Xc, Xc_ind, Xc_indptr))
 }
 
+call_reconstruct_csr_sliced <- function(orig_Xr, orig_Xr_indptr, rec_Xr, rec_Xr_indptr, nrows) {
+    invisible(.Call(`_isotree_call_reconstruct_csr_sliced`, orig_Xr, orig_Xr_indptr, rec_Xr, rec_Xr_indptr, nrows))
+}
+
+call_reconstruct_csr_with_categ <- function(orig_Xr, orig_Xr_ind, orig_Xr_indptr, rec_Xr, rec_Xr_ind, rec_Xr_indptr, rec_X_cat, cols_numeric, cols_categ, nrows, ncols) {
+    invisible(.Call(`_isotree_call_reconstruct_csr_with_categ`, orig_Xr, orig_Xr_ind, orig_Xr_indptr, rec_Xr, rec_Xr_ind, rec_Xr_indptr, rec_X_cat, cols_numeric, cols_categ, nrows, ncols))
+}
+
+deepcopy_vector <- function(inp) {
+    .Call(`_isotree_deepcopy_vector`, inp)
+}
+
+call_take_cols_by_slice_csr <- function(Xr_, Xr_ind_, Xr_indptr, ncols_take, as_dense) {
+    .Call(`_isotree_call_take_cols_by_slice_csr`, Xr_, Xr_ind_, Xr_indptr, ncols_take, as_dense)
+}
+
+call_take_cols_by_index_csr <- function(Xr, Xr_ind, Xr_indptr, cols_take, as_dense) {
+    .Call(`_isotree_call_take_cols_by_index_csr`, Xr, Xr_ind, Xr_indptr, cols_take, as_dense)
+}
+
+call_take_cols_by_slice_csc <- function(Xc, Xc_ind, Xc_indptr, ncols_take, as_dense, nrows) {
+    .Call(`_isotree_call_take_cols_by_slice_csc`, Xc, Xc_ind, Xc_indptr, ncols_take, as_dense, nrows)
+}
+
+call_take_cols_by_index_csc <- function(Xc_, Xc_ind_, Xc_indptr, cols_take, as_dense, nrows) {
+    .Call(`_isotree_call_take_cols_by_index_csc`, Xc_, Xc_ind_, Xc_indptr, cols_take, as_dense, nrows)
+}
+
+copy_csc_cols_by_slice <- function(out_Xc_, out_Xc_indptr, from_Xc_, from_Xc_indptr, n_copy) {
+    invisible(.Call(`_isotree_copy_csc_cols_by_slice`, out_Xc_, out_Xc_indptr, from_Xc_, from_Xc_indptr, n_copy))
+}
+
+copy_csc_cols_by_index <- function(out_Xc_, out_Xc_indptr, from_Xc_, from_Xc_indptr, cols_copy) {
+    invisible(.Call(`_isotree_copy_csc_cols_by_index`, out_Xc_, out_Xc_indptr, from_Xc_, from_Xc_indptr, cols_copy))
+}
+
+assign_csc_cols <- function(Xc_, Xc_ind_, Xc_indptr, X_cat_, cols_categ, cols_numeric, nrows) {
+    .Call(`_isotree_assign_csc_cols`, Xc_, Xc_ind_, Xc_indptr, X_cat_, cols_categ, cols_numeric, nrows)
+}
+

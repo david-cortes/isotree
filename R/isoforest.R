@@ -92,7 +92,16 @@
 #' which makes the models slightly different than in [3].
 #' @param ntry In the extended model with non-random splits, how many random combinations to try for determining the best gain.
 #' Only used when deciding splits by gain (see documentation for parameters `prob_pick_avg_gain` and `prob_pick_pooled_gain`).
-#' Recommended value in refernece [4] is 10. Ignored for single-variable model.
+#' Recommended value in reference [4] is 10. Ignored for single-variable model.
+#' @param categ_cols Columns that hold categorical features (should be an integer vector),
+#' when the data is passed as a matrix.
+#' Categorical columns should contain only integer values with a continuous numeration starting at zero,
+#' with negative values and NaN taken as missing,
+#' and the vector passed here should correspond to the column numbers, with numeration starting
+#' at one.
+#' 
+#' This is ignored when the input is passed as a `data.frame` as then it will consider columns as
+#' categorical depending on their type/class (see the documentation for `df` for details).
 #' @param max_depth Maximum depth of the binary trees to grow. By default, will limit it to the corresponding
 #' depth of a balanced binary tree with number of terminal nodes corresponding to the sub-sample size (the reason
 #' being that, if trying to detect outliers, an outlier will only be so if it turns out to be isolated with shorter average
@@ -532,7 +541,8 @@
 #' @export
 isolation.forest <- function(df,
                              sample_size = NROW(df), ntrees = 500, ndim = min(3, NCOL(df)),
-                             ntry = 3, max_depth = ceiling(log2(sample_size)),
+                             ntry = 3, categ_cols = NULL,
+                             max_depth = ceiling(log2(sample_size)),
                              ncols_per_tree = NCOL(df),
                              prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
                              prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
@@ -636,6 +646,8 @@ isolation.forest <- function(df,
     
     nthreads <- check.nthreads(nthreads)
     if (sample_size > NROW(df)) stop("'sample_size' cannot be greater then the number of rows in 'df'.")
+
+    categ_cols <- check.categ.cols(categ_cols)
     
     if (!is.null(sample_weights)) check.is.1d(sample_weights, "sample_weights")
     if (!is.null(column_weights)) check.is.1d(column_weights, "column_weights")
@@ -706,7 +718,7 @@ isolation.forest <- function(df,
     assume_full_distr        <-  as.logical(assume_full_distr)
     
     ### split column types
-    pdata <- process.data(df, sample_weights, column_weights, recode_categ)
+    pdata <- process.data(df, sample_weights, column_weights, recode_categ, categ_cols)
     
     ### extra check for potential integer overflow
     if (all_perm && (ndim == 1) &&
@@ -773,7 +785,9 @@ isolation.forest <- function(df,
             ncols_cat  =  pdata$ncols_cat,
             cols_num   =  pdata$cols_num,
             cols_cat   =  pdata$cols_cat,
-            cat_levs   =  pdata$cat_levs
+            cat_levs   =  pdata$cat_levs,
+            categ_cols =  pdata$categ_cols,
+            categ_max  =  pdata$categ_max
             ),
         random_seed  =  random_seed,
         nthreads     =  nthreads,
@@ -804,7 +818,7 @@ isolation.forest <- function(df,
         if (output_imputations) {
             outp$imputed   <-  reconstruct.from.imp(cpp_outputs$imputed_num,
                                                     cpp_outputs$imputed_cat,
-                                                    df, this, trans_CSC = FALSE)
+                                                    df, this, pdata)
         }
         return(outp)
     }
@@ -916,22 +930,15 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
     check.str.option(type, "type", allowed_type)
     check.is.bool(square_mat)
     if (!NROW(newdata)) stop("'newdata' must be a data.frame, matrix, or sparse matrix.")
-    if ((object$metadata$ncols_cat > 0) && NROW(intersect(class(newdata), get.types.spmat(TRUE, TRUE, TRUE)))) {
-        stop("Cannot pass sparse inputs if the model was fit to categorical variables.")
+    if ((object$metadata$ncols_cat > 0 && is.null(object$metadata$categ_cols)) && NROW(intersect(class(newdata), get.types.spmat(TRUE, TRUE, TRUE)))) {
+        stop("Cannot pass sparse inputs if the model was fit to categorical variables in a data.frame.")
     }
     if ((type == "tree_num") && (object$metadata$ncols_cat > 0) && (object$params$new_categ_action == "weighted"))
         stop("Cannot output tree number when using 'new_categ_action' = 'weighted'.")
     if ("numeric" %in% class(newdata) && is.null(dim(newdata))) {
         newdata <- matrix(newdata, nrow=1)
     }
-    if (NCOL(newdata) < (object$metadata$ncols_num + object$metadata$ncols_cat)) {
-        if ("dsparseVector" %in% class(newdata)) {
-            if (NROW(newdata) != object$metadata$ncols_num)
-                stop("'newdata' has different number of columns than the original data.")
-        } else {
-            stop("'newdata' has fewer columns than the original data.")
-        }
-    }
+    
     if (type %in% c("dist", "avg_sep")) {
         if (object$metadata$ncols_cat > 0 && object$params$new_categ_action == "weighted" && object$params$missing_action != "divide") {
             stop(paste0("Cannot predict distances when using ",
@@ -949,8 +956,10 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
         newdata     <- rbind(newdata, refdata)
     }
     
-    pdata <- process.data.new(newdata, object$metadata, !(type %in% c("dist", "avg_sep")), type != "impute")
-    
+    pdata <- process.data.new(newdata, object$metadata,
+                              !(type %in% c("dist", "avg_sep")),
+                              type != "impute", type == "impute")
+
     square_mat   <-  as.logical(square_mat)
     score_array  <-  get.empty.vector()
     dist_tmat    <-  get.empty.vector()
@@ -1002,7 +1011,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
         return(reconstruct.from.imp(imp$X_num,
                                     imp$X_cat,
                                     newdata, object,
-                                    trans_CSC = TRUE))
+                                    pdata))
     }
 }
 
@@ -1391,7 +1400,9 @@ append.trees <- function(model, other) {
 #' The metadata will contain, among other things, the encoding that was used for
 #' categorical columns - this is under `data_info.cat_levels`, as an array of arrays by column,
 #' with the first entry for each column corresponding to category 0, second to category 1,
-#' and so on (the C++ version takes them as integers). This metadata is written to a JSON file
+#' and so on (the C++ version takes them as integers). When passing `categ_cols`, there
+#' will be no encoding but it will save the maximum category integer and the column
+#' numbers instead of names. This metadata is written to a JSON file
 #' using the `jsonlite` package, which must be installed in order for this to work.
 #' 
 #' The serialized file can be used in the C++ version by reading it as a binary raw file

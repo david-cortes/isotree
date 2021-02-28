@@ -5,7 +5,7 @@ import multiprocessing
 import ctypes
 import json
 from copy import deepcopy
-from ._cpp_interface import isoforest_cpp_obj, _sort_csc_indices
+from ._cpp_interface import isoforest_cpp_obj, _sort_csc_indices, _reconstruct_csr_sliced, _reconstruct_csr_with_categ
 
 __all__ = ["IsolationForest"]
 
@@ -148,6 +148,16 @@ class IsolationForest:
         In the extended model with non-random splits, how many random combinations to try for determining the best gain.
         Only used when deciding splits by gain (see documentation for parameters 'prob_pick_avg_gain' and 'prob_pick_pooled_gain').
         Recommended value in [4] is 10. Ignored for single-variable model.
+    categ_cols : None or array-like
+        Columns that hold categorical features, when the data is passed as an array or matrix.
+        Categorical columns should contain only integer values with a continuous numeration starting at zero,
+        with negative values and NaN taken as missing,
+        and the array or list passed here should correspond to the column numbers, with numeration starting
+        at zero.
+        This might be passed either at construction time or when calling ``fit`` or variations of ``fit``.
+        
+        This is ignored when the input is passed as a ``DataFrame`` as then it will consider columns as
+        categorical depending on their dtype (see the documentation for ``fit`` for details).
     max_depth : int, None, or str "auto"
         Maximum depth of the binary trees to grow. If passing None, will build trees until each observation ends alone
         in a terminal node or until no further split is possible. If using "auto", will limit it to the corresponding
@@ -426,7 +436,7 @@ class IsolationForest:
     .. [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
     """
     def __init__(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3,
-                 max_depth = "auto", ncols_per_tree = None,
+                 categ_cols = None, max_depth = "auto", ncols_per_tree = None,
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
                  prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
@@ -444,6 +454,7 @@ class IsolationForest:
         self.ntrees = ntrees
         self.ndim = ndim
         self.ntry = ntry
+        self.categ_cols = categ_cols
         self.max_depth = max_depth
         self.ncols_per_tree = ncols_per_tree
         self.prob_pick_avg_gain = prob_pick_avg_gain
@@ -477,11 +488,16 @@ class IsolationForest:
 
         self._reset_obj()
 
-    def _init(self):
+    def _init(self, categ_cols = None):
+        if categ_cols is not None:
+            if self.categ_cols is not None:
+                warnings.warn("Passed 'categ_cols' in constructor and fit method. Will take the latter.")
+            self.categ_cols = categ_cols
         self._initialize_full(
                  sample_size = self.sample_size if (self.max_samples is None) else self.max_samples,
                  ntrees = self.ntrees if (self.n_estimators is None) else self.n_estimators,
                  ndim = self.ndim, ntry = self.ntry,
+                 categ_cols = self.categ_cols,
                  max_depth = self.max_depth, ncols_per_tree = self.ncols_per_tree,
                  prob_pick_avg_gain = self.prob_pick_avg_gain, prob_pick_pooled_gain = self.prob_pick_pooled_gain,
                  prob_split_avg_gain = self.prob_split_avg_gain, prob_split_pooled_gain = self.prob_split_pooled_gain,
@@ -498,7 +514,7 @@ class IsolationForest:
                  nthreads = self.nthreads if (self.n_jobs is None) else self.n_jobs)
 
     def _initialize_full(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3,
-                 max_depth = "auto", ncols_per_tree = None,
+                 categ_cols = None, max_depth = "auto", ncols_per_tree = None,
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
                  prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
@@ -607,10 +623,15 @@ class IsolationForest:
         assert nthreads > 0
         assert isinstance(nthreads, int)
 
+        if categ_cols is not None:
+            categ_cols = np.array(categ_cols).reshape(-1).astype(int)
+            categ_cols.sort()
+
         self.sample_size             =  sample_size
         self.ntrees                  =  ntrees
         self.ndim                    =  ndim
         self.ntry                    =  ntry
+        self.categ_cols              =  categ_cols
         self.max_depth               =  max_depth
         self.ncols_per_tree          =  ncols_per_tree
         self.prob_pick_avg_gain      =  prob_pick_avg_gain
@@ -644,6 +665,7 @@ class IsolationForest:
         self.cols_numeric_  =  np.array([])
         self.cols_categ_    =  np.array([])
         self._cat_mapping   =  list()
+        self._cat_max_lev   =  np.array([])
         self._ncols_numeric =  0
         self._ncols_categ   =  0
         self.is_fitted_     =  False
@@ -751,7 +773,7 @@ class IsolationForest:
     def _get_imputer_obj(self):
         return self._cpp_obj.get_imputer()
 
-    def fit(self, X, y = None, sample_weights = None, column_weights = None):
+    def fit(self, X, y = None, sample_weights = None, column_weights = None, categ_cols = None):
         """
         Fit isolation forest model to data
 
@@ -775,13 +797,23 @@ class IsolationForest:
         column_weights : None or array(n_features,)
             Sampling weights for each column in 'X'. Ignored when picking columns by deterministic criterion.
             If passing None, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+        categ_cols : None or array-like
+            Columns that hold categorical features, when the data is passed as an array or matrix.
+            Categorical columns should contain only integer values with a continuous numeration starting at zero,
+            with negative values and NaN taken as missing,
+            and the array or list passed here should correspond to the column numbers, with numeration starting
+            at zero.
+            This might be passed either at construction time or when calling ``fit`` or variations of ``fit``.
+            
+            This is ignored when the input is passed as a ``DataFrame`` as then it will consider columns as
+            categorical depending on their dtype.
 
         Returns
         -------
         self : obj
             This object.
         """
-        self._init()
+        self._init(categ_cols)
         if (self.sample_size is None) and (sample_weights is not None) and (self.weights_as_sample_prob):
             raise ValueError("Sampling weights are only supported when using sub-samples for each tree.")
         if column_weights is not None and self.weigh_by_kurtosis:
@@ -869,7 +901,8 @@ class IsolationForest:
         return self
 
     def fit_predict(self, X, column_weights = None, output_outlierness = "score",
-                    output_distance = None, square_mat = False, output_imputed = False):
+                    output_distance = None, square_mat = False, output_imputed = False,
+                    categ_cols = None):
         """
         Fit the model in-place and produce isolation or separation depths along the way
         
@@ -924,6 +957,16 @@ class IsolationForest:
         output_imputed : bool
             Whether to output the data with imputed missing values. Model object must have been initialized
             with 'build_imputer' = 'True'.
+        categ_cols : None or array-like
+            Columns that hold categorical features, when the data is passed as an array or matrix.
+            Categorical columns should contain only integer values with a continuous numeration starting at zero,
+            with negative values and NaN taken as missing,
+            and the array or list passed here should correspond to the column numbers, with numeration starting
+            at zero.
+            This might be passed either at construction time or when calling ``fit`` or variations of ``fit``.
+            
+            This is ignored when the input is passed as a ``DataFrame`` as then it will consider columns as
+            categorical depending on their dtype.
 
         Returns
         -------
@@ -933,7 +976,7 @@ class IsolationForest:
             with keys "pred" (array(n_samples,)), "dist" (array(n_samples * (n_samples - 1) / 2,) or array(n_samples, n_samples)),
             "imputed" (array-like(n_samples, n_columns)), according to whether each output type is present.
         """
-        self._init()
+        self._init(categ_cols)
         if self.sample_size is not None:
             raise ValueError("Cannot use 'fit_predict' when the sample size is limited.")
         if self.sample_with_replacement:
@@ -1052,7 +1095,14 @@ class IsolationForest:
             return outp
 
     def _process_data(self, X, sample_weights, column_weights):
+        ### TODO: this needs a refactoring after introducing 'categ_cols'
+
         if X.__class__.__name__ == "DataFrame":
+
+            if self.categ_cols is not None:
+                warnings.warn("'categ_cols' is ignored when passing a DataFrame as input.")
+                self.categ_cols = None
+
             ### https://stackoverflow.com/questions/25039626/how-do-i-find-numeric-columns-in-pandas
             X_num = X.select_dtypes(include = [np.number, np.datetime64]).to_numpy()
             if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
@@ -1087,9 +1137,12 @@ class IsolationForest:
             else:
                 nrows = X_cat.shape[0]
 
+            has_ordered = False
             if X_cat is not None:
                 self._cat_mapping = [None for cl in range(X_cat.shape[1])]
                 for cl in range(X_cat.shape[1]):
+                    if (X_cat[X_cat.columns[cl]].dtype.name == "category") and (X_cat[X_cat.columns[cl]].dtype.ordered):
+                        has_ordered = True
                     if (not self.recode_categ) and (X_cat[X_cat.columns[cl]].dtype.name == "category"):
                         self._cat_mapping[cl] = np.array(X_cat[X_cat.columns[cl]].cat.categories)
                         X_cat[X_cat.columns[cl]] = X_cat[X_cat.columns[cl]].cat.codes
@@ -1111,64 +1164,103 @@ class IsolationForest:
                     X_cat = X_cat.astype(ctypes.c_int)
                 if not _is_col_major(X_cat):
                     X_cat = np.asfortranarray(X_cat)
+                if has_ordered:
+                    warnings.warn("Data contains ordered categoricals. These are treated as unordered.")
 
         else:
             if len(X.shape) != 2:
                 raise ValueError("Input data must be two-dimensional.")
 
-            if issparse(X):
-                avoid_sort = False
-                if not isspmatrix_csc(X):
-                    warnings.warn("Sparse matrices are only supported in CSC format, will be converted.")
+            X_cat = None
+            if self.categ_cols is not None:
+                if np.max(self.categ_cols) >= X.shape[1]:
+                    raise ValueError("'categ_cols' contains indices higher than the number of columns in 'X'.")
+                self.cols_numeric_ = np.setdiff1d(np.arange(X.shape[1]), self.categ_cols)
+                if issparse(X) and not isspmatrix_csc(X):
                     X = csc_matrix(X)
-                    avoid_sort = True
-                if X.nnz == 0:
-                    raise ValueError("'X' has no non-zero entries")
+                X_cat = X[:, self.categ_cols]
+                X = X[:, self.cols_numeric_]
 
-                if ((X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
-                    (X.indices.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
-                    (X.indptr.dtype != X.indices.dtype) or
-                    (X.data.dtype not in [ctypes.c_double, ctypes.c_float])
-                ):
-                    X = X.copy()
-                if X.data.dtype not in [ctypes.c_double, ctypes.c_float]:
-                    X.data    = X.data.astype(ctypes.c_double)
-                if (X.indptr.dtype != X.indices.dtype) or (X.indices.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]):
-                    X.indices = X.indices.astype(ctypes.c_size_t)
-                if (X.indptr.dtype != X.indices.dtype) or (X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]):
-                    X.indptr  = X.indptr.astype(ctypes.c_size_t)
-                if not avoid_sort:
-                    _sort_csc_indices(X)
-            
-            else:
-                if (X.__class__.__name__ == "ndarray") and (X.dtype not in [ctypes.c_double, ctypes.c_float]):
-                    X = X.astype(ctypes.c_double)
-                if (X.__class__.__name__ != "ndarray") or (not _is_col_major(X)):
-                    X = np.asfortranarray(X)
-                if X.dtype not in [ctypes.c_double, ctypes.c_float]:
-                    X = X.astype(ctypes.c_double)
+            if X.shape[1]:
+                if issparse(X):
+                    avoid_sort = False
+                    if not isspmatrix_csc(X):
+                        warnings.warn("Sparse matrices are only supported in CSC format, will be converted.")
+                        X = csc_matrix(X)
+                        avoid_sort = True
+                    if X.nnz == 0:
+                        raise ValueError("'X' has no non-zero entries")
+
+                    if ((X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
+                        (X.indices.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
+                        (X.indptr.dtype != X.indices.dtype) or
+                        (X.data.dtype not in [ctypes.c_double, ctypes.c_float])
+                    ):
+                        X = X.copy()
+                    if X.data.dtype not in [ctypes.c_double, ctypes.c_float]:
+                        X.data    = X.data.astype(ctypes.c_double)
+                    if (X.indptr.dtype != X.indices.dtype) or (X.indices.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]):
+                        X.indices = X.indices.astype(ctypes.c_size_t)
+                    if (X.indptr.dtype != X.indices.dtype) or (X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]):
+                        X.indptr  = X.indptr.astype(ctypes.c_size_t)
+                    if not avoid_sort:
+                        _sort_csc_indices(X)
+                
+                else:
+                    if (X.__class__.__name__ == "ndarray") and (X.dtype not in [ctypes.c_double, ctypes.c_float]):
+                        X = X.astype(ctypes.c_double)
+                    if (X.__class__.__name__ != "ndarray") or (not _is_col_major(X)):
+                        X = np.asfortranarray(X)
+                    if X.dtype not in [ctypes.c_double, ctypes.c_float]:
+                        X = X.astype(ctypes.c_double)
 
             self._ncols_numeric = X.shape[1]
-            self._ncols_categ   = 0
-            self.cols_numeric_  = np.array([])
+            self._ncols_categ   = 0 if (X_cat is None) else X_cat.shape[1]
+            if self.categ_cols is None:
+                self.cols_numeric_  = np.array([])
             self.cols_categ_    = np.array([])
             self._cat_mapping   = list()
 
-            X_num = X
-            X_cat = None
-            nrows = X_num.shape[0]
+            if (self._ncols_numeric + self._ncols_categ) == 0:
+                raise ValueError("'X' has zero columns.")
+
+            if X.shape[1]:
+                X_num = X
+                nrows = X_num.shape[0]
+            else:
+                X_num = None
+            
+            if X_cat is not None:
+                if issparse(X_cat):
+                    X_cat = X_cat.toarray()
+                if np.any(np.isnan(X_cat)):
+                    X_cat = X_cat.copy()
+                    X_cat[np.isnan(X_cat)] = -1
+                if X_cat.dtype != ctypes.c_int:
+                    X_cat = X_cat.astype(ctypes.c_int)
+                if not _is_col_major(X_cat):
+                    X_cat = np.asfortranarray(X_cat)
+                self._cat_max_lev = np.max(X_cat, axis=0)
+                if np.any(self._cat_max_lev < 0):
+                    warnings.warn("Some categorical columns contain only missing values.")
+                nrows = X_cat.shape[0]
 
         if nrows == 0:
             raise ValueError("Input data has zero rows.")
-        elif nrows < 5:
-            raise ValueError("Input data has too few rows.")
+        elif nrows < 2:
+            raise ValueError("Input data must have at least 2 rows.")
         elif self.sample_size is not None:
             if self.sample_size > nrows:
                 warnings.warn("Input data has fewer rows than sample_size, will decrease sample_size.")
                 self.sample_size = None
 
         if X_cat is not None:
-            ncat = np.array([self._cat_mapping[cl].shape[0] for cl in range(X_cat.shape[1])], dtype = ctypes.c_int)
+            if self.categ_cols is None:
+                ncat = np.array([self._cat_mapping[cl].shape[0] for cl in range(X_cat.shape[1])], dtype = ctypes.c_int)
+            else:
+                ncat = self._cat_max_lev + 1
+                if ncat.dtype != ctypes.c_int:
+                    ncat = ncat.astype(ctypes.c_int)
         else:
             ncat = None
 
@@ -1210,6 +1302,8 @@ class IsolationForest:
                 msg = msg % (self.ndim, ncols)
                 warnings.warn(msg)
                 self.ndim = ncols
+                if self.ndim < 2:
+                    self._is_extended_ = False
 
         X_num = _copy_if_subview(X_num)
         X_cat = _copy_if_subview(X_cat)
@@ -1218,13 +1312,22 @@ class IsolationForest:
 
     def _process_data_new(self, X, allow_csr = True, allow_csc = True, prefer_row_major = False):
         if X.__class__.__name__ == "DataFrame":
-            if (self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]) > 0:
-                missing_cols = np.setdiff1d(np.r_[self.cols_numeric_, self.cols_categ_], np.array(X.columns.values))
-                if missing_cols.shape[0] > 0:
-                    raise ValueError("Input data is missing %d columns - example: [%s]" % (missing_cols.shape[0], ", ".join(missing_cols[:3])))
+            if ((self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]) > 0) and (self.categ_cols is None):
+                if self.categ_cols is None:
+                    missing_cols = np.setdiff1d(np.r_[self.cols_numeric_, self.cols_categ_], np.array(X.columns.values))
+                    if missing_cols.shape[0] > 0:
+                        raise ValueError("Input data is missing %d columns - example: [%s]" % (missing_cols.shape[0], ", ".join(missing_cols[:3])))
+                else:
+                    if X.shape[1] < (self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]):
+                        raise ValueError("Error: expected input with %d columns - got: %d." %
+                                         ((self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]), X.shape[1]))
 
                 if self._ncols_numeric > 0:
-                    X_num = X[self.cols_numeric_].to_numpy()
+                    if self.categ_cols is None:
+                        X_num = X[self.cols_numeric_].to_numpy()
+                    else:
+                        X_num = X.iloc[:, self.cols_numeric_].to_numpy()
+                    
                     if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
                         X_num = X_num.astype(ctypes.c_double)
                     if (not prefer_row_major) and (not _is_col_major(X_num)):
@@ -1234,9 +1337,12 @@ class IsolationForest:
                     X_num = None
 
                 if self._ncols_categ > 0:
-                    X_cat = X[self.cols_categ_].copy()
-                    for cl in range(self._ncols_categ):
-                        X_cat[self.cols_categ_[cl]] = pd.Categorical(X_cat[self.cols_categ_[cl]], self._cat_mapping[cl]).codes
+                    if self.categ_cols is None:
+                        X_cat = X[self.cols_categ_].copy()
+                        for cl in range(self._ncols_categ):
+                            X_cat[self.cols_categ_[cl]] = pd.Categorical(X_cat[self.cols_categ_[cl]], self._cat_mapping[cl]).codes
+                    else:
+                        X_cat = X.iloc[:, self.categ_cols]
                     X_cat = X_cat.to_numpy()
                     if X_cat.dtype != ctypes.c_int:
                         X_cat = X_cat.astype(ctypes.c_int)
@@ -1246,8 +1352,8 @@ class IsolationForest:
                 else:
                     X_cat = None
 
-            else:
-                if X.shape[1] != self._ncols_numeric:
+            elif self._ncols_categ == 0:
+                if X.shape[1] < self._ncols_numeric:
                     raise ValueError("Input has different number of columns than data to which model was fit.")
                 X_num = X.to_numpy()
                 if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
@@ -1256,6 +1362,28 @@ class IsolationForest:
                     X_num = np.asfortranarray(X_num)
                 X_cat = None
                 nrows = X_num.shape[0]
+            elif self._ncols_numeric == 0:
+                if X.shape[1] < self._ncols_categ:
+                    raise ValueError("Input has different number of columns than data to which model was fit.")
+                X_cat = X.to_numpy()[:, :self._ncols_categ]
+                if X_cat.dtype  != ctypes.c_int:
+                    X_cat = X_cat.astype(ctypes.c_int)
+                if (not prefer_row_major) and (not _is_col_major(X_cat)):
+                    X_cat = np.asfortranarray(X_cat)
+                X_num = None
+                nrows = X_cat.shape[0]
+            else:
+                nrows = X.shape[0]
+                X_num = X.iloc[:, self.cols_numeric_].to_numpy()
+                X_cat = X.iloc[:, self.categ_cols].to_numpy()
+                if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
+                    X_num = X_num.astype(ctypes.c_double)
+                if (not prefer_row_major) and (not _is_col_major(X_num)):
+                    X_num = np.asfortranarray(X_num)
+                if X_cat.dtype  != ctypes.c_int:
+                    X_cat = X_cat.astype(ctypes.c_int)
+                if (not prefer_row_major) and (not _is_col_major(X_cat)):
+                    X_cat = np.asfortranarray(X_cat)
 
             if (X_num is not None) and (X_cat is not None) and (_is_col_major(X_num) != _is_col_major(X_cat)):
                 if prefer_row_major:
@@ -1266,71 +1394,96 @@ class IsolationForest:
                     X_cat = np.asfortranarray(X_cat)
 
         else:
-            if self._ncols_categ > 0:
+            if (self._ncols_categ > 0) and (self.categ_cols is None):
                 raise ValueError("Model was fit to DataFrame with categorical columns, but new input is a numeric array/matrix.")
             if len(X.shape) != 2:
                 raise ValueError("Input data must be two-dimensional.")
-            if X.shape[1] != self._ncols_numeric:
+            if (self.categ_cols is None) and (X.shape[1] < self._ncols_numeric):
                 raise ValueError("Input has different number of columns than data to which model was fit.")
             
-            X_cat = None
-            if issparse(X):
-                avoid_sort = False
-                if isspmatrix_csr(X) and not allow_csr:
-                    warnings.warn("Cannot predict from CSR sparse matrix, will convert to CSC.")
-                    X = csc_matrix(X)
-                    avoid_sort = True
-                elif isspmatrix_csc(X) and not allow_csc:
-                    warnings.warn("Method supports sparse matrices only in CSR format, will convert sparse format.")
-                    X = csr_matrix(X)
-                    avoid_sort = True
-                elif (not isspmatrix_csc(X)) and (not isspmatrix_csr(X)):
-                    msg  = "Sparse matrix inputs only supported as "
-                    if allow_csc:
-                        msg += "CSC"
-                        if allow_csr:
-                            msg += " or CSR"
-                    else:
-                        msg += "CSR"
-                    msg += " format, will convert to "
-                    if allow_csc:
-                        msg += "CSC."
-                        warnings.warn(msg)
-                        X = csc_matrix(X)
-                    else:
-                        msg += "CSR."
-                        warnings.warn(msg)
-                        X = csr_matrix(X)
-                    avoid_sort = True
-
-                if ((X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
-                    (X.indices.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
-                    (X.indptr.dtype != X.indices.dtype) or
-                    (X.data.dtype not in [ctypes.c_double, ctypes.c_float])
-                ):
-                    X = X.copy()
-                if X.data.dtype not in [ctypes.c_double, ctypes.c_float]:
-                    X.data    = X.data.astype(ctypes.c_double)
-                if (X.indptr.dtype != X.indices.dtype) or (X.indices.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]):
-                    X.indices = X.indices.astype(ctypes.c_size_t)
-                if (X.indptr.dtype != X.indices.dtype) or (X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]):
-                    X.indptr  = X.indptr.astype(ctypes.c_size_t)
-                if not avoid_sort:
-                    _sort_csc_indices(X)
-                X_num = X
-            
+            if self.categ_cols is None:
+                X_cat = None
             else:
-                if X.__class__.__name__ != "ndarray":
-                    if prefer_row_major:
-                        X = np.array(X)
-                    else:
+                if issparse(X) and (not isspmatrix_csc(X)) and (not isspmatrix_csr(X)):
+                    X = csc_matrix(X)
+                X_cat = X[:, self.categ_cols]
+                if issparse(X_cat):
+                    X_cat = X_cat.toarray()
+                X = X[:, self.cols_numeric_]
+
+            X_num = None
+            if X.shape[1]:
+                if issparse(X):
+                    avoid_sort = False
+                    if isspmatrix_csr(X) and not allow_csr:
+                        warnings.warn("Cannot predict from CSR sparse matrix, will convert to CSC.")
+                        X = csc_matrix(X)
+                        avoid_sort = True
+                    elif isspmatrix_csc(X) and not allow_csc:
+                        warnings.warn("Method supports sparse matrices only in CSR format, will convert sparse format.")
+                        X = csr_matrix(X)
+                        avoid_sort = True
+                    elif (not isspmatrix_csc(X)) and (not isspmatrix_csr(X)):
+                        msg  = "Sparse matrix inputs only supported as "
+                        if allow_csc:
+                            msg += "CSC"
+                            if allow_csr:
+                                msg += " or CSR"
+                        else:
+                            msg += "CSR"
+                        msg += " format, will convert to "
+                        if allow_csc:
+                            msg += "CSC."
+                            warnings.warn(msg)
+                            X = csc_matrix(X)
+                        else:
+                            msg += "CSR."
+                            warnings.warn(msg)
+                            X = csr_matrix(X)
+                        avoid_sort = True
+
+                    if ((X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
+                        (X.indices.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
+                        (X.indptr.dtype != X.indices.dtype) or
+                        (X.data.dtype not in [ctypes.c_double, ctypes.c_float])
+                    ):
+                        X = X.copy()
+                    if X.data.dtype not in [ctypes.c_double, ctypes.c_float]:
+                        X.data    = X.data.astype(ctypes.c_double)
+                    if (X.indptr.dtype != X.indices.dtype) or (X.indices.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]):
+                        X.indices = X.indices.astype(ctypes.c_size_t)
+                    if (X.indptr.dtype != X.indices.dtype) or (X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]):
+                        X.indptr  = X.indptr.astype(ctypes.c_size_t)
+                    if not avoid_sort:
+                        _sort_csc_indices(X)
+                    X_num = X
+                
+                else:
+                    if X.__class__.__name__ != "ndarray":
+                        if prefer_row_major:
+                            X = np.array(X)
+                        else:
+                            X = np.asfortranarray(X)
+                    if X.dtype not in [ctypes.c_double, ctypes.c_float]:
+                        X = X.astype(ctypes.c_double)
+                    if (not prefer_row_major) and (not _is_col_major(X)):
                         X = np.asfortranarray(X)
-                if X.dtype not in [ctypes.c_double, ctypes.c_float]:
-                    X = X.astype(ctypes.c_double)
-                if (not prefer_row_major) and (not _is_col_major(X)):
-                    X = np.asfortranarray(X)
-                X_num = X
-            nrows = X_num.shape[0]
+                    X_num = X
+                nrows = X_num.shape[0]
+
+        if X_cat is not None:
+            nrows = X_cat.shape[0]
+            if np.any(np.isnan(X_cat)):
+                X_cat = X_cat.copy()
+                X_cat[np.isnan(X_cat)] = -1
+
+
+            if (self.categ_cols is not None) and np.any(X_cat > self._cat_max_lev.reshape((1,-1))):
+                X_cat[X_cat > self._cat_max_lev] = -1
+            if X_cat.dtype != ctypes.c_int:
+                X_cat = X_cat.astype(ctypes.c_int)
+            if (not prefer_row_major) and (not _is_col_major(X_cat)):
+                X_cat = np.asfortranarray(X_cat)
 
         X_num = _copy_if_subview(X_num)
         X_cat = _copy_if_subview(X_cat)
@@ -1341,16 +1494,25 @@ class IsolationForest:
         if orig.__class__.__name__ == "DataFrame":
             ncols_imputed = 0
             if X_num is not None:
-                df_num = pd.DataFrame(X_num, columns = self.cols_numeric_)
+                if (self.cols_numeric_ is not None) and (self.cols_numeric_.shape[0]):
+                    df_num = pd.DataFrame(X_num, columns = self.cols_numeric_ if (self.categ_cols is None) else orig.columns.values[self.cols_numeric_])
+                else:
+                    df_num = pd.DataFrame(X_num)
                 ncols_imputed += df_num.shape[1]
             if X_cat is not None:
-                df_cat = pd.DataFrame(X_cat, columns = self.cols_categ_)
-                for cl in range(self.cols_categ_.shape[0]):
-                    df_cat[self.cols_categ_[cl]] = pd.Categorical.from_codes(df_cat[self.cols_categ_[cl]], self._cat_mapping[cl])
+                if self.categ_cols is None:
+                    df_cat = pd.DataFrame(X_cat, columns = self.cols_categ_)
+                    for cl in range(self.cols_categ_.shape[0]):
+                        df_cat[self.cols_categ_[cl]] = pd.Categorical.from_codes(df_cat[self.cols_categ_[cl]], self._cat_mapping[cl])
+                else:
+                    df_cat = pd.DataFrame(X_cat, columns = orig.columns.values[self.categ_cols])
                 ncols_imputed += df_cat.shape[1]
             
             if orig.columns.values.shape[0] != ncols_imputed:
-                cols_new = np.setdiff1d(orig.columns.values, np.r_[self.cols_numeric_, self.cols_categ_])
+                if self.categ_cols is None:
+                    cols_new = np.setdiff1d(orig.columns.values, np.r_[self.cols_numeric_, self.cols_categ_])
+                else:
+                    cols_new = orig.columns[(self._ncols_numeric + self._ncols_categ):]
                 if (X_num is not None) and (X_cat is None):
                     out = pd.concat([df_num, orig[cols_new]], axis = 1)
                 elif (X_num is None) and (X_cat is not None):
@@ -1369,13 +1531,63 @@ class IsolationForest:
                 df = df[orig.columns.values]
                 return df
 
-        else:
+        else: ### not DataFrame
+
             if issparse(orig):
                 outp = orig.copy()
-                outp.data[:] = X_num.data
+                if (self.categ_cols is None) and (orig.shape[1] == self._ncols_numeric):
+                    outp.data[:] = X_num.data
+                elif self.categ_cols is None:
+                    if isspmatrix_csr(orig):
+                        _reconstruct_csr_sliced(
+                            outp.data,
+                            outp.indptr,
+                            X_num.data if (X_num is not None) else np.empty(0, dtype=outp.data.dtype),
+                            X_num.indptr if (X_num is not None) else np.zeros(1, dtype=outp.indptr.dtype),
+                            outp.shape[0]
+                        )
+                    else:
+                        outp[:, :self._ncols_numeric] = X_num
+                else:
+                    if isspmatrix_csr(orig):
+                        _reconstruct_csr_with_categ(
+                            outp.data,
+                            outp.indices,
+                            outp.indptr,
+                            X_num.data if (X_num is not None) else np.empty(0, dtype=outp.data.dtype),
+                            X_num.indices if (X_num is not None) else np.empty(0, dtype=outp.indices.dtype),
+                            X_num.indptr if (X_num is not None) else np.zeros(1, dtype=outp.indptr.dtype),
+                            X_cat,
+                            self.cols_numeric_.astype(ctypes.c_size_t) if (self.cols_numeric_ is not None) else np.empty(0, dtype=ctypes.c_size_t),
+                            self.categ_cols.astype(ctypes.c_size_t),
+                            outp.shape[0], outp.shape[1],
+                             _is_col_major(X_cat),
+                        )
+                    else:
+                        if np.any(X_cat < 0):
+                            X_cat = X_cat.astype("float")
+                            X_cat[X_cat < 0] = np.nan
+                        outp[:, self.categ_cols] = X_cat
+                        if X_num is not None:
+                            outp[:, self.cols_numeric_] = X_num
                 return outp
+            
             else:
-                return X_num
+                if (self.categ_cols is None) and (orig.shape[1] == self._ncols_numeric):
+                    return X_num
+                elif self.categ_cols is None:
+                    outp = orig.copy()
+                    outp[:, :self._ncols_numeric] = X_num[:, :self._ncols_numeric]
+                else:
+                    outp = orig.copy()
+                    if np.any(X_cat < 0):
+                        X_cat = X_cat.astype("float")
+                        X_cat[X_cat < 0] = np.nan
+                    outp[:, self.categ_cols] = X_cat
+                    if X_num is not None:
+                        outp[:, self.cols_numeric_] = X_num[:, :self._ncols_numeric]
+                return outp
+
 
     def predict(self, X, output = "score"):
         """
@@ -1599,7 +1811,10 @@ class IsolationForest:
         X_num, X_cat, nrows = self._process_data_new(X, allow_csr = True, allow_csc = False, prefer_row_major = True)
         if X.__class__.__name__ != "DataFrame":
             if X_num is not None:
-                X_num = X_num.copy()
+                if X_num.shape[1] == self._ncols_numeric:
+                    X_num = X_num.copy()
+                else:
+                    X_num = X_num[:, :self._ncols_numeric].copy()
             if X_cat is not None:
                 X_cat = X_cat.copy()
         X_num, X_cat = self._cpp_obj.impute(_get_num_dtype(X_num, None, None), _get_int_dtype(X_num),
@@ -1609,7 +1824,7 @@ class IsolationForest:
                                             ctypes.c_int(self.nthreads).value)
         return self._rearrange_imputed(X, X_num, X_cat)
 
-    def fit_transform(self, X, y = None, column_weights = None):
+    def fit_transform(self, X, y = None, column_weights = None, categ_cols = None):
         """
         SciKit-Learn pipeline-compatible version of 'fit_predict'
 
@@ -1632,6 +1847,16 @@ class IsolationForest:
             If passing None, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
             Note that, if passing a DataFrame with both numeric and categorical columns, the column names must
             not be repeated, otherwise the column weights passed here will not end up matching.
+        categ_cols : None or array-like
+            Columns that hold categorical features, when the data is passed as an array or matrix.
+            Categorical columns should contain only integer values with a continuous numeration starting at zero,
+            with negative values and NaN taken as missing,
+            and the array or list passed here should correspond to the column numbers, with numeration starting
+            at zero.
+            This might be passed either at construction time or when calling ``fit`` or variations of ``fit``.
+            
+            This is ignored when the input is passed as a ``DataFrame`` as then it will consider columns as
+            categorical depending on their dtype.
 
         Returns
         -------
@@ -1856,7 +2081,9 @@ class IsolationForest:
         The metadata will contain, among other things, the encoding that was used for
         categorical columns - this is under ``data_info.cat_levels``, as an array of arrays by column,
         with the first entry for each column corresponding to category 0, second to category 1,
-        and so on (the C++ version takes them as integers).
+        and so on (the C++ version takes them as integers). When passing ``categ_cols``, there
+        will be no encoding but it will save the maximum category integer and the column
+        numbers instead of names.
         
         The serialized file can be used in the C++ version by reading it as a binary raw file
         and de-serializing its contents with the ``cereal`` library or using the provided C++ functions
@@ -2120,12 +2347,16 @@ class IsolationForest:
             "ncols_categ" : int(self._ncols_categ),  ## is in c++
             "cols_numeric" : list(self.cols_numeric_),
             "cols_categ" : list(self.cols_categ_),
-            "cat_levels" : [list(m) for m in self._cat_mapping]
+            "cat_levels" : [list(m) for m in self._cat_mapping],
+            "categ_cols" : list(self.categ_cols),
+            "categ_max" : list(self._cat_max_lev)
         }
 
         ### Beaware of np.int64, which looks like a Python integer but is not accepted by json
         data_info["cols_numeric"] = self._denumpify_list(data_info["cols_numeric"])
         data_info["cols_categ"] = self._denumpify_list(data_info["cols_categ"])
+        data_info["categ_cols"] = self._denumpify_list(data_info["categ_cols"])
+        data_info["categ_max"] = self._denumpify_list(data_info["categ_max"])
         if len(data_info["cat_levels"]):
             data_info["cat_levels"] = [self._denumpify_list(lst) for lst in data_info["cat_levels"]]
 
@@ -2174,6 +2405,8 @@ class IsolationForest:
         self.cols_numeric_ = np.array(metadata["data_info"]["cols_numeric"])
         self.cols_categ_ = np.array(metadata["data_info"]["cols_categ"])
         self._cat_mapping = [np.array(lst) for lst in metadata["data_info"]["cat_levels"]]
+        self.categ_cols = np.array(metadata["data_info"]["categ_cols"]).reshape(-1).astype(int) if len(metadata["data_info"]["categ_cols"]) else None
+        self._cat_max_lev = np.array(metadata["data_info"]["categ_max"]).reshape(-1).astype(int) if (self.categ_cols is not None) else None
 
         self.ndim = metadata["model_info"]["ndim"]
         self.nthreads = metadata["model_info"]["nthreads"]

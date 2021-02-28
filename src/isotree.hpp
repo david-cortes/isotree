@@ -1230,9 +1230,4 @@ void extract_cond_ext_isotree(ExtIsoForest &model, IsoHPlane &hplane,
                               std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
                               std::vector<std::vector<std::string>> &categ_levels);
 
-/* dealloc.cpp */
-void dealloc_IsoForest(IsoForest &model_outputs);
-void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext);
-void dealloc_Imputer(Imputer &imputer);
-
 #endif /* ISOTREE_H */

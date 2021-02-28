@@ -200,10 +200,6 @@ cdef extern from "model_joined.hpp":
                                              vector[vector[cpp_string]] &categ_levels,
                                              bool_t index1, int nthreads) nogil except +
 
-    void dealloc_IsoForest(IsoForest &model_outputs)
-    void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext)
-    void dealloc_Imputer(Imputer &imputer)
-
     int return_EXIT_SUCCESS()
     int return_EXIT_FAILURE()
 
@@ -238,9 +234,9 @@ cdef extern from "model_joined.hpp":
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                          double *output_depths, sparse_ix_ *tree_num) nogil except +
 
-    void get_num_nodes[sparse_ix_](IsoForest &model_outputs, sparse_ix_ *n_nodes, sparse_ix_ *n_terminal, int nthreads)
+    void get_num_nodes[sparse_ix_](IsoForest &model_outputs, sparse_ix_ *n_nodes, sparse_ix_ *n_terminal, int nthreads) except +
 
-    void get_num_nodes[sparse_ix_](ExtIsoForest &model_outputs, sparse_ix_ *n_nodes, sparse_ix_ *n_terminal, int nthreads)
+    void get_num_nodes[sparse_ix_](ExtIsoForest &model_outputs, sparse_ix_ *n_nodes, sparse_ix_ *n_terminal, int nthreads) except +
 
     void calc_similarity[real_t_, sparse_ix_](
                          real_t_ numeric_data[], int categ_data[],
@@ -274,16 +270,34 @@ cdef extern from "model_joined.hpp":
                  bool_t  all_perm, vector[ImputeNode] *impute_nodes, size_t min_imp_obs,
                  uint64_t random_seed) nogil except +
 
-    void sort_csc_indices[real_t_, sparse_ix_](real_t_ *Xc, sparse_ix_ *Xc_ind, sparse_ix_ *Xc_indptr, size_t ncols_numeric) nogil except +
 
 cdef extern from "python_helpers.hpp":
-    model_t deepcopy_obj[model_t](model_t obj)
+    model_t deepcopy_obj[model_t](model_t obj) except +
 
-    IsoForest get_IsoForest()
+    IsoForest get_IsoForest() except +
+    ExtIsoForest get_ExtIsoForest() except +
+    Imputer get_Imputer() except +
 
-    ExtIsoForest get_ExtIsoForest()
+    void dealloc_IsoForest(IsoForest &model_outputs) except +
+    void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext) except +
+    void dealloc_Imputer(Imputer &imputer) except +
 
-    Imputer get_Imputer()
+cdef extern from "other_helpers.hpp":
+    void sort_csc_indices[real_t_, sparse_ix_](real_t_ *Xc, sparse_ix_ *Xc_ind, sparse_ix_ *Xc_indptr, size_t ncols_numeric) nogil except +
+
+    void reconstruct_csr_sliced[real_t_, sparse_ix_](
+        real_t_ *orig_Xr, sparse_ix_ *orig_Xr_indptr,
+        real_t_ *rec_Xr, sparse_ix_ *rec_Xr_indptr,
+        size_t nrows
+    ) nogil except +
+
+    void reconstruct_csr_with_categ[real_t_, sparse_ix_, size_t_](
+        real_t_ *orig_Xr, sparse_ix_ *orig_Xr_ind, sparse_ix_ *orig_Xr_indptr,
+        real_t_ *rec_Xr, sparse_ix_ *rec_Xr_ind, sparse_ix_ *rec_Xr_indptr,
+        int *rec_X_cat, bool_t is_col_major,
+        size_t_ *cols_numeric, size_t_ *cols_categ,
+        size_t nrows, size_t ncols_numeric, size_t ncols_categ
+    ) nogil except +
 
 
 ctypedef fused sparse_ix:
@@ -339,6 +353,69 @@ def _sort_csc_indices(Xcsc):
                 sort_csc_indices(get_ptr_float_vec(Xcsc.data), get_ptr_szt_vec(Xcsc.indices), get_ptr_szt_vec(Xcsc.indptr), ncols_numeric)
         else:
             raise ValueError("Invalid dtype for 'X'.")
+
+
+def _reconstruct_csr_sliced(
+        np.ndarray[real_t, ndim=1] orig_Xr,
+        np.ndarray[sparse_ix, ndim=1] orig_Xr_indptr,
+        np.ndarray[real_t, ndim=1] rec_Xr,
+        np.ndarray[sparse_ix, ndim=1] rec_Xr_indptr,
+        size_t nrows
+    ):
+    cdef real_t *ptr_orig_Xr = NULL
+    cdef real_t *ptr_rec_Xr = NULL
+    if orig_Xr.shape[0]:
+        ptr_orig_Xr = &orig_Xr[0]
+    if rec_Xr.shape[0]:
+        ptr_rec_Xr = &rec_Xr[0]
+    reconstruct_csr_sliced(
+        ptr_orig_Xr, &orig_Xr_indptr[0],
+        ptr_rec_Xr, &rec_Xr_indptr[0],
+        nrows
+    )
+
+def _reconstruct_csr_with_categ(
+        np.ndarray[real_t, ndim=1] orig_Xr,
+        np.ndarray[sparse_ix, ndim=1] orig_Xr_ind,
+        np.ndarray[sparse_ix, ndim=1] orig_Xr_indptr,
+        np.ndarray[real_t, ndim=1] rec_Xr,
+        np.ndarray[sparse_ix, ndim=1] rec_Xr_ind,
+        np.ndarray[sparse_ix, ndim=1] rec_Xr_indptr,
+        np.ndarray[int, ndim=2] X_cat,
+        np.ndarray[size_t, ndim=1] cols_numeric,
+        np.ndarray[size_t, ndim=1] cols_categ,
+        size_t nrows, size_t ncols,
+        bool_t is_col_major
+    ):
+    
+    cdef int *ptr_X_cat = NULL
+    if (X_cat.shape[0] > 0) and (X_cat.shape[1] > 0):
+        ptr_X_cat = &X_cat[0,0]
+    cdef real_t *ptr_orig_Xr = NULL
+    cdef real_t *ptr_rec_Xr = NULL
+    cdef sparse_ix *ptr_orig_Xr_ind = NULL
+    cdef sparse_ix *ptr_rec_Xr_ind = NULL
+    if orig_Xr.shape[0]:
+        ptr_orig_Xr = &orig_Xr[0]
+        ptr_orig_Xr_ind = &orig_Xr_ind[0]
+    if rec_Xr.shape[0]:
+        ptr_rec_Xr = &rec_Xr[0]
+        ptr_rec_Xr_ind = &rec_Xr_ind[0]
+
+    cdef size_t *ptr_cols_numeric = NULL
+    cdef size_t *ptr_cols_categ = NULL
+    if cols_numeric.shape[0]:
+        ptr_cols_numeric = &cols_numeric[0]
+    if cols_categ.shape[0]:
+        ptr_cols_categ = &cols_categ[0]
+
+    reconstruct_csr_with_categ(
+        ptr_orig_Xr, ptr_orig_Xr_ind, &orig_Xr_indptr[0],
+        ptr_rec_Xr, ptr_rec_Xr_ind, &rec_Xr_indptr[0],
+        ptr_X_cat, is_col_major,
+        ptr_cols_numeric, ptr_cols_categ,
+        nrows, ncols, cols_numeric.shape[0], cols_categ.shape[0]
+    )
 
 
 # @cython.auto_pickle(True)

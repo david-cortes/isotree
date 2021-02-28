@@ -34,6 +34,20 @@ check.nthreads <- function(nthreads) {
     return(as.integer(nthreads))
 }
 
+check.categ.cols <- function(categ_cols) {
+    if (is.null(categ_cols) || !NROW(categ_cols))
+        return(NULL)
+    categ_cols <- as.integer(categ_cols)
+    if (anyNA(categ_cols))
+        stop("'categ_cols' cannot contain missing values.")
+    if (any(categ_cols < 1))
+        stop("'categ_cols' contains invalid column indices.")
+    if (any(duplicated(categ_cols)))
+        stop("'categ_cols' contains duplicted entries.")
+    categ_cols <- sort.int(categ_cols)
+    return(categ_cols)
+}
+
 check.is.1d <- function(var, name) {
     if (NCOL(var) > 1) {
         stop(paste0("'", name, "' must be a 1-d numeric vector."))
@@ -51,8 +65,8 @@ get.empty.int.vector <- function() {
 }
 
 cast.df.alike <- function(df) {
-    if ("data.table" %in% class(df))  df  <- as.data.frame(df)
-    if ("tibble"     %in% class(df))  df  <- as.data.frame(df)
+    if (inherits(df, c("data.table", "tibble")))
+        df <- as.data.frame(df)
     return(df)
 }
 
@@ -68,7 +82,13 @@ get.types.spmat <- function(allow_csr = FALSE, allow_csc = TRUE, allow_vec = FAL
     return(outp)
 }
 
-process.data <- function(df, sample_weights = NULL, column_weights = NULL, recode_categ = TRUE) {
+cast.df.col.to.num <- function(cl) {
+    if (inherits(cl, "factor"))
+        cl <- as.character(cl)
+    return(as.numeric(cl))
+}
+
+process.data <- function(df, sample_weights = NULL, column_weights = NULL, recode_categ = TRUE, categ_cols = NULL) {
     df  <-  cast.df.alike(df)
     dmatrix_types     <-  get.types.dmat()
     spmatrix_types    <-  get.types.spmat()
@@ -76,7 +96,7 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL, recod
     if (!NROW(intersect(class(df), supported_dtypes)))
         stop(paste0("Invalid input data. Supported types are: ", paste(supported_dtypes, collapse = ", ")))
     
-    if (NROW(df) < 5) stop("Input data must have at least 5 rows.")
+    if (NROW(df) < 2L) stop("Input data must have at least 2 rows.")
     
     if (!is.null(sample_weights))  sample_weights  <- as.numeric(sample_weights)
     if (!is.null(column_weights))  column_weights  <- as.numeric(column_weights)
@@ -86,7 +106,14 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL, recod
     if (NROW(column_weights)  && NCOL(df) != NROW(column_weights))
         stop(sprintf("'column_weights' has different dimension than number of columns in df (%d vs. %d).",
                      NCOL(df), NROW(column_weights)))
-    
+
+    if (!is.null(categ_cols) && ("data.frame" %in% class(df))) {
+        warning("'categ_cols' is ignored when passing a data.frame as input.")
+        categ_cols <- NULL
+    }
+
+    if (ncol(df) < 1L)
+        stop("'df' has no columns.")
     
     outp <- list(X_num      =  get.empty.vector(),
                  X_cat      =  get.empty.int.vector(),
@@ -100,32 +127,96 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL, recod
                  nrows      =  as.integer(NROW(df)),
                  ncols_num  =  as.integer(NCOL(df)),
                  ncols_cat  =  as.integer(0L),
+                 categ_cols =  NULL,
+                 categ_max  =  get.empty.int.vector(),
                  sample_weights  =  unname(as.numeric(sample_weights)),
                  column_weights  =  unname(as.numeric(column_weights))
                  )
+
+    avoid_sparse_sort <- FALSE
+
+    if (NROW(categ_cols)) {
+        cols_num   <-  setdiff(1L:ncol(df), categ_cols)
+        if (inherits(df, c("data.frame", "matrix", "dgCMatrix"))) {
+            X_cat  <-  df[, categ_cols, drop=FALSE]
+            df     <-  df[, cols_num,   drop=FALSE]
+        } else if (inherits(df, "matrix.csc")) {
+            nrows  <- nrow(df)
+            df@ja  <- df@ja - 1L
+            df@ia  <- df@ia - 1L
+            df@ra  <- deepcopy_vector(df@ra)
+            avoid_sparse_sort <- TRUE
+            call_sort_csc_indices(df@ra, df@ja, df@ia)
+            X_cat  <- call_take_cols_by_index_csc(df@ra,
+                                                  df@ja,
+                                                  df@ia,
+                                                  categ_cols - 1L,
+                                                  TRUE, nrows)
+            X_cat  <- X_cat[["X_cat"]]
+            df_new <- call_take_cols_by_index_csc(df@ra,
+                                                  df@ja,
+                                                  df@ia,
+                                                  cols_num - 1L,
+                                                  FALSE, nrows)
+            df@ra  <- df_new[["Xc"]]
+            df@ja  <- df_new[["Xc_ind"]] + 1L
+            df@ia  <- df_new[["Xc_indptr"]] + 1L
+            df@dimension <- as.integer(c(nrows, NROW(cols_num)))
+        } else {
+            X_cat  <-  df[, categ_cols]
+            df     <-  df[, cols_num]
+        }
+        ncols_cat  <-  ncol(X_cat)
+        categ_max  <-  as.integer(unname(apply(X_cat, 2, max, na.rm=TRUE)))
+        if (inherits(X_cat, "sparseMatrix"))
+            X_cat  <-  as.matrix(X_cat)
+        X_cat      <-  as.integer(X_cat)
+        if (anyNA(X_cat))
+            X_cat[is.na(X_cat)] <- -1L
+        
+        outp$X_cat       <-  X_cat
+        outp$categ_cols  <-  categ_cols
+        outp$categ_max   <-  categ_max
+        outp$ncat        <-  categ_max + 1L
+        outp$cols_num    <-  cols_num
+        outp$ncols_num   <-  ncol(df)
+        outp$ncols_cat   <-  ncols_cat
+
+        if (!ncol(df))
+            return(outp)
+    }
     
     ### Dense matrix
-    if ( any(class(df) %in% dmatrix_types) ) { outp$X_num <- unname(as.numeric(df)) ; return(outp) }
+    if ( any(class(df) %in% dmatrix_types) ) {
+        outp$X_num      <-  unname(as.numeric(df))
+        outp$ncols_num  <-  ncol(df)
+        return(outp)
+    }
     
     ### Sparse matrix
     if ( any(class(df) %in% spmatrix_types) ) {
         
-        if ("dgCMatrix" %in% class(df)) {
+        if (inherits(df, "dgCMatrix")) {
             ### From package 'Matrix'
-            if (NROW(df@x) == 0)
+            if (!NROW(df@x))
                 stop("'df' has no non-zero entries.")
             outp$Xc         <-  df@x
             outp$Xc_ind     <-  df@i
             outp$Xc_indptr  <-  df@p
         } else {
             ### From package 'SparseM'
-            if (NROW(df@ra) == 0)
+            if (!NROW(df@ra))
                 stop("'df' has no non-zero entries.")
             outp$Xc         <-  df@ra
-            outp$Xc_ind     <-  df@ia - 1L
-            outp$Xc_indptr  <-  df@ja - 1L
+            outp$Xc_ind     <-  df@ja - 1L
+            outp$Xc_indptr  <-  df@ia - 1L
         }
-        call_sort_csc_indices(outp$Xc, outp$Xc_ind, outp$Xc_indptr)
+        if (!avoid_sparse_sort) {
+            if (!inherits(df, "dgCMatrix"))
+                outp$Xc     <- deepcopy_vector(outp$Xc)
+            call_sort_csc_indices(outp$Xc, outp$Xc_ind, outp$Xc_indptr)
+        }
+        outp$ncols_num      <-  ncol(df)
         
         return(outp)
     }
@@ -147,10 +238,12 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL, recod
             is_num          <-  unname(as.logical(sapply(df, function(x) any(class(x) %in% dtypes_num))))
             outp$cols_num   <-  names(df)[is_num]
             outp$ncols_num  <-  as.integer(sum(is_num))
-            outp$X_num      <-  unname(as.numeric(as.matrix(as.data.frame(lapply(df[, is_num, drop = FALSE], as.numeric)))))
+            outp$X_num      <-  unname(as.numeric(as.matrix(as.data.frame(lapply(df[, is_num, drop = FALSE], cast.df.col.to.num)))))
         } else { outp$ncols_num <- as.integer(0) }
         
         if (any(df_coltypes %in% dtypes_cat)) {
+            if (any("ordered" %in% df_coltypes))
+                warning("Data contains ordered factors. These are treated as unordered.")
             is_cat          <-  unname(as.logical(sapply(df, function(x) any(class(x) %in% dtypes_cat))))
             outp$cols_cat   <-  names(df)[is_cat]
             outp$ncols_cat  <-  as.integer(sum(is_cat))
@@ -177,20 +270,22 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL, recod
     stop("Unexpected error.")
 }
 
-process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) {
+process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE, enforce_shape = FALSE) {
     if (!NROW(df)) stop("'df' contains zero rows.")
-    if (!("dsparseVector" %in% class(df))) {
+    if (inherits(df, "sparseVector") && !inherits(df, "dsparseVector"))
+        stop("Sparse vectors only allowed as 'dsparseVector' class.")
+    if (!inherits(df, "sparseVector")) {
         if ( NCOL(df) < (metadata$ncols_num + metadata$ncols_cat) )
             stop(sprintf("Input data contains fewer columns than expected (%d vs. %d)",
                          NCOL(df), (metadata$ncols_num + metadata$ncols_cat)))
     } else {
-        if (df@length != metadata$ncols_num)
+        if (df@length < (metadata$ncols_num + metadata$ncols_cat))
             stop(sprintf("Input data contains different columns than expected (%d vs. %d)",
-                         df@length, (metadata$ncols_num)))
+                         df@length, (metadata$ncols_num + metadata$ncols_cat)))
     }
     df  <-  cast.df.alike(df)
-    if (metadata$ncols_cat > 0 && !("data.frame" %in% class(df)))
-        stop("Model was fit to categorical data, must pass a data.frame with new data.")
+    if (metadata$ncols_cat > 0L && !NROW(metadata$categ_cols) && !inherits(df, "data.frame"))
+        stop("Model was fit to data.frame with categorical data, must pass a data.frame with new data.")
     
     dmatrix_types     <-  get.types.dmat()
     spmatrix_types    <-  get.types.spmat(allow_csr = allow_csr, allow_csc = allow_csc, TRUE)
@@ -198,7 +293,12 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
 
     if (!NROW(intersect(class(df), supported_dtypes)))
         stop(paste0("Invalid input data. Supported types are: ", paste(supported_dtypes, collapse = ", ")))
-    
+
+    if (!allow_csr && inherits(df, c("RsparseMatrix", "matrix.csr")))
+        stop("CSR matrix not supported for this prediction type. Try converting to CSC.")
+    if (!allow_csc && inherits(df, c("CsparseMatrix", "matrix.csc")))
+        stop("CSC matrix not supported for this prediction type. Try converting to CSR.")
+
     outp <- list(
         X_num      =  get.empty.vector(),
         X_cat      =  get.empty.int.vector(),
@@ -210,8 +310,177 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
         Xr_ind     =  get.empty.int.vector(),
         Xr_indptr  =  get.empty.int.vector()
     )
+
+    avoid_sparse_sort <- FALSE
+
+    if (!NROW(metadata$categ_cols)) {
+        
+        if (((!NROW(metadata$cols_num) && !NROW(metadata$cols_cat)) || !inherits(df, "data.frame")) &&
+            (   (inherits(df, "sparseVector") && df@length > metadata$ncols_num) ||
+                (!inherits(df, "sparseVector") && (ncol(df) > metadata$ncols_num)))
+            && (enforce_shape || inherits(df, c("RsparseMatrix", "matrix.csr")))
+            ) {
+            cat("got into cond\n")
+
+            if (inherits(df, c("matrix", "CsparseMatrix")) ||
+                (!NROW(metadata$cols_num) && inherits(df, "data.frame"))) {
+                df <- df[, 1L:metadata$ncols_num, drop=FALSE]
+            } else if (inherits(df, "sparseVector")) {
+                df <- df[1L:metadata$ncols_num]
+            } else if (inherits(df, "RsparseMatrix")) {
+                nrows <- nrow(df)
+                avoid_sparse_sort <- TRUE
+                call_sort_csc_indices(df@x, df@j, df@p)
+                df_new <- call_take_cols_by_slice_csr(
+                                df@x,
+                                df@j,
+                                df@p,
+                                metadata$ncols_num,
+                                FALSE
+                            )
+                df@x <- df_new[["Xr"]]
+                df@j <- df_new[["Xr_ind"]]
+                df@p <- df_new[["Xr_indptr"]]
+                df@Dim <- as.integer(c(nrows, metadata$ncols_num))
+            } else if (inherits(df, "matrix.csr")) {
+                avoid_sparse_sort <- TRUE
+                df@ja <- df@ja - 1L
+                df@ia <- df@ia - 1L
+                df@ra <- deepcopy_vector(df@ra)
+                call_sort_csc_indices(df@ra, df@ja, df@ia)
+                df_new <- call_take_cols_by_slice_csr(
+                                df@ra,
+                                df@ja,
+                                df@ia,
+                                metadata$ncols_num,
+                                FALSE
+                            )
+                df@ra <- df_new[["Xr"]]
+                df@ja <- df_new[["Xr_ind"]] + 1L
+                df@ia <- df_new[["Xr_indptr"]] + 1L
+                df@dimension <- as.integer(c(nrows, metadata$ncols_num))
+            } else if (inherits(df, "matrix.csc")) {
+                df@ia <- df@ia - 1L
+                nrows <- nrow(df)
+                df_new <- call_take_cols_by_slice_csc(
+                                df@ra,
+                                df@ja,
+                                df@ia,
+                                metadata$ncols_num,
+                                FALSE, nrows
+                            )
+                df@ra <- df_new[["Xc"]]
+                df@ja <- df_new[["Xc_ind"]]
+                df@ia <- df_new[["Xc_indptr"]] + 1L
+                df@dimension <- as.integer(c(nrows, metadata$ncols_num))
+            } else if (!inherits(df, "data.frame")) {
+                df <- df[, 1L:metadata$ncols_num]
+            }
+
+        }
+
+    } else { ### has metadata$categ_cols
+
+        if (!inherits(df, "sparseVector")) {
+
+            nrows <- nrow(df)
+            if (inherits(df, c("matrix", "data.frame", "dgCMatrix"))) {
+                X_cat  <- df[, metadata$categ_cols,  drop=FALSE]
+                df     <- df[, metadata$cols_num,    drop=FALSE]
+            } else if (inherits(df, "dgRMatrix")) {
+                avoid_sparse_sort <- TRUE
+                call_sort_csc_indices(df@x, df@j, df@p)
+                X_cat  <- call_take_cols_by_index_csr(df@x,
+                                                      df@j,
+                                                      df@p,
+                                                      metadata$categ_cols - 1L,
+                                                      TRUE)
+                X_cat  <- X_cat[["X_cat"]]
+                df_new <- call_take_cols_by_index_csr(df@x,
+                                                      df@j,
+                                                      df@p,
+                                                      metadata$cols_num - 1L,
+                                                      FALSE)
+                df@x   <- df_new[["Xr"]]
+                df@j   <- df_new[["Xr_ind"]]
+                df@p   <- df_new[["Xr_indptr"]]
+                df@Dim <- as.integer(c(nrows, NROW(metadata$cols_num)))
+            } else if (inherits(df, "matrix.csc")) {
+                avoid_sparse_sort <- TRUE
+                df@ja  <- df@ja - 1L
+                df@ia  <- df@ia - 1L
+                df@ra  <- deepcopy_vector(df@ra)
+                call_sort_csc_indices(df@ra, df@ja, df@ia)
+
+                X_cat  <- call_take_cols_by_index_csc(df@ra,
+                                                      df@ja,
+                                                      df@ia,
+                                                      metadata$categ_cols - 1L,
+                                                      TRUE, nrows)
+                X_cat  <- X_cat[["X_cat"]]
+                df_new <- call_take_cols_by_index_csc(df@ra,
+                                                      df@ja,
+                                                      df@ia,
+                                                      metadata$cols_num - 1L,
+                                                      FALSE, nrows)
+                df@ra  <- df_new[["Xc"]]
+                df@ja  <- df_new[["Xc_ind"]] + 1L
+                df@ia  <- df_new[["Xc_indptr"]] + 1L
+                df@dimension <- as.integer(c(nrows, NROW(metadata$cols_num)))
+            } else if (inherits(df, "matrix.csr")) {
+                avoid_sparse_sort <- TRUE
+                df@ja  <- df@ja - 1L
+                df@ia  <- df@ia - 1L
+                df@ra  <- deepcopy_vector(df@ra)
+                call_sort_csc_indices(df@ra, df@ja, df@ia)
+
+                X_cat  <- call_take_cols_by_index_csr(df@ra,
+                                                      df@ja,
+                                                      df@ia,
+                                                      metadata$categ_cols - 1L,
+                                                      TRUE)
+                X_cat  <- X_cat[["X_cat"]]
+                df_new <- call_take_cols_by_index_csr(df@ra,
+                                                      df@ja,
+                                                      df@ia,
+                                                      metadata$cols_num - 1L,
+                                                      FALSE)
+                df@ra  <- df_new[["Xr"]]
+                df@ja  <- df_new[["Xr_ind"]] + 1L
+                df@ia  <- df_new[["Xr_indptr"]] + 1L
+                df@dimension <- as.integer(c(nrows, NROW(metadata$cols_num)))
+            } else {
+                X_cat  <- df[, metadata$categ_cols]
+                df     <- df[, metadata$cols_num]
+            }
+
+        } else { ### sparseVector
+            X_cat <- matrix(df[metadata$categ_cols], nrow=1L)
+            nrows <- 1L
+            df    <- df[metadata$cols_num]
+        }
+
+        X_cat[sweep(X_cat, 2, metadata$categ_max, ">")] <- -1L
+        if (!inherits(X_cat, "matrix"))
+            X_cat <- as.matrix(X_cat)
+        X_cat <- as.integer(X_cat)
+        if (anyNA(X_cat))
+            X_cat[is.na(X_cat)] <- -1L
+        outp$X_cat <- X_cat
+        outp$nrows <- nrows
+
+    }
+
+    if (inherits(df, "data.frame") &&
+        (NROW(metadata$categ_cols) ||
+        (!NROW(metadata$cols_num) && !NROW(metadata$cols_cat)))
+        ) {
+        df <- as.data.frame(lapply(df, cast.df.col.to.num))
+        df <- as.matrix(df)
+    }
+
     
-    if ("data.frame" %in% class(df)) {
+    if (inherits(df, "data.frame")) {
         
         if (NROW(setdiff(c(metadata$cols_num, metadata$cols_cat), names(df)))) {
             missing_cols <- setdiff(c(metadata$cols_num, metadata$cols_cat), names(df))
@@ -224,15 +493,15 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
             if (NCOL(df) != metadata$ncols_num)
                 stop(sprintf("Input data has %d columns, but model was fit to data with %d columns.",
                              NCOL(df), (metadata$ncols_num + metadata$ncols_cat)))
-            outp$X_num <- unname(as.numeric(as.matrix(as.data.frame(lapply(df, as.numeric)))))
+            outp$X_num <- unname(as.numeric(as.matrix(as.data.frame(lapply(df, cast.df.col.to.num)))))
             
         } else {
             
-            if (metadata$ncols_num > 0) {
-                outp$X_num <- unname(as.numeric(as.matrix(as.data.frame(lapply(df[, metadata$cols_num, drop = FALSE], as.numeric)))))
+            if (metadata$ncols_num > 0L) {
+                outp$X_num <- unname(as.numeric(as.matrix(as.data.frame(lapply(df[, metadata$cols_num, drop = FALSE], cast.df.col.to.num)))))
             }
             
-            if (metadata$ncols_cat > 0) {
+            if (metadata$ncols_cat > 0L) {
                 outp$X_cat <- df[, metadata$cols_cat, drop = FALSE]
                 outp$X_cat <- as.data.frame(mapply(function(cl, levs) factor(cl, levs),
                                                    outp$X_cat, metadata$cat_levs,
@@ -243,58 +512,64 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
             
         }
         
-    } else if ("dsparseVector" %in% class(df)) {
-        df@x   <-  df@x[order(df@i)]
-        df@i   <-  df@i[order(df@i)]
+    } else if (inherits(df, "dsparseVector")) {
+        if (allow_csr) {
+            df@x   <-  df@x[order(df@i)]
+            df@i   <-  df@i[order(df@i)]
 
-        outp$Xr         <-  as.numeric(df@x)
-        outp$Xr_ind     <-  df@i - 1L
-        outp$Xr_indptr  <-  as.integer(c(0L, NROW(df@x)))
-        outp$nrows      <-  1L
+            outp$Xr         <-  as.numeric(df@x)
+            outp$Xr_ind     <-  df@i - 1L
+            outp$Xr_indptr  <-  as.integer(c(0L, NROW(df@x)))
+        } else {
+            outp$X_num      <-  as.numeric(df)
+        }
+        outp$nrows          <-  1L
     } else {
         
         if ("numeric" %in% class(df) && is.null(dim(df)))
             df <- matrix(df, nrow = 1)
         
-        if (NCOL(df) != (metadata$ncols_num + metadata$ncols_cat))
-            stop(sprintf("Input data has %d columns, but model was fit to data with %d columns.",
-                         NCOL(df), (metadata$ncols_num + metadata$ncols_cat)))
+        if (NCOL(df) < metadata$ncols_num)
+            stop(sprintf("Input data has %d numeric columns, but model was fit to data with %d numeric columns.",
+                         NCOL(df), metadata$ncols_num))
         if (!any(class(df) %in% spmatrix_types)) {
             outp$X_num <- as.numeric(df)
         } else {
-            if ("dgCMatrix" %in% class(df)) {
+
+            if (inherits(df, "dgCMatrix")) {
                 ### From package 'Matrix'
-                if (allow_csc) {
-                    outp$Xc         <-  df@x
-                    outp$Xc_ind     <-  df@i
-                    outp$Xc_indptr  <-  df@p
+                outp$Xc         <-  df@x
+                outp$Xc_ind     <-  df@i
+                outp$Xc_indptr  <-  df@p
+                if (!avoid_sparse_sort)
                     call_sort_csc_indices(outp$Xc, outp$Xc_ind, outp$Xc_indptr)
-                } else {
-                    df <- Matrix::t(df)
-                    outp$Xr         <-  df@x
-                    outp$Xr_ind     <-  df@i
-                    outp$Xr_indptr  <-  df@p
-                    call_sort_csc_indices(outp$Xr, outp$Xr_ind, outp$Xr_indptr)
-                }
-            } else if ("dgRMatrix" %in% class(df)) {
+            } else if (inherits(df, "dgRMatrix")) {
                 ### From package 'Matrix'
                 outp$Xr         <-  df@x
                 outp$Xr_ind     <-  df@j
                 outp$Xr_indptr  <-  df@p
-                call_sort_csc_indices(outp$Xr, outp$Xr_ind, outp$Xr_indptr)
-            } else {
+                if (!avoid_sparse_sort)
+                    call_sort_csc_indices(outp$Xr, outp$Xr_ind, outp$Xr_indptr)
+            } else if (inherits(df, "matrix.csc")) {
                 ### From package 'SparseM'
-                if ("matrix.csc" %in% class(df)) {
-                    outp$Xc         <-  df@ra
-                    outp$Xc_ind     <-  df@ia - 1L
-                    outp$Xc_indptr  <-  df@ja - 1L
+                outp$Xc         <-  df@ra
+                outp$Xc_ind     <-  df@ja - 1L
+                outp$Xc_indptr  <-  df@ia - 1L
+                if (!avoid_sparse_sort) {
+                    outp$Xc     <-  deepcopy_vector(outp$Xc)
                     call_sort_csc_indices(outp$Xc, outp$Xc_ind, outp$Xc_indptr)
-                } else {
-                    outp$Xr         <-  df@ra
-                    outp$Xr_ind     <-  df@ia - 1L
-                    outp$Xr_indptr  <-  df@ja - 1L
+                }
+            } else if (inherits(df, "matrix.csr")) {
+                ### From package 'SparseM'
+                outp$Xr         <-  df@ra
+                outp$Xr_ind     <-  df@ja - 1L
+                outp$Xr_indptr  <-  df@ia - 1L
+                if (!avoid_sparse_sort) {
+                    outp$Xr     <-  deepcopy_vector(outp$Xr)
                     call_sort_csc_indices(outp$Xr, outp$Xr_ind, outp$Xr_indptr)
                 }
+            } else {
+                stop("Invalid input type.")
             }
         }
         
@@ -303,56 +578,166 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE) 
     return(outp)
 }
 
-reconstruct.from.imp <- function(imputed_num, imputed_cat, df, model, trans_CSC=FALSE) {
-    
-    if ("dgCMatrix" %in% class(df)) {
-        outp     <-  df
-        if (trans_CSC) outp <- Matrix::t(outp)
-        outp@x   <-  imputed_num
-        if (trans_CSC) outp <- Matrix::t(outp)
-        return(outp)
-    } else if (("dgRMatrix" %in% class(df)) || ("dsparseVector" %in% class(df))) {
-        outp     <-  df
-        outp@x   <-  imputed_num
-        return(outp)
-    } else if ( any(class(df) %in% c("matrix.csr", "matrix.csc")) ) {
-        outp     <-  df
-        outp@ra  <-  imputed_num
-    } else if (!("data.frame" %in% class(df))) {
-        return(matrix(imputed_num, nrow = NROW(df)))
-    } else {
-        df_num <- as.data.frame(matrix(imputed_num, nrow = NROW(df)))
-        names(df_num) <- model$metadata$cols_num
-        
-        df_cat <- as.data.frame(matrix(ifelse(imputed_cat < 0, NA_integer_, imputed_cat) + 1L, nrow = NROW(df)))
-        names(df_cat) <- model$metadata$cols_cat
-        df_cat <- as.data.frame(mapply(function(x, levs) factor(x, labels = levs),
-                                       df_cat, model$metadata$cat_levs,
-                                       SIMPLIFY = FALSE))
-        
-        if (NROW(df_num) && NROW(df_cat)) {
-            df_merged <- cbind(df_num, df_cat)
-        } else if (NROW(df_num)) {
-            df_merged <- df_num
+reconstruct.from.imp <- function(imputed_num, imputed_cat, df, model, pdata) {
+
+    if (NROW(imputed_cat))
+        imputed_cat[imputed_cat < 0L] <- NA_integer_
+
+    if (inherits(df, "RsparseMatrix")) {
+
+        outp <- df
+        if (!NROW(model$metadata$categ_cols) && ncol(df) == model$metadata$ncols_num) {
+            outp@x <- imputed_num
+        } else if (!NROW(model$metadata$categ_cols)) {
+            outp@x <- deepcopy_vector(outp@x)
+            call_reconstruct_csr_sliced(
+                outp@x, outp@p,
+                imputed_num, pdata$Xr_indptr,
+                nrow(df)
+            )
         } else {
-            df_merged <- df_cat
+            outp@x <- deepcopy_vector(outp@x)
+            call_reconstruct_csr_with_categ(
+                outp@x, outp@j, outp@p,
+                imputed_num, pdata$Xr_ind, pdata$Xr_indptr,
+                imputed_cat,
+                model$metadata$cols_num-1L, model$metadata$categ_cols-1L,
+                nrow(df), ncol(df)
+            )
         }
-        new_cols <- setdiff(names(df), names(df_merged))
-        if (NROW(new_cols)) {
-            df_merged <- cbind(df_merged, df[, new_cols, drop=FALSE])
+        return(outp)
+
+    } else if (inherits(df, "CsparseMatrix")) {
+
+        outp       <-  df
+        if (!NROW(model$metadata$categ_cols)) {
+            outp@x <-  imputed_num
+        } else {
+            outp[, model$metadata$categ_cols] <- matrix(imputed_cat, nrow=nrow(df))
+            copy_csc_cols_by_index(
+                outp@x,
+                outp@p,
+                imputed_num,
+                pdata$Xc_indptr,
+                model$metadata$cols_num - 1L
+            )
         }
-        df_merged <- df_merged[, names(df), drop=FALSE]
-        return(df_merged)
+        return(outp)
+
+    } else if (inherits(df, "matrix.csr")) {
+        
+        outp <- df
+        if (!NROW(model$metadata$categ_cols) && ncol(df) == model$metadata$ncols_num) {
+            outp@ra <- imputed_num
+        } else if (!NROW(model$metadata$categ_cols)) {
+            outp@ra <- deepcopy_vector(outp@ra)
+            call_reconstruct_csr_sliced(
+                outp@ra, outp@ia-1L,
+                imputed_num, pdata$Xr_indptr,
+                nrow(df)
+            )
+        } else {
+            outp@ra <- deepcopy_vector(outp@ra)
+            call_reconstruct_csr_with_categ(
+                outp@ra, outp@ja-1L, outp@ia-1L,
+                imputed_num, pdata$Xr_ind, pdata$Xr_indptr,
+                imputed_cat,
+                model$metadata$cols_num-1L, model$metadata$categ_cols-1L,
+                nrow(df), ncol(df)
+            )
+        }
+        return(outp)
+
+    } else if (inherits(df, "matrix.csc")) {
+        
+        outp <- df
+        if (!NROW(model$metadata$categ_cols)) {
+            outp@ra  <-  imputed_num
+        } else {
+            df_new   <- assign_csc_cols(
+                pdata$Xc,
+                pdata$Xc_ind,
+                pdata$Xc_indptr,
+                imputed_cat,
+                model$metadata$categ_cols - 1L,
+                model$metadata$cols_num - 1L,
+                nrow(df)
+            )
+            copy_csc_cols_by_index(
+                df_new$Xc,
+                df_new$Xc_indptr,
+                imputed_num,
+                pdata$Xc_indptr,
+                model$metadata$cols_num - 1L
+            )
+            outp@ra <- df_new$Xc
+            outp@ja <- df_new$Xc_ind + 1L
+            outp@ia <- df_new$Xc_indptr + 1L
+            outp@dimension <- as.integer(c(nrow(df), length(df_new$Xc_indptr)-1L))
+        }
+        return(outp)
+
+    } else if (inherits(df, "sparseVector")) {
+
+        if (!NROW(model$metadata$categ_cols) && df@length == model$metadata$ncols_num) {
+            df@x <- imputed_num
+        } else if (!NROW(model$metadata$categ_cols)) {
+            df@x[1L:NROW(imputed_num)]    <- imputed_num
+        } else {
+            df[model$metadata$cols_num]   <- imputed_num
+            df[model$metadata$categ_cols] <- imputed_cat
+        }
+
+    } else if (!inherits(df, "data.frame")) {
+
+        if (!NROW(model$metadata$categ_cols) && (ncol(df) == model$metadata$ncols_num)) {
+            return(matrix(imputed_num, nrow = NROW(df)))
+        } else if (!NROW(model$metadata$categ_cols)) {
+            df[, 1L:model$metadata$ncols_num]  <-  matrix(imputed_num, nrow = NROW(df))
+            return(df)
+        } else {
+            df[, model$metadata$categ_cols]    <-  matrix(imputed_cat, nrow = NROW(df))
+            if (model$metadata$ncols_num)
+                df[, model$metadata$cols_num]  <-  matrix(imputed_num, nrow = NROW(df))
+            return(df)
+        }
+
+    } else {
+        
+        df_num <- as.data.frame(matrix(imputed_num, nrow = NROW(df)))
+        df_cat <- as.data.frame(matrix(imputed_cat, nrow = NROW(df)))
+        if (!NROW(model$metadata$categ_cols)) {
+            df_cat <- as.data.frame(mapply(function(x, levs) factor(x, labels = levs),
+                                           df_cat + 1L, model$metadata$cat_levs,
+                                           SIMPLIFY = FALSE))
+        }
+
+        if (NROW(model$metadata$categ_cols)) {
+            df[, model$metadata$categ_cols]   <- df_cat
+            if (model$metadata$ncols_num)
+                df[, model$metadata$cols_num] <- df_num
+        } else if (!NROW(model$metadata$cols_num)) {
+            df[, 1L:model$metadata$ncols_num] <- df_num
+        } else {
+            if (model$metadata$ncols_num)
+                df[, model$metadata$cols_num] <- df_num
+            if (model$metadata$ncols_cat)
+                df[, model$metadata$cols_cat] <- df_cat
+        }
+        return(df)
+
     }
 }
 
 export.metadata <- function(model) {
     data_info <- list(
-        ncols_numeric = model$metadata$ncols_num, ## is in c++
-        ncols_categ = model$metadata$ncols_cat,  ## is in c++
-        cols_numeric = as.list(model$metadata$cols_num),
-        cols_categ = as.list(model$metadata$cols_cat),
-        cat_levels = unname(as.list(model$metadata$cat_levs))
+        ncols_numeric  =  model$metadata$ncols_num, ## is in c++
+        ncols_categ    =  model$metadata$ncols_cat,  ## is in c++
+        cols_numeric   =  as.list(model$metadata$cols_num),
+        cols_categ     =  as.list(model$metadata$cols_cat),
+        cat_levels     =  unname(as.list(model$metadata$cat_levs)),
+        categ_cols     =  model$metadata$categ_cols,
+        categ_max      =  model$metadata$categ_max
     )
     
     if (NROW(data_info$cat_levels)) {
@@ -430,7 +815,9 @@ take.metadata <- function(metadata) {
             ncols_cat  =  metadata$data_info$ncols_categ,
             cols_num   =  unlist(metadata$data_info$cols_numeric),
             cols_cat   =  unlist(metadata$data_info$cols_categ),
-            cat_levs   =  metadata$data_info$cat_levels
+            cat_levs   =  metadata$data_info$cat_levels,
+            categ_cols =  metadata$data_info$categ_cols,
+            categ_max  =  metadata$data_info$categ_max
         ),
         random_seed  =  metadata$params$random_seed,
         nthreads     =  metadata$model_info$nthreads,
@@ -444,6 +831,10 @@ take.metadata <- function(metadata) {
     
     if (NROW(this$metadata$cat_levels))
         names(this$metadata$cat_levels) <- this$metadata$cols_cat
+    if (!NROW(this$metadata$categ_cols)) {
+        this$metadata$categ_cols <- NULL
+        this$metadata$categ_max  <- NULL
+    }
     
     class(this) <- "isolation_forest"
     return(this)

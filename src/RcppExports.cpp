@@ -295,6 +295,148 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// call_reconstruct_csr_sliced
+void call_reconstruct_csr_sliced(Rcpp::NumericVector orig_Xr, Rcpp::IntegerVector orig_Xr_indptr, Rcpp::NumericVector rec_Xr, Rcpp::IntegerVector rec_Xr_indptr, size_t nrows);
+RcppExport SEXP _isotree_call_reconstruct_csr_sliced(SEXP orig_XrSEXP, SEXP orig_Xr_indptrSEXP, SEXP rec_XrSEXP, SEXP rec_Xr_indptrSEXP, SEXP nrowsSEXP) {
+BEGIN_RCPP
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type orig_Xr(orig_XrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type orig_Xr_indptr(orig_Xr_indptrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type rec_Xr(rec_XrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type rec_Xr_indptr(rec_Xr_indptrSEXP);
+    Rcpp::traits::input_parameter< size_t >::type nrows(nrowsSEXP);
+    call_reconstruct_csr_sliced(orig_Xr, orig_Xr_indptr, rec_Xr, rec_Xr_indptr, nrows);
+    return R_NilValue;
+END_RCPP
+}
+// call_reconstruct_csr_with_categ
+void call_reconstruct_csr_with_categ(Rcpp::NumericVector orig_Xr, Rcpp::IntegerVector orig_Xr_ind, Rcpp::IntegerVector orig_Xr_indptr, Rcpp::NumericVector rec_Xr, Rcpp::IntegerVector rec_Xr_ind, Rcpp::IntegerVector rec_Xr_indptr, Rcpp::IntegerVector rec_X_cat, Rcpp::IntegerVector cols_numeric, Rcpp::IntegerVector cols_categ, size_t nrows, size_t ncols);
+RcppExport SEXP _isotree_call_reconstruct_csr_with_categ(SEXP orig_XrSEXP, SEXP orig_Xr_indSEXP, SEXP orig_Xr_indptrSEXP, SEXP rec_XrSEXP, SEXP rec_Xr_indSEXP, SEXP rec_Xr_indptrSEXP, SEXP rec_X_catSEXP, SEXP cols_numericSEXP, SEXP cols_categSEXP, SEXP nrowsSEXP, SEXP ncolsSEXP) {
+BEGIN_RCPP
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type orig_Xr(orig_XrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type orig_Xr_ind(orig_Xr_indSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type orig_Xr_indptr(orig_Xr_indptrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type rec_Xr(rec_XrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type rec_Xr_ind(rec_Xr_indSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type rec_Xr_indptr(rec_Xr_indptrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type rec_X_cat(rec_X_catSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type cols_numeric(cols_numericSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type cols_categ(cols_categSEXP);
+    Rcpp::traits::input_parameter< size_t >::type nrows(nrowsSEXP);
+    Rcpp::traits::input_parameter< size_t >::type ncols(ncolsSEXP);
+    call_reconstruct_csr_with_categ(orig_Xr, orig_Xr_ind, orig_Xr_indptr, rec_Xr, rec_Xr_ind, rec_Xr_indptr, rec_X_cat, cols_numeric, cols_categ, nrows, ncols);
+    return R_NilValue;
+END_RCPP
+}
+// deepcopy_vector
+Rcpp::NumericVector deepcopy_vector(Rcpp::NumericVector inp);
+RcppExport SEXP _isotree_deepcopy_vector(SEXP inpSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type inp(inpSEXP);
+    rcpp_result_gen = Rcpp::wrap(deepcopy_vector(inp));
+    return rcpp_result_gen;
+END_RCPP
+}
+// call_take_cols_by_slice_csr
+Rcpp::List call_take_cols_by_slice_csr(Rcpp::NumericVector Xr_, Rcpp::IntegerVector Xr_ind_, Rcpp::IntegerVector Xr_indptr, size_t ncols_take, bool as_dense);
+RcppExport SEXP _isotree_call_take_cols_by_slice_csr(SEXP Xr_SEXP, SEXP Xr_ind_SEXP, SEXP Xr_indptrSEXP, SEXP ncols_takeSEXP, SEXP as_denseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type Xr_(Xr_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type Xr_ind_(Xr_ind_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type Xr_indptr(Xr_indptrSEXP);
+    Rcpp::traits::input_parameter< size_t >::type ncols_take(ncols_takeSEXP);
+    Rcpp::traits::input_parameter< bool >::type as_dense(as_denseSEXP);
+    rcpp_result_gen = Rcpp::wrap(call_take_cols_by_slice_csr(Xr_, Xr_ind_, Xr_indptr, ncols_take, as_dense));
+    return rcpp_result_gen;
+END_RCPP
+}
+// call_take_cols_by_index_csr
+Rcpp::List call_take_cols_by_index_csr(Rcpp::NumericVector Xr, Rcpp::IntegerVector Xr_ind, Rcpp::IntegerVector Xr_indptr, Rcpp::IntegerVector cols_take, bool as_dense);
+RcppExport SEXP _isotree_call_take_cols_by_index_csr(SEXP XrSEXP, SEXP Xr_indSEXP, SEXP Xr_indptrSEXP, SEXP cols_takeSEXP, SEXP as_denseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type Xr(XrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type Xr_ind(Xr_indSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type Xr_indptr(Xr_indptrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type cols_take(cols_takeSEXP);
+    Rcpp::traits::input_parameter< bool >::type as_dense(as_denseSEXP);
+    rcpp_result_gen = Rcpp::wrap(call_take_cols_by_index_csr(Xr, Xr_ind, Xr_indptr, cols_take, as_dense));
+    return rcpp_result_gen;
+END_RCPP
+}
+// call_take_cols_by_slice_csc
+Rcpp::List call_take_cols_by_slice_csc(Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, size_t ncols_take, bool as_dense, size_t nrows);
+RcppExport SEXP _isotree_call_take_cols_by_slice_csc(SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP ncols_takeSEXP, SEXP as_denseSEXP, SEXP nrowsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type Xc(XcSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type Xc_ind(Xc_indSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type Xc_indptr(Xc_indptrSEXP);
+    Rcpp::traits::input_parameter< size_t >::type ncols_take(ncols_takeSEXP);
+    Rcpp::traits::input_parameter< bool >::type as_dense(as_denseSEXP);
+    Rcpp::traits::input_parameter< size_t >::type nrows(nrowsSEXP);
+    rcpp_result_gen = Rcpp::wrap(call_take_cols_by_slice_csc(Xc, Xc_ind, Xc_indptr, ncols_take, as_dense, nrows));
+    return rcpp_result_gen;
+END_RCPP
+}
+// call_take_cols_by_index_csc
+Rcpp::List call_take_cols_by_index_csc(Rcpp::NumericVector Xc_, Rcpp::IntegerVector Xc_ind_, Rcpp::IntegerVector Xc_indptr, Rcpp::IntegerVector cols_take, bool as_dense, size_t nrows);
+RcppExport SEXP _isotree_call_take_cols_by_index_csc(SEXP Xc_SEXP, SEXP Xc_ind_SEXP, SEXP Xc_indptrSEXP, SEXP cols_takeSEXP, SEXP as_denseSEXP, SEXP nrowsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type Xc_(Xc_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type Xc_ind_(Xc_ind_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type Xc_indptr(Xc_indptrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type cols_take(cols_takeSEXP);
+    Rcpp::traits::input_parameter< bool >::type as_dense(as_denseSEXP);
+    Rcpp::traits::input_parameter< size_t >::type nrows(nrowsSEXP);
+    rcpp_result_gen = Rcpp::wrap(call_take_cols_by_index_csc(Xc_, Xc_ind_, Xc_indptr, cols_take, as_dense, nrows));
+    return rcpp_result_gen;
+END_RCPP
+}
+// copy_csc_cols_by_slice
+void copy_csc_cols_by_slice(Rcpp::NumericVector out_Xc_, Rcpp::IntegerVector out_Xc_indptr, Rcpp::NumericVector from_Xc_, Rcpp::IntegerVector from_Xc_indptr, size_t n_copy);
+RcppExport SEXP _isotree_copy_csc_cols_by_slice(SEXP out_Xc_SEXP, SEXP out_Xc_indptrSEXP, SEXP from_Xc_SEXP, SEXP from_Xc_indptrSEXP, SEXP n_copySEXP) {
+BEGIN_RCPP
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type out_Xc_(out_Xc_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type out_Xc_indptr(out_Xc_indptrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type from_Xc_(from_Xc_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type from_Xc_indptr(from_Xc_indptrSEXP);
+    Rcpp::traits::input_parameter< size_t >::type n_copy(n_copySEXP);
+    copy_csc_cols_by_slice(out_Xc_, out_Xc_indptr, from_Xc_, from_Xc_indptr, n_copy);
+    return R_NilValue;
+END_RCPP
+}
+// copy_csc_cols_by_index
+void copy_csc_cols_by_index(Rcpp::NumericVector out_Xc_, Rcpp::IntegerVector out_Xc_indptr, Rcpp::NumericVector from_Xc_, Rcpp::IntegerVector from_Xc_indptr, Rcpp::IntegerVector cols_copy);
+RcppExport SEXP _isotree_copy_csc_cols_by_index(SEXP out_Xc_SEXP, SEXP out_Xc_indptrSEXP, SEXP from_Xc_SEXP, SEXP from_Xc_indptrSEXP, SEXP cols_copySEXP) {
+BEGIN_RCPP
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type out_Xc_(out_Xc_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type out_Xc_indptr(out_Xc_indptrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type from_Xc_(from_Xc_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type from_Xc_indptr(from_Xc_indptrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type cols_copy(cols_copySEXP);
+    copy_csc_cols_by_index(out_Xc_, out_Xc_indptr, from_Xc_, from_Xc_indptr, cols_copy);
+    return R_NilValue;
+END_RCPP
+}
+// assign_csc_cols
+Rcpp::List assign_csc_cols(Rcpp::NumericVector Xc_, Rcpp::IntegerVector Xc_ind_, Rcpp::IntegerVector Xc_indptr, Rcpp::IntegerVector X_cat_, Rcpp::IntegerVector cols_categ, Rcpp::IntegerVector cols_numeric, size_t nrows);
+RcppExport SEXP _isotree_assign_csc_cols(SEXP Xc_SEXP, SEXP Xc_ind_SEXP, SEXP Xc_indptrSEXP, SEXP X_cat_SEXP, SEXP cols_categSEXP, SEXP cols_numericSEXP, SEXP nrowsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type Xc_(Xc_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type Xc_ind_(Xc_ind_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type Xc_indptr(Xc_indptrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type X_cat_(X_cat_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type cols_categ(cols_categSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type cols_numeric(cols_numericSEXP);
+    Rcpp::traits::input_parameter< size_t >::type nrows(nrowsSEXP);
+    rcpp_result_gen = Rcpp::wrap(assign_csc_cols(Xc_, Xc_ind_, Xc_indptr, X_cat_, cols_categ, cols_numeric, nrows));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_isotree_deserialize_IsoForest", (DL_FUNC) &_isotree_deserialize_IsoForest, 1},
@@ -312,6 +454,16 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_model_to_sql_with_select_from", (DL_FUNC) &_isotree_model_to_sql_with_select_from, 8},
     {"_isotree_copy_cpp_objects", (DL_FUNC) &_isotree_copy_cpp_objects, 4},
     {"_isotree_call_sort_csc_indices", (DL_FUNC) &_isotree_call_sort_csc_indices, 3},
+    {"_isotree_call_reconstruct_csr_sliced", (DL_FUNC) &_isotree_call_reconstruct_csr_sliced, 5},
+    {"_isotree_call_reconstruct_csr_with_categ", (DL_FUNC) &_isotree_call_reconstruct_csr_with_categ, 11},
+    {"_isotree_deepcopy_vector", (DL_FUNC) &_isotree_deepcopy_vector, 1},
+    {"_isotree_call_take_cols_by_slice_csr", (DL_FUNC) &_isotree_call_take_cols_by_slice_csr, 5},
+    {"_isotree_call_take_cols_by_index_csr", (DL_FUNC) &_isotree_call_take_cols_by_index_csr, 5},
+    {"_isotree_call_take_cols_by_slice_csc", (DL_FUNC) &_isotree_call_take_cols_by_slice_csc, 6},
+    {"_isotree_call_take_cols_by_index_csc", (DL_FUNC) &_isotree_call_take_cols_by_index_csc, 6},
+    {"_isotree_copy_csc_cols_by_slice", (DL_FUNC) &_isotree_copy_csc_cols_by_slice, 5},
+    {"_isotree_copy_csc_cols_by_index", (DL_FUNC) &_isotree_copy_csc_cols_by_index, 5},
+    {"_isotree_assign_csc_cols", (DL_FUNC) &_isotree_assign_csc_cols, 7},
     {NULL, NULL, 0}
 };
 

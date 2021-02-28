@@ -44,7 +44,9 @@ ending in `.imputer`.
 The metadata will contain, among other things, the encoding that was used for
 categorical columns - this is under `data_info.cat_levels`, as an array of arrays by column,
 with the first entry for each column corresponding to category 0, second to category 1,
-and so on (the C++ version takes them as integers). This metadata is written to a JSON file
+and so on (the C++ version takes them as integers). When passing `categ_cols`, there
+will be no encoding but it will save the maximum category integer and the column
+numbers instead of names. This metadata is written to a JSON file
 using the `jsonlite` package, which must be installed in order for this to work.
 
 The serialized file can be used in the C++ version by reading it as a binary raw file
