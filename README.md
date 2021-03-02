@@ -177,7 +177,7 @@ iso <- isolation.forest(X, ntrees = 10, nthreads = 1)
 ### Check which row has the highest outlier score
 pred <- predict(iso, X)
 cat("Point with highest outlier score: ",
-	X[which.max(pred), ], "\n")
+    X[which.max(pred), ], "\n")
 ```
 
 * C++:
