@@ -14,15 +14,13 @@
 )
 }
 \arguments{
-\item{object}{An Isolation Forest object as returned by `isolation.forest`.}
+\item{object}{An Isolation Forest object as returned by \link{isolation.forest}.}
 
 \item{newdata}{A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`,
-CSC/dgCMatrix format for distance and outlierness, or CSR/dgRMatrix format for outlierness and imputations)
+CSC/dgCMatrix supported for distance and outlierness, CSR/dgRMatrix supported for outlierness and imputations)
 for which to predict outlierness, distance, or imputations of missing values.
 
-Note that when passing `type` = `"impute"` and `newdata` is a sparse matrix, under some situations it might get modified in-place.
-
-Note also that, if using sparse matrices from package `Matrix`, converting to `dgRMatrix` (when required) might require using
+Note that, if using sparse matrices from package `Matrix`, converting to `dgRMatrix` (when required) might require using
 `as(m, "RsparseMatrix")` instead of `dgRMatrix` directly.
 Nevertheless, if `newdata` is sparse and one wants to obtain the outlier score or average depth or tree
 numbers, it's highly recommended to pass it in CSC (`dgCMatrix`) format as it will be much faster
@@ -84,7 +82,7 @@ for calculation of harmonic numbers.
 
 The distribution of outlier scores should be centered around 0.5, unless using non-random splits (parameters
 `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_split_avg_gain`, `prob_split_pooled_gain`)
-and/or range penalizations (which are on by default).
+and/or range penalizations, or having distributions which are too skewed.
 
 The more threads that are set for the model, the higher the memory requirement will be as each
 thread will allocate an array with one entry per row (outlierness) or combination (distance).
@@ -104,9 +102,8 @@ The outlier scores/depth predict functionality is optimized for making predictio
 few rows at a time - for making large batches of predictions, it might be faster to use the
 option `output_score=TRUE` in `isolation.forest`.
 
-When imputing missing values, if the input data is a `data.frame` and the model was fit to a
-`data.frame`, the input may contain new columns (i.e. not present when the model was fitted),
-which will be output as-is. If it is a matrix or sparse matrix, should not contain any new columns.
+When imputing missing values, the input may contain new columns (i.e. not present when the model was fitted),
+which will be output as-is.
 }
 \seealso{
 \link{isolation.forest} \link{unpack.isolation.forest}

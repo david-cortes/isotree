@@ -21,7 +21,9 @@ importable in R - e.g. column names must be valid for R (numbers are not valid n
 It's recommended to visually inspect the `.metadata` file in any case.
 
 This function is not meant to be used for passing models to and from R -
-in such case, you can use `saveRDS` and `readRDS` instead.
+in such case, one can use `saveRDS` and `readRDS` instead as they will
+likely result in smaller file sizes (although this function will still
+work correctly for serialization within R).
 }
 \details{
 Internally, this function uses `readr::read_file_raw` (from the `readr` package)

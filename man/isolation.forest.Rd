@@ -555,8 +555,7 @@ library(isotree)
 ### Generate random data, set some values as NA
 if (require("MASS")) {
   set.seed(1)
-  S <- matrix(rnorm(5 * 5), nrow = 5)
-  S <- t(S) \%*\% S
+  S <- crossprod(matrix(rnorm(5 * 5), nrow = 5))
   mu <- rnorm(5)
   X <- MASS::mvrnorm(1000, mu, S)
   X_na <- X
@@ -567,7 +566,8 @@ if (require("MASS")) {
   iso <- isolation.forest(X_na,
       build_imputer = TRUE,
       prob_pick_pooled_gain = 1,
-      ntry = 10)
+      ntry = 10,
+      ntthreads = 1)
   X_imputed <- predict(iso, X_na, type = "impute")
   cat(sprintf("MSE for imputed values w/model: \%f\n",
       mean((X[values_NA] - X_imputed[values_NA])^2)))

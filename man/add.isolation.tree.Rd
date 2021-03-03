@@ -7,7 +7,7 @@
 add.isolation.tree(model, df, sample_weights = NULL, column_weights = NULL)
 }
 \arguments{
-\item{model}{An Isolation Forest object as returned by `isolation.forest`, to which an additional tree will be added.
+\item{model}{An Isolation Forest object as returned by \link{isolation.forest}, to which an additional tree will be added.
 The result of this function must be reassigned to `model`, and the old `model` should not be used any further.}
 
 \item{df}{A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC format)

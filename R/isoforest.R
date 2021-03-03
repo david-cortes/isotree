@@ -486,8 +486,7 @@
 #' ### Generate random data, set some values as NA
 #' if (require("MASS")) {
 #'   set.seed(1)
-#'   S <- matrix(rnorm(5 * 5), nrow = 5)
-#'   S <- t(S) %*% S
+#'   S <- crossprod(matrix(rnorm(5 * 5), nrow = 5))
 #'   mu <- rnorm(5)
 #'   X <- MASS::mvrnorm(1000, mu, S)
 #'   X_na <- X
@@ -498,7 +497,8 @@
 #'   iso <- isolation.forest(X_na,
 #'       build_imputer = TRUE,
 #'       prob_pick_pooled_gain = 1,
-#'       ntry = 10)
+#'       ntry = 10,
+#'       ntthreads = 1)
 #'   X_imputed <- predict(iso, X_na, type = "impute")
 #'   cat(sprintf("MSE for imputed values w/model: %f\n",
 #'       mean((X[values_NA] - X_imputed[values_NA])^2)))
@@ -824,14 +824,12 @@ isolation.forest <- function(df,
 }
 
 #' @title Predict method for Isolation Forest
-#' @param object An Isolation Forest object as returned by `isolation.forest`.
+#' @param object An Isolation Forest object as returned by \link{isolation.forest}.
 #' @param newdata A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`,
-#' CSC/dgCMatrix format for distance and outlierness, or CSR/dgRMatrix format for outlierness and imputations)
+#' CSC/dgCMatrix supported for distance and outlierness, CSR/dgRMatrix supported for outlierness and imputations)
 #' for which to predict outlierness, distance, or imputations of missing values.
 #' 
-#' Note that when passing `type` = `"impute"` and `newdata` is a sparse matrix, under some situations it might get modified in-place.
-#' 
-#' Note also that, if using sparse matrices from package `Matrix`, converting to `dgRMatrix` (when required) might require using
+#' Note that, if using sparse matrices from package `Matrix`, converting to `dgRMatrix` (when required) might require using
 #' `as(m, "RsparseMatrix")` instead of `dgRMatrix` directly.
 #' Nevertheless, if `newdata` is sparse and one wants to obtain the outlier score or average depth or tree
 #' numbers, it's highly recommended to pass it in CSC (`dgCMatrix`) format as it will be much faster
@@ -882,7 +880,7 @@ isolation.forest <- function(df,
 #' 
 #' The distribution of outlier scores should be centered around 0.5, unless using non-random splits (parameters
 #' `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_split_avg_gain`, `prob_split_pooled_gain`)
-#' and/or range penalizations (which are on by default).
+#' and/or range penalizations, or having distributions which are too skewed.
 #' 
 #' The more threads that are set for the model, the higher the memory requirement will be as each
 #' thread will allocate an array with one entry per row (outlierness) or combination (distance).
@@ -902,9 +900,8 @@ isolation.forest <- function(df,
 #' few rows at a time - for making large batches of predictions, it might be faster to use the
 #' option `output_score=TRUE` in `isolation.forest`.
 #' 
-#' When imputing missing values, if the input data is a `data.frame` and the model was fit to a
-#' `data.frame`, the input may contain new columns (i.e. not present when the model was fitted),
-#' which will be output as-is. If it is a matrix or sparse matrix, should not contain any new columns.
+#' When imputing missing values, the input may contain new columns (i.e. not present when the model was fitted),
+#' which will be output as-is.
 #' @seealso \link{isolation.forest} \link{unpack.isolation.forest}
 #' @export
 predict.isolation_forest <- function(object, newdata, type="score", square_mat=FALSE, refdata=NULL, ...) {
@@ -1077,7 +1074,7 @@ summary.isolation_forest <- function(object, ...) {
 #' @title Add additional (single) tree to isolation forest model
 #' @description Adds a single tree fit to the full (non-subsampled) data passed here. Must
 #' have the same columns as previously-fitted data.
-#' @param model An Isolation Forest object as returned by `isolation.forest`, to which an additional tree will be added.
+#' @param model An Isolation Forest object as returned by \link{isolation.forest}, to which an additional tree will be added.
 #' The result of this function must be reassigned to `model`, and the old `model` should not be used any further.
 #' @param df A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC format)
 #' to which to fit the new tree.
@@ -1450,7 +1447,9 @@ export.isotree.model <- function(model, file, ...) {
 #' It's recommended to visually inspect the `.metadata` file in any case.
 #' 
 #' This function is not meant to be used for passing models to and from R -
-#' in such case, you can use `saveRDS` and `readRDS` instead.
+#' in such case, one can use `saveRDS` and `readRDS` instead as they will
+#' likely result in smaller file sizes (although this function will still
+#' work correctly for serialization within R).
 #' @param file Path to the saved isolation forest model along with its metadata file,
 #' and imputer file if produced. Must be a file path, not a file connection.
 #' @details Internally, this function uses `readr::read_file_raw` (from the `readr` package)
