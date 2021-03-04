@@ -1779,21 +1779,20 @@ class IsolationForest:
 
         Note
         ----
-        Categorical columns, if imputed, will always come out with pandas categorical dtype.
+        Categorical columns, if imputed with a model fit to a DataFrame, will always come out
+        with pandas categorical dtype.
 
         Note
         ----
-        If the input type is a DataFrame and the model itself was also fitted to a DataFrame, the input
-        may contain new columns (i.e. not present when the model was fitted),
-        which will be output as-is. If it is an array or sparse matrix, should not contain any new columns.
+        The input may contain new columns (i.e. not present when the model was fitted),
+        which will be output as-is.
 
         Parameters
         ----------
         X : array or array-like (n_samples, n_features)
             Data for which missing values should be imputed. Can pass a NumPy array, Pandas DataFrame, or SciPy sparse CSR matrix.
-            If passing a DataFrame, will assume that columns are categorical if their dtype is 'object', 'Categorical', or 'bool',
-            and will assume they are numerical if their dtype is a subtype of NumPy's 'number' or 'datetime64'.
-            Other dtypes are not supported.
+
+            If the model was fit to a DataFrame with categorical columns, must also be a DataFrame.
 
         Returns
         -------
@@ -1836,11 +1835,10 @@ class IsolationForest:
         X : array or array-like (n_samples, n_features)
             Data to which to fit the model and whose missing values need to be imputed. Can pass a NumPy array, Pandas DataFrame,
             or SciPy sparse CSC matrix.
-            If passing a DataFrame, will assume that columns are categorical if their dtype is 'object', 'Categorical', or 'bool',
-            and will assume they are numerical if their dtype is a subtype of NumPy's 'number' or 'datetime64'.
-            Other dtypes are not supported.
+
+            If the model was fit to a DataFrame with categorical columns, must also be a DataFrame.
         y : None
-            Not used.
+            Not used. Kept for compatibility with SciKit-Learn.
         column_weights : None or array(n_features,)
             Sampling weights for each column in 'X'. Ignored when picking columns by deterministic criterion.
             If passing None, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
