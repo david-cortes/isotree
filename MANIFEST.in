@@ -17,6 +17,7 @@ global-exclude *.a
 global-exclude *.exe
 global-exclude *.dll
 global-exclude *.dynlib
+global-exclude *.md
 exclude include/*
 prune man
 prune R
