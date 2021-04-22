@@ -567,7 +567,7 @@ if (require("MASS")) {
       build_imputer = TRUE,
       prob_pick_pooled_gain = 1,
       ntry = 10,
-      ntthreads = 1)
+      nthreads = 1)
   X_imputed <- predict(iso, X_na, type = "impute")
   cat(sprintf("MSE for imputed values w/model: \%f\n",
       mean((X[values_NA] - X_imputed[values_NA])^2)))

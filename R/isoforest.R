@@ -498,7 +498,7 @@
 #'       build_imputer = TRUE,
 #'       prob_pick_pooled_gain = 1,
 #'       ntry = 10,
-#'       ntthreads = 1)
+#'       nthreads = 1)
 #'   X_imputed <- predict(iso, X_na, type = "impute")
 #'   cat(sprintf("MSE for imputed values w/model: %f\n",
 #'       mean((X[values_NA] - X_imputed[values_NA])^2)))
@@ -790,12 +790,12 @@ isolation.forest <- function(df,
             ),
         random_seed  =  random_seed,
         nthreads     =  nthreads,
-        cpp_obj      =  list(
+        cpp_obj      =  as.environment(list(
             ptr         =  cpp_outputs$model_ptr,
             serialized  =  cpp_outputs$serialized_obj,
             imp_ptr     =  cpp_outputs$imputer_ptr,
             imp_ser     =  cpp_outputs$imputer_ser
-        )
+        ))
     )
     
     class(this) <- "isolation_forest"
@@ -905,22 +905,7 @@ isolation.forest <- function(df,
 #' @seealso \link{isolation.forest} \link{unpack.isolation.forest}
 #' @export
 predict.isolation_forest <- function(object, newdata, type="score", square_mat=FALSE, refdata=NULL, ...) {
-    if (check_null_ptr_model(object$cpp_obj$ptr)) {
-        obj_new <- object$cpp_obj
-        if (object$params$ndim == 1)
-            ptr_new <- deserialize_IsoForest(object$cpp_obj$serialized)
-        else
-            ptr_new <- deserialize_ExtIsoForest(object$cpp_obj$serialized)
-        obj_new$ptr <- ptr_new
-        
-        if (object$params$build_imputer) {
-            imp_new <- deserialize_Imputer(object$cpp_obj$imp_ser)
-            obj_new$imp_ptr <- imp_new
-        }
-        
-        eval.parent(substitute(object$cpp_obj <- obj_new))
-        object$cpp_obj <- obj_new
-    }
+    unpack.isolation.forest(object)
     
     allowed_type <- c("score", "avg_depth", "dist", "avg_sep", "tree_num", "impute")
     check.str.option(type, "type", allowed_type)
@@ -1023,22 +1008,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
 #' @seealso \link{isolation.forest}
 #' @export
 print.isolation_forest <- function(x, ...) {
-    if (check_null_ptr_model(x$cpp_obj$ptr)) {
-        obj_new <- x$cpp_obj
-        if (x$params$ndim == 1)
-            ptr_new <- deserialize_IsoForest(x$cpp_obj$serialized)
-        else
-            ptr_new <- deserialize_ExtIsoForest(x$cpp_obj$serialized)
-        obj_new$ptr <- ptr_new
-        
-        if (x$params$build_imputer) {
-            imp_new <- deserialize_Imputer(x$cpp_obj$imp_ser)
-            obj_new$imp_ptr <- imp_new
-        }
-        
-        eval.parent(substitute(x$cpp_obj <- obj_new))
-        x$cpp_obj <- obj_new
-    }
+    unpack.isolation.forest(x)
     
     if (x$params$ndim > 1) cat("Extended ")
     cat("Isolation Forest model")
@@ -1096,29 +1066,12 @@ summary.isolation_forest <- function(object, ...) {
 #' @export
 add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights = NULL) {
     
-    if (!("isolation_forest" %in% class(model)))
-        stop("'model' must be an isolation forest model object as output by function 'isolation.forest'.")
     if (!is.null(sample_weights) && model$weights_as_sample_prob)
         stop("Cannot use sampling weights with 'partial_fit'.")
     if (!is.null(column_weights) && model$weigh_by_kurtosis)
         stop("Cannot pass column weights when weighting columns by kurtosis.")
     
-    if (check_null_ptr_model(model$cpp_obj$ptr)) {
-        obj_new <- model$cpp_obj
-        if (model$params$ndim == 1)
-            ptr_new <- deserialize_IsoForest(model$cpp_obj$serialized)
-        else
-            ptr_new <- deserialize_ExtIsoForest(model$cpp_obj$serialized)
-        obj_new$ptr <- ptr_new
-        
-        if (model$params$build_imputer) {
-            imp_new <- deserialize_Imputer(model$cpp_obj$imp_ser)
-            obj_new$imp_ptr <- imp_new
-        }
-        
-        ## eval.parent(substitute(model$cpp_obj <- obj_new)) ## this is done after adding the tree
-        model$cpp_obj <- obj_new
-    }
+    unpack.isolation.forest(model)
     
     
     if (!is.null(sample_weights))
@@ -1177,17 +1130,10 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
 #' reconstructed, and are done so automatically after calling `predict`, `print`, `summary`, or `add.isolation.tree` on the
 #' freshly-loaded object from `readRDS` or `load`.
 #' 
-#' But due to R's environments system (as opposed to other systems such as Python which can use pass-by-reference), they will
-#' only be re-constructed in the environment that is calling `predict`, `print`, etc. and not in higher-up environments
-#' (i.e. if calling `predict` on the object from inside different functions, each function will have to reconstruct the
-#' C++ objects independently and they will only live within the function that called `predict`).
-#' 
-#' This function serves as an environment-level unpacker that will reconstruct the C++ object in the environment in which
-#' it is called (i.e. if it's desired to call `predict` from inside multiple functions, use this function before passing the
-#' freshly-loaded model object to those other functions, and then they will not need to reconstruct the C++ objects anymore),
-#' in the same way as `predict` or `print`, but without producing any outputs or messages.
-#' 
-#' It is an equivalent to XGBoost's `xgb.Booster.complete` function.
+#' This function allows to automatically de-serialize the object ("complete" or "restore" the
+#' handle) without having to call any function that would do extra processing.
+#' It is an equivalent to XGBoost's `xgb.Booster.complete` and CatBoost's
+#' `catboost.restore_handle` functions.
 #' @details If using this function to de-serialize a model in a production system, one might
 #' want to delete the serialized bytes inside the object afterwards in order to free up memory.
 #' These are under `model$cpp_obj$serialized` (plus `model$cpp_obj$imp_ser` if building with imputer)
@@ -1208,22 +1154,13 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
 #' iso2 <- readRDS(temp_file)
 #' file.remove(temp_file)
 #' 
-#' ### will de-serialize inside, but object is short-lived
-#' wrap_predict <- function(model, data) {
-#'     pred <- predict(model, data)
-#'     cat("pointer inside function is this: ")
-#'     print(model$cpp_obj$ptr)
-#'     return(pred)
-#' }
-#' temp <- wrap_predict(iso2, X)
-#' cat("pointer outside function is this: \n")
-#' print(iso2$cpp_obj$ptr) ### pointer to the C++ object
+#' cat("Model pointer after loading is this: \n")
+#' print(iso2$cpp_obj$ptr)
 #' 
-#' ### now unpack the C++ object beforehand
+#' ### now unpack it
 #' unpack.isolation.forest(iso2)
-#' print("after unpacking beforehand")
-#' temp <- wrap_predict(iso2, X)
-#' cat("pointer outside function is this: \n")
+#' 
+#' cat("Model pointer after unpacking is this: \n")
 #' print(iso2$cpp_obj$ptr)
 #' @export
 unpack.isolation.forest <- function(model)  {
@@ -1231,20 +1168,14 @@ unpack.isolation.forest <- function(model)  {
         stop("'model' must be an isolation forest model object as output by function 'isolation.forest'.")
     
     if (check_null_ptr_model(model$cpp_obj$ptr)) {
-        obj_new <- model$cpp_obj
         if (model$params$ndim == 1)
-            ptr_new <- deserialize_IsoForest(model$cpp_obj$serialized)
+            model$cpp_obj$ptr <- deserialize_IsoForest(model$cpp_obj$serialized)
         else
-            ptr_new <- deserialize_ExtIsoForest(model$cpp_obj$serialized)
-        obj_new$ptr <- ptr_new
+            model$cpp_obj$ptr <- deserialize_ExtIsoForest(model$cpp_obj$serialized)
         
         if (model$params$build_imputer) {
-            imp_new <- deserialize_Imputer(model$cpp_obj$imp_ser)
-            obj_new$imp_ptr <- imp_new
+            model$cpp_obj$imp_ptr <- deserialize_Imputer(model$cpp_obj$imp_ser)
         }
-        
-        eval.parent(substitute(model$cpp_obj <- obj_new))
-        model$cpp_obj <- obj_new
     }
     
     return(invisible(model))
@@ -1257,26 +1188,7 @@ unpack.isolation.forest <- function(model)  {
 #' each tree has, while `"terminal"` contains the number of terminal nodes per tree.
 #' @export
 get.num.nodes <- function(model)  {
-    if (!("isolation_forest" %in% class(model)))
-        stop("'model' must be an isolation forest model object as output by function 'isolation.forest'.")
-
-    if (check_null_ptr_model(model$cpp_obj$ptr)) {
-        obj_new <- model$cpp_obj
-        if (model$params$ndim == 1)
-            ptr_new <- deserialize_IsoForest(model$cpp_obj$serialized)
-        else
-            ptr_new <- deserialize_ExtIsoForest(model$cpp_obj$serialized)
-        obj_new$ptr <- ptr_new
-        
-        if (model$params$build_imputer) {
-            imp_new <- deserialize_Imputer(model$cpp_obj$imp_ser)
-            obj_new$imp_ptr <- imp_new
-        }
-        
-        eval.parent(substitute(model$cpp_obj <- obj_new))
-        model$cpp_obj <- obj_new
-    }
-
+    unpack.isolation.forest(model)
     return(get_n_nodes(model$cpp_obj$ptr, model$params$ndim > 1, model$nthreads))
 }
 
@@ -1578,25 +1490,7 @@ load.isotree.model <- function(file) {
 isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALSE, tree = NULL,
                            table_from = NULL, select_as = "outlier_score",
                            column_names = NULL, column_names_categ = NULL) {
-    if (!("isolation_forest" %in% class(model)))
-        stop("'model' must be an isolation forest model.")
-    
-    if (check_null_ptr_model(model$cpp_obj$ptr)) {
-        obj_new <- model$cpp_obj
-        if (model$params$ndim == 1)
-            ptr_new <- deserialize_IsoForest(model$cpp_obj$serialized)
-        else
-            ptr_new <- deserialize_ExtIsoForest(model$cpp_obj$serialized)
-        obj_new$ptr <- ptr_new
-        
-        if (model$params$build_imputer) {
-            imp_new <- deserialize_Imputer(model$cpp_obj$imp_ser)
-            obj_new$imp_ptr <- imp_new
-        }
-        
-        eval.parent(substitute(model$cpp_obj <- obj_new))
-        model$cpp_obj <- obj_new
-    }
+    unpack.isolation.forest(model)
     
     allowed_enclose <- c("doublequotes", "squarebraces", "none")
     if (NROW(enclose) != 1L)
@@ -1712,25 +1606,7 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
 #' @return A new `isolation_forest` object, with deep-copied C++ objects.
 #' @export
 deepcopy.isotree <- function(model) {
-    if (!("isolation_forest" %in% class(model)))
-        stop("'deepcopy.isotree' is only applicable for isolation forest model objects.")
-    if (check_null_ptr_model(model$cpp_obj$ptr)) {
-        obj_new <- model$cpp_obj
-        if (model$params$ndim == 1)
-            ptr_new <- deserialize_IsoForest(model$cpp_obj$serialized)
-        else
-            ptr_new <- deserialize_ExtIsoForest(model$cpp_obj$serialized)
-        obj_new$ptr <- ptr_new
-        
-        if (model$params$build_imputer) {
-            imp_new <- deserialize_Imputer(model$cpp_obj$imp_ser)
-            obj_new$imp_ptr <- imp_new
-        }
-        
-        eval.parent(substitute(model$cpp_obj <- obj_new))
-        model$cpp_obj <- obj_new
-    }
-    
+    unpack.isolation.forest(model)
     new_pointers <- copy_cpp_objects(model$cpp_obj$ptr, model$params$ndim > 1,
                                      model$cpp_obj$imputer_ptr, !is.null(model$cpp_obj$imputer_ptr))
     new_model <- model
