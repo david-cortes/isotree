@@ -72,10 +72,17 @@
     so it's not enough to just include 'isotree_exportable.hpp' and let
     the templates be instantiated elsewhere. */
 
+#define throw_mem_err() Rcpp::stop("Error: insufficient memory. Try smaller sample sizes and fewer trees.\n")
 
 SEXP alloc_RawVec(void *data)
 {
     return Rcpp::RawVector(*(size_t*)data);
+}
+
+SEXP safe_copy_vec(void *data)
+{
+    std::vector<double> *vec = (std::vector<double>*)data;
+    return Rcpp::NumericVector(vec->begin(), vec->end());
 }
 
 /* for model serialization and re-usage in R */
@@ -308,7 +315,9 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     if (build_imputer)
         imputer_ptr    =  std::unique_ptr<Imputer>(new Imputer());
 
-    int ret_val = 
+    int ret_val;
+    try {
+    ret_val = 
     fit_iforest(model_ptr.get(), ext_model_ptr.get(),
                 numeric_data_ptr,  ncols_numeric,
                 categ_data_ptr,    ncols_categ,    ncat_ptr,
@@ -327,6 +336,10 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                 all_perm, imputer_ptr.get(), min_imp_obs,
                 depth_imp_C, weigh_imp_rows_C, output_imputations,
                 (uint64_t) random_seed, nthreads);
+    }
+    catch (std::bad_alloc &e) {
+        throw_mem_err();
+    }
     Rcpp::checkUserInterrupt();
 
     if (ret_val == EXIT_FAILURE)
@@ -339,10 +352,15 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
 
     bool serialization_failed = false;
     Rcpp::RawVector serialized_obj;
-    if (ndim == 1)
-        serialized_obj  =  serialize_cpp_obj(model_ptr.get());
-    else
-        serialized_obj  =  serialize_cpp_obj(ext_model_ptr.get());
+    try {
+        if (ndim == 1)
+            serialized_obj  =  serialize_cpp_obj(model_ptr.get());
+        else
+            serialized_obj  =  serialize_cpp_obj(ext_model_ptr.get());
+    }
+    catch (std::bad_alloc &e) {
+        throw_mem_err();
+    }
     if (!serialized_obj.size()) serialization_failed = true;
     if (serialization_failed) {
         if (ndim == 1)
@@ -369,7 +387,12 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
 
     if (build_imputer && !serialization_failed)
     {
-        outp["imputer_ser"] =  serialize_cpp_obj(imputer_ptr.get());
+        try {
+            outp["imputer_ser"] =  serialize_cpp_obj(imputer_ptr.get());
+        }
+        catch (std::bad_alloc &e) {
+            throw_mem_err();
+        }
         if (!Rf_xlength(outp["imputer_ser"]))
         {
             serialization_failed = true;
@@ -386,7 +409,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
 
     if (output_imputations && !serialization_failed)
     {
-        outp["imputed_num"] = Rcpp::NumericVector(Xcpp.begin(), Xcpp.end());
+        outp["imputed_num"] = Rcpp::unwindProtect(safe_copy_vec, (void*)&Xcpp);
         outp["imputed_cat"] = X_cat;
     }
 

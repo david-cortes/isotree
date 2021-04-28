@@ -190,7 +190,7 @@ class IsolationForest:
 
         Compared to a pooled average, this tends to result in more cases in which a single observation or very few of them
         are put into one branch. Recommended to use sub-samples (parameter 'sample_size') when passing this parameter.
-        Note that, since this will created isolated nodes faster, the resulting object will be lighter (use less memory).
+        Note that, since this will create isolated nodes faster, the resulting object will be lighter (use less memory).
         
         When splits are
         not made according to any of 'prob_pick_avg_gain', 'prob_pick_pooled_gain', 'prob_split_avg_gain',

@@ -134,7 +134,7 @@ split point in the chosen linear combination of variables will be decided by thi
 }
 Compared to a pooled average, this tends to result in more cases in which a single observation or very few of them
 are put into one branch. Recommended to use sub-samples (parameter `sample_size`) when passing this parameter.
-Note that, since this will created isolated nodes faster, the resulting object will be lighter (use less memory).
+Note that, since this will create isolated nodes faster, the resulting object will be lighter (use less memory).
 When splits are not made according to any of `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_split_avg_gain`,
 `prob_split_pooled_gain`, both the column and the split point are decided at random. Default setting for 
 references [1], [2], [3] is zero, and default for reference [4] is 1. This is the randomization parameter
@@ -382,7 +382,7 @@ This version adds heuristics to handle missing data and categorical variables. C
 distances by checking the depth after which two observations become separated, and to approximate densities by fitting
 trees beyond balanced-tree limit. Offers options to vary between randomized and deterministic splits too.
 
-Important: The default parameters in this software do not correspond to the suggested parameters in
+\bold{Important:} The default parameters in this software do not correspond to the suggested parameters in
 any of the references.
 In particular, the following default values are likely to cause huge differences when compared to the
 defaults in other software: `ndim`, `sample_size`, `ntrees`. The defaults here are
@@ -521,6 +521,8 @@ Z4 <- predict(iso_fcf, space_d)
 plot.space(Z4, "Fair-Cut Forest")
 par(oldpar)
 
+### (As another interesting variation, try setting
+###  'penalize_range=TRUE' for the last model)
 
 ### Example 3: calculating pairwise distances,
 ### with a short validation against euclidean dist.

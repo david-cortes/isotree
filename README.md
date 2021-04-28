@@ -65,11 +65,11 @@ The model can also be used to impute missing values in a similar fashion as kNN,
 There's already many available implementations of isolation forests for both Python and R (such as [the one from the original paper's authors'](https://sourceforge.net/projects/iforest/) or [the one in SciKit-Learn](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html)), but at the time of writing, all of them are lacking some important functionality and/or offer sub-optimal speed. This particular implementation offers the following:
 
 * Implements the extended model (with splitting hyperplanes) and split-criterion model (with non-random splits).
+* Can handle missing values (but performance with them is not so good).
+* Can handle categorical variables (one-hot/dummy encoding does not produce the same result).
 * Can use a mixture of random and non-random splits, and can split by weighted/pooled gain (in addition to simple average).
 * Can produce approximated pairwise distances between observations according to how many steps it takes on average to separate them down the tree.
-* Can handle missing values (but performance with them is not so good).
 * Can produce missing value imputations according to observations that fall on each terminal node.
-* Can handle categorical variables (one-hot/dummy encoding does not produce the same result).
 * Can work with sparse matrices.
 * Supports sample/observation weights, either as sampling importance or as distribution density measurement.
 * Supports user-provided column sample weights.
@@ -88,6 +88,11 @@ There's already many available implementations of isolation forests for both Pyt
 ```python
 pip install isotree
 ```
+or if that fails:
+which will make the package fail to import. To avoid PEP517, install with:
+```
+pip install --no-use-pep517 isotree
+```
 
 **Note for macOS users:** on macOS, the Python version of this package will compile **without** multi-threading capabilities. This is due to default apple's redistribution of `clang` not providing OpenMP modules, and aliasing it to `gcc` which causes confusions in build scripts. If you have a non-apple version of `clang` with the OpenMP modules, or if you have `gcc` installed, you can compile this package with multi-threading enabled by setting up an environment variable `ENABLE_OMP=1`:
 ```
@@ -95,11 +100,6 @@ export ENABLE_OMP=1
 pip install isotree
 ```
 (Alternatively, can also pass argument `enable-omp` to the `setup.py` file: `python setup.py install enable-omp`)
-
-**Note2:** the setup script uses a PEP517 environment, which means it will create an isolated virtual environment, install its build dependencies there, compile, and then copy to the actual environment. This can causes issues - for example, if one has NumPy<1.20 and the build environment installs NumPy>=1.20, there will be a binary incompatibility which will make the package fail to import. To avoid PEP517, install with:
-```
-pip install --no-use-pep517 isotree
-```
 
 * R:
 
@@ -184,22 +184,23 @@ cat("Point with highest outlier score: ",
 
 See file [isotree_cpp_ex.cpp](https://github.com/david-cortes/isotree/blob/master/example/isotree_cpp_ex.cpp).
 
+* Ruby
+
+See [external repository with wrapper](https://github.com/ankane/isotree).
 
 # Examples
 
 * Python: example notebook [here](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb), (also example as imputer in sklearn pipeline [here](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb)).
 * R: examples available in the documentation (`help(isotree::isolation.forest)`, [link to CRAN](https://cran.r-project.org/web/packages/isotree/index.html)).
 * C++: see short example in the section above.
+* Ruby: see [external repository with wrapper](https://github.com/ankane/isotree).
 
 # Documentation
 
 * Python: documentation is available at [ReadTheDocs](http://isotree.readthedocs.io/en/latest/).
 * R: documentation is available internally in the package (e.g. `help(isolation.forest)`) and in [CRAN](https://cran.r-project.org/web/packages/isotree/index.html).
 * C++: documentation is available in the public header (`include/isotree.hpp`) and in the source files.
-
-# Known issues
-
-When setting a random seed and using more than one thread, the results of the imputation functions are not 100% reproducible to the last decimal. This is due to parallelized aggregations, and thus the only "fix" is to limit oneself to only one thread. The trees themselves are however not affected by this, and neither is the isolation depth (main functionality of the package).
+* Ruby: see [external repository with wrapper](https://github.com/ankane/isotree) for the syntax and the [Python docs](http://isotree.readthedocs.io) for details about the parameters.
 
 # References
 
