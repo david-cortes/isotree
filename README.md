@@ -74,7 +74,7 @@ There's already many available implementations of isolation forests for both Pyt
 * Supports sample/observation weights, either as sampling importance or as distribution density measurement.
 * Supports user-provided column sample weights.
 * Can sample columns randomly with weights given by kurtosis.
-* Uses exact formula (not approximation as others do) for harmonic numbers at lower sample and remainder sizes.
+* Uses exact formula (not approximation as others do) for harmonic numbers at lower sample and remainder sizes, and a higher-order approximation for larger sizes.
 * Can fit trees incrementally to user-provided data samples.
 * Produces serializable model objects with reasonable file sizes.
 * Can translate the generated trees into SQL statements.

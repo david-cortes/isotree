@@ -307,6 +307,10 @@
 #' distribution density (i.e. if the weight is two, it has the same effect of including the same data
 #' point twice), according to parameter `weights_as_sample_prob`. Not supported when calculating pairwise
 #' distances while the model is being fit (done by passing `output_dist` = `TRUE`).
+#' 
+#' If `df` is a `data.frame` and the variable passed here matches to the name of a column in `df`
+#' (with or without enclosing `sample_weights` in quotes), it will assume the weights are to be
+#' taken as that column name.
 #' @param column_weights Sampling weights for each column in `df`. Ignored when picking columns by deterministic criterion.
 #' If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
 #' Note that, if passing a data.frame with both numeric and categorical columns, the column names must
@@ -649,6 +653,19 @@ isolation.forest <- function(df,
     if (sample_size > NROW(df)) stop("'sample_size' cannot be greater then the number of rows in 'df'.")
 
     categ_cols <- check.categ.cols(categ_cols)
+
+    if (is.data.frame(df)) {
+        if (head(as.character(substitute(sample_weights)), 1L) %in% names(df)) {
+            sample_weights <- head(as.character(substitute(sample_weights)), 1L)
+        }
+        if (!is.null(sample_weights) && is.character(sample_weights) && (sample_weights %in% names(df))) {
+            temp <- df[[sample_weights]]
+            df <- df[, setdiff(names(df), sample_weights)]
+            sample_weights <- temp
+            if (!NCOL(df))
+                stop("'df' has no non-weight columns.")
+        }
+    }
     
     if (!is.null(sample_weights)) check.is.1d(sample_weights, "sample_weights")
     if (!is.null(column_weights)) check.is.1d(column_weights, "column_weights")

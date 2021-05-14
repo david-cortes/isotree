@@ -336,7 +336,11 @@ p(i, j) = ((i - 1) * (n - i/2) + j - i).}
 probability (i.e. the observation has a larger effect on the fitted model, if using sub-samples), or
 distribution density (i.e. if the weight is two, it has the same effect of including the same data
 point twice), according to parameter `weights_as_sample_prob`. Not supported when calculating pairwise
-distances while the model is being fit (done by passing `output_dist` = `TRUE`).}
+distances while the model is being fit (done by passing `output_dist` = `TRUE`).
+
+If `df` is a `data.frame` and the variable passed here matches to the name of a column in `df`
+(with or without enclosing `sample_weights` in quotes), it will assume the weights are to be
+taken as that column name.}
 
 \item{column_weights}{Sampling weights for each column in `df`. Ignored when picking columns by deterministic criterion.
 If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
