@@ -2345,7 +2345,7 @@ class IsolationForest:
             "cols_numeric" : list(self.cols_numeric_),
             "cols_categ" : list(self.cols_categ_),
             "cat_levels" : [list(m) for m in self._cat_mapping],
-            "categ_cols" : list(self.categ_cols),
+            "categ_cols" : [] if self.categ_cols is None else list(self.categ_cols),
             "categ_max" : list(self._cat_max_lev)
         }
 
