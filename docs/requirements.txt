@@ -4,3 +4,4 @@ cython
 scipy
 cycereal
 Sphinx>=3.2.1
+docutils==0.16
