@@ -2332,8 +2332,24 @@ class IsolationForest:
             return out[0]
         return out
 
+    ### https://github.com/numpy/numpy/issues/19069
+    def _is_np_int(self, el):
+        return (
+            np.issubdtype(el.__class__, int) or
+            np.issubdtype(el.__class__, np.int8) or
+            np.issubdtype(el.__class__, np.int16) or
+            np.issubdtype(el.__class__, np.int16) or
+            np.issubdtype(el.__class__, np.int32) or
+            np.issubdtype(el.__class__, np.int64) or
+            np.issubdtype(el.__class__, np.uint8) or
+            np.issubdtype(el.__class__, np.uint16) or
+            np.issubdtype(el.__class__, np.uint16) or
+            np.issubdtype(el.__class__, np.uint32) or
+            np.issubdtype(el.__class__, np.uint64)
+        )
+
     def _denumpify_list(self, lst):
-        return [int(el) if np.issubdtype(el.__class__, np.int) else el for el in lst]
+        return [int(el) if self._is_np_int(el) else el for el in lst]
 
     def _export_metadata(self):
         if (self.max_depth is not None) and (self.max_depth != "auto"):
@@ -2356,6 +2372,8 @@ class IsolationForest:
         data_info["categ_max"] = self._denumpify_list(data_info["categ_max"])
         if len(data_info["cat_levels"]):
             data_info["cat_levels"] = [self._denumpify_list(lst) for lst in data_info["cat_levels"]]
+        if len(data_info["categ_cols"]):
+            data_info["categ_cols"] = self._denumpify_list(data_info["categ_cols"])
 
         model_info = {
             "ndim" : int(self.ndim),
