@@ -1257,6 +1257,10 @@ class IsolationForest:
             if self.categ_cols is None:
                 ncat = np.array([self._cat_mapping[cl].shape[0] for cl in range(X_cat.shape[1])], dtype = ctypes.c_int)
             else:
+                if self._cat_max_lev is None:
+                    self._cat_max_lev = []
+                if not isinstance(self._cat_max_lev, np.ndarray):
+                    self._cat_max_lev = np.array(self._cat_max_lev)
                 ncat = self._cat_max_lev + 1
                 if ncat.dtype != ctypes.c_int:
                     ncat = ncat.astype(ctypes.c_int)
@@ -2336,6 +2340,7 @@ class IsolationForest:
     def _is_np_int(self, el):
         return (
             np.issubdtype(el.__class__, int) or
+            np.issubdtype(el.__class__, np.integer) or
             np.issubdtype(el.__class__, np.int8) or
             np.issubdtype(el.__class__, np.int16) or
             np.issubdtype(el.__class__, np.int16) or
@@ -2362,7 +2367,7 @@ class IsolationForest:
             "cols_categ" : list(self.cols_categ_),
             "cat_levels" : [list(m) for m in self._cat_mapping],
             "categ_cols" : [] if self.categ_cols is None else list(self.categ_cols),
-            "categ_max" : list(self._cat_max_lev)
+            "categ_max" : [] if self._cat_max_lev is None else list(self._cat_max_lev)
         }
 
         ### Beaware of np.int64, which looks like a Python integer but is not accepted by json
@@ -2421,7 +2426,7 @@ class IsolationForest:
         self.cols_categ_ = np.array(metadata["data_info"]["cols_categ"])
         self._cat_mapping = [np.array(lst) for lst in metadata["data_info"]["cat_levels"]]
         self.categ_cols = np.array(metadata["data_info"]["categ_cols"]).reshape(-1).astype(int) if len(metadata["data_info"]["categ_cols"]) else None
-        self._cat_max_lev = np.array(metadata["data_info"]["categ_max"]).reshape(-1).astype(int) if (self.categ_cols is not None) else None
+        self._cat_max_lev = np.array(metadata["data_info"]["categ_max"]).reshape(-1).astype(int) if (self.categ_cols is not None) else []
 
         self.ndim = metadata["model_info"]["ndim"]
         self.nthreads = metadata["model_info"]["nthreads"]
