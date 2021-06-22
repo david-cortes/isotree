@@ -148,6 +148,16 @@ typedef void (*sig_t_)(int);
     #define size_t_for size_t
 #endif
 
+#if defined(_FOR_R) || defined(_FOR_PYTHON) || !defined(_WIN32)
+    #define ISOTREE_EXPORTED 
+#else
+    #ifdef ISOTREE_COMPILE_TME
+        #define ISOTREE_EXPORTED __declspec(dllexport)
+    #else
+        #define ISOTREE_EXPORTED __declspec(dllimport)
+    #endif 
+#endif
+
 
 /*   Apple at some point decided to drop OMP library and headers from its compiler distribution
 *    and to alias 'gcc' to 'clang', which work differently when given flags they cannot interpret,
@@ -1162,39 +1172,39 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                                  mapping w);
 
 /* merge_models.cpp */
-void merge_models(IsoForest*     model,      IsoForest*     other,
+ISOTREE_EXPORTED void merge_models(IsoForest*     model,      IsoForest*     other,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                   Imputer*       imputer,    Imputer*       iother);
 
 #if defined(_ENABLE_CEREAL) || defined(_FOR_PYTHON)
 /* serialize.cpp */
-void serialize_isoforest(IsoForest &model, std::ostream &output);
-void serialize_isoforest(IsoForest &model, const char *output_file_path);
-std::string serialize_isoforest(IsoForest &model);
-void deserialize_isoforest(IsoForest &output_obj, std::istream &serialized);
-void deserialize_isoforest(IsoForest &output_obj, const char *input_file_path);
-void deserialize_isoforest(IsoForest &output_obj, std::string &serialized, bool move_str);
-void serialize_ext_isoforest(ExtIsoForest &model, std::ostream &output);
-void serialize_ext_isoforest(ExtIsoForest &model, const char *output_file_path);
-std::string serialize_ext_isoforest(ExtIsoForest &model);
-void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::istream &serialized);
-void deserialize_ext_isoforest(ExtIsoForest &output_obj, const char *input_file_path);
-void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::string &serialized, bool move_str);
-void serialize_imputer(Imputer &imputer, std::ostream &output);
-void serialize_imputer(Imputer &imputer, const char *output_file_path);
-std::string serialize_imputer(Imputer &imputer);
-void deserialize_imputer(Imputer &output_obj, std::istream &serialized);
-void deserialize_imputer(Imputer &output_obj, const char *input_file_path);
-void deserialize_imputer(Imputer &output_obj, std::string &serialized, bool move_str);
+ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, std::ostream &output);
+ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, const char *output_file_path);
+ISOTREE_EXPORTED std::string serialize_isoforest(IsoForest &model);
+ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, std::istream &serialized);
+ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, const char *input_file_path);
+ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, std::string &serialized, bool move_str);
+ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, std::ostream &output);
+ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, const char *output_file_path);
+ISOTREE_EXPORTED std::string serialize_ext_isoforest(ExtIsoForest &model);
+ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::istream &serialized);
+ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, const char *input_file_path);
+ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::string &serialized, bool move_str);
+ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, std::ostream &output);
+ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, const char *output_file_path);
+ISOTREE_EXPORTED std::string serialize_imputer(Imputer &imputer);
+ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, std::istream &serialized);
+ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, const char *input_file_path);
+ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, std::string &serialized, bool move_str);
 #ifdef _MSC_VER
-void serialize_isoforest(IsoForest &model, const wchar_t *output_file_path);
-void deserialize_isoforest(IsoForest &output_obj, const wchar_t *input_file_path);
-void serialize_ext_isoforest(ExtIsoForest &model, const wchar_t *output_file_path);
-void deserialize_ext_isoforest(ExtIsoForest &output_obj, const wchar_t *input_file_path);
-void serialize_imputer(Imputer &imputer, const wchar_t *output_file_path);
-void deserialize_imputer(Imputer &output_obj, const wchar_t *input_file_path);
+ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, const wchar_t *output_file_path);
+ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, const wchar_t *input_file_path);
+ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, const wchar_t *output_file_path);
+ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, const wchar_t *input_file_path);
+ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, const wchar_t *output_file_path);
+ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, const wchar_t *input_file_path);
 #endif /* _MSC_VER */
-bool has_msvc();
+ISOTREE_EXPORTED bool has_msvc();
 #ifdef _FOR_PYTHON
 void serialize_isoforest(IsoForest &model, void *output_file_path);
 void deserialize_isoforest(IsoForest &output_obj, void *input_file_path);
@@ -1208,12 +1218,12 @@ bool has_cereal();
 #endif /* _ENABLE_CEREAL || _FOR_PYTON */
 
 /* sql.cpp */
-std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+ISOTREE_EXPORTED std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                       std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
                                       std::vector<std::vector<std::string>> &categ_levels,
                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
                                       int nthreads);
-std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+ISOTREE_EXPORTED std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                           std::string &table_from, std::string &select_as,
                                           std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
                                           std::vector<std::vector<std::string>> &categ_levels,

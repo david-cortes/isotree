@@ -67,12 +67,18 @@
     #define sparse_ix size_t  /* supported: int, int64_t, size_t */
 #endif
 
+#ifndef ISOTREE_H
+#define ISOTREE_H
+
 #ifndef _ENABLE_CEREAL
 #define _ENABLE_CEREAL
 #endif
 
-#ifndef ISOTREE_H
-#define ISOTREE_H
+#ifdef _WIN32
+    #define ISOTREE_EXPORTED __declspec(dllimport)
+#else
+    #define ISOTREE_EXPORTED 
+#endif
 
 
 /* Types used through the package */
@@ -586,7 +592,7 @@ typedef struct Imputer {
 * [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
 * [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 */
-int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+ISOTREE_EXPORTED int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 real_t numeric_data[],  size_t ncols_numeric,
                 int    categ_data[],    size_t ncols_categ,    int ncat[],
                 real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
@@ -745,7 +751,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - random_seed
 *       Seed that will be used to generate random numbers used by the model.
 */
-int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+ISOTREE_EXPORTED int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              real_t numeric_data[],  size_t ncols_numeric,
              int    categ_data[],    size_t ncols_categ,    int ncat[],
              real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
@@ -857,7 +863,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       when passing this parameter, and as such, there will be some overhead regardless of
 *       the actual number of rows. Pass NULL if only average depths or outlier scores are desired.
 */
-void predict_iforest(real_t numeric_data[], int categ_data[],
+ISOTREE_EXPORTED void predict_iforest(real_t numeric_data[], int categ_data[],
                      bool is_col_major, size_t ncols_numeric, size_t ncols_categ,
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
@@ -882,8 +888,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
 * - nthreads
 *       Number of parallel threads to use.
 */
-void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads);
-void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads);
+ISOTREE_EXPORTED void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads);
+ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads);
 
 
 
@@ -977,7 +983,7 @@ void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n
 *       assumed to be the first 'n_from' rows.
 *       Ignored when 'tmat' is passed.
 */
-void calc_similarity(real_t numeric_data[], int categ_data[],
+ISOTREE_EXPORTED void calc_similarity(real_t numeric_data[], int categ_data[],
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -1050,7 +1056,7 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
 *       Pointer to fitted imputation node obects for the same trees as in 'model_outputs' or 'model_outputs_ext',
 *       as produced from function 'fit_iforest',
 */
-void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
+ISOTREE_EXPORTED void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
                            real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                            size_t nrows, int nthreads,
                            IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -1108,7 +1114,7 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
 *       hyperparameters after the merge).
 *       Pass NULL if this is not to be used.
 */
-void merge_models(IsoForest*     model,      IsoForest*     other,
+ISOTREE_EXPORTED void merge_models(IsoForest*     model,      IsoForest*     other,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                   Imputer*       imputer,    Imputer*       iother);
 
@@ -1154,33 +1160,33 @@ void merge_models(IsoForest*     model,      IsoForest*     other,
 *       'true', the input string will be rendered empty afterwards.
 */
 #ifdef _ENABLE_CEREAL
-void serialize_isoforest(IsoForest &model, std::ostream &output);
-void serialize_isoforest(IsoForest &model, const char *output_file_path);
-std::string serialize_isoforest(IsoForest &model);
-void deserialize_isoforest(IsoForest &output_obj, std::istream &serialized);
-void deserialize_isoforest(IsoForest &output_obj, const char *input_file_path);
-void deserialize_isoforest(IsoForest &output_obj, std::string &serialized, bool move_str);
-void serialize_ext_isoforest(ExtIsoForest &model, std::ostream &output);
-void serialize_ext_isoforest(ExtIsoForest &model, const char *output_file_path);
-std::string serialize_ext_isoforest(ExtIsoForest &model);
-void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::istream &serialized);
-void deserialize_ext_isoforest(ExtIsoForest &output_obj, const char *input_file_path);
-void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::string &serialized, bool move_str);
-void serialize_imputer(Imputer &imputer, std::ostream &output);
-void serialize_imputer(Imputer &imputer, const char *output_file_path);
-std::string serialize_imputer(Imputer &imputer);
-void deserialize_imputer(Imputer &output_obj, std::istream &serialized);
-void deserialize_imputer(Imputer &output_obj, const char *input_file_path);
-void deserialize_imputer(Imputer &output_obj, std::string &serialized, bool move_str);
+ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, std::ostream &output);
+ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, const char *output_file_path);
+ISOTREE_EXPORTED std::string serialize_isoforest(IsoForest &model);
+ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, std::istream &serialized);
+ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, const char *input_file_path);
+ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, std::string &serialized, bool move_str);
+ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, std::ostream &output);
+ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, const char *output_file_path);
+ISOTREE_EXPORTED std::string serialize_ext_isoforest(ExtIsoForest &model);
+ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::istream &serialized);
+ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, const char *input_file_path);
+ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::string &serialized, bool move_str);
+ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, std::ostream &output);
+ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, const char *output_file_path);
+ISOTREE_EXPORTED std::string serialize_imputer(Imputer &imputer);
+ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, std::istream &serialized);
+ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, const char *input_file_path);
+ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, std::string &serialized, bool move_str);
 #ifdef _MSC_VER
-void serialize_isoforest(IsoForest &model, const wchar_t *output_file_path);
-void deserialize_isoforest(IsoForest &output_obj, const wchar_t *input_file_path);
-void serialize_ext_isoforest(ExtIsoForest &model, const wchar_t *output_file_path);
-void deserialize_ext_isoforest(ExtIsoForest &output_obj, const wchar_t *input_file_path);
-void serialize_imputer(Imputer &imputer, const wchar_t *output_file_path);
-void deserialize_imputer(Imputer &output_obj, const wchar_t *input_file_path);
+ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, const wchar_t *output_file_path);
+ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, const wchar_t *input_file_path);
+ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, const wchar_t *output_file_path);
+ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, const wchar_t *input_file_path);
+ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, const wchar_t *output_file_path);
+ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, const wchar_t *input_file_path);
 #endif /* _MSC_VER */
-bool has_msvc();
+ISOTREE_EXPORTED bool has_msvc();
 #endif /* _ENABLE_CEREAL */
 
 
@@ -1222,7 +1228,7 @@ bool has_msvc();
 * A string with the corresponding SQL statement that will calculate the outlier score
 * from the model.
 */
-std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+ISOTREE_EXPORTED std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                           std::string &table_from, std::string &select_as,
                                           std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
                                           std::vector<std::vector<std::string>> &categ_levels,
@@ -1272,7 +1278,7 @@ std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest
 * in 'tree_num'. The statements will be node-by-node, with commented-out separators using '---'
 * as delimiters and including the node number as part of the comment.
 */
-std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+ISOTREE_EXPORTED std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                       std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
                                       std::vector<std::vector<std::string>> &categ_levels,
                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,

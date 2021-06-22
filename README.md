@@ -89,7 +89,6 @@ There's already many available implementations of isolation forests for both Pyt
 pip install isotree
 ```
 or if that fails:
-which will make the package fail to import. To avoid PEP517, install with:
 ```
 pip install --no-use-pep517 isotree
 ```

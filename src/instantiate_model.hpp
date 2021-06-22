@@ -43,7 +43,7 @@
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+ISOTREE_EXPORTED int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 real_t numeric_data[],  size_t ncols_numeric,
                 int    categ_data[],    size_t ncols_categ,    int ncat[],
                 real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
@@ -84,7 +84,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 depth_imp, weigh_imp_rows, impute_at_fit,
                 random_seed, nthreads);
 }
-int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+ISOTREE_EXPORTED int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              real_t numeric_data[],  size_t ncols_numeric,
              int    categ_data[],    size_t ncols_categ,    int ncat[],
              real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
@@ -119,7 +119,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              all_perm, impute_nodes, min_imp_obs,
              random_seed);
 }
-void predict_iforest(real_t numeric_data[], int categ_data[],
+ISOTREE_EXPORTED void predict_iforest(real_t numeric_data[], int categ_data[],
                      bool is_col_major, size_t ncols_numeric, size_t ncols_categ,
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
@@ -136,7 +136,7 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
                      model_outputs, model_outputs_ext,
                      output_depths,   tree_num);
 }
-void calc_similarity(real_t numeric_data[], int categ_data[],
+ISOTREE_EXPORTED void calc_similarity(real_t numeric_data[], int categ_data[],
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -149,7 +149,7 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
                      model_outputs, model_outputs_ext,
                      tmat, rmat, n_from);
 }
-void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
+ISOTREE_EXPORTED void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
                            real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                            size_t nrows, int nthreads,
                            IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -164,11 +164,11 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
 }
 
 #ifndef _NO_REAL_T
-void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads)
+ISOTREE_EXPORTED void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads)
 {
     get_num_nodes<sparse_ix>(model_outputs, n_nodes, n_terminal, nthreads);
 }
-void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads)
+ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads)
 {
     get_num_nodes<sparse_ix>(model_outputs, n_nodes, n_terminal, nthreads);
 }

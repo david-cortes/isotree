@@ -9,11 +9,11 @@ set(SRC_FILES ${PROJECT_SOURCE_DIR}/src/instantiate_model.cpp
               ${PROJECT_SOURCE_DIR}/src/merge_models.cpp
               ${PROJECT_SOURCE_DIR}/src/serialize.cpp
               ${PROJECT_SOURCE_DIR}/src/sql.cpp)
-set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 set(BUILD_SHARED_LIBS True)
 add_library(isotree SHARED ${SRC_FILES})
 target_include_directories(isotree PRIVATE ${PROJECT_SOURCE_DIR}/src)
 set_target_properties(isotree PROPERTIES PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/isotree.hpp)
+add_compile_definitions(ISOTREE_COMPILE_TME)
 
 ## omit this line to use the system's default RNG engine
 add_compile_definitions(_USE_MERSENNE_TWISTER)
