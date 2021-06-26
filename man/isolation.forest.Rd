@@ -6,7 +6,7 @@
 \usage{
 isolation.forest(
   df,
-  sample_size = NROW(df),
+  sample_size = min(NROW(df), 10000L),
   ntrees = 500,
   ndim = min(3, NCOL(df)),
   ntry = 3,
@@ -61,10 +61,15 @@ Other input and column types are not supported.}
 
 \item{sample_size}{Sample size of the data sub-samples with which each binary tree will be built.
 Recommended value in references [1], [2], [3], [4] is 256, while the default value in the author's code in reference [5] is
-`NROW(df)` (same as in here).
+`nrow(df)`.
+
+If passing `NULL`, will take the full number of rows in the data (no sub-sampling).
 
 If passing a number between zero and one, will assume it means taking a sample size that represents
 that proportion of the rows in the data.
+
+Note that sub-sampling is incompatible with `output_score`, `output_dist`, and `output_imputations`,
+and if any of those options is requested, `sample_size` will be overriden.
 
 Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
 model needs more trees and/or bigger samples to reach convergence (unless using non-random
@@ -301,7 +306,10 @@ inside the model are treated differently and follow their own imputation or divi
 
 \item{output_imputations}{Whether to output imputed missing values for `df`. Passing `TRUE` here will force
 `build_imputer` to `TRUE`. Note that, for sparse matrix inputs, even though the output will be sparse, it will
-generate a dense representation of each row with missing values.}
+generate a dense representation of each row with missing values.
+
+This is not supported when using sub-sampling, and if sub-sampling is specified, will override it
+using the full number of rows.}
 
 \item{min_imp_obs}{Minimum number of observations with which an imputation value can be produced. Ignored if passing
 `build_imputer` = `FALSE`.}
@@ -321,12 +329,18 @@ and not recommended to change from the default. Ignored when passing `build_impu
 \item{output_score}{Whether to output outlierness scores for the input data, which will be calculated as
 the model is being fit and it's thus faster. Cannot be done when using sub-samples of the data for each tree
 (in such case will later need to call the `predict` function on the same data). If using `penalize_range`, the
-results from this might differet a bit from those of `predict` called after.}
+results from this might differet a bit from those of `predict` called after.
+
+This is not supported when using sub-sampling, and if sub-sampling is specified, will override it
+using the full number of rows.}
 
 \item{output_dist}{Whether to output pairwise distances for the input data, which will be calculated as
 the model is being fit and it's thus faster. Cannot be done when using sub-samples of the data for each tree
 (in such case will later need to call the `predict` function on the same data). If using `penalize_range`, the
-results from this might differ a bit from those of `predict` called after.}
+results from this might differ a bit from those of `predict` called after.
+
+This is not supported when using sub-sampling, and if sub-sampling is specified, will override it
+using the full number of rows.}
 
 \item{square_dist}{If passing `output_dist` = `TRUE`, whether to return a full square matrix or
 just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position

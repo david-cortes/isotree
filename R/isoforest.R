@@ -63,10 +63,15 @@
 #' Other input and column types are not supported.
 #' @param sample_size Sample size of the data sub-samples with which each binary tree will be built.
 #' Recommended value in references [1], [2], [3], [4] is 256, while the default value in the author's code in reference [5] is
-#' `NROW(df)` (same as in here).
+#' `nrow(df)`.
+#' 
+#' If passing `NULL`, will take the full number of rows in the data (no sub-sampling).
 #' 
 #' If passing a number between zero and one, will assume it means taking a sample size that represents
 #' that proportion of the rows in the data.
+#' 
+#' Note that sub-sampling is incompatible with `output_score`, `output_dist`, and `output_imputations`,
+#' and if any of those options is requested, `sample_size` will be overriden.
 #' 
 #' Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
 #' model needs more trees and/or bigger samples to reach convergence (unless using non-random
@@ -279,6 +284,9 @@
 #' @param output_imputations Whether to output imputed missing values for `df`. Passing `TRUE` here will force
 #' `build_imputer` to `TRUE`. Note that, for sparse matrix inputs, even though the output will be sparse, it will
 #' generate a dense representation of each row with missing values.
+#' 
+#' This is not supported when using sub-sampling, and if sub-sampling is specified, will override it
+#' using the full number of rows.
 #' @param min_imp_obs Minimum number of observations with which an imputation value can be produced. Ignored if passing
 #' `build_imputer` = `FALSE`.
 #' @param depth_imp How to weight observations according to their depth when used for imputing missing values. Passing
@@ -295,10 +303,16 @@
 #' the model is being fit and it's thus faster. Cannot be done when using sub-samples of the data for each tree
 #' (in such case will later need to call the `predict` function on the same data). If using `penalize_range`, the
 #' results from this might differet a bit from those of `predict` called after.
+#' 
+#' This is not supported when using sub-sampling, and if sub-sampling is specified, will override it
+#' using the full number of rows.
 #' @param output_dist Whether to output pairwise distances for the input data, which will be calculated as
 #' the model is being fit and it's thus faster. Cannot be done when using sub-samples of the data for each tree
 #' (in such case will later need to call the `predict` function on the same data). If using `penalize_range`, the
 #' results from this might differ a bit from those of `predict` called after.
+#' 
+#' This is not supported when using sub-sampling, and if sub-sampling is specified, will override it
+#' using the full number of rows.
 #' @param square_dist If passing `output_dist` = `TRUE`, whether to return a full square matrix or
 #' just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 #' p(i, j) = ((i - 1) * (n - i/2) + j - i).
@@ -545,7 +559,7 @@
 #' }
 #' @export
 isolation.forest <- function(df,
-                             sample_size = NROW(df), ntrees = 500, ndim = min(3, NCOL(df)),
+                             sample_size = min(NROW(df), 10000L), ntrees = 500, ndim = min(3, NCOL(df)),
                              ntry = 3, categ_cols = NULL,
                              max_depth = ceiling(log2(sample_size)),
                              ncols_per_tree = NCOL(df),
@@ -564,6 +578,8 @@ isolation.forest <- function(df,
                              sample_weights = NULL, column_weights = NULL,
                              random_seed = 1, nthreads = parallel::detectCores()) {
     ### validate inputs
+    if (is.null(sample_size) || output_score || output_dist || output_imputations)
+        sample_size <- NROW(df)
     if (NROW(sample_size) != 1 || sample_size < 5) { stop("'sample_size' must be an integer >= 5.") }
     if (NROW(ncols_per_tree) != 1) { stop("'ncols_per_tree' must be an integer or proportion.") }
     if ((sample_size > 0) && (sample_size <= 1))
@@ -655,7 +671,8 @@ isolation.forest <- function(df,
     categ_cols <- check.categ.cols(categ_cols)
 
     if (is.data.frame(df)) {
-        if (head(as.character(substitute(sample_weights)), 1L) %in% names(df)) {
+        subst_sample_weights <- head(as.character(substitute(sample_weights)), 1L)
+        if (NROW(subst_sample_weights) && subst_sample_weights %in% names(df)) {
             sample_weights <- head(as.character(substitute(sample_weights)), 1L)
         }
         if (!is.null(sample_weights) && is.character(sample_weights) && (sample_weights %in% names(df))) {

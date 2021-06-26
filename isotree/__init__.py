@@ -4,6 +4,7 @@ import warnings
 import multiprocessing
 import ctypes
 import json
+import os
 from copy import deepcopy
 from ._cpp_interface import isoforest_cpp_obj, _sort_csc_indices, _reconstruct_csr_sliced, _reconstruct_csr_with_categ
 
@@ -113,10 +114,16 @@ class IsolationForest:
 
     Parameters
     ----------
-    sample_size : int, float(0,1), or None
+    sample_size : str "auto", int, float(0,1), or None
         Sample size of the data sub-samples with which each binary tree will be built. If passing 'None', each
         tree will be built using the full data. Recommended value in [1], [2], [3] is 256, while
         the default value in the author's code in [5] is 'None' here.
+
+        If passing "auto", will use the full number of rows in the data, up to 10,000 (i.e.
+        will take 'sample_size=min(nrows(X), 10000)') **when calling fit**, and the full amount
+        of rows in the data **when calling the variants** ``fit_predict`` or ``fit_transform``.
+
+        If passing ``None``, will take the full number of rows in the data (no sub-sampling).
 
         If passing a number between zero and one, will assume it means taking a sample size that represents
         that proportion of the rows in the data.
@@ -434,7 +441,7 @@ class IsolationForest:
            arXiv preprint arXiv:1911.06646 (2019).
     .. [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
     """
-    def __init__(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3,
+    def __init__(self, sample_size = "auto", ntrees = 500, ndim = 3, ntry = 3,
                  categ_cols = None, max_depth = "auto", ncols_per_tree = None,
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
                  prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
@@ -525,7 +532,7 @@ class IsolationForest:
                  build_imputer = False, min_imp_obs = 3,
                  depth_imp = "higher", weigh_imp_rows = "inverse",
                  random_seed = 1, nthreads = -1):
-        if sample_size is not None:
+        if (sample_size is not None) and (sample_size != "auto"):
             assert sample_size > 0
             if sample_size > 1:
                 assert isinstance(sample_size, int)
@@ -542,7 +549,7 @@ class IsolationForest:
         if (max_depth != "auto") and (max_depth is not None):
             assert max_depth > 0
             assert isinstance(max_depth, int)
-            if sample_size is not None:
+            if (sample_size is not None) and (sample_size != "auto"):
                 assert max_depth < sample_size
         assert ndim >= 1
         assert isinstance(ndim, int)
@@ -577,7 +584,7 @@ class IsolationForest:
             prob_split_avg_gain    /= s
             prob_split_pooled_gain /= s
 
-        if (ndim == 1) and (sample_size is None) and ((prob_pick_avg_gain >= 1) or (prob_pick_pooled_gain >= 1)) and (not sample_with_replacement):
+        if (ndim == 1) and ((sample_size is None) or (sample_size == "auto")) and ((prob_pick_avg_gain >= 1) or (prob_pick_pooled_gain >= 1)) and (not sample_with_replacement):
             msg  = "Passed parameters for deterministic single-variable splits"
             msg += " with no sub-sampling. "
             msg += "Every tree fitted will end up doing exactly the same splits. "
@@ -813,7 +820,11 @@ class IsolationForest:
             This object.
         """
         self._init(categ_cols)
-        if (self.sample_size is None) and (sample_weights is not None) and (self.weights_as_sample_prob):
+        if (
+                self.sample_size is None
+                and (sample_weights is not None)
+                and (self.weights_as_sample_prob)
+        ):
             raise ValueError("Sampling weights are only supported when using sub-samples for each tree.")
         if column_weights is not None and self.weigh_by_kurtosis:
             raise ValueError("Cannot pass column weights when weighting columns by kurtosis.")
@@ -822,10 +833,14 @@ class IsolationForest:
 
         if self.sample_size is None:
             sample_size = nrows
+        elif self.sample_size == "auto":
+            sample_size = min(nrows, 10000)
+            if (sample_weights is not None) and (self.weights_as_sample_prob):
+                raise ValueError("Sampling weights are only supported when using sub-samples for each tree.")
         elif self.sample_size < 1:
             sample_size = int(np.ceil(self.sample_size * nrows))
-            if sample_size == 1:
-                raise ValueError("Sampling proportion amounts to a single row.")
+            if sample_size <= 1:
+                raise ValueError("Sampling proportion amounts to a single row or less.")
         else:
             sample_size = self.sample_size
         if self.max_depth == "auto":
@@ -976,7 +991,7 @@ class IsolationForest:
             "imputed" (array-like(n_samples, n_columns)), according to whether each output type is present.
         """
         self._init(categ_cols)
-        if self.sample_size is not None:
+        if (self.sample_size is not None) and (self.sample_size != "auto"):
             raise ValueError("Cannot use 'fit_predict' when the sample size is limited.")
         if self.sample_with_replacement:
             raise ValueError("Cannot use 'fit_predict' or 'fit_transform' when sampling with replacement.")
@@ -1248,9 +1263,9 @@ class IsolationForest:
             raise ValueError("Input data has zero rows.")
         elif nrows < 2:
             raise ValueError("Input data must have at least 2 rows.")
-        elif self.sample_size is not None:
+        elif (self.sample_size is not None) and (self.sample_size != "auto"):
             if self.sample_size > nrows:
-                warnings.warn("Input data has fewer rows than sample_size, will decrease sample_size.")
+                warnings.warn("Input data has fewer rows than sample_size, will forego sub-sampling.")
                 self.sample_size = None
 
         if X_cat is not None:
@@ -1864,7 +1879,7 @@ class IsolationForest:
         imputed : array-like(n_samples, n_columns)
             Input data 'X' with missing values imputed according to the model.
         """
-        if self.sample_size is None:
+        if (self.sample_size is None) or (self.sample_size == "auto"):
             outp = self.fit_predict(X = X, column_weights = column_weights, output_imputed = True)
             return outp["imputed"]
         else:
@@ -2131,6 +2146,7 @@ class IsolationForest:
         .. [1] https://uscilab.github.io/cereal
         """
         assert self.is_fitted_
+        file = os.path.expanduser(file)
         metadata = self._export_metadata()
         with open(file + ".metadata", "w") as of:
             json.dump(metadata, of, indent=4)
@@ -2178,6 +2194,7 @@ class IsolationForest:
             An Isolation Forest model object reconstructed from the serialized file
             and ready to use.
         """
+        file = os.path.expanduser(file)
         obj = IsolationForest()
         metadata_file = file + ".metadata"
         with open(metadata_file, "r") as ff:

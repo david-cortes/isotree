@@ -22,6 +22,7 @@ build/
 *.dynlib
 *.pyd
 *.dll
+test
 isotree/cpp_interface.cpp
 
 
