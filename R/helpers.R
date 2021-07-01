@@ -517,7 +517,7 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE, 
             df@i   <-  df@i[order(df@i)]
 
             outp$Xr         <-  as.numeric(df@x)
-            outp$Xr_ind     <-  df@i - 1L
+            outp$Xr_ind     <-  as.integer(df@i - 1L)
             outp$Xr_indptr  <-  as.integer(c(0L, NROW(df@x)))
         } else {
             outp$X_num      <-  as.numeric(df)

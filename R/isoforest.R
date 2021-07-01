@@ -673,7 +673,7 @@ isolation.forest <- function(df,
     if (is.data.frame(df)) {
         subst_sample_weights <- head(as.character(substitute(sample_weights)), 1L)
         if (NROW(subst_sample_weights) && subst_sample_weights %in% names(df)) {
-            sample_weights <- head(as.character(substitute(sample_weights)), 1L)
+            sample_weights <- subst_sample_weights
         }
         if (!is.null(sample_weights) && is.character(sample_weights) && (sample_weights %in% names(df))) {
             temp <- df[[sample_weights]]
