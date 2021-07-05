@@ -79,11 +79,11 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     if ((workspace.end - workspace.st) == 1 && !workspace.weights_arr.size() && !workspace.weights_map.size())
         goto terminal_statistics;
 
-    /* when using weights, the split should stop when the sum of weights is <= 2 */
+    /* when using weights, the split should stop when the sum of weights is <= 1 */
     sum_weight = calculate_sum_weights(workspace.ix_arr, workspace.st, workspace.end, curr_depth,
                                        workspace.weights_arr, workspace.weights_map);
 
-    if (curr_depth > 0 && (workspace.weights_arr.size() || workspace.weights_map.size()) && sum_weight < 2.5)
+    if (curr_depth > 0 && (workspace.weights_arr.size() || workspace.weights_map.size()) && sum_weight <= 1)
         goto terminal_statistics;
 
     /* for sparse matrices, need to sort the indices */
