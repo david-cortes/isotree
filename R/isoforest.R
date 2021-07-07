@@ -1018,8 +1018,17 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
             return(t(matrix(dist_rmat, ncol = nobs_group1)))
         else if (square_mat)
             return(matrix(dist_dmat, nrow = pdata$nrows, ncol = pdata$nrows))
-        else
+        else {
+            attr_D <- attributes(dist_tmat)
+            attr_D$Size    <-  pdata$nrows
+            attr_D$Diag    <-  FALSE
+            attr_D$Upper   <-  FALSE
+            attr_D$method  <-  ifelse(type == "dist", "sep_dist", "avg_sep")
+            attr_D$call    <-  match.call()
+            attr_D$class   <-  "dist"
+            attributes(dist_tmat) <- attr_D
             return(dist_tmat)
+        }
     } else {
         imp <- impute_iso(object$cpp_obj$ptr, object$cpp_obj$imp_ptr, object$params$ndim > 1,
                           pdata$X_num, pdata$X_cat,
