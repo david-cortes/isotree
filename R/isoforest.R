@@ -848,6 +848,14 @@ isolation.forest <- function(df,
                 outp$dist  <-  cpp_outputs$dmat
             } else {
                 outp$dist  <-  cpp_outputs$tmat
+                attr_D <- attributes(outp$dist)
+                attr_D$Size    <-  pdata$nrows
+                attr_D$Diag    <-  FALSE
+                attr_D$Upper   <-  FALSE
+                attr_D$method  <-  "sep_dist"
+                attr_D$call    <-  match.call()
+                attr_D$class   <-  "dist"
+                attributes(outp$dist) <- attr_D
             }
         }
         if (output_imputations) {
