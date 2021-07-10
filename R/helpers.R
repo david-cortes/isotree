@@ -54,16 +54,6 @@ check.is.1d <- function(var, name) {
     }
 }
 
-get.empty.vector <- function() {
-    outp <- vector("numeric", 0L)
-    return(outp)
-}
-
-get.empty.int.vector <- function() {
-    outp <- vector("integer", 0L)
-    return(outp)
-}
-
 cast.df.alike <- function(df) {
     if (inherits(df, c("data.table", "tibble")))
         df <- as.data.frame(df)
@@ -115,20 +105,20 @@ process.data <- function(df, sample_weights = NULL, column_weights = NULL, recod
     if (ncol(df) < 1L)
         stop("'df' has no columns.")
     
-    outp <- list(X_num      =  get.empty.vector(),
-                 X_cat      =  get.empty.int.vector(),
-                 ncat       =  get.empty.int.vector(),
+    outp <- list(X_num      =  numeric(),
+                 X_cat      =  integer(),
+                 ncat       =  integer(),
                  cols_num   =  c(),
                  cols_cat   =  c(),
                  cat_levs   =  c(),
-                 Xc         =  get.empty.vector(),
-                 Xc_ind     =  get.empty.int.vector(),
-                 Xc_indptr  =  get.empty.int.vector(),
+                 Xc         =  numeric(),
+                 Xc_ind     =  integer(),
+                 Xc_indptr  =  integer(),
                  nrows      =  as.integer(NROW(df)),
                  ncols_num  =  as.integer(NCOL(df)),
                  ncols_cat  =  as.integer(0L),
                  categ_cols =  NULL,
-                 categ_max  =  get.empty.int.vector(),
+                 categ_max  =  integer(),
                  sample_weights  =  unname(as.numeric(sample_weights)),
                  column_weights  =  unname(as.numeric(column_weights))
                  )
@@ -300,15 +290,15 @@ process.data.new <- function(df, metadata, allow_csr = FALSE, allow_csc = TRUE, 
         stop("CSC matrix not supported for this prediction type. Try converting to CSR.")
 
     outp <- list(
-        X_num      =  get.empty.vector(),
-        X_cat      =  get.empty.int.vector(),
+        X_num      =  numeric(),
+        X_cat      =  integer(),
         nrows      =  as.integer(NROW(df)),
-        Xc         =  get.empty.vector(),
-        Xc_ind     =  get.empty.int.vector(),
-        Xc_indptr  =  get.empty.int.vector(),
-        Xr         =  get.empty.vector(),
-        Xr_ind     =  get.empty.int.vector(),
-        Xr_indptr  =  get.empty.int.vector()
+        Xc         =  numeric(),
+        Xc_ind     =  integer(),
+        Xc_indptr  =  integer(),
+        Xr         =  numeric(),
+        Xr_ind     =  integer(),
+        Xr_indptr  =  integer()
     )
 
     avoid_sparse_sort <- FALSE

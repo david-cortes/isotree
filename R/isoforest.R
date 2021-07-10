@@ -720,12 +720,12 @@ isolation.forest <- function(df,
     if (!is.null(sample_weights)) {
         sample_weights <- as.numeric(sample_weights)
     } else {
-        sample_weights <- get.empty.vector()
+        sample_weights <- numeric()
     }
     if (!is.null(column_weights)) {
         column_weights <- as.numeric(column_weights)
     } else {
-        column_weights <- get.empty.vector()
+        column_weights <- numeric()
     }
     
     sample_size     <-  as.integer(sample_size)
@@ -986,23 +986,24 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
                               type != "impute", type == "impute")
 
     square_mat   <-  as.logical(square_mat)
-    score_array  <-  get.empty.vector()
-    dist_tmat    <-  get.empty.vector()
-    dist_dmat    <-  get.empty.vector()
-    dist_rmat    <-  get.empty.vector()
-    tree_num     <-  get.empty.int.vector()
+    score_array  <-  numeric()
+    dist_tmat    <-  numeric()
+    dist_dmat    <-  matrix(numeric(), nrow=0, ncol=0)
+    dist_rmat    <-  matrix(numeric(), nrow=0, ncol=0)
+    tree_num     <-  get_null_int_mat()
     
     if (type %in% c("dist", "avg_sep")) {
-        if (NROW(newdata) == 1) stop("Need more than 1 data point for distance predictions.")
+        if (NROW(newdata) == 1L) stop("Need more than 1 data point for distance predictions.")
         if (is.null(refdata)) {
-            dist_tmat <- vector("numeric", (pdata$nrows * (pdata$nrows - 1L)) / 2L)
-            if (square_mat) dist_dmat <- vector("numeric", pdata$nrows ^ 2)
+            dist_tmat <- get_empty_tmat(pdata$nrows)
+            if (square_mat) dist_dmat <- matrix(0, nrow=pdata$nrows, ncol=pdata$nrows)
         } else {
-            dist_rmat <- vector("numeric", nobs_group1 * (pdata$nrows - nobs_group1))
+            dist_rmat <- matrix(0, nrow=pdata$nrows-nobs_group1, ncol=nobs_group1)
         }
     } else {
-        score_array <- vector("numeric", pdata$nrows)
-        if (type == "tree_num") tree_num <- vector("integer", pdata$nrows * object$params$ntrees)
+        score_array <- numeric(pdata$nrows)
+        if (type == "tree_num")
+            tree_num <- get_empty_int_mat(pdata$nrows, get_ntrees(object$cpp_obj$ptr, object$params$ndim > 1))
     }
     
     if (type %in% c("score", "avg_depth", "tree_num")) {
@@ -1012,7 +1013,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
                     pdata$Xr, pdata$Xr_ind, pdata$Xr_indptr,
                     pdata$nrows, object$nthreads, type == "score")
         if (type == "tree_num")
-            return(list(avg_depth = score_array, tree_num = matrix(tree_num + 1L, nrow = pdata$nrows, ncol = object$params$ntrees)))
+            return(list(avg_depth = score_array, tree_num = tree_num+1L))
         else
             return(score_array)
     } else if (type != "impute") {
@@ -1023,9 +1024,9 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
                  pdata$nrows, object$nthreads, object$params$assume_full_distr,
                  type == "dist", square_mat, nobs_group1)
         if (!is.null(refdata))
-            return(t(matrix(dist_rmat, ncol = nobs_group1)))
+            return(t(dist_rmat))
         else if (square_mat)
-            return(matrix(dist_dmat, nrow = pdata$nrows, ncol = pdata$nrows))
+            return(dist_dmat)
         else {
             attr_D <- attributes(dist_tmat)
             attr_D$Size    <-  pdata$nrows
@@ -1098,7 +1099,8 @@ summary.isolation_forest <- function(object, ...) {
 #' @description Adds a single tree fit to the full (non-subsampled) data passed here. Must
 #' have the same columns as previously-fitted data.
 #' @param model An Isolation Forest object as returned by \link{isolation.forest}, to which an additional tree will be added.
-#' The result of this function must be reassigned to `model`, and the old `model` should not be used any further.
+#' 
+#' This object will be modified in-place.
 #' @param df A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC format)
 #' to which to fit the new tree.
 #' @param sample_weights Sample observation weights for each row of 'X', with higher weights indicating
@@ -1106,15 +1108,12 @@ summary.isolation_forest <- function(object, ...) {
 #' point twice). If not `NULL`, model must have been built with `weights_as_sample_prob` = `FALSE`.
 #' @param column_weights Sampling weights for each column in `df`. Ignored when picking columns by deterministic criterion.
 #' If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
-#' @return No return value. The model is modified in-place.
-#' @details Important: this function will modify the model object in-place, but this modification will only affect the R
-#' object in the environment in which it was called. If trying to use the same model object in e.g. its parent environment,
-#' it will lead to issues due to the C++ object being modified but the R object remaining the same, so if this method is used
-#' inside a function, make sure to output the newly-modified R object and have it replace the old R object outside the calling
-#' function too.
+#' @return The same `model` object now modified, as invisible.
+#' @details Be aware that, if something goes wrong in the process (such as running out of RAM or
+#' receiving an interrupt signal), the `model` object that was passed here might be rendered unusable.
 #' 
-#' The model object can be deep copied (including the underlying C++ object) through
-#' function \link{deepcopy.isotree}.
+#' For safety purposes, the model object can be deep copied (including the underlying C++ object)
+#' through function \link{deepcopy.isotree} before undergoing an in-place modification like this.
 #' @seealso \link{isolation.forest} \link{unpack.isolation.forest}
 #' @export
 add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights = NULL) {
@@ -1123,6 +1122,8 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
         stop("Cannot use sampling weights with 'partial_fit'.")
     if (!is.null(column_weights) && model$weigh_by_kurtosis)
         stop("Cannot pass column weights when weighting columns by kurtosis.")
+    if (typeof(model$params$ntrees) != "integer")
+        stop("'model' has invalid structure.")
     
     unpack.isolation.forest(model)
     
@@ -1130,11 +1131,11 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
     if (!is.null(sample_weights))
         sample_weights  <- as.numeric(sample_weights)
     else
-        sample_weights  <- get.empty.vector()
+        sample_weights  <- numeric()
     if (!is.null(column_weights))
         column_weights  <- as.numeric(column_weights)
     else
-        column_weights  <- get.empty.vector()
+        column_weights  <- numeric()
     if (NROW(sample_weights) && NROW(sample_weights) != NROW(df))
         stop(sprintf("'sample_weights' has different number of rows than df (%d vs. %d).",
                      NROW(df), NROW(sample_weights)))
@@ -1145,33 +1146,32 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
     if (model$metadata$ncols_cat)
         ncat  <-  sapply(model$metadata$cat_levs, NROW)
     else
-        ncat  <-  get.empty.int.vector()
+        ncat  <-  integer()
     
     pdata <- process.data.new(df, model$metadata, FALSE)
     
-    model_new <- model
-    model_new$cpp_obj$serialized <- fit_tree(model$cpp_obj$ptr, 
-                                             pdata$X_num, pdata$X_cat, unname(ncat),
-                                             pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
-                                             sample_weights, column_weights,
-                                             pdata$nrows, model$metadata$ncols_num, model$metadata$ncols_cat,
-                                             model$params$ndim, model$params$ntry,
-                                             model$params$coefs, model$params$coef_by_prop,
-                                             model$params$max_depth, model$params$ncols_per_tree,
-                                             FALSE, model$params$penalize_range,
-                                             model$params$weigh_by_kurtosis,
-                                             model$params$prob_pick_avg_gain, model$params$prob_split_avg_gain,
-                                             model$params$prob_pick_pooled_gain,  model$params$prob_split_pooled_gain,
-                                             model$params$min_gain,
-                                             model$params$categ_split_type, model$params$new_categ_action,
-                                             model$params$missing_action, model$params$build_imputer,
-                                             model$params$min_imp_obs, model$cpp_obj$imp_ptr,
-                                             model$params$depth_imp, model$params$weigh_imp_rows,
-                                             model$params$all_perm, model$random_seed)
+    model$cpp_obj$serialized <- fit_tree(model$cpp_obj$ptr, 
+                                         pdata$X_num, pdata$X_cat, unname(ncat),
+                                         pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
+                                         sample_weights, column_weights,
+                                         pdata$nrows, model$metadata$ncols_num, model$metadata$ncols_cat,
+                                         model$params$ndim, model$params$ntry,
+                                         model$params$coefs, model$params$coef_by_prop,
+                                         model$params$max_depth, model$params$ncols_per_tree,
+                                         FALSE, model$params$penalize_range,
+                                         model$params$weigh_by_kurtosis,
+                                         model$params$prob_pick_avg_gain, model$params$prob_split_avg_gain,
+                                         model$params$prob_pick_pooled_gain,  model$params$prob_split_pooled_,
+                                         model$params$min_gain,
+                                         model$params$categ_split_type, model$params$new_categ_action,
+                                         model$params$missing_action, model$params$build_imputer,
+                                         model$params$min_imp_obs, model$cpp_obj$imp_ptr,
+                                         model$params$depth_imp, model$params$weigh_imp_rows,
+                                         model$params$all_perm, model$random_seed)
     
-    model_new$params$ntrees <- model_new$params$ntrees + 1L
-    eval.parent(substitute(model <- model_new))
-    return(invisible(NULL))
+    
+    increment_by1(model$params$ntrees)
+    return(invisible(model))
 }
 
 #' @title Unpack isolation forest model after de-serializing
@@ -1261,29 +1261,21 @@ get.num.nodes <- function(model)  {
 #' 
 #' Note that this function will not perform any checks on the inputs, and passing two incompatible
 #' models (e.g. fit to different numbers of columns) will result in wrong results and
-#' potentially crashing the R process when using it.
+#' potentially crashing the R process when using the resulting object.
 #' 
-#' Also be aware that the result \bold{must} be reassigned to the first input, as the first
-#' input will no longer work correctly after appending more trees to it.
-#' 
-#' \bold{Important:} the result of this function must be reassigned to `model` in order for it
-#' to work properly - e.g. `model <- append.trees(model, other)`.
+#' Also be aware that the first input will be modified in-place.
 #' @param model An Isolation Forest model (as returned by function \link{isolation.forest})
 #' to which trees from `other` (another Isolation Forest model) will be appended into.
-#' The result of this function must be reassigned to `model`, and the old `model` should
-#' not be used any further.
+#' 
+#' Will be modified in-place, and on exit will contain the resulting merged model.
 #' @param other Another Isolation Forest model, from which trees will be appended into
 #' `model`. It will not be modified during the call to this function.
-#' @return The updated `model` object, to which `model` needs to be reassigned
-#' (i.e. you need to use it as follows: `model <- append.trees(model, other)`).
-#' @details Important: this function will modify the model object in-place, but this modification will only affect the R
-#' object in the environment in which it was called. If trying to use the same model object in e.g. its parent environment,
-#' it will lead to issues due to the C++ object being modified but the R object remaining the same, so if this method is used
-#' inside a function, make sure to output the newly-modified R object and have it replace the old R object outside the calling
-#' function too.
+#' @return The same input `model` object, now with the new trees appended, returned as invisible.
+#' @details Be aware that, if something goes wrong in the process (such as running out of RAM or
+#' receiving an interrupt signal), the `model` object that was passed here might be rendered unusable.
 #' 
-#' The model object can be deep copied (including the underlying C++ object) through
-#' function \link{deepcopy.isotree}.
+#' For safety purposes, the model object can be deep copied (including the underlying C++ object)
+#' through function \link{deepcopy.isotree} before undergoing an in-place modification like this.
 #' @examples 
 #' library(isotree)
 #' 
@@ -1324,6 +1316,8 @@ append.trees <- function(model, other) {
     if (model$metadata$ncols_cat) {
         warning("Merging models with categorical features might give wrong results.")
     }
+    if ((typeof(model$params$ntrees) != "integer") || (typeof(other$params$ntree) != "integer"))
+        stop("One of the objects has invalid structure.")
     
     serialized <- append_trees_from_other(model$cpp_obj$ptr,      other$cpp_obj$ptr,
                                           model$cpp_obj$imp_ptr,  other$cpp_obj$imp_ptr,
@@ -1333,8 +1327,8 @@ append.trees <- function(model, other) {
         model$cpp_obj$imp_ser <- serialized$imp_ser
     }
     
-    model$params$ntrees <- model$params$ntrees + other$params$ntrees
-    return(model)
+    inplace_add(model$params$ntrees, other$params$ntrees)
+    return(invisible(model))
 }
 
 #' @title Export Isolation Forest model
@@ -1445,7 +1439,7 @@ load.isotree.model <- function(file) {
     
     this <- take.metadata(metadata)
     this$cpp_obj$serialized <- readr::read_file_raw(file)
-    if (this$params$ndim == 1)
+    if (this$params$ndim == 1L)
         this$cpp_obj$ptr <- deserialize_IsoForest(this$cpp_obj$serialized)
     else
         this$cpp_obj$ptr <- deserialize_ExtIsoForest(this$cpp_obj$serialized)
@@ -1563,7 +1557,7 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
         if (NROW(tree) != 1L)
             stop("'tree' must be a single integer.")
         tree <- as.integer(tree)
-        if (is.na(tree) || (tree < 1L) || (tree > model$params$ntrees))
+        if (is.na(tree) || (tree < 1L) || (tree > get_ntrees(model$cpp_obj$ptr, model$params$ndim > 1)))
             stop("Invalid tree number.")
     } else {
         tree <- 0L

@@ -101,3 +101,27 @@ assign_csc_cols <- function(Xc_, Xc_ind_, Xc_indptr, X_cat_, cols_categ, cols_nu
     .Call(`_isotree_assign_csc_cols`, Xc_, Xc_ind_, Xc_indptr, X_cat_, cols_categ, cols_numeric, nrows)
 }
 
+get_empty_tmat <- function(nrows_) {
+    .Call(`_isotree_get_empty_tmat`, nrows_)
+}
+
+get_empty_int_mat <- function(nrows, ncols) {
+    .Call(`_isotree_get_empty_int_mat`, nrows, ncols)
+}
+
+get_null_int_mat <- function() {
+    .Call(`_isotree_get_null_int_mat`)
+}
+
+get_ntrees <- function(model_R_ptr, is_extended) {
+    .Call(`_isotree_get_ntrees`, model_R_ptr, is_extended)
+}
+
+increment_by1 <- function(int_var) {
+    invisible(.Call(`_isotree_increment_by1`, int_var))
+}
+
+inplace_add <- function(add_to, add_this) {
+    invisible(.Call(`_isotree_inplace_add`, add_to, add_this))
+}
+

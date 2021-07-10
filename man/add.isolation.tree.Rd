@@ -8,7 +8,8 @@ add.isolation.tree(model, df, sample_weights = NULL, column_weights = NULL)
 }
 \arguments{
 \item{model}{An Isolation Forest object as returned by \link{isolation.forest}, to which an additional tree will be added.
-The result of this function must be reassigned to `model`, and the old `model` should not be used any further.}
+
+This object will be modified in-place.}
 
 \item{df}{A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC format)
 to which to fit the new tree.}
@@ -21,21 +22,18 @@ point twice). If not `NULL`, model must have been built with `weights_as_sample_
 If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.}
 }
 \value{
-No return value. The model is modified in-place.
+The same `model` object now modified, as invisible.
 }
 \description{
 Adds a single tree fit to the full (non-subsampled) data passed here. Must
 have the same columns as previously-fitted data.
 }
 \details{
-Important: this function will modify the model object in-place, but this modification will only affect the R
-object in the environment in which it was called. If trying to use the same model object in e.g. its parent environment,
-it will lead to issues due to the C++ object being modified but the R object remaining the same, so if this method is used
-inside a function, make sure to output the newly-modified R object and have it replace the old R object outside the calling
-function too.
+Be aware that, if something goes wrong in the process (such as running out of RAM or
+receiving an interrupt signal), the `model` object that was passed here might be rendered unusable.
 
-The model object can be deep copied (including the underlying C++ object) through
-function \link{deepcopy.isotree}.
+For safety purposes, the model object can be deep copied (including the underlying C++ object)
+through function \link{deepcopy.isotree} before undergoing an in-place modification like this.
 }
 \seealso{
 \link{isolation.forest} \link{unpack.isolation.forest}

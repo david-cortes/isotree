@@ -9,15 +9,14 @@ append.trees(model, other)
 \arguments{
 \item{model}{An Isolation Forest model (as returned by function \link{isolation.forest})
 to which trees from `other` (another Isolation Forest model) will be appended into.
-The result of this function must be reassigned to `model`, and the old `model` should
-not be used any further.}
+
+Will be modified in-place, and on exit will contain the resulting merged model.}
 
 \item{other}{Another Isolation Forest model, from which trees will be appended into
 `model`. It will not be modified during the call to this function.}
 }
 \value{
-The updated `model` object, to which `model` needs to be reassigned
-(i.e. you need to use it as follows: `model <- append.trees(model, other)`).
+The same input `model` object, now with the new trees appended, returned as invisible.
 }
 \description{
 This function is intended for merging models \bold{that use the same hyperparameters} but
@@ -35,23 +34,16 @@ which will not be preserved as only the trees will be appended without any assoc
 
 Note that this function will not perform any checks on the inputs, and passing two incompatible
 models (e.g. fit to different numbers of columns) will result in wrong results and
-potentially crashing the R process when using it.
+potentially crashing the R process when using the resulting object.
 
-Also be aware that the result \bold{must} be reassigned to the first input, as the first
-input will no longer work correctly after appending more trees to it.
-
-\bold{Important:} the result of this function must be reassigned to `model` in order for it
-to work properly - e.g. `model <- append.trees(model, other)`.
+Also be aware that the first input will be modified in-place.
 }
 \details{
-Important: this function will modify the model object in-place, but this modification will only affect the R
-object in the environment in which it was called. If trying to use the same model object in e.g. its parent environment,
-it will lead to issues due to the C++ object being modified but the R object remaining the same, so if this method is used
-inside a function, make sure to output the newly-modified R object and have it replace the old R object outside the calling
-function too.
+Be aware that, if something goes wrong in the process (such as running out of RAM or
+receiving an interrupt signal), the `model` object that was passed here might be rendered unusable.
 
-The model object can be deep copied (including the underlying C++ object) through
-function \link{deepcopy.isotree}.
+For safety purposes, the model object can be deep copied (including the underlying C++ object)
+through function \link{deepcopy.isotree} before undergoing an in-place modification like this.
 }
 \examples{
 library(isotree)

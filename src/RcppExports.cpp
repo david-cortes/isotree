@@ -168,13 +168,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // dist_iso
-void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericVector dmat, Rcpp::NumericVector rmat, bool is_extended, Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist, bool sq_dist, size_t n_from);
+void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericMatrix dmat, Rcpp::NumericMatrix rmat, bool is_extended, Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist, bool sq_dist, size_t n_from);
 RcppExport SEXP _isotree_dist_iso(SEXP model_R_ptrSEXP, SEXP tmatSEXP, SEXP dmatSEXP, SEXP rmatSEXP, SEXP is_extendedSEXP, SEXP X_numSEXP, SEXP X_catSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP nrowsSEXP, SEXP nthreadsSEXP, SEXP assume_full_distrSEXP, SEXP standardize_distSEXP, SEXP sq_distSEXP, SEXP n_fromSEXP) {
 BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type tmat(tmatSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type dmat(dmatSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type rmat(rmatSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type dmat(dmatSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type rmat(rmatSEXP);
     Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type X_num(X_numSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type X_cat(X_catSEXP);
@@ -437,6 +437,66 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// get_empty_tmat
+Rcpp::NumericVector get_empty_tmat(int nrows_);
+RcppExport SEXP _isotree_get_empty_tmat(SEXP nrows_SEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< int >::type nrows_(nrows_SEXP);
+    rcpp_result_gen = Rcpp::wrap(get_empty_tmat(nrows_));
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_empty_int_mat
+Rcpp::IntegerMatrix get_empty_int_mat(int nrows, int ncols);
+RcppExport SEXP _isotree_get_empty_int_mat(SEXP nrowsSEXP, SEXP ncolsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< int >::type nrows(nrowsSEXP);
+    Rcpp::traits::input_parameter< int >::type ncols(ncolsSEXP);
+    rcpp_result_gen = Rcpp::wrap(get_empty_int_mat(nrows, ncols));
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_null_int_mat
+Rcpp::IntegerMatrix get_null_int_mat();
+RcppExport SEXP _isotree_get_null_int_mat() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    rcpp_result_gen = Rcpp::wrap(get_null_int_mat());
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_ntrees
+int get_ntrees(SEXP model_R_ptr, bool is_extended);
+RcppExport SEXP _isotree_get_ntrees(SEXP model_R_ptrSEXP, SEXP is_extendedSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
+    Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
+    rcpp_result_gen = Rcpp::wrap(get_ntrees(model_R_ptr, is_extended));
+    return rcpp_result_gen;
+END_RCPP
+}
+// increment_by1
+void increment_by1(SEXP int_var);
+RcppExport SEXP _isotree_increment_by1(SEXP int_varSEXP) {
+BEGIN_RCPP
+    Rcpp::traits::input_parameter< SEXP >::type int_var(int_varSEXP);
+    increment_by1(int_var);
+    return R_NilValue;
+END_RCPP
+}
+// inplace_add
+void inplace_add(SEXP add_to, SEXP add_this);
+RcppExport SEXP _isotree_inplace_add(SEXP add_toSEXP, SEXP add_thisSEXP) {
+BEGIN_RCPP
+    Rcpp::traits::input_parameter< SEXP >::type add_to(add_toSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type add_this(add_thisSEXP);
+    inplace_add(add_to, add_this);
+    return R_NilValue;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_isotree_deserialize_IsoForest", (DL_FUNC) &_isotree_deserialize_IsoForest, 1},
@@ -464,6 +524,12 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_copy_csc_cols_by_slice", (DL_FUNC) &_isotree_copy_csc_cols_by_slice, 5},
     {"_isotree_copy_csc_cols_by_index", (DL_FUNC) &_isotree_copy_csc_cols_by_index, 5},
     {"_isotree_assign_csc_cols", (DL_FUNC) &_isotree_assign_csc_cols, 7},
+    {"_isotree_get_empty_tmat", (DL_FUNC) &_isotree_get_empty_tmat, 1},
+    {"_isotree_get_empty_int_mat", (DL_FUNC) &_isotree_get_empty_int_mat, 2},
+    {"_isotree_get_null_int_mat", (DL_FUNC) &_isotree_get_null_int_mat, 0},
+    {"_isotree_get_ntrees", (DL_FUNC) &_isotree_get_ntrees, 2},
+    {"_isotree_increment_by1", (DL_FUNC) &_isotree_increment_by1, 1},
+    {"_isotree_inplace_add", (DL_FUNC) &_isotree_inplace_add, 2},
     {NULL, NULL, 0}
 };
 

@@ -559,7 +559,7 @@ cdef class isoforest_cpp_obj:
         cdef double*  depths_ptr  =  NULL
 
         if calc_dist:
-            tmat      =  np.zeros(int((nrows * (nrows - 1)) / 2), dtype = ctypes.c_double)
+            tmat      =  np.zeros(int((nrows * (nrows - <size_t>1)) / <size_t>2), dtype = ctypes.c_double)
             tmat_ptr  =  &tmat[0]
             if sq_dist:
                 dmat      =  np.zeros((nrows, nrows), dtype = ctypes.c_double, order = 'F')
