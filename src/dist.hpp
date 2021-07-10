@@ -763,9 +763,9 @@ void initialize_worker_for_sim(WorkerForSimilarity  &workspace,
         workspace.ix_arr.resize(prediction_data.nrows);
         std::iota(workspace.ix_arr.begin(), workspace.ix_arr.end(), (size_t)0);
         if (!n_from)
-          workspace.tmat_sep.resize((prediction_data.nrows * (prediction_data.nrows - 1)) / 2, 0);
+          workspace.tmat_sep.resize((prediction_data.nrows * (prediction_data.nrows - (size_t)1)) / (size_t)2, 0);
         else
-          workspace.rmat.resize(prediction_data.nrows * n_from, 0);
+          workspace.rmat.resize((prediction_data.nrows - n_from) * n_from, 0);
     }
 
     if (model_outputs != NULL && (model_outputs->missing_action == Divide || model_outputs->new_cat_action == Weighted))
