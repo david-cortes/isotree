@@ -27,3 +27,5 @@
 ^\.directory
 ^src/python_helpers\.hpp$
 ^src/isotree_exportable\.hpp$
+^src/external_facing_generic\.hpp$
+^src/instantiate_model\.cpp
