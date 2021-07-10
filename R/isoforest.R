@@ -1124,6 +1124,8 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
         stop("Cannot pass column weights when weighting columns by kurtosis.")
     if (typeof(model$params$ntrees) != "integer")
         stop("'model' has invalid structure.")
+    if (is.na(model$params$ntrees) || model$params$ntrees >= .Machine$integer.max)
+        stop("Resulting object would exceed number of trees limit.")
     
     unpack.isolation.forest(model)
     
@@ -1318,6 +1320,8 @@ append.trees <- function(model, other) {
     }
     if ((typeof(model$params$ntrees) != "integer") || (typeof(other$params$ntree) != "integer"))
         stop("One of the objects has invalid structure.")
+    if (is.na(model$params$ntrees + other$params$ntrees) || (model$params$ntrees + other$params$ntrees) > .Machine$integer.max)
+        stop("Resulting object would exceed number of trees limit.")
     
     serialized <- append_trees_from_other(model$cpp_obj$ptr,      other$cpp_obj$ptr,
                                           model$cpp_obj$imp_ptr,  other$cpp_obj$imp_ptr,
