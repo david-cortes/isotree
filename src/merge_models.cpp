@@ -100,17 +100,41 @@ void merge_models(IsoForest*     model,      IsoForest*     other,
                   Imputer*       imputer,    Imputer*       iother)
 {
     if (model != NULL && other != NULL)
+    {
+        if (model == other)
+        {
+            auto other_copy = *other;
+            merge_models(model, &other_copy, ext_model, ext_other, imputer, iother);
+            return;
+        }
         model->trees.insert(model->trees.end(),
                             other->trees.begin(),
                             other->trees.end());
+    }
 
     if (ext_model != NULL && ext_other != NULL)
+    {
+        if (ext_model == ext_other)
+        {
+            auto other_copy = *ext_other;
+            merge_models(model, other, ext_model, &other_copy, imputer, iother);
+            return;
+        }
         ext_model->hplanes.insert(ext_model->hplanes.end(),
                                   ext_other->hplanes.begin(),
                                   ext_other->hplanes.end());
+    }
 
     if (imputer != NULL && iother != NULL)
+    {
+        if (imputer == iother)
+        {
+            auto other_copy = *iother;
+            merge_models(model, other, ext_model, ext_other, imputer, &other_copy);
+            return;
+        }
         imputer->imputer_tree.insert(imputer->imputer_tree.end(),
                                      iother->imputer_tree.begin(),
                                      iother->imputer_tree.end());
+    }
 }
