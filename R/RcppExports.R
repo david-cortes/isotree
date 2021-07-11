@@ -125,3 +125,7 @@ inplace_add <- function(add_to, add_this) {
     invisible(.Call(`_isotree_inplace_add`, add_to, add_this))
 }
 
+deepcopy_int <- function(x) {
+    .Call(`_isotree_deepcopy_int`, x)
+}
+

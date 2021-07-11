@@ -497,6 +497,16 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// deepcopy_int
+SEXP deepcopy_int(SEXP x);
+RcppExport SEXP _isotree_deepcopy_int(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(deepcopy_int(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_isotree_deserialize_IsoForest", (DL_FUNC) &_isotree_deserialize_IsoForest, 1},
@@ -530,6 +540,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_get_ntrees", (DL_FUNC) &_isotree_get_ntrees, 2},
     {"_isotree_increment_by1", (DL_FUNC) &_isotree_increment_by1, 1},
     {"_isotree_inplace_add", (DL_FUNC) &_isotree_inplace_add, 2},
+    {"_isotree_deepcopy_int", (DL_FUNC) &_isotree_deepcopy_int, 1},
     {NULL, NULL, 0}
 };
 

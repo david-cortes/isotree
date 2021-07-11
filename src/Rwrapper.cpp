@@ -56,6 +56,10 @@
 #include <sstream>
 #include <string>
 
+#ifndef _FOR_R
+#define FOR_R
+#endif
+
 /* This is the package's header */
 #include "isotree.hpp"
 
@@ -1466,6 +1470,12 @@ void inplace_add(SEXP add_to, SEXP add_this)
     int *val = INTEGER(add_to);
     int *summand = INTEGER(add_this);
     *val = *val + *summand;
+}
+
+// [[Rcpp::export(rng = false)]]
+SEXP deepcopy_int(SEXP x)
+{
+    return Rf_ScalarInteger(Rf_asInteger(x));
 }
 
 #endif /* _FOR_R */
