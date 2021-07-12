@@ -99,42 +99,58 @@ void merge_models(IsoForest*     model,      IsoForest*     other,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                   Imputer*       imputer,    Imputer*       iother)
 {
-    if (model != NULL && other != NULL)
+    size_t curr_size_model = (model != NULL)? (model->trees.size()) : 0;
+    size_t curr_size_model_ext = (ext_model != NULL)? (ext_model->hplanes.size()) : 0;
+    size_t curr_size_imputer = (imputer != NULL)? (imputer->imputer_tree.size()) : 0;
+
+    try
     {
-        if (model == other)
+        if (model != NULL && other != NULL)
         {
-            auto other_copy = *other;
-            merge_models(model, &other_copy, ext_model, ext_other, imputer, iother);
-            return;
+            if (model == other)
+            {
+                auto other_copy = *other;
+                merge_models(model, &other_copy, ext_model, ext_other, imputer, iother);
+                return;
+            }
+            model->trees.insert(model->trees.end(),
+                                other->trees.begin(),
+                                other->trees.end());
+
         }
-        model->trees.insert(model->trees.end(),
-                            other->trees.begin(),
-                            other->trees.end());
+
+        if (ext_model != NULL && ext_other != NULL)
+        {
+            if (ext_model == ext_other)
+            {
+                auto other_copy = *ext_other;
+                merge_models(model, other, ext_model, &other_copy, imputer, iother);
+                return;
+            }
+            ext_model->hplanes.insert(ext_model->hplanes.end(),
+                                      ext_other->hplanes.begin(),
+                                      ext_other->hplanes.end());
+        }
+
+        if (imputer != NULL && iother != NULL)
+        {
+            if (imputer == iother)
+            {
+                auto other_copy = *iother;
+                merge_models(model, other, ext_model, ext_other, imputer, &other_copy);
+                return;
+            }
+            imputer->imputer_tree.insert(imputer->imputer_tree.end(),
+                                         iother->imputer_tree.begin(),
+                                         iother->imputer_tree.end());
+        }
     }
 
-    if (ext_model != NULL && ext_other != NULL)
+    catch(...)
     {
-        if (ext_model == ext_other)
-        {
-            auto other_copy = *ext_other;
-            merge_models(model, other, ext_model, &other_copy, imputer, iother);
-            return;
-        }
-        ext_model->hplanes.insert(ext_model->hplanes.end(),
-                                  ext_other->hplanes.begin(),
-                                  ext_other->hplanes.end());
-    }
-
-    if (imputer != NULL && iother != NULL)
-    {
-        if (imputer == iother)
-        {
-            auto other_copy = *iother;
-            merge_models(model, other, ext_model, ext_other, imputer, &other_copy);
-            return;
-        }
-        imputer->imputer_tree.insert(imputer->imputer_tree.end(),
-                                     iother->imputer_tree.begin(),
-                                     iother->imputer_tree.end());
+        if (model != NULL) model->trees.resize(curr_size_model);
+        if (ext_model != NULL) ext_model->hplanes.resize(curr_size_model_ext);
+        if (imputer != NULL) imputer->imputer_tree.resize(curr_size_imputer);
+        throw;
     }
 }

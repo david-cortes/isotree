@@ -771,33 +771,51 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 (model_outputs != NULL)? 0 : ndim, (model_outputs != NULL)? 0 : ntry,
                                 coef_type, coef_by_prop, false, false, false, depth_imp, weigh_imp_rows, min_imp_obs};
 
-    std::unique_ptr<WorkerMemory<ImputedData<sparse_ix>>> workspace = std::unique_ptr<WorkerMemory<ImputedData<sparse_ix>>>(new WorkerMemory<ImputedData<sparse_ix>>);
+    std::unique_ptr<WorkerMemory<ImputedData<sparse_ix>>> workspace(new WorkerMemory<ImputedData<sparse_ix>>);
 
     size_t last_tree;
-    if (model_outputs != NULL)
+    bool added_tree = false;
+    try
     {
-        last_tree = model_outputs->trees.size();
-        model_outputs->trees.emplace_back();
+        if (model_outputs != NULL)
+        {
+            last_tree = model_outputs->trees.size();
+            model_outputs->trees.emplace_back();
+            added_tree = true;
+        }
+
+        else
+        {
+            last_tree = model_outputs_ext->hplanes.size();
+            model_outputs_ext->hplanes.emplace_back();
+            added_tree = true;
+        }
+
+        fit_itree((model_outputs != NULL)? &model_outputs->trees.back() : NULL,
+                  (model_outputs_ext != NULL)? &model_outputs_ext->hplanes.back() : NULL,
+                  *workspace,
+                  input_data,
+                  model_params,
+                  impute_nodes,
+                  last_tree);
+
+        if ((model_outputs != NULL))
+            model_outputs->trees.back().shrink_to_fit();
+        else
+            model_outputs_ext->hplanes.back().shrink_to_fit();
     }
 
-    else
+    catch(...)
     {
-        last_tree = model_outputs_ext->hplanes.size();
-        model_outputs_ext->hplanes.emplace_back();
+        if (added_tree)
+        {
+            if (model_outputs != NULL)
+                model_outputs->trees.pop_back();
+            else
+                model_outputs_ext->hplanes.pop_back();
+        }
+        throw;
     }
-
-    fit_itree((model_outputs != NULL)? &model_outputs->trees.back() : NULL,
-              (model_outputs_ext != NULL)? &model_outputs_ext->hplanes.back() : NULL,
-              *workspace,
-              input_data,
-              model_params,
-              impute_nodes,
-              last_tree);
-
-    if ((model_outputs != NULL))
-        model_outputs->trees.back().shrink_to_fit();
-    else
-        model_outputs_ext->hplanes.back().shrink_to_fit();
 
     return EXIT_SUCCESS;
 }
