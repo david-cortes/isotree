@@ -449,47 +449,63 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     /* Global variable that determines if the procedure receives a stop signal */
     SignalSwitcher ss = SignalSwitcher();
 
+    /* For exception handling */
+    bool threw_exception = false;
+    std::exception_ptr ex = NULL;
+
     /* grow trees */
-    #pragma omp parallel for num_threads(nthreads) schedule(dynamic) shared(model_outputs, model_outputs_ext, worker_memory, input_data, model_params)
+    #pragma omp parallel for num_threads(nthreads) schedule(dynamic) shared(model_outputs, model_outputs_ext, worker_memory, input_data, model_params, threw_exception)
     for (size_t_for tree = 0; tree < ntrees; tree++)
     {
-        if (interrupt_switch)
+        if (interrupt_switch || threw_exception)
             continue; /* Cannot break with OpenMP==2.0 (MSVC) */
 
-        if (
-            model_params.impute_at_fit &&
-            input_data.n_missing &&
-            !worker_memory[omp_get_thread_num()].impute_vec.size() &&
-            !worker_memory[omp_get_thread_num()].impute_map.size()
-            )
+        try
         {
-            #ifdef _OPENMP
-            if (nthreads > 1)
+            if (
+                model_params.impute_at_fit &&
+                input_data.n_missing &&
+                !worker_memory[omp_get_thread_num()].impute_vec.size() &&
+                !worker_memory[omp_get_thread_num()].impute_map.size()
+                )
             {
-                worker_memory[omp_get_thread_num()].impute_vec = impute_vec;
-                worker_memory[omp_get_thread_num()].impute_map = impute_map;
+                #ifdef _OPENMP
+                if (nthreads > 1)
+                {
+                    worker_memory[omp_get_thread_num()].impute_vec = impute_vec;
+                    worker_memory[omp_get_thread_num()].impute_map = impute_map;
+                }
+
+                else
+                #endif
+                {
+                    worker_memory[0].impute_vec = std::move(impute_vec);
+                    worker_memory[0].impute_map = std::move(impute_map);
+                }
             }
 
+            fit_itree((model_outputs != NULL)? &model_outputs->trees[tree] : NULL,
+                      (model_outputs_ext != NULL)? &model_outputs_ext->hplanes[tree] : NULL,
+                      worker_memory[omp_get_thread_num()],
+                      input_data,
+                      model_params,
+                      (imputer != NULL)? &(imputer->imputer_tree[tree]) : NULL,
+                      tree);
+
+            if ((model_outputs != NULL))
+                model_outputs->trees[tree].shrink_to_fit();
             else
-            #endif
-            {
-                worker_memory[0].impute_vec = std::move(impute_vec);
-                worker_memory[0].impute_map = std::move(impute_map);
-            }
+                model_outputs_ext->hplanes[tree].shrink_to_fit();
         }
 
-        fit_itree((model_outputs != NULL)? &model_outputs->trees[tree] : NULL,
-                  (model_outputs_ext != NULL)? &model_outputs_ext->hplanes[tree] : NULL,
-                  worker_memory[omp_get_thread_num()],
-                  input_data,
-                  model_params,
-                  (imputer != NULL)? &(imputer->imputer_tree[tree]) : NULL,
-                  tree);
-
-        if ((model_outputs != NULL))
-            model_outputs->trees[tree].shrink_to_fit();
-        else
-            model_outputs_ext->hplanes[tree].shrink_to_fit();
+        catch(...)
+        {
+            #pragma omp critical
+            {
+                threw_exception = true;
+                ex = std::current_exception();
+            }
+        }
     }
 
     /* check if the procedure got interrupted */
@@ -497,6 +513,10 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     #if defined(DONT_THROW_ON_INTERRUPT)
     if (interrupt_switch) return EXIT_FAILURE;
     #endif
+
+    /* check if some exception was thrown */
+    if (threw_exception)
+        std::rethrow_exception(ex);
 
     if ((model_outputs != NULL))
         model_outputs->trees.shrink_to_fit();

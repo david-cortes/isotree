@@ -61,6 +61,8 @@
 #include <memory>
 #include <utility>
 #include <cstdint>
+#include <exception>
+#include <stdexcept>
 #include <iostream>
 #ifndef _FOR_R
     #include <stdio.h> 

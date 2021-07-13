@@ -1921,7 +1921,7 @@ void check_interrupt_switch(SignalSwitcher &ss)
         #ifdef _FOR_R
         Rcpp::checkUserInterrupt();
         #elif !defined(DONT_THROW_ON_INTERRUPT)
-        throw "Error: procedure was interrupted.\n";
+        throw std::runtime_error("Error: procedure was interrupted.\n");
         #endif
     }
 }

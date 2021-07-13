@@ -142,29 +142,44 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
         std::vector<ImputedData<sparse_ix>> imp_memory(1);
     #endif
 
+    bool threw_exception = false;
+    std::exception_ptr ex = NULL;
 
     if (model_outputs != NULL)
     {
         #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
-                shared(end, imp_memory, prediction_data, model_outputs, ix_arr, imputer)
+                shared(end, imp_memory, prediction_data, model_outputs, ix_arr, imputer, ex)
         for (size_t_for row = 0; row < end; row++)
         {
-            initialize_impute_calc(imp_memory[omp_get_thread_num()], prediction_data, imputer, ix_arr[row]);
-
-            for (std::vector<IsoTree> &tree : model_outputs->trees)
+            if (threw_exception) continue;
+            try
             {
-                traverse_itree(tree,
-                               *model_outputs,
-                               prediction_data,
-                               &imputer.imputer_tree[&tree - &(model_outputs->trees[0])],
-                               &imp_memory[omp_get_thread_num()],
-                               (double) 1,
-                               ix_arr[row],
-                               (sparse_ix*)NULL,
-                               (size_t) 0);
+                initialize_impute_calc(imp_memory[omp_get_thread_num()], prediction_data, imputer, ix_arr[row]);
+
+                for (std::vector<IsoTree> &tree : model_outputs->trees)
+                {
+                    traverse_itree(tree,
+                                   *model_outputs,
+                                   prediction_data,
+                                   &imputer.imputer_tree[&tree - &(model_outputs->trees[0])],
+                                   &imp_memory[omp_get_thread_num()],
+                                   (double) 1,
+                                   ix_arr[row],
+                                   (sparse_ix*)NULL,
+                                   (size_t) 0);
+                }
+
+                apply_imputation_results(prediction_data, imp_memory[omp_get_thread_num()], imputer, (size_t) ix_arr[row]);
             }
 
-            apply_imputation_results(prediction_data, imp_memory[omp_get_thread_num()], imputer, (size_t) ix_arr[row]);
+            catch(...)
+            {
+                #pragma omp critical
+                {
+                    threw_exception = true;
+                    ex = std::current_exception();
+                }
+            }
 
         }
     }
@@ -173,29 +188,44 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
     {
         double temp;
         #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
-                shared(end, imp_memory, prediction_data, model_outputs_ext, ix_arr, imputer) \
+                shared(end, imp_memory, prediction_data, model_outputs_ext, ix_arr, imputer, ex) \
                 private(temp)
         for (size_t_for row = 0; row < end; row++)
         {
-            initialize_impute_calc(imp_memory[omp_get_thread_num()], prediction_data, imputer, ix_arr[row]);
-
-            for (std::vector<IsoHPlane> &hplane : model_outputs_ext->hplanes)
+            if (threw_exception) continue;
+            try
             {
-                traverse_hplane(hplane,
-                                *model_outputs_ext,
-                                prediction_data,
-                                temp,
-                                &imputer.imputer_tree[&hplane - &(model_outputs_ext->hplanes[0])],
-                                &imp_memory[omp_get_thread_num()],
-                                (sparse_ix*)NULL,
-                                ix_arr[row]);
+                initialize_impute_calc(imp_memory[omp_get_thread_num()], prediction_data, imputer, ix_arr[row]);
+
+                for (std::vector<IsoHPlane> &hplane : model_outputs_ext->hplanes)
+                {
+                    traverse_hplane(hplane,
+                                    *model_outputs_ext,
+                                    prediction_data,
+                                    temp,
+                                    &imputer.imputer_tree[&hplane - &(model_outputs_ext->hplanes[0])],
+                                    &imp_memory[omp_get_thread_num()],
+                                    (sparse_ix*)NULL,
+                                    ix_arr[row]);
+                }
+
+                apply_imputation_results(prediction_data, imp_memory[omp_get_thread_num()], imputer, (size_t) ix_arr[row]);
             }
 
-            apply_imputation_results(prediction_data, imp_memory[omp_get_thread_num()], imputer, (size_t) ix_arr[row]);
+            catch(...)
+            {
+                #pragma omp critical
+                {
+                    threw_exception = true;
+                    ex = std::current_exception();
+                }
+            }
 
         }
     }
 
+    if (threw_exception)
+        std::rethrow_exception(ex);
 }
 
 template <class InputData>

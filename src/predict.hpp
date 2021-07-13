@@ -170,6 +170,9 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
         std::vector<WorkerForPredictCSC> worker_memory(nthreads);
         bool has_range_penalty = true;
 
+        bool threw_exception = false;
+        std::exception_ptr ex = NULL;
+
         if (model_outputs != NULL)
         {
             for (auto &tree : model_outputs->trees)
@@ -189,36 +192,49 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
             }
 
             #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
-                    shared(worker_memory, model_outputs, prediction_data, tree_num)
+                    shared(worker_memory, model_outputs, prediction_data, tree_num, threw_exception)
             for (size_t_for tree = 0; tree < model_outputs->trees.size(); tree++)
             {
-                if (!worker_memory[omp_get_thread_num()].depths.size())
+                if (threw_exception) continue;
+                try
                 {
-                    worker_memory[omp_get_thread_num()].depths.resize(prediction_data.nrows);
-                    worker_memory[omp_get_thread_num()].ix_arr.resize(prediction_data.nrows);
-                    std::iota(worker_memory[omp_get_thread_num()].ix_arr.begin(),
-                              worker_memory[omp_get_thread_num()].ix_arr.end(),
-                              (size_t)0);
+                    if (!worker_memory[omp_get_thread_num()].depths.size())
+                    {
+                        worker_memory[omp_get_thread_num()].depths.resize(prediction_data.nrows);
+                        worker_memory[omp_get_thread_num()].ix_arr.resize(prediction_data.nrows);
+                        std::iota(worker_memory[omp_get_thread_num()].ix_arr.begin(),
+                                  worker_memory[omp_get_thread_num()].ix_arr.end(),
+                                  (size_t)0);
 
+                        if (model_outputs->missing_action == Divide)
+                             worker_memory[omp_get_thread_num()].weights_arr.resize(prediction_data.nrows);
+                    }
+
+                    worker_memory[omp_get_thread_num()].st  = 0;
+                    worker_memory[omp_get_thread_num()].end = prediction_data.nrows - 1;
                     if (model_outputs->missing_action == Divide)
-                         worker_memory[omp_get_thread_num()].weights_arr.resize(prediction_data.nrows);
+                        std::fill(worker_memory[omp_get_thread_num()].weights_arr.begin(),
+                                  worker_memory[omp_get_thread_num()].weights_arr.end(),
+                                  (double)1);
+
+                    traverse_itree_csc(worker_memory[omp_get_thread_num()],
+                                       model_outputs->trees[tree],
+                                       *model_outputs,
+                                       prediction_data,
+                                       (tree_num == NULL)?
+                                            ((sparse_ix*)NULL) : (tree_num + tree*prediction_data.nrows),
+                                       (size_t)0,
+                                       has_range_penalty);
                 }
 
-                worker_memory[omp_get_thread_num()].st  = 0;
-                worker_memory[omp_get_thread_num()].end = prediction_data.nrows - 1;
-                if (model_outputs->missing_action == Divide)
-                    std::fill(worker_memory[omp_get_thread_num()].weights_arr.begin(),
-                              worker_memory[omp_get_thread_num()].weights_arr.end(),
-                              (double)1);
-
-                traverse_itree_csc(worker_memory[omp_get_thread_num()],
-                                   model_outputs->trees[tree],
-                                   *model_outputs,
-                                   prediction_data,
-                                   (tree_num == NULL)?
-                                        ((sparse_ix*)NULL) : (tree_num + tree*prediction_data.nrows),
-                                   (size_t)0,
-                                   has_range_penalty);
+                catch(...)
+                {
+                    #pragma omp critical
+                    {
+                        threw_exception = true;
+                        ex = std::current_exception();
+                    }
+                }
             }
         }
 
@@ -241,31 +257,47 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
             }
 
             #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
-                    shared(worker_memory, model_outputs_ext, prediction_data, tree_num)
+                    shared(worker_memory, model_outputs_ext, prediction_data, tree_num, threw_exception)
             for (size_t_for tree = 0; tree < model_outputs_ext->hplanes.size(); tree++)
             {
-                if (!worker_memory[omp_get_thread_num()].depths.size())
+                if (threw_exception) continue;
+                try
                 {
-                    worker_memory[omp_get_thread_num()].depths.resize(prediction_data.nrows);
-                    worker_memory[omp_get_thread_num()].comb_val.resize(prediction_data.nrows);
-                    worker_memory[omp_get_thread_num()].ix_arr.resize(prediction_data.nrows);
-                    std::iota(worker_memory[omp_get_thread_num()].ix_arr.begin(),
-                              worker_memory[omp_get_thread_num()].ix_arr.end(),
-                              (size_t)0);
+                    if (!worker_memory[omp_get_thread_num()].depths.size())
+                    {
+                        worker_memory[omp_get_thread_num()].depths.resize(prediction_data.nrows);
+                        worker_memory[omp_get_thread_num()].comb_val.resize(prediction_data.nrows);
+                        worker_memory[omp_get_thread_num()].ix_arr.resize(prediction_data.nrows);
+                        std::iota(worker_memory[omp_get_thread_num()].ix_arr.begin(),
+                                  worker_memory[omp_get_thread_num()].ix_arr.end(),
+                                  (size_t)0);
+                    }
+
+                    worker_memory[omp_get_thread_num()].st  = 0;
+                    worker_memory[omp_get_thread_num()].end = prediction_data.nrows - 1;
+
+                    traverse_hplane_csc(worker_memory[omp_get_thread_num()],
+                                        model_outputs_ext->hplanes[tree],
+                                        *model_outputs_ext,
+                                        prediction_data,
+                                        (tree_num == NULL)?
+                                            ((sparse_ix*)NULL) : (tree_num + tree*prediction_data.nrows),
+                                        (size_t)0,
+                                        has_range_penalty);
                 }
 
-                worker_memory[omp_get_thread_num()].st  = 0;
-                worker_memory[omp_get_thread_num()].end = prediction_data.nrows - 1;
-
-                traverse_hplane_csc(worker_memory[omp_get_thread_num()],
-                                    model_outputs_ext->hplanes[tree],
-                                    *model_outputs_ext,
-                                    prediction_data,
-                                    (tree_num == NULL)?
-                                        ((sparse_ix*)NULL) : (tree_num + tree*prediction_data.nrows),
-                                    (size_t)0,
-                                    has_range_penalty);
+                catch(...)
+                {
+                    #pragma omp critical
+                    {
+                        threw_exception = true;
+                        ex = std::current_exception();
+                    }
+                }
             }
+
+            if (threw_exception)
+                std::rethrow_exception(ex);
         }
 
         #ifdef _OPENMP

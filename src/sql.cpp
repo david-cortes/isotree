@@ -192,63 +192,83 @@ std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *mo
 
     size_t tree_use;
 
+    bool threw_exception = false;
+    std::exception_ptr ex = NULL;
+
     #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
             shared(model_outputs, model_outputs_ext, numeric_colnames, categ_colnames, categ_levels, \
-                   loop_st, loop_end, index1, single_tree, all_node_rules, out) \
+                   loop_st, loop_end, index1, single_tree, all_node_rules, out, ex) \
             firstprivate(conditions_left, conditions_right) private(tree_use)
     for (size_t_for tree = loop_st; tree < loop_end; tree++)
     {
-        if (model_outputs != NULL)
+        if (threw_exception) continue;
+        
+        try
         {
-            for (size_t node = 0; node < model_outputs->trees[tree].size(); node++)
-                extract_cond_isotree(*model_outputs, model_outputs->trees[tree][node],
-                                     conditions_left[node], conditions_right[node],
-                                     numeric_colnames, categ_colnames,
-                                     categ_levels);
-        }
-
-        else
-        {
-            for (size_t node = 0; node < model_outputs_ext->hplanes[tree].size(); node++)
-                extract_cond_ext_isotree(*model_outputs_ext, model_outputs_ext->hplanes[tree][node],
+            if (model_outputs != NULL)
+            {
+                for (size_t node = 0; node < model_outputs->trees[tree].size(); node++)
+                    extract_cond_isotree(*model_outputs, model_outputs->trees[tree][node],
                                          conditions_left[node], conditions_right[node],
                                          numeric_colnames, categ_colnames,
                                          categ_levels);
+            }
+
+            else
+            {
+                for (size_t node = 0; node < model_outputs_ext->hplanes[tree].size(); node++)
+                    extract_cond_ext_isotree(*model_outputs_ext, model_outputs_ext->hplanes[tree][node],
+                                             conditions_left[node], conditions_right[node],
+                                             numeric_colnames, categ_colnames,
+                                             categ_levels);
+            }
+
+            generate_tree_rules(
+                (model_outputs == NULL)? (NULL) : &(model_outputs->trees[tree]),
+                (model_outputs_ext == NULL)? (NULL) : &(model_outputs_ext->hplanes[tree]),
+                output_score,
+                0, index1, initial_str, all_node_rules[single_tree? 0 : tree],
+                conditions_left, conditions_right
+            );
+
+            /* Code below doesn't compile with MSVC (stuck with an OMP standard that's >20 years old) */
+            // if (single_tree)
+            //     tree = 0;
+            tree_use = single_tree? (size_t)0 : tree;
+
+            if (all_node_rules[tree_use].size() <= 1)
+            {
+                for (std::string &rule : all_node_rules[tree_use])
+                    rule = std::string("WHEN TRUE THEN ")
+                            + std::to_string((model_outputs != NULL)?
+                                                (model_outputs->exp_avg_depth) : (model_outputs_ext->exp_avg_depth))
+                            + std::string(" ");
+            }
+
+            out[tree_use] = std::accumulate(all_node_rules[tree_use].begin(), all_node_rules[tree_use].end(),
+                                            std::string("CASE\n"),
+                                            [&all_node_rules, &tree_use, &index1](std::string &a, std::string &b)
+                                            {return a
+                                                        + std::string("---begin terminal node ")
+                                                        + std::to_string((size_t)std::distance(&(all_node_rules[tree_use][0]), &b) + (size_t)index1)
+                                                        + std::string("---\n")
+                                                    + b;})
+                            + std::string("END\n");
+            all_node_rules[tree_use].clear();
         }
 
-        generate_tree_rules(
-            (model_outputs == NULL)? (NULL) : &(model_outputs->trees[tree]),
-            (model_outputs_ext == NULL)? (NULL) : &(model_outputs_ext->hplanes[tree]),
-            output_score,
-            0, index1, initial_str, all_node_rules[single_tree? 0 : tree],
-            conditions_left, conditions_right
-        );
-
-        /* Code below doesn't compile with MSVC (stuck with an OMP standard that's >20 years old) */
-        // if (single_tree)
-        //     tree = 0;
-        tree_use = single_tree? (size_t)0 : tree;
-
-        if (all_node_rules[tree_use].size() <= 1)
+        catch(...)
         {
-            for (std::string &rule : all_node_rules[tree_use])
-                rule = std::string("WHEN TRUE THEN ")
-                        + std::to_string((model_outputs != NULL)?
-                                            (model_outputs->exp_avg_depth) : (model_outputs_ext->exp_avg_depth))
-                        + std::string(" ");
+            #pragma omp critical
+            {
+                threw_exception = true;
+                ex = std::current_exception();
+            }
         }
-
-        out[tree_use] = std::accumulate(all_node_rules[tree_use].begin(), all_node_rules[tree_use].end(),
-                                        std::string("CASE\n"),
-                                        [&all_node_rules, &tree_use, &index1](std::string &a, std::string &b)
-                                        {return a
-                                                    + std::string("---begin terminal node ")
-                                                    + std::to_string((size_t)std::distance(&(all_node_rules[tree_use][0]), &b) + (size_t)index1)
-                                                    + std::string("---\n")
-                                                + b;})
-                        + std::string("END\n");
-        all_node_rules[tree_use].clear();
     }
+
+    if (threw_exception)
+        std::rethrow_exception(ex);
 
     return out;
 } 

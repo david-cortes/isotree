@@ -166,34 +166,63 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
     #if defined(DONT_THROW_ON_INTERRUPT)
     if (interrupt_switch) return;
     #endif
+    /* For handling exceptions */
+    bool threw_exception = false;
+    std::exception_ptr ex = NULL;
 
     if (model_outputs != NULL)
     {
-        #pragma omp parallel for schedule(dynamic) num_threads(nthreads) shared(ntrees, worker_memory, prediction_data, model_outputs)
+        #pragma omp parallel for schedule(dynamic) num_threads(nthreads) shared(ntrees, worker_memory, prediction_data, model_outputs, ex)
         for (size_t_for tree = 0; tree < ntrees; tree++)
         {
-            initialize_worker_for_sim(worker_memory[omp_get_thread_num()], prediction_data,
-                                      model_outputs, NULL, n_from, assume_full_distr);
-            traverse_tree_sim(worker_memory[omp_get_thread_num()],
-                              prediction_data,
-                              *model_outputs,
-                              model_outputs->trees[tree],
-                              (size_t)0);
+            if (threw_exception) continue;
+            try
+            {
+                initialize_worker_for_sim(worker_memory[omp_get_thread_num()], prediction_data,
+                                          model_outputs, NULL, n_from, assume_full_distr);
+                traverse_tree_sim(worker_memory[omp_get_thread_num()],
+                                  prediction_data,
+                                  *model_outputs,
+                                  model_outputs->trees[tree],
+                                  (size_t)0);
+            }
+
+            catch(...)
+            {
+                #pragma omp critical
+                {
+                    threw_exception = true;
+                    ex = std::current_exception();
+                }
+            }
         }
     }
 
     else
     {
-        #pragma omp parallel for schedule(dynamic) num_threads(nthreads) shared(ntrees, worker_memory, prediction_data, model_outputs_ext)
+        #pragma omp parallel for schedule(dynamic) num_threads(nthreads) shared(ntrees, worker_memory, prediction_data, model_outputs_ext, ex)
         for (size_t_for hplane = 0; hplane < ntrees; hplane++)
         {
-            initialize_worker_for_sim(worker_memory[omp_get_thread_num()], prediction_data,
-                                      NULL, model_outputs_ext, n_from, assume_full_distr);
-            traverse_hplane_sim(worker_memory[omp_get_thread_num()],
-                                prediction_data,
-                                *model_outputs_ext,
-                                model_outputs_ext->hplanes[hplane],
-                                (size_t)0);
+            if (threw_exception) continue;
+            try
+            {
+                initialize_worker_for_sim(worker_memory[omp_get_thread_num()], prediction_data,
+                                          NULL, model_outputs_ext, n_from, assume_full_distr);
+                traverse_hplane_sim(worker_memory[omp_get_thread_num()],
+                                    prediction_data,
+                                    *model_outputs_ext,
+                                    model_outputs_ext->hplanes[hplane],
+                                    (size_t)0);
+            }
+
+            catch(...)
+            {
+                #pragma omp critical
+                {
+                    threw_exception = true;
+                    ex = std::current_exception();
+                }
+            }
         }    
     }
 
@@ -201,6 +230,9 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
     #if defined(DONT_THROW_ON_INTERRUPT)
     if (interrupt_switch) return;
     #endif
+
+    if (threw_exception)
+        std::rethrow_exception(ex);
     
     /* gather and transform the results */
     gather_sim_result< PredictionData<real_t, sparse_ix>, InputData<real_t, sparse_ix>, WorkerMemory<ImputedData<sparse_ix>> >
