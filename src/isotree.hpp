@@ -681,7 +681,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              double min_gain, MissingAction missing_action,
              CategSplit cat_split_type, NewCategAction new_cat_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
-             bool   all_perm, std::vector<ImputeNode> *impute_nodes, size_t min_imp_obs,
+             bool   all_perm, Imputer *imputer, size_t min_imp_obs,
              uint64_t random_seed);
 template <class InputData, class WorkerMemory>
 void fit_itree(std::vector<IsoTree>    *tree_root,

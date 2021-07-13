@@ -741,10 +741,10 @@ ISOTREE_EXPORTED int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_o
 * - coef_by_prop
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
-* - impute_nodes
-*       Pointer to already-allocated imputation nodes for the tree that will be built. Note that the number of
-*       entries in the imputation object must match the number of fitted trees when it is used.  Pass
-*       NULL if no imputation node is required.
+* - imputer
+*       Pointer to already-allocated imputer object, as it was output from function 'fit_model' while
+*       producing either 'model_outputs' or 'model_outputs_ext'.
+*       Pass NULL if the model was built without imputer.
 * - min_imp_obs
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
@@ -765,7 +765,7 @@ ISOTREE_EXPORTED int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outp
              double min_gain, MissingAction missing_action,
              CategSplit cat_split_type, NewCategAction new_cat_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
-             bool   all_perm, std::vector<ImputeNode> *impute_nodes, size_t min_imp_obs,
+             bool   all_perm, Imputer *imputer, size_t min_imp_obs,
              uint64_t random_seed);
 
 

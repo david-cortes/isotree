@@ -267,7 +267,7 @@ cdef extern from "model_joined.hpp":
                  double min_gain, MissingAction missing_action,
                  CategSplit cat_split_type, NewCategAction new_cat_action,
                  UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
-                 bool_t  all_perm, vector[ImputeNode] *impute_nodes, size_t min_imp_obs,
+                 bool_t  all_perm, Imputer *imputer, size_t min_imp_obs,
                  uint64_t random_seed) nogil except +
 
 
@@ -728,10 +728,9 @@ cdef class isoforest_cpp_obj:
         else:
             ext_model_ptr       =  &self.ext_isoforest
 
-        cdef vector[ImputeNode] *imputer_tree_ptr = NULL
+        cdef Imputer *imputer_ptr = NULL
         if build_imputer:
-            self.imputer.imputer_tree.push_back(vector[ImputeNode]()) ### emplace back doesn't work in cython
-            imputer_tree_ptr = &self.imputer.imputer_tree.back()
+            imputer_ptr = &self.imputer
 
         with nogil, boundscheck(False), nonecheck(False), wraparound(False):
             add_tree(model_ptr, ext_model_ptr,
@@ -748,7 +747,7 @@ cdef class isoforest_cpp_obj:
                      min_gain, missing_action_C,
                      cat_split_type_C, new_cat_action_C,
                      depth_imp_C, weigh_imp_rows_C,
-                     all_perm, imputer_tree_ptr, min_imp_obs, random_seed)
+                     all_perm, imputer_ptr, min_imp_obs, random_seed)
 
     def predict(self,
                 np.ndarray[real_t, ndim=1] placeholder_real_t,

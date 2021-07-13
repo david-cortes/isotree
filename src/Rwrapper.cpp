@@ -536,13 +536,8 @@ Rcpp::RawVector fit_tree(SEXP model_R_ptr,
     else
         ext_model_ptr  =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
 
-    std::vector<ImputeNode>  *imp_ptr = NULL;
     if (build_imputer)
-    {
         imputer_ptr = static_cast<Imputer*>(R_ExternalPtrAddr(imp_R_ptr));
-        imputer_ptr->imputer_tree.emplace_back();
-        imp_ptr     = &imputer_ptr->imputer_tree.back();
-    }
 
     add_tree(model_ptr, ext_model_ptr,
              numeric_data_ptr,  ncols_numeric,
@@ -558,7 +553,7 @@ Rcpp::RawVector fit_tree(SEXP model_R_ptr,
              min_gain, missing_action_C,
              cat_split_type_C, new_cat_action_C,
              depth_imp_C, weigh_imp_rows_C, all_perm,
-             imp_ptr, min_imp_obs, (uint64_t)random_seed);
+             imputer_ptr, min_imp_obs, (uint64_t)random_seed);
 
     if (ndim == 1)
         return serialize_cpp_obj(model_ptr);

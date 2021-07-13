@@ -98,7 +98,7 @@ ISOTREE_EXPORTED int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outp
              double min_gain, MissingAction missing_action,
              CategSplit cat_split_type, NewCategAction new_cat_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
-             bool   all_perm, std::vector<ImputeNode> *impute_nodes, size_t min_imp_obs,
+             bool   all_perm, Imputer *imputer, size_t min_imp_obs,
              uint64_t random_seed)
 {
     return add_tree<real_t, sparse_ix>
@@ -116,7 +116,7 @@ ISOTREE_EXPORTED int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outp
              min_gain, missing_action,
              cat_split_type, new_cat_action,
              depth_imp, weigh_imp_rows,
-             all_perm, impute_nodes, min_imp_obs,
+             all_perm, imputer, min_imp_obs,
              random_seed);
 }
 ISOTREE_EXPORTED void predict_iforest(real_t numeric_data[], int categ_data[],
