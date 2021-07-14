@@ -53,7 +53,11 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                            size_t                   curr_depth)
 {
     if (interrupt_switch) return;
+    #if !defined(_WIN32) && !defined(_WIN64)
     long double sum_weight = -HUGE_VAL;
+    #else
+    double sum_weight = -HUGE_VAL;
+    #endif
 
     /* calculate imputation statistics if desired */
     if (impute_nodes != NULL)
@@ -615,9 +619,15 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         {
             if (!workspace.weights_arr.size() && !workspace.weights_map.size())
             {
+                #if !defined(_WIN32) && !defined(_WIN64)
                 trees.back().pct_tree_left = (long double)(workspace.st_NA - workspace.st)
                                                 /
                                              (long double)(workspace.end - workspace.st + 1 - (workspace.end_NA - workspace.st_NA));
+                #else
+                trees.back().pct_tree_left = (double)(workspace.st_NA - workspace.st)
+                                                /
+                                             (double)(workspace.end - workspace.st + 1 - (workspace.end_NA - workspace.st_NA));
+                #endif
             }
 
             else
@@ -674,9 +684,15 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
         else
         {
+            #if !defined(_WIN32) && !defined(_WIN64)
             trees.back().pct_tree_left = (long double) (workspace.split_ix - workspace.st)
                                             /
                                          (long double) (workspace.end - workspace.st + 1);
+            #else
+            trees.back().pct_tree_left = (double) (workspace.split_ix - workspace.st)
+                                            /
+                                         (double) (workspace.end - workspace.st + 1);
+            #endif
             workspace.end = workspace.split_ix - 1;
         }
 
