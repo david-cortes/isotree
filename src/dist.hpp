@@ -757,11 +757,11 @@ void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
         if (tmat != NULL)
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(ncomb, tmat, ntrees_dbl, div_trees)
             for (size_t_for ix = 0; ix < ncomb; ix++)
-                tmat[ix] = exp2( - tmat[ix] / div_trees);
+                tmat[ix] = std::exp2( - tmat[ix] / div_trees);
         else
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(ncomb, rmat, ntrees_dbl, div_trees)
             for (size_t_for ix = 0; ix < n_from * n_to; ix++)
-                rmat[ix] = exp2( - rmat[ix] / div_trees);
+                rmat[ix] = std::exp2( - rmat[ix] / div_trees);
     }
     
     else

@@ -676,10 +676,6 @@ double categ_gain(number cnt_left, number cnt_right,
     (1. - (1./(sd))*(  ( ((real_t)(cnt_left))/(cnt) )*(sd_left) + ( ((real_t)(cnt_right)/(cnt)) )*(sd_right)  ))
 
 
-/* TODO: these functions would not take into account observation weights if available.
-   Need to create a 'weighted' version of each. */
-
-
 /* TODO: make this a compensated sum */
 template <class real_t, class real_t_>
 double find_split_rel_gain_t(real_t_ *restrict x, size_t n, double &split_point)

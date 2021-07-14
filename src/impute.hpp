@@ -588,7 +588,7 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
     {
         case Inverse:
         {
-            double wsum_div = wsum * sqrt(wsum);
+            double wsum_div = wsum * std::sqrt(wsum);
             for (double &w : imputer.num_weight)
                 w /= wsum_div;
 

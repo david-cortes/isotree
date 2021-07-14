@@ -44,9 +44,10 @@
 */
 
 /* Standard headers */
-#include <stddef.h>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
+using std::size_t;
 
 /*  The library has overloaded functions supporting different input types.
     Note that, while 'float' type is supported, it will
@@ -593,7 +594,8 @@ typedef struct Imputer {
 * [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
 * [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 */
-ISOTREE_EXPORTED int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+ISOTREE_EXPORTED
+int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 real_t numeric_data[],  size_t ncols_numeric,
                 int    categ_data[],    size_t ncols_categ,    int ncat[],
                 real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
@@ -752,7 +754,8 @@ ISOTREE_EXPORTED int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_o
 * - random_seed
 *       Seed that will be used to generate random numbers used by the model.
 */
-ISOTREE_EXPORTED int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+ISOTREE_EXPORTED
+int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              real_t numeric_data[],  size_t ncols_numeric,
              int    categ_data[],    size_t ncols_categ,    int ncat[],
              real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
@@ -864,7 +867,8 @@ ISOTREE_EXPORTED int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outp
 *       when passing this parameter, and as such, there will be some overhead regardless of
 *       the actual number of rows. Pass NULL if only average depths or outlier scores are desired.
 */
-ISOTREE_EXPORTED void predict_iforest(real_t numeric_data[], int categ_data[],
+ISOTREE_EXPORTED
+void predict_iforest(real_t numeric_data[], int categ_data[],
                      bool is_col_major, size_t ncols_numeric, size_t ncols_categ,
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
@@ -984,7 +988,8 @@ ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_no
 *       assumed to be the first 'n_from' rows.
 *       Ignored when 'tmat' is passed.
 */
-ISOTREE_EXPORTED void calc_similarity(real_t numeric_data[], int categ_data[],
+ISOTREE_EXPORTED
+void calc_similarity(real_t numeric_data[], int categ_data[],
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -1057,7 +1062,8 @@ ISOTREE_EXPORTED void calc_similarity(real_t numeric_data[], int categ_data[],
 *       Pointer to fitted imputation node obects for the same trees as in 'model_outputs' or 'model_outputs_ext',
 *       as produced from function 'fit_iforest',
 */
-ISOTREE_EXPORTED void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
+ISOTREE_EXPORTED
+void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
                            real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                            size_t nrows, int nthreads,
                            IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -1115,7 +1121,8 @@ ISOTREE_EXPORTED void impute_missing_values(real_t numeric_data[], int categ_dat
 *       hyperparameters after the merge).
 *       Pass NULL if this is not to be used.
 */
-ISOTREE_EXPORTED void merge_models(IsoForest*     model,      IsoForest*     other,
+ISOTREE_EXPORTED
+void merge_models(IsoForest*     model,      IsoForest*     other,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                   Imputer*       imputer,    Imputer*       iother);
 
@@ -1229,7 +1236,8 @@ ISOTREE_EXPORTED bool has_msvc();
 * A string with the corresponding SQL statement that will calculate the outlier score
 * from the model.
 */
-ISOTREE_EXPORTED std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+ISOTREE_EXPORTED
+std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                           std::string &table_from, std::string &select_as,
                                           std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
                                           std::vector<std::vector<std::string>> &categ_levels,
@@ -1279,7 +1287,8 @@ ISOTREE_EXPORTED std::string generate_sql_with_select_from(IsoForest *model_outp
 * in 'tree_num'. The statements will be node-by-node, with commented-out separators using '---'
 * as delimiters and including the node number as part of the comment.
 */
-ISOTREE_EXPORTED std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+ISOTREE_EXPORTED
+std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                       std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
                                       std::vector<std::vector<std::string>> &categ_levels,
                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,

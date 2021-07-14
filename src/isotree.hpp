@@ -47,10 +47,10 @@
 #define ISOTREE_H
 
 /* Standard headers */
-#include <stddef.h>
-#include <math.h>
-#include <limits.h>
-#include <string.h>
+#include <cstddef>
+#include <cmath>
+#include <climits>
+#include <cstring>
 #include <vector>
 #include <iterator>
 #include <numeric>
@@ -65,7 +65,9 @@
 #include <stdexcept>
 #include <iostream>
 #ifndef _FOR_R
-    #include <stdio.h> 
+    #include <cstdio>
+    using std::printf;
+    using std::fprintf;
 #else
     extern "C" {
         #include <R_ext/Print.h>
@@ -86,9 +88,14 @@
 #ifdef _FOR_R
     #include <Rcpp.h>
 #endif
-#include <signal.h>
+#include <csignal>
 typedef void (*sig_t_)(int);
+using std::signal;
+using std::raise;
 
+using std::size_t;
+using std::memset;
+using std::memcpy;
 
 /* By default, will use Mersenne-Twister for RNG, but can be switched to something faster */
 #ifdef _USE_MERSENNE_TWISTER
@@ -121,14 +128,22 @@ typedef void (*sig_t_)(int);
     #define pow2(n) ((size_t)powl((long double)2, (long double)n))
 #endif
 #define square(x) ((x) * (x))
+#if defined(__GNUC__) && (__GNUC__ >= 5)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#elif defined(__clang__)
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 /* https://stackoverflow.com/questions/2249731/how-do-i-get-bit-by-bit-data-from-an-integer-value-in-c */
 #define extract_bit(number, bit) (((number) >> (bit)) & 1)
-#ifndef isinf
-    #define isinf std::isinf
+#if defined(__GNUC__) && (__GNUC__ >= 5)
+    #pragma GCC diagnostic pop
+#elif defined(__clang__)
+    #pragma clang diagnostic pop
 #endif
-#ifndef isnan
-    #define isnan std::isnan
-#endif
+using std::isinf;
+using std::isnan;
 #define is_na_or_inf(x) (isnan(x) || isinf(x))
 
 
@@ -1174,7 +1189,8 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                                  mapping w);
 
 /* merge_models.cpp */
-ISOTREE_EXPORTED void merge_models(IsoForest*     model,      IsoForest*     other,
+ISOTREE_EXPORTED
+void merge_models(IsoForest*     model,      IsoForest*     other,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                   Imputer*       imputer,    Imputer*       iother);
 
@@ -1220,12 +1236,14 @@ bool has_cereal();
 #endif /* _ENABLE_CEREAL || _FOR_PYTON */
 
 /* sql.cpp */
-ISOTREE_EXPORTED std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+ISOTREE_EXPORTED
+std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                       std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
                                       std::vector<std::vector<std::string>> &categ_levels,
                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
                                       int nthreads);
-ISOTREE_EXPORTED std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+ISOTREE_EXPORTED
+std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                           std::string &table_from, std::string &select_as,
                                           std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
                                           std::vector<std::vector<std::string>> &categ_levels,
