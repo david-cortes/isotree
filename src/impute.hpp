@@ -272,7 +272,7 @@ void initialize_imputer(Imputer &imputer, InputData &input_data, size_t ntrees, 
         for (size_t_for col = 0; col < input_data.ncols_numeric; col++)
         {
             cnt = input_data.nrows;
-            for (size_t ix = input_data.Xc_indptr[col]; ix < input_data.Xc_indptr[col + 1]; ix++)
+            for (auto ix = input_data.Xc_indptr[col]; ix < input_data.Xc_indptr[col + 1]; ix++)
             {
                 imputer.col_means[col] += (!is_na_or_inf(input_data.Xc[ix]))?
                                            input_data.Xc[ix] : 0;
@@ -458,7 +458,7 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
                  row != ix_arr + workspace.end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
                 )
             {
-                if (input_data.Xc_ind[curr_pos] == *row)
+                if (input_data.Xc_ind[curr_pos] == static_cast<typename std::remove_pointer<decltype(input_data.Xc_ind)>::type>(*row))
                 {
                     xnum = input_data.Xc[curr_pos];
                     if (workspace.weights_arr.size())
@@ -484,7 +484,7 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
 
                 else
                 {
-                    if (input_data.Xc_ind[curr_pos] > *row)
+                    if (input_data.Xc_ind[curr_pos] > static_cast<typename std::remove_pointer<decltype(input_data.Xc_ind)>::type>(*row))
                         row = std::lower_bound(row + 1, ix_arr + workspace.end + 1, input_data.Xc_ind[curr_pos]);
                     else
                         curr_pos = std::lower_bound(input_data.Xc_ind + curr_pos + 1, input_data.Xc_ind + end_col + 1, *row) - input_data.Xc_ind;
@@ -970,7 +970,7 @@ void apply_imputation_results(PredictionData  &prediction_data,
     }
 
     if (prediction_data.Xr != NULL)
-        for (size_t ix = prediction_data.Xr_indptr[row]; ix < prediction_data.Xr_indptr[row + 1]; ix++)
+        for (auto ix = prediction_data.Xr_indptr[row]; ix < prediction_data.Xr_indptr[row + 1]; ix++)
         {
             if (is_na_or_inf(prediction_data.Xr[ix]))
             {
@@ -1051,7 +1051,7 @@ void initialize_impute_calc(ImputedData &imp, InputData &input_data, size_t row)
                                    row);
             if (
                 res != input_data.Xc_ind + input_data.Xc_indptr[col + 1] && 
-                *res == row && 
+                *res == static_cast<typename std::remove_pointer<decltype(res)>::type>(row) && 
                 is_na_or_inf(input_data.Xc[res - input_data.Xc_ind])
                 )
             {
@@ -1119,7 +1119,7 @@ void initialize_impute_calc(ImputedData &imp, PredictionData &prediction_data, I
     {
         if (!imp.missing_sp.size())
             imp.missing_sp.resize(imputer.ncols_numeric);
-        for (size_t ix = prediction_data.Xr_indptr[row]; ix < prediction_data.Xr_indptr[row + 1]; ix++)
+        for (auto ix = prediction_data.Xr_indptr[row]; ix < prediction_data.Xr_indptr[row + 1]; ix++)
             if (is_na_or_inf(prediction_data.Xr[ix]))
                 imp.missing_sp[imp.n_missing_sp++] = prediction_data.Xr_ind[ix];
 
@@ -1229,7 +1229,7 @@ void check_for_missing(InputData &input_data,
     {
         for (size_t col = 0; col < input_data.ncols_numeric; col++)
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(col, input_data)
-            for (size_t_for ix = input_data.Xc_indptr[col]; ix < input_data.Xc_indptr[col + 1]; ix++)
+            for (size_t_for ix = input_data.Xc_indptr[col]; ix < (size_t)input_data.Xc_indptr[col + 1]; ix++)
                 if (is_na_or_inf(input_data.Xc[ix]))
                     input_data.has_missing[input_data.Xc_ind[ix]] = true;
             #pragma omp barrier
@@ -1308,7 +1308,7 @@ size_t check_for_missing(PredictionData  &prediction_data,
 
         else if (prediction_data.Xr != NULL)
         {
-            for (size_t ix = prediction_data.Xr_indptr[row]; ix < prediction_data.Xr_indptr[row + 1]; ix++)
+            for (auto ix = prediction_data.Xr_indptr[row]; ix < prediction_data.Xr_indptr[row + 1]; ix++)
             {
                 if (is_na_or_inf(prediction_data.Xr[ix]))
                 {

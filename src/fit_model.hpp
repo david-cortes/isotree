@@ -85,6 +85,7 @@
 * - Xc_ind[nnz]
 *       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
 *       Must be in sorted order, otherwise results will be incorrect.
+*       The largest value here should be smaller than the largest possible value of 'size_t'.
 *       Pass NULL if there are no sparse numeric columns.
 * - Xc_indptr[ncols_numeric + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'

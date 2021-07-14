@@ -1331,7 +1331,7 @@ void add_csc_range_penalty(WorkerForPredictCSC  &workspace,
              row != workspace.ix_arr.data() + workspace.end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
             )
         {
-            if (prediction_data.Xc_ind[curr_pos] == *row)
+            if (prediction_data.Xc_ind[curr_pos] == (decltype(*prediction_data.Xc_ind))(*row))
             {
                 if (!isnan(prediction_data.Xc[curr_pos])
                         &&
@@ -1350,7 +1350,7 @@ void add_csc_range_penalty(WorkerForPredictCSC  &workspace,
 
             else
             {
-                if (prediction_data.Xc_ind[curr_pos] > *row)
+                if (prediction_data.Xc_ind[curr_pos] > (decltype(*prediction_data.Xc_ind))(*row))
                     row = std::lower_bound(row + 1,
                                            workspace.ix_arr.data() + workspace.end + 1,
                                            prediction_data.Xc_ind[curr_pos]);
@@ -1377,7 +1377,7 @@ void add_csc_range_penalty(WorkerForPredictCSC  &workspace,
              row != workspace.ix_arr.data() + workspace.end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
             )
         {
-            if (prediction_data.Xc_ind[curr_pos] == *row)
+            if (prediction_data.Xc_ind[curr_pos] == (decltype(*prediction_data.Xc_ind))(*row))
             {
                 if (isnan(prediction_data.Xc[curr_pos])
                         ||
@@ -1396,7 +1396,7 @@ void add_csc_range_penalty(WorkerForPredictCSC  &workspace,
 
             else
             {
-                if (prediction_data.Xc_ind[curr_pos] > *row)
+                if (prediction_data.Xc_ind[curr_pos] > (decltype(*prediction_data.Xc_ind))(*row))
                     row = std::lower_bound(row + 1,
                                            workspace.ix_arr.data() + workspace.end + 1,
                                            prediction_data.Xc_ind[curr_pos]);
@@ -1420,7 +1420,7 @@ double extract_spC(PredictionData &prediction_data, size_t row, size_t col_num)
     if (
         search_res == (prediction_data.Xc_ind + prediction_data.Xc_indptr[col_num + 1])
             ||
-        *search_res != row
+        (*search_res) != static_cast<typename std::remove_pointer<decltype(search_res)>::type>(row)
         )
         return 0.;
     else

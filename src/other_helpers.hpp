@@ -131,7 +131,6 @@ void reconstruct_csr_with_categ
     std::unordered_map<size_t, size_t> orig_to_rec_cat;
 
     sparse_ix__ col_orig;
-    sparse_ix__ col_ind;
     sparse_ix__ *restrict col_ptr;
     
     if (num_is_seq)
@@ -157,7 +156,7 @@ void reconstruct_csr_with_categ
 
     for (size_t row = 0; row < nrows; row++)
     {
-        for (size_t col = orig_Xr_indptr[row]; col < orig_Xr_indptr[row+1]; col++)
+        for (auto col = orig_Xr_indptr[row]; col < orig_Xr_indptr[row+1]; col++)
         {
             if (isnan(orig_Xr[col]))
             {

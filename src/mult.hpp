@@ -164,7 +164,7 @@ void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
          row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
         )
     {
-        if (Xc_ind[curr_pos] == *row)
+        if (Xc_ind[curr_pos] == (sparse_ix)(*row))
         {
             if (is_na_or_inf(Xc[curr_pos]))
             {
@@ -185,7 +185,7 @@ void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 
         else
         {
-            if (Xc_ind[curr_pos] > *row)
+            if (Xc_ind[curr_pos] > (sparse_ix)(*row))
                 row = std::lower_bound(row + 1, ix_arr + end + 1, Xc_ind[curr_pos]);
             else
                 curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
@@ -258,7 +258,7 @@ void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, size_t co
          row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
         )
     {
-        if (Xc_ind[curr_pos] == *row)
+        if (Xc_ind[curr_pos] == (sparse_ix)(*row))
         {
             if (is_na_or_inf(Xc[curr_pos]))
             {
@@ -281,7 +281,7 @@ void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, size_t co
 
         else
         {
-            if (Xc_ind[curr_pos] > *row)
+            if (Xc_ind[curr_pos] > (sparse_ix)(*row))
                 row = std::lower_bound(row + 1, ix_arr + end + 1, Xc_ind[curr_pos]);
             else
                 curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
@@ -492,8 +492,8 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
        to happen while fitting because the range is determined before calling this */
     if (
             Xc_indptr[col_num] == Xc_indptr[col_num + 1] ||
-            Xc_ind[Xc_indptr[col_num]] > ix_arr[end] ||
-            Xc_ind[Xc_indptr[col_num + 1] - 1] < ix_arr[st]
+            Xc_ind[Xc_indptr[col_num]] > (sparse_ix)ix_arr[end] ||
+            Xc_ind[Xc_indptr[col_num + 1] - 1] < (sparse_ix)ix_arr[st]
         )
     {
         if (first_run)
@@ -540,7 +540,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
                  row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
                 )
             {
-                if (Xc_ind[curr_pos] == *row)
+                if (Xc_ind[curr_pos] == (sparse_ix)(*row))
                 {
                     if (is_na_or_inf(Xc[curr_pos]))
                     {
@@ -560,7 +560,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
 
                 else
                 {
-                    if (Xc_ind[curr_pos] > *row)
+                    if (Xc_ind[curr_pos] > (sparse_ix)(*row))
                         row = std::lower_bound(row + 1, ix_arr + end + 1, Xc_ind[curr_pos]);
                     else
                         curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
@@ -575,7 +575,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
                  row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
                 )
             {
-                if (Xc_ind[curr_pos] == *row)
+                if (Xc_ind[curr_pos] == (sparse_ix)(*row))
                 {
                     res[row - ix_arr_plus_st] += is_na_or_inf(Xc[curr_pos])?
                                                   (fill_val + offset) : (Xc[curr_pos] * coef);
@@ -585,7 +585,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
 
                 else
                 {
-                    if (Xc_ind[curr_pos] > *row)
+                    if (Xc_ind[curr_pos] > (sparse_ix)(*row))
                         row = std::lower_bound(row + 1, ix_arr + end + 1, Xc_ind[curr_pos]);
                     else
                         curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
@@ -674,7 +674,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
              row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
             )
         {
-            if (Xc_ind[curr_pos] == *row)
+            if (Xc_ind[curr_pos] == (sparse_ix)(*row))
             {
                 res[row - ix_arr_plus_st] += Xc[curr_pos] * coef;
                 if (row == ix_arr + end || curr_pos == end_col) break;
@@ -683,7 +683,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
 
             else
             {
-                if (Xc_ind[curr_pos] > *row)
+                if (Xc_ind[curr_pos] > (sparse_ix)(*row))
                     row = std::lower_bound(row + 1, ix_arr + end + 1, Xc_ind[curr_pos]);
                 else
                     curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;

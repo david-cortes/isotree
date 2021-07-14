@@ -490,7 +490,7 @@ struct ImputedData {
     ImputedData(InputData &input_data, size_t row)
     {
         initialize_impute_calc(*this, input_data, row);
-    };
+    }
 
 };
 

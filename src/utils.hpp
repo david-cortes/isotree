@@ -1106,7 +1106,7 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                     break;
                 }
 
-                if (Xc_ind[curr_pos] == *row)
+                if (Xc_ind[curr_pos] == (sparse_ix)(*row))
                 {
                     if (Xc[curr_pos] <= split_point)
                     {
@@ -1131,9 +1131,9 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 
                 else
                 {
-                    if (Xc_ind[curr_pos] > *row)
+                    if (Xc_ind[curr_pos] > (sparse_ix)(*row))
                     {
-                        while (row <= ix_arr + end && Xc_ind[curr_pos] > *row)
+                        while (row <= ix_arr + end && Xc_ind[curr_pos] > (sparse_ix)(*row))
                         {
                             temp       = ix_arr[st];
                             ix_arr[st] = *row;
@@ -1154,7 +1154,7 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                  row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
                 )
             {
-                if (Xc_ind[curr_pos] == *row)
+                if (Xc_ind[curr_pos] == (sparse_ix)(*row))
                 {
                     if (Xc[curr_pos] <= split_point)
                     {
@@ -1169,7 +1169,7 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 
                 else
                 {
-                    if (Xc_ind[curr_pos] > *row)
+                    if (Xc_ind[curr_pos] > (sparse_ix)(*row))
                         row = std::lower_bound(row + 1, ix_arr + end + 1, Xc_ind[curr_pos]);
                     else
                         curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
@@ -1202,7 +1202,7 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                     break;
                 }
 
-                if (Xc_ind[curr_pos] == *row)
+                if (Xc_ind[curr_pos] == (sparse_ix)(*row))
                 {
                     if (isnan(Xc[curr_pos]))
                         has_NAs = true;
@@ -1227,9 +1227,9 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 
                 else
                 {
-                    if (Xc_ind[curr_pos] > *row)
+                    if (Xc_ind[curr_pos] > (sparse_ix)(*row))
                     {
-                        while (row <= ix_arr + end && Xc_ind[curr_pos] > *row)
+                        while (row <= ix_arr + end && Xc_ind[curr_pos] > (sparse_ix)(*row))
                         {
                             temp       = ix_arr[st];
                             ix_arr[st] = *row;
@@ -1252,7 +1252,7 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                  row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
                 )
             {
-                if (Xc_ind[curr_pos] == *row)
+                if (Xc_ind[curr_pos] == (sparse_ix)(*row))
                 {
                     if (isnan(Xc[curr_pos])) has_NAs = true;
                     if (!isnan(Xc[curr_pos]) && Xc[curr_pos] <= split_point)
@@ -1268,7 +1268,7 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 
                 else
                 {
-                    if (Xc_ind[curr_pos] > *row)
+                    if (Xc_ind[curr_pos] > (sparse_ix)(*row))
                         row = std::lower_bound(row + 1, ix_arr + end + 1, Xc_ind[curr_pos]);
                     else
                         curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
@@ -1286,7 +1286,7 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                  row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
                 )
             {
-                if (Xc_ind[curr_pos] == *row)
+                if (Xc_ind[curr_pos] == (sparse_ix)(*row))
                 {
                     if (isnan(Xc[curr_pos]))
                     {
@@ -1301,7 +1301,7 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 
                 else
                 {
-                    if (Xc_ind[curr_pos] > *row)
+                    if (Xc_ind[curr_pos] > (sparse_ix)(*row))
                         row = std::lower_bound(row + 1, ix_arr + end + 1, Xc_ind[curr_pos]);
                     else
                         curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
@@ -1653,8 +1653,8 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
     size_t curr_pos = st_col;
 
     if (!nnz_col || 
-        Xc_ind[st_col] > ix_arr[end] || 
-        ix_arr[st]     > Xc_ind[end_col]
+        Xc_ind[st_col]         >   (sparse_ix)ix_arr[end] || 
+        (sparse_ix)ix_arr[st]  >   Xc_ind[end_col]
         )
     {
         unsplittable = true;
@@ -1662,8 +1662,8 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
     }
 
     if (nnz_col < end - st + 1 ||
-        Xc_ind[st_col]  > ix_arr[st] ||
-        Xc_ind[end_col] < ix_arr[end]
+        Xc_ind[st_col]  > (sparse_ix)ix_arr[st] ||
+        Xc_ind[end_col] < (sparse_ix)ix_arr[end]
         )
     {
         xmin = 0;
@@ -1679,7 +1679,7 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
              row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
             )
         {
-            if (Xc_ind[curr_pos] == *row)
+            if (Xc_ind[curr_pos] == (sparse_ix)(*row))
             {
                 nmatches++;
                 xmin = (Xc[curr_pos] < xmin)? Xc[curr_pos] : xmin;
@@ -1690,7 +1690,7 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 
             else
             {
-                if (Xc_ind[curr_pos] > *row)
+                if (Xc_ind[curr_pos] > (sparse_ix)(*row))
                     row = std::lower_bound(row + 1, ix_arr + end + 1, Xc_ind[curr_pos]);
                 else
                     curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
@@ -1704,7 +1704,7 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
              row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
             )
         {
-            if (Xc_ind[curr_pos] == *row)
+            if (Xc_ind[curr_pos] == (sparse_ix)(*row))
             {
                 nmatches++;
                 xmin = std::fmin(xmin, Xc[curr_pos]);
@@ -1715,7 +1715,7 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 
             else
             {
-                if (Xc_ind[curr_pos] > *row)
+                if (Xc_ind[curr_pos] > (sparse_ix)(*row))
                     row = std::lower_bound(row + 1, ix_arr + end + 1, Xc_ind[curr_pos]);
                 else
                     curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
@@ -1881,7 +1881,7 @@ void todense(size_t ix_arr[], size_t st, size_t end,
          row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
         )
     {
-        if (Xc_ind[curr_pos] == *row)
+        if (Xc_ind[curr_pos] == (sparse_ix)(*row))
         {
             buffer_arr[row - (ix_arr + st)] = Xc[curr_pos];
             if (row == ix_arr + end || curr_pos == end_col) break;
@@ -1890,7 +1890,7 @@ void todense(size_t ix_arr[], size_t st, size_t end,
 
         else
         {
-            if (Xc_ind[curr_pos] > *row)
+            if (Xc_ind[curr_pos] > (sparse_ix)(*row))
                 row = std::lower_bound(row + 1, ix_arr + end + 1, Xc_ind[curr_pos]);
             else
                 curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;

@@ -179,8 +179,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
             {
                 workspace.col_sampler.drop_col(workspace.col_chosen
                                                  +
-                                               (workspace.col_type == Numeric)?
-                                                (size_t)0 : input_data.ncols_numeric);
+                                               ((workspace.col_type == Numeric)?
+                                                 (size_t)0 : input_data.ncols_numeric));
             }
 
             else
@@ -642,7 +642,7 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
                         std::copy(workspace.ext_cat_coef[workspace.ntaken].begin(),
                                   workspace.ext_cat_coef[workspace.ntaken].begin() + ncat,
                                   workspace.buffer_dbl.begin());
-                        for (size_t ix = 0; ix < ncat; ix++)
+                        for (int ix = 0; ix < ncat; ix++)
                             workspace.ext_cat_coef[workspace.ntaken][ix] = workspace.buffer_dbl[sorted_ix[ix]];
                     }
 
