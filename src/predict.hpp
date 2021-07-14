@@ -231,8 +231,11 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
                 {
                     #pragma omp critical
                     {
-                        threw_exception = true;
-                        ex = std::current_exception();
+                        if (!threw_exception)
+                        {
+                            threw_exception = true;
+                            ex = std::current_exception();
+                        }
                     }
                 }
             }
@@ -290,8 +293,11 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
                 {
                     #pragma omp critical
                     {
-                        threw_exception = true;
-                        ex = std::current_exception();
+                        if (!threw_exception)
+                        {
+                            threw_exception = true;
+                            ex = std::current_exception();
+                        }
                     }
                 }
             }

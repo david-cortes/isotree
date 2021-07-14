@@ -176,8 +176,11 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
             {
                 #pragma omp critical
                 {
-                    threw_exception = true;
-                    ex = std::current_exception();
+                    if (!threw_exception)
+                    {
+                        threw_exception = true;
+                        ex = std::current_exception();
+                    }
                 }
             }
 
@@ -216,8 +219,11 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
             {
                 #pragma omp critical
                 {
-                    threw_exception = true;
-                    ex = std::current_exception();
+                    if (!threw_exception)
+                    {
+                        threw_exception = true;
+                        ex = std::current_exception();
+                    }
                 }
             }
 

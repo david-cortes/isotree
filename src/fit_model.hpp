@@ -503,8 +503,11 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         {
             #pragma omp critical
             {
-                threw_exception = true;
-                ex = std::current_exception();
+                if (!threw_exception)
+                {
+                    threw_exception = true;
+                    ex = std::current_exception();
+                }
             }
         }
     }

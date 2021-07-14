@@ -261,8 +261,11 @@ std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *mo
         {
             #pragma omp critical
             {
-                threw_exception = true;
-                ex = std::current_exception();
+                if (!threw_exception)
+                {
+                    threw_exception = true;
+                    ex = std::current_exception();
+                }
             }
         }
     }
