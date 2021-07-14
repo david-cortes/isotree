@@ -1752,6 +1752,7 @@ void get_categs(size_t ix_arr[], int x[], size_t st, size_t end, int ncat,
     unsplittable = npresent < 2;
 }
 
+#if !defined(_WIN32) && !defined(_WIN64)
 long double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
                                   std::vector<double> &weights_arr, std::unordered_map<size_t, double> &weights_map)
 {
@@ -1768,6 +1769,24 @@ long double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t
     else
         return -HUGE_VAL;
 }
+#else
+     double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
+                                  std::vector<double> &weights_arr, std::unordered_map<size_t, double> &weights_map)
+{
+    if (curr_depth > 0 && weights_arr.size())
+        return std::accumulate(ix_arr.begin() + st,
+                               ix_arr.begin() + end + 1,
+                               (double)0,
+                               [&weights_arr](const double a, const size_t ix){return a + weights_arr[ix];});
+    else if (curr_depth > 0 && weights_map.size())
+        return std::accumulate(ix_arr.begin() + st,
+                               ix_arr.begin() + end + 1,
+                               (double)0,
+                               [&weights_map](const double a, const size_t ix){return a + weights_map[ix];});
+    else
+        return -HUGE_VAL;
+}
+#endif
 
 template <class real_t>
 size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, real_t x[])

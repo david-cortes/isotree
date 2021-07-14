@@ -991,8 +991,13 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                MissingAction missing_action, double &xmin, double &xmax, bool &unsplittable);
 void get_categs(size_t ix_arr[], int x[], size_t st, size_t end, int ncat,
                 MissingAction missing_action, char categs[], size_t &npresent, bool &unsplittable);
+#if !defined(_WIN32) && !defined(_WIN64)
 long double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
                                   std::vector<double> &weights_arr, std::unordered_map<size_t, double> &weights_map);
+#else
+     double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
+                                  std::vector<double> &weights_arr, std::unordered_map<size_t, double> &weights_map);
+#endif
 extern bool interrupt_switch;
 extern bool signal_is_locked;
 void set_interrup_global_variable(int s);

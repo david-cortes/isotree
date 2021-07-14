@@ -622,9 +622,13 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
             else
             {
-
+                #if !defined(_WIN32) && !defined(_WIN64)
                 long double sum_weight_left = 0;
                 long double sum_weight_right = 0;
+                #else
+                double sum_weight_left = 0;
+                double sum_weight_right = 0;
+                #endif
                 if (workspace.weights_map.size()) {
                     for (size_t row = workspace.st; row < workspace.st_NA; row++)
                         sum_weight_left += workspace.weights_map[workspace.ix_arr[row]];
