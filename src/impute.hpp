@@ -1235,7 +1235,7 @@ void check_for_missing(InputData &input_data,
     {
         for (size_t col = 0; col < input_data.ncols_numeric; col++)
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(col, input_data)
-            for (size_t_for ix = input_data.Xc_indptr[col]; ix < (size_t)input_data.Xc_indptr[col + 1]; ix++)
+            for (size_t_for ix = input_data.Xc_indptr[col]; ix < (decltype(ix))input_data.Xc_indptr[col + 1]; ix++)
                 if (is_na_or_inf(input_data.Xc[ix]))
                     input_data.has_missing[input_data.Xc_ind[ix]] = true;
             #pragma omp barrier

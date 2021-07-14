@@ -613,9 +613,34 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         /* compute statistics for NAs and remember recursion indices/weights */
         if (model_params.missing_action != Fail)
         {
-            trees.back().pct_tree_left = (long double)(workspace.st_NA - workspace.st)
-                                            /
-                                         (long double)(workspace.end - workspace.st + 1 - (workspace.end_NA - workspace.st_NA));
+            if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+            {
+                trees.back().pct_tree_left = (long double)(workspace.st_NA - workspace.st)
+                                                /
+                                             (long double)(workspace.end - workspace.st + 1 - (workspace.end_NA - workspace.st_NA));
+            }
+
+            else
+            {
+
+                long double sum_weight_left = 0;
+                long double sum_weight_right = 0;
+                if (workspace.weights_map.size()) {
+                    for (size_t row = workspace.st; row < workspace.st_NA; row++)
+                        sum_weight_left += workspace.weights_map[workspace.ix_arr[row]];
+                    for (size_t row = workspace.end_NA; row <= workspace.end; row++)
+                        sum_weight_right += workspace.weights_map[workspace.ix_arr[row]];
+                }
+
+                else {
+                    for (size_t row = workspace.st; row < workspace.st_NA; row++)
+                        sum_weight_left += workspace.weights_arr[workspace.ix_arr[row]];
+                    for (size_t row = workspace.end_NA; row <= workspace.end; row++)
+                        sum_weight_right += workspace.weights_arr[workspace.ix_arr[row]];
+                }
+
+                trees.back().pct_tree_left = sum_weight_left / (sum_weight_left + sum_weight_right);
+            }
 
             switch(model_params.missing_action)
             {
