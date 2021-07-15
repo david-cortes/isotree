@@ -989,7 +989,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     if (hplane_root == NULL)
     {
         workspace.weights_map.clear();
-        workspace.weights_arr.resize(0);
+        workspace.weights_arr.clear();
     }
 
     long double weight_scaling = 0;
@@ -1008,7 +1008,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
             workspace.weights_map.clear();
 
             /* if the sub-sample size is small relative to the full sample size, use a mapping */
-            if (model_params.sample_size < input_data.nrows / 4)
+            if (model_params.sample_size < input_data.nrows / 20)
             {
                 for (const size_t ix : workspace.ix_arr)
                 {

@@ -147,27 +147,27 @@ void set_col_as_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t
 template <class InputData, class WorkerMemory>
 void add_separation_step(WorkerMemory &workspace, InputData &input_data, double remainder)
 {
-    if (workspace.weights_arr.size())
-        increase_comb_counter(workspace.ix_arr.data(), workspace.st, workspace.end,
-                              input_data.nrows, workspace.tmat_sep.data(), workspace.weights_arr.data(), remainder);
-    else if (workspace.weights_map.size())
-        increase_comb_counter(workspace.ix_arr.data(), workspace.st, workspace.end,
-                              input_data.nrows, workspace.tmat_sep.data(), workspace.weights_map, remainder);
-    else
+    if (!workspace.changed_weights)
         increase_comb_counter(workspace.ix_arr.data(), workspace.st, workspace.end,
                               input_data.nrows, workspace.tmat_sep.data(), remainder);
+    else if (workspace.weights_arr.size())
+        increase_comb_counter(workspace.ix_arr.data(), workspace.st, workspace.end,
+                              input_data.nrows, workspace.tmat_sep.data(), workspace.weights_arr.data(), remainder);
+    else
+        increase_comb_counter(workspace.ix_arr.data(), workspace.st, workspace.end,
+                              input_data.nrows, workspace.tmat_sep.data(), workspace.weights_map, remainder);
 }
 
 template <class InputData, class WorkerMemory>
 void add_remainder_separation_steps(WorkerMemory &workspace, InputData &input_data, long double sum_weight)
 {
     if (
-            ((workspace.end - workspace.st) > 0 && !workspace.weights_arr.size() && !workspace.weights_map.size()) ||
-            (sum_weight > 1 && (workspace.weights_arr.size() || workspace.weights_map.size()))
+            ((workspace.end - workspace.st) > 1 && !workspace.changed_weights) ||
+            (sum_weight > 0 && workspace.changed_weights)
         )
     {
         double expected_dsep;
-        if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+        if (!workspace.changed_weights)
             expected_dsep = expected_separation_depth(workspace.end - workspace.st + 1);
         else
             expected_dsep = expected_separation_depth(sum_weight);
@@ -252,19 +252,18 @@ RecursionState::RecursionState(WorkerMemory &workspace, bool full_state)
         this->changed_weights = workspace.changed_weights;
 
         /* for the extended model, it's not necessary to copy everything */
-        if (!workspace.comb_val.size())
+        if (!workspace.comb_val.size() && workspace.st_NA < workspace.end_NA)
         {
             this->ix_arr = std::vector<size_t>(workspace.ix_arr.begin() + workspace.st_NA,
-                                               workspace.ix_arr.begin() + workspace.end + 1);
+                                               workspace.ix_arr.begin() + workspace.end_NA);
             if (this->changed_weights)
             {
                 size_t tot = workspace.end_NA - workspace.st_NA;
-                if (workspace.weights_arr.size() || workspace.weights_map.size())
-                    this->weights_arr = std::unique_ptr<double[]>(new double[tot]);
+                this->weights_arr = std::unique_ptr<double[]>(new double[tot]);
                 if (workspace.weights_arr.size())
                     for (size_t ix = 0; ix < tot; ix++)
                         this->weights_arr[ix] = workspace.weights_arr[workspace.ix_arr[ix + workspace.st_NA]];
-                else if (workspace.weights_map.size())
+                else
                     for (size_t ix = 0; ix < tot; ix++)
                         this->weights_arr[ix] = workspace.weights_map[workspace.ix_arr[ix + workspace.st_NA]];
             }
@@ -291,7 +290,9 @@ void RecursionState::restore_state(WorkerMemory &workspace)
         workspace.st_NA      =  this->st_NA;
         workspace.end_NA     =  this->end_NA;
 
-        if (!workspace.comb_val.size())
+        workspace.changed_weights = this->changed_weights;
+
+        if (!workspace.comb_val.size() && this->ix_arr.size())
         {
             std::copy(this->ix_arr.begin(),
                       this->ix_arr.end(),
@@ -302,19 +303,9 @@ void RecursionState::restore_state(WorkerMemory &workspace)
                 if (workspace.weights_arr.size())
                     for (size_t ix = 0; ix < tot; ix++)
                         workspace.weights_arr[workspace.ix_arr[ix + workspace.st_NA]] = this->weights_arr[ix];
-                else if (workspace.weights_map.size())
+                else
                     for (size_t ix = 0; ix < tot; ix++)
                         workspace.weights_map[workspace.ix_arr[ix + workspace.st_NA]] = this->weights_arr[ix];
-            }
-
-            else if (workspace.changed_weights)
-            {
-                if (workspace.weights_arr.size())
-                    for (size_t ix = workspace.st_NA; ix < workspace.end_NA; ix++)
-                        workspace.weights_arr[workspace.ix_arr[ix]] = 1;
-                else if (workspace.weights_map.size())
-                    for (size_t ix = workspace.st_NA; ix < workspace.end_NA; ix++)
-                        workspace.weights_map[workspace.ix_arr[ix]] = 1;
             }
         }
     }

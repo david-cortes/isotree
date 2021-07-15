@@ -559,7 +559,7 @@ struct WorkerMemory {
     size_t               split_ix;
     std::unordered_map<size_t, double> weights_map;
     std::vector<double>  weights_arr;     /* when not ignoring NAs and when using weights as density */
-    bool                 changed_weights; /* when using 'missing_action'='Divide' */
+    bool                 changed_weights; /* when using 'missing_action'='Divide' or density weights */
     double               xmin;
     double               xmax;
     size_t               npresent;        /* 'npresent' and 'ncols_tried' are used interchangeable and for unrelated things */
