@@ -558,17 +558,18 @@ struct WorkerMemory {
     size_t               end_NA;
     size_t               split_ix;
     std::unordered_map<size_t, double> weights_map;
-    std::vector<double>  weights_arr;    /* when not ignoring NAs and when using weights as density */
+    std::vector<double>  weights_arr;     /* when not ignoring NAs and when using weights as density */
+    bool                 changed_weights; /* when using 'missing_action'='Divide' */
     double               xmin;
     double               xmax;
-    size_t               npresent;       /* 'npresent' and 'ncols_tried' are used interchangeable and for unrelated things */
+    size_t               npresent;        /* 'npresent' and 'ncols_tried' are used interchangeable and for unrelated things */
     bool                 unsplittable;
     std::vector<bool>    is_repeated;
     std::vector<char>    categs;
-    size_t               ncols_tried;    /* 'npresent' and 'ncols_tried' are used interchangeable and for unrelated things */
+    size_t               ncols_tried;     /* 'npresent' and 'ncols_tried' are used interchangeable and for unrelated things */
     int                  ncat_tried;
-    std::vector<double>  btree_weights;  /* only when using weights for sampling */
-    ColumnSampler        col_sampler;    /* columns can get eliminated, keep a copy for each thread */
+    std::vector<double>  btree_weights;   /* only when using weights for sampling */
+    ColumnSampler        col_sampler;     /* columns can get eliminated, keep a copy for each thread */
 
     /* for split criterion */
     std::vector<double>  buffer_dbl;
@@ -647,6 +648,7 @@ public:
     size_t  end;
     size_t  sampler_pos;
     size_t  n_dropped;
+    bool    changed_weights;
     bool    full_state;
     std::vector<size_t> ix_arr;
     std::vector<bool>   cols_possible;

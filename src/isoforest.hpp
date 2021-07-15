@@ -611,6 +611,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         {
             if (!workspace.weights_arr.size() && !workspace.weights_map.size())
             {
+                /* https://sourceforge.net/p/mingw-w64/bugs/909/ */
                 #if !defined(_WIN32) && !defined(_WIN64)
                 trees.back().pct_tree_left = (long double)(workspace.st_NA - workspace.st)
                                                 /
@@ -620,13 +621,28 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                                 /
                                              (double)(workspace.end - workspace.st + 1 - (workspace.end_NA - workspace.st_NA));
                 #endif
+
+                if (model_params.missing_action == Divide && !workspace.changed_weights && workspace.st_NA < workspace.end_NA)
+                {
+                    workspace.changed_weights = true;
+                    workspace.weights_map.clear();
+
+                    if (model_params.sample_size < input_data.nrows / 4) {
+                        for (size_t row = workspace.st; row <= workspace.end; row++)
+                            workspace.weights_map[workspace.ix_arr[row]] = 1;
+                    }
+
+                    else {
+                        if (!workspace.weights_arr.size() < input_data.nrows)
+                            workspace.weights_arr.resize(input_data.nrows);
+                        for (size_t row = workspace.st; row <= workspace.end; row++)
+                            workspace.weights_arr[workspace.ix_arr[row]] = 1;
+                    }
+                }
             }
 
             else
             {
-                /* TODO: here could have a bool in 'workspace' that would tell whether any weight has
-                   been multiplied already to be less than 1, otherwise could save all these operations
-                   and just look at the sample size. */
                 /* https://sourceforge.net/p/mingw-w64/bugs/909/ */
                 #if !defined(_WIN32) && !defined(_WIN64)
                 long double sum_weight_left = 0;
@@ -635,6 +651,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                 double sum_weight_left = 0;
                 double sum_weight_right = 0;
                 #endif
+
                 if (workspace.weights_map.size()) {
                     for (size_t row = workspace.st; row < workspace.st_NA; row++)
                         sum_weight_left += workspace.weights_map[workspace.ix_arr[row]];
@@ -737,10 +754,10 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                 {
                     if (workspace.weights_map.size())
                         for (size_t row = workspace.st_NA; row < workspace.end_NA; row++)
-                            workspace.weights_map[workspace.ix_arr[row]] *= (1 - trees[tree_from].pct_tree_left);
+                            workspace.weights_map[workspace.ix_arr[row]] *= (1. - trees[tree_from].pct_tree_left);
                     else
                         for (size_t row = workspace.st_NA; row < workspace.end_NA; row++)
-                            workspace.weights_arr[workspace.ix_arr[row]] *= (1 - trees[tree_from].pct_tree_left);
+                            workspace.weights_arr[workspace.ix_arr[row]] *= (1. - trees[tree_from].pct_tree_left);
                     workspace.st = workspace.st_NA;
                     break;
                 }

@@ -229,8 +229,6 @@ void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_
 }
 
 
-/* TODO: here could have a bool in 'workspace' that would tell whether any weight has
-   been multiplied already to be less than 1, otherwise could skip the weight updates. */
 template <class WorkerMemory>
 RecursionState::RecursionState(WorkerMemory &workspace, bool full_state)
 {
@@ -251,20 +249,25 @@ RecursionState::RecursionState(WorkerMemory &workspace, bool full_state)
         this->st_NA        = workspace.st_NA;
         this->end_NA       = workspace.end_NA;
 
+        this->changed_weights = workspace.changed_weights;
+
         /* for the extended model, it's not necessary to copy everything */
         if (!workspace.comb_val.size())
         {
             this->ix_arr = std::vector<size_t>(workspace.ix_arr.begin() + workspace.st_NA,
-                                                         workspace.ix_arr.begin() + workspace.end + 1);
-            size_t tot = workspace.end - workspace.st_NA + 1;
-            if (workspace.weights_arr.size() || workspace.weights_map.size())
-                this->weights_arr = std::unique_ptr<double[]>(new double[tot]);
-            if (workspace.weights_arr.size())
-                for (size_t ix = 0; ix < tot; ix++)
-                    this->weights_arr[ix] = workspace.weights_arr[workspace.ix_arr[ix + workspace.st_NA]];
-            else if (workspace.weights_map.size())
-                for (size_t ix = 0; ix < tot; ix++)
-                    this->weights_arr[ix] = workspace.weights_map[workspace.ix_arr[ix + workspace.st_NA]];
+                                               workspace.ix_arr.begin() + workspace.end + 1);
+            if (this->changed_weights)
+            {
+                size_t tot = workspace.end_NA - workspace.st_NA;
+                if (workspace.weights_arr.size() || workspace.weights_map.size())
+                    this->weights_arr = std::unique_ptr<double[]>(new double[tot]);
+                if (workspace.weights_arr.size())
+                    for (size_t ix = 0; ix < tot; ix++)
+                        this->weights_arr[ix] = workspace.weights_arr[workspace.ix_arr[ix + workspace.st_NA]];
+                else if (workspace.weights_map.size())
+                    for (size_t ix = 0; ix < tot; ix++)
+                        this->weights_arr[ix] = workspace.weights_map[workspace.ix_arr[ix + workspace.st_NA]];
+            }
         }
     }
 }
@@ -293,13 +296,26 @@ void RecursionState::restore_state(WorkerMemory &workspace)
             std::copy(this->ix_arr.begin(),
                       this->ix_arr.end(),
                       workspace.ix_arr.begin() + this->st_NA);
-            size_t tot = workspace.end - workspace.st_NA + 1;
-            if (workspace.weights_arr.size())
-                for (size_t ix = 0; ix < tot; ix++)
-                    workspace.weights_arr[workspace.ix_arr[ix + workspace.st_NA]] = this->weights_arr[ix];
-            else if (workspace.weights_map.size())
-                for (size_t ix = 0; ix < tot; ix++)
-                    workspace.weights_map[workspace.ix_arr[ix + workspace.st_NA]] = this->weights_arr[ix];
+            if (this->changed_weights)
+            {
+                size_t tot = workspace.end_NA - workspace.st_NA;
+                if (workspace.weights_arr.size())
+                    for (size_t ix = 0; ix < tot; ix++)
+                        workspace.weights_arr[workspace.ix_arr[ix + workspace.st_NA]] = this->weights_arr[ix];
+                else if (workspace.weights_map.size())
+                    for (size_t ix = 0; ix < tot; ix++)
+                        workspace.weights_map[workspace.ix_arr[ix + workspace.st_NA]] = this->weights_arr[ix];
+            }
+
+            else if (workspace.changed_weights)
+            {
+                if (workspace.weights_arr.size())
+                    for (size_t ix = workspace.st_NA; ix < workspace.end_NA; ix++)
+                        workspace.weights_arr[workspace.ix_arr[ix]] = 1;
+                else if (workspace.weights_map.size())
+                    for (size_t ix = workspace.st_NA; ix < workspace.end_NA; ix++)
+                        workspace.weights_map[workspace.ix_arr[ix]] = 1;
+            }
         }
     }
 }

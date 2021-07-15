@@ -982,19 +982,33 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
 
     }
 
-    /* if it contains missing values, also have to set an array of weights,
-       which will be modified during iterations when there are NAs.
-       If there are already density weights, need to standardize them to sum up to
-       the sample size here */
-    long double weight_scaling = 0;
-    if (model_params.missing_action == Divide || (input_data.sample_weights != NULL && !input_data.weight_as_sample))
+    /* If there are density weights, need to standardize them to sum up to
+       the sample size here. Note that weights for missing values with 'Divide'
+       are only initialized on-demand later on. */
+    workspace.changed_weights = false;
+    if (hplane_root == NULL)
     {
         workspace.weights_map.clear();
+        workspace.weights_arr.resize(0);
+    }
 
-        /* if the sub-sample size is small relative to the full sample size, use a mapping */
-        if (model_params.sample_size < input_data.nrows / 4)
+    long double weight_scaling = 0;
+    if (input_data.sample_weights != NULL && !input_data.weight_as_sample)
+    {
+        workspace.changed_weights = true;
+
+        /* For the extended model, if there is no sub-sampling, these weights will remain
+           constant throughout and do not need to be re-generated. */
+        if (!(  hplane_root != NULL &&
+                (workspace.weights_map.size() || workspace.weights_arr.size()) &&
+                model_params.sample_size == input_data.nrows
+              )
+            )
         {
-            if (input_data.sample_weights != NULL && !input_data.weight_as_sample)
+            workspace.weights_map.clear();
+
+            /* if the sub-sample size is small relative to the full sample size, use a mapping */
+            if (model_params.sample_size < input_data.nrows / 4)
             {
                 for (const size_t ix : workspace.ix_arr)
                 {
@@ -1004,23 +1018,12 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                 weight_scaling = (long double)model_params.sample_size / weight_scaling;
                 for (auto &w : workspace.weights_map)
                     w.second *= weight_scaling;
-
             }
 
+            /* if the sub-sample size is large, fill a full array matching to the sample size */
             else
             {
-                for (const size_t ix : workspace.ix_arr)
-                    workspace.weights_map[ix] = 1;
-            }
-
-        }
-
-        /* if the sub-sample size is large, fill a full array matching to the sample size */
-        else
-        {
-            if (!workspace.weights_arr.size())
-            {
-                if (input_data.sample_weights != NULL && !input_data.weight_as_sample)
+                if (!workspace.weights_arr.size())
                 {
                     workspace.weights_arr.assign(input_data.sample_weights, input_data.sample_weights + input_data.nrows);
                     weight_scaling = std::accumulate(workspace.ix_arr.begin(),
@@ -1035,15 +1038,6 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
 
                 else
                 {
-                    workspace.weights_arr.resize(input_data.nrows, (double)1);
-                }
-
-            }
-
-            else
-            {
-                if (input_data.sample_weights != NULL && !input_data.weight_as_sample)
-                {
                     for (const size_t ix : workspace.ix_arr)
                     {
                         weight_scaling += input_data.sample_weights[ix];
@@ -1052,14 +1046,6 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                     weight_scaling = (long double)model_params.sample_size / weight_scaling;
                     for (double &w : workspace.weights_arr)
                         w *= weight_scaling;
-
-                }
-
-                else
-                {
-                    /* Note: while not all of them need to be overwritten, this is faster
-                       (sub-sample size was already determined to be at least 1/4 of the sample size) */
-                    std::fill(workspace.weights_arr.begin(), workspace.weights_arr.end(), (double)1);
                 }
             }
         }
