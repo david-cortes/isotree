@@ -71,12 +71,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                           model_params.min_imp_obs);
     }
 
-    /* check for potential isolated leafs */
-    if (workspace.end == workspace.st || curr_depth >= model_params.max_depth)
-        goto terminal_statistics;
-
-    /* with 2 observations and no weights, there's only 1 potential or assumed split */
-    if ((workspace.end - workspace.st) == 1 && !workspace.weights_arr.size() && !workspace.weights_map.size())
+    /* check for potential isolated leafs or unique splits */
+    if (workspace.end == workspace.st || (workspace.end - workspace.st) == 1 || curr_depth >= model_params.max_depth)
         goto terminal_statistics;
 
     /* when using weights, the split should stop when the sum of weights is <= 1 */

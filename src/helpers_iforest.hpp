@@ -229,6 +229,8 @@ void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_
 }
 
 
+/* TODO: here could have a bool in 'workspace' that would tell whether any weight has
+   been multiplied already to be less than 1, otherwise could skip the weight updates. */
 template <class WorkerMemory>
 RecursionState::RecursionState(WorkerMemory &workspace, bool full_state)
 {

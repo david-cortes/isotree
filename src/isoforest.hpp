@@ -53,7 +53,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                            size_t                   curr_depth)
 {
     if (interrupt_switch) return;
-    long double sum_weight = -HUGE_VALL;
+    long double sum_weight = -HUGE_VAL;
 
     /* calculate imputation statistics if desired */
     if (impute_nodes != NULL)
@@ -67,12 +67,8 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                           model_params.min_imp_obs);
     }
 
-    /* check for potential isolated leafs */
-    if (workspace.end == workspace.st || curr_depth >= model_params.max_depth)
-        goto terminal_statistics;
-
-    /* with 2 observations and no weights, there's only 1 potential or assumed split */
-    if ((workspace.end - workspace.st) == 1 && !workspace.weights_arr.size() && !workspace.weights_map.size())
+    /* check for potential isolated leafs or unique splits */
+    if (workspace.end == workspace.st || (workspace.end - workspace.st) == 1 || curr_depth >= model_params.max_depth)
         goto terminal_statistics;
 
     /* when using weights, the split should stop when the sum of weights is <= 1 */
@@ -628,6 +624,10 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
             else
             {
+                /* TODO: here could have a bool in 'workspace' that would tell whether any weight has
+                   been multiplied already to be less than 1, otherwise could save all these operations
+                   and just look at the sample size. */
+                /* https://sourceforge.net/p/mingw-w64/bugs/909/ */
                 #if !defined(_WIN32) && !defined(_WIN64)
                 long double sum_weight_left = 0;
                 long double sum_weight_right = 0;
@@ -774,7 +774,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
         else
         {
-            if (sum_weight == -HUGE_VAL)
+            if (sum_weight <= -HUGE_VAL)
                 sum_weight = calculate_sum_weights(workspace.ix_arr, workspace.st, workspace.end, curr_depth,
                                                    workspace.weights_arr, workspace.weights_map);
             trees.back().score = (double)(curr_depth + expected_avg_depth(sum_weight));
