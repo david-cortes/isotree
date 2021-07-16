@@ -1356,8 +1356,8 @@ Rcpp::List assign_csc_cols
     int *restrict Xc_ind = INTEGER(Xc_ind_);
     int *restrict X_cat = INTEGER(X_cat_);
 
-    std::unordered_set<int> cols_categ_set(INTEGER(cols_categ), INTEGER(cols_categ) + cols_categ.size());
-    std::unordered_set<int> cols_numeric_set(INTEGER(cols_numeric), INTEGER(cols_numeric) + cols_numeric.size());
+    hashed_set<int> cols_categ_set(INTEGER(cols_categ), INTEGER(cols_categ) + cols_categ.size());
+    hashed_set<int> cols_numeric_set(INTEGER(cols_numeric), INTEGER(cols_numeric) + cols_numeric.size());
 
     size_t curr_num = 0;
     size_t curr_cat = 0;

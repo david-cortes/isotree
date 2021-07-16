@@ -406,7 +406,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 
     /* if imputing missing values on-the-fly, need to determine which are missing */
     std::vector<ImputedData<sparse_ix>> impute_vec;
-    std::unordered_map<size_t, ImputedData<sparse_ix>> impute_map;
+    hashed_map<size_t, ImputedData<sparse_ix>> impute_map;
     if (model_params.impute_at_fit)
         check_for_missing(input_data, impute_vec, impute_map, nthreads);
 
@@ -1007,13 +1007,11 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
             if (input_data.Xc_indptr != NULL && model_params.sample_size < input_data.nrows / 20)
             {
                 for (const size_t ix : workspace.ix_arr)
-                {
                     weight_scaling += input_data.sample_weights[ix];
-                    workspace.weights_map[ix] = input_data.sample_weights[ix];
-                }
                 weight_scaling = (long double)model_params.sample_size / weight_scaling;
-                for (auto &w : workspace.weights_map)
-                    w.second *= weight_scaling;
+                workspace.weights_map.reserve(workspace.ix_arr.size());
+                for (const size_t ix : workspace.ix_arr)
+                    workspace.weights_map[ix] = input_data.sample_weights[ix] * weight_scaling;
             }
 
             /* if the sub-sample size is large, fill a full array matching to the sample size */

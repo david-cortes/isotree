@@ -320,7 +320,7 @@ void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
 
 /* Note to self: don't try merge this into a template with the one above, as the other one has 'restrict' qualifier */
 void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
-                           double counter[], std::unordered_map<size_t, double> &weights, double exp_remainder)
+                           double counter[], hashed_map<size_t, double> &weights, double exp_remainder)
 {
     size_t i, j;
     size_t ncomb = (n * (n - 1)) / 2;
@@ -587,7 +587,7 @@ void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_rep
             else
             {
 
-                std::unordered_set<size_t> repeated_set;
+                hashed_set<size_t> repeated_set;
                 repeated_set.reserve(ntake);
                 for (size_t rnd_ix = nrows - ntake; rnd_ix < nrows; rnd_ix++)
                 {
@@ -1755,7 +1755,7 @@ void get_categs(size_t ix_arr[], int x[], size_t st, size_t end, int ncat,
 
 #if !defined(_WIN32) && !defined(_WIN64)
 long double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
-                                  std::vector<double> &weights_arr, std::unordered_map<size_t, double> &weights_map)
+                                  std::vector<double> &weights_arr, hashed_map<size_t, double> &weights_map)
 {
     if (curr_depth > 0 && weights_arr.size())
         return std::accumulate(ix_arr.begin() + st,
@@ -1772,7 +1772,7 @@ long double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t
 }
 #else
      double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
-                                  std::vector<double> &weights_arr, std::unordered_map<size_t, double> &weights_map)
+                                  std::vector<double> &weights_arr, hashed_map<size_t, double> &weights_map)
 {
     if (curr_depth > 0 && weights_arr.size())
         return std::accumulate(ix_arr.begin() + st,

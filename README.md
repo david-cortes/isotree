@@ -108,7 +108,7 @@ install.packages("isotree")
 
 * C++:
 ```
-git clone https://www.github.com/david-cortes/isotree.git
+git clone --recursive https://www.github.com/david-cortes/isotree.git
 cd isotree
 mkdir build
 cd build

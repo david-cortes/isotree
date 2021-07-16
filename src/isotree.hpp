@@ -56,8 +56,6 @@
 #include <numeric>
 #include <algorithm>
 #include <random>
-#include <unordered_set>
-#include <unordered_map>
 #include <memory>
 #include <utility>
 #include <cstdint>
@@ -119,6 +117,25 @@ using std::memcpy;
 #else
     constexpr static const int ONE = 1;
     #define IS_LITTLE_ENDIAN ((*((unsigned char*)&ONE)) > 0)
+#endif
+
+/* At the time of writing, this brought a sizeable speed up compared to
+   'unordered_map' and 'unordered_set' from both GCC and CLANG.
+   I'm not sure how portable this library is so it has these checks just
+   in case, and if detects an unusual platform, will instead use the ones
+   from the compiler's STL.  */
+#if defined(_USE_ROBIN_MAP) && (SIZE_MAX == UINT32_MAX || SIZE_MAX == UINT64_MAX)
+    #include "robinmap/include/tsl/robin_growth_policy.h"
+    #include "robinmap/include/tsl/robin_hash.h"
+    #include "robinmap/include/tsl/robin_set.h"
+    #include "robinmap/include/tsl/robin_map.h"
+    #define hashed_set tsl::robin_set
+    #define hashed_map tsl::robin_map
+#else
+    #include <unordered_set>
+    #include <unordered_map>
+    #define hashed_set std::unordered_set
+    #define hashed_map std::unordered_map
 #endif
 
 /* Short functions */
@@ -564,7 +581,7 @@ struct WorkerMemory {
     size_t               st_NA;
     size_t               end_NA;
     size_t               split_ix;
-    std::unordered_map<size_t, double> weights_map;
+    hashed_map<size_t, double> weights_map;
     std::vector<double>  weights_arr;     /* when not ignoring NAs and when using weights as density */
     bool                 changed_weights; /* when using 'missing_action'='Divide' or density weights */
     double               xmin;
@@ -621,7 +638,7 @@ struct WorkerMemory {
 
     /* when imputing NAs on-the-fly */
     std::vector<ImputedData> impute_vec;
-    std::unordered_map<size_t, ImputedData> impute_map;
+    hashed_map<size_t, ImputedData> impute_map;
 
 };
 
@@ -737,7 +754,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                             size_t                   curr_depth);
 template <class InputData, class WorkerMemory>
 void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params,
-                       std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s);
+                       std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s);
 void shrink_to_fit_hplane(IsoHPlane &hplane, bool clear_vectors);
 template <class InputData, class WorkerMemory>
 void simplify_hplane(IsoHPlane &hplane, WorkerMemory &workspace, InputData &input_data, ModelParams &model_params);
@@ -879,7 +896,7 @@ void combine_imp_single(ImputedData &imp_addfrom, ImputedData &imp_addto);
 template <class ImputedData, class WorkerMemory>
 void combine_tree_imputations(WorkerMemory &workspace,
                               std::vector<ImputedData> &impute_vec,
-                              std::unordered_map<size_t, ImputedData> &impute_map,
+                              hashed_map<size_t, ImputedData> &impute_map,
                               std::vector<char> &has_missing,
                               int nthreads);
 template <class ImputedData>
@@ -893,7 +910,7 @@ void apply_imputation_results(imp_arr    &impute_vec,
                               int        nthreads);
 template <class ImputedData, class InputData>
 void apply_imputation_results(std::vector<ImputedData> &impute_vec,
-                              std::unordered_map<size_t, ImputedData> &impute_map,
+                              hashed_map<size_t, ImputedData> &impute_map,
                               Imputer   &imputer,
                               InputData &input_data,
                               int nthreads);
@@ -909,16 +926,16 @@ void initialize_impute_calc(ImputedData &imp, PredictionData &prediction_data, I
 template <class ImputedData, class InputData>
 void allocate_imp_vec(std::vector<ImputedData> &impute_vec, InputData &input_data, int nthreads);
 template <class ImputedData, class InputData>
-void allocate_imp_map(std::unordered_map<size_t, ImputedData> &impute_map, InputData &input_data);
+void allocate_imp_map(hashed_map<size_t, ImputedData> &impute_map, InputData &input_data);
 template <class ImputedData, class InputData>
 void allocate_imp(InputData &input_data,
                   std::vector<ImputedData> &impute_vec,
-                  std::unordered_map<size_t, ImputedData> &impute_map,
+                  hashed_map<size_t, ImputedData> &impute_map,
                   int nthreads);
 template <class ImputedData, class InputData>
 void check_for_missing(InputData &input_data,
                        std::vector<ImputedData> &impute_vec,
-                       std::unordered_map<size_t, ImputedData> &impute_map,
+                       hashed_map<size_t, ImputedData> &impute_map,
                        int nthreads);
 template <class PredictionData>
 size_t check_for_missing(PredictionData  &prediction_data,
@@ -933,10 +950,10 @@ template <class InputData, class WorkerMemory>
 void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params);
 template <class InputData, class WorkerMemory>
 int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size_t col_num);
-bool is_col_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
+bool is_col_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s,
                   size_t col_num);
 template <class InputData>
-void set_col_as_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
+void set_col_as_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s,
                       InputData &input_data, size_t col_num, ColType col_type);
 template <class InputData, class WorkerMemory>
 void add_separation_step(WorkerMemory &workspace, InputData &input_data, double remainder);
@@ -961,7 +978,7 @@ void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n, dou
 void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
                            double *restrict counter, double *restrict weights, double exp_remainder);
 void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
-                           double counter[], std::unordered_map<size_t, double> &weights, double exp_remainder);
+                           double counter[], hashed_map<size_t, double> &weights, double exp_remainder);
 void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, size_t split_ix, size_t n,
                                      double counter[], double exp_remainder);
 void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, size_t split_ix, size_t n,
@@ -1006,10 +1023,10 @@ void get_categs(size_t ix_arr[], int x[], size_t st, size_t end, int ncat,
                 MissingAction missing_action, char categs[], size_t &npresent, bool &unsplittable);
 #if !defined(_WIN32) && !defined(_WIN64)
 long double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
-                                  std::vector<double> &weights_arr, std::unordered_map<size_t, double> &weights_map);
+                                  std::vector<double> &weights_arr, hashed_map<size_t, double> &weights_map);
 #else
      double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
-                                  std::vector<double> &weights_arr, std::unordered_map<size_t, double> &weights_map);
+                                  std::vector<double> &weights_arr, hashed_map<size_t, double> &weights_map);
 #endif
 extern bool interrupt_switch;
 extern bool signal_is_locked;

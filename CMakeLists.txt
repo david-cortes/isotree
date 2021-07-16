@@ -45,6 +45,25 @@ else()
   message(STATUS "Cereal not found - will compile without serialization functionality")
 endif(CEREAL_FOUND)
 
+# check if the robin-map library is available under /src
+include(CheckCXXSourceCompiles)
+set(CMAKE_REQUIRED_INCLUDES ${PROJECT_SOURCE_DIR}/src)
+check_cxx_source_compiles(
+    "
+    #include \"robinmap/include/tsl/robin_growth_policy.h\"
+    int main(int argc, char **argv)
+    {
+        return 0;
+    }
+    "
+    HAS_ROBIN_MAP
+)
+if (HAS_ROBIN_MAP)
+    add_compile_options(_USE_ROBIN_MAP)
+else()
+    message(WARNING "Robin-Map Headers not found - will use STL hashmaps which are slower.")
+endif()
+
 if (MSVC)
     add_compile_options(/O2)
 else()
