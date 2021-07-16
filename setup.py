@@ -23,16 +23,18 @@ except:
 ## https://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
 class build_ext_subclass( build_ext ):
     def build_extensions(self):
-        c = self.compiler.compiler_type
-        # TODO: add entries for intel's ICC
-        if c == 'msvc': # visual studio
+        is_msvc = self.compiler.compiler_type == "msvc"
+        is_clang = hasattr(self.compiler, 'compiler_cxx') and ("clang++" in self.compiler.compiler_cxx)
+
+        if is_msvc:
             for e in self.extensions:
                 e.extra_compile_args = ['/openmp', '/O2', '/std:c++14', '/wd4244', '/wd4267', '/wd4018']
                 ### Note: MSVC never implemented C++11
-        elif (c == "clang") or (c == "clang++"):
+        elif is_clang:
             for e in self.extensions:
                 e.extra_compile_args = ['-fopenmp', '-O3', '-march=native', '-std=c++17']
                 e.extra_link_args    = ['-fopenmp']
+                # e.extra_link_args    = ['-fopenmp=libiomp5']
                 ### Note: when passing C++11 to CLANG, it complains about C++17 features in CYTHON_FALLTHROUGH
         else: # gcc
             for e in self.extensions:

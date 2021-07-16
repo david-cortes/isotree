@@ -63,6 +63,7 @@
 #include <cstdint>
 #include <exception>
 #include <stdexcept>
+#include <cassert>
 #include <iostream>
 #ifndef _FOR_R
     #include <cstdio>
@@ -96,6 +97,8 @@ using std::raise;
 using std::size_t;
 using std::memset;
 using std::memcpy;
+
+#define unexpected_error() throw std::runtime_error("Unexpected error. Please open an issue in GitHub.\n")
 
 /* By default, will use Mersenne-Twister for RNG, but can be switched to something faster */
 #ifdef _USE_MERSENNE_TWISTER

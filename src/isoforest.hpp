@@ -694,6 +694,12 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                     workspace.end = workspace.end_NA - 1;
                     break;
                 }
+
+                default:
+                {
+                    unexpected_error();
+                    break;
+                }
             }
         }
 
@@ -776,6 +782,12 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                         for (size_t row = workspace.st_NA; row < workspace.end_NA; row++)
                             workspace.weights_map[workspace.ix_arr[row]] *= (1. - trees[tree_from].pct_tree_left);
                     workspace.st = workspace.st_NA;
+                    break;
+                }
+
+                default:
+                {
+                    unexpected_error();
                     break;
                 }
             }

@@ -398,6 +398,12 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
             }
             break;
         }
+
+        default:
+        {
+            assert(0);
+            break;
+        }
     }
 
 
@@ -609,6 +615,12 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
                         }
                     }
                     ncols_categ++;
+                    break;
+                }
+
+                default:
+                {
+                    assert(0);
                     break;
                 }
             } 

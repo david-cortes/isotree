@@ -821,6 +821,12 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, double *res
                     }
                     return;
                 }
+
+                default:
+                {
+                    unexpected_error();
+                    break;
+                }
             }
         }
 
@@ -1007,6 +1013,12 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, do
                                 res_write[row] += fill_val;
                     }
                     return;
+                }
+
+                default:
+                {
+                    unexpected_error();
+                    break;
                 }
             }
         }

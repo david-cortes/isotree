@@ -612,6 +612,8 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
             break;
         }
 
+        default: {}
+
         /* TODO: maybe divide by nrows for prop */
     }
 
@@ -635,6 +637,8 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
                 w *= curr_depth_dbl;
             break;
         }
+
+        default: {}
     }
 
     /* now re-adjust sums */

@@ -1337,6 +1337,12 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                     best_gain = (this_gain > min_gain)? this_gain : best_gain;
                     break;
                 }
+
+                default:
+                {
+                    unexpected_error();
+                    break;
+                }
             }
             break;
         }
@@ -1502,6 +1508,12 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
 
                     break;
                 }
+
+                default:
+                {
+                    unexpected_error();
+                    break;
+                }
             }
         }
     }
@@ -1619,6 +1631,12 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                                         - std::fmax(1., cnt_max) * logl(std::fmax(1., cnt_max))
                                 ) / std::fmax(1., cnt);
                     best_gain = (this_gain > min_gain)? this_gain : best_gain;
+                    break;
+                }
+
+                default:
+                {
+                    unexpected_error();
                     break;
                 }
             }
@@ -1784,6 +1802,12 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                         }
                     }
 
+                    break;
+                }
+
+                default:
+                {
+                    unexpected_error();
                     break;
                 }
             }

@@ -480,6 +480,12 @@ void extract_cond_isotree(IsoForest &model, IsoTree &tree,
             }
             break;
         }
+
+        default:
+        {
+            unexpected_error();
+            break;
+        }
     }
 }
 
@@ -556,6 +562,12 @@ void extract_cond_ext_isotree(ExtIsoForest &model, IsoHPlane &hplane,
                     }
                 }
                 n_visited_categ++;
+                break;
+            }
+
+            default:
+            {
+                unexpected_error();
                 break;
             }
         }

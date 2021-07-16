@@ -387,6 +387,12 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                                         }
                                         break;
                                     }
+
+                                    default:
+                                    {
+                                        assert(0);
+                                        break;
+                                    }
                                 }
                             }
                             break;
@@ -399,6 +405,12 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                             break;
                         }
                     }
+                    break;
+                }
+
+                default:
+                {
+                    assert(0);
                     break;
                 }
             }
@@ -611,6 +623,12 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                                                                          row, (sparse_ix*)NULL, tree[curr_lev].tree_right)
                                                     - range_penalty;
                                             }
+
+                                            default:
+                                            {
+                                                assert(0);
+                                                break;
+                                            }
                                         }
                                     }
                                 }
@@ -672,6 +690,12 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                             }
                         }
                     }
+                    break;
+                }
+
+                default:
+                {
+                    assert(0);
                     break;
                 }
             }
@@ -880,6 +904,12 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
                         }
 
                         ncols_categ++;
+                        break;
+                    }
+
+                    default:
+                    {
+                        assert(0);
                         break;
                     }
                 }
@@ -1145,6 +1175,12 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
             }
             break;
         }
+
+        default:
+        {
+            assert(0);
+            break;
+        }
     }
 
     /* continue splitting recursively */
@@ -1361,6 +1397,12 @@ void traverse_hplane_csc(WorkerForPredictCSC      &workspace,
                                     hplanes[curr_tree].fill_val[col], hplanes[curr_tree].fill_new[ncols_categ], NULL, NULL,
                                     model_outputs.new_cat_action, model_outputs.missing_action, model_outputs.cat_split_type, false);
                     ncols_categ++;
+                    break;
+                }
+
+                default:
+                {
+                    assert(0);
                     break;
                 }
             }

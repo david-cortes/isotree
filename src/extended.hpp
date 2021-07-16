@@ -331,6 +331,12 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                                     model_params.cat_split_type, false);
                     break;
                 }
+
+                default:
+                {
+                    unexpected_error();
+                    break;
+                }
             }
         }
     }
@@ -687,6 +693,12 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
             }
             break;
         }
+
+        default:
+        {
+            unexpected_error();
+            break;
+        }
     }
 }
 
@@ -762,6 +774,12 @@ void simplify_hplane(IsoHPlane &hplane, WorkerMemory &workspace, InputData &inpu
                         }
                     }
                     ncols_categ++;
+                    break;
+                }
+
+                default:
+                {
+                    unexpected_error();
                     break;
                 }
             }
