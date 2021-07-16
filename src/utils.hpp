@@ -588,6 +588,7 @@ void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_rep
             {
 
                 std::unordered_set<size_t> repeated_set;
+                repeated_set.reserve(ntake);
                 for (size_t rnd_ix = nrows - ntake; rnd_ix < nrows; rnd_ix++)
                 {
                     candidate = std::uniform_int_distribution<size_t>(0, rnd_ix)(rnd_generator);

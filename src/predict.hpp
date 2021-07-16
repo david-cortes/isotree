@@ -75,7 +75,7 @@
 *       model was fit. If passing 'false', will assume they are in row-major order. Note that most of
 *       the functions in this library work only with column-major order, but here both are suitable
 *       and row-major is preferred. Both arrays must have the same orientation (row/column major).
-*       If there is numeric sparse data in combination with categorical dense data and ther are many
+*       If there is numeric sparse data in combination with categorical dense data and there are many
 *       rows, it is recommended to pass the categorical data in column major order, as it will take
 *       a faster route.
 * - ncols_numeric
@@ -282,8 +282,7 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
         for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             output_depths[row] = std::exp2( - output_depths[row] / depth_divisor );
     else
-        #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, output_depths, ntrees)
-        for (size_t_for row = 0; row < (decltype(row))nrows; row++)
+        for (size_t row = 0; row < nrows; row++)
             output_depths[row] /= ntrees;
 
 

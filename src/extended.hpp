@@ -130,15 +130,19 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 
     for (size_t attempt = 0; attempt < workspace.ntry; attempt++)
     {
-        if (input_data.ncols_tot < 1e3)
+        if (input_data.ncols_tot < 1e5 ||
+            ((long double)model_params.ndim / (long double)workspace.col_sampler.get_remaining_cols()) > .25
+            )
         {
             if (!col_is_taken.size())
                 col_is_taken.resize(input_data.ncols_tot, false);
             else
                 col_is_taken.assign(input_data.ncols_tot, false);
         }
-        else
+        else {
             col_is_taken_s.clear();
+            col_is_taken_s.reserve(model_params.ndim);
+        }
         workspace.ntaken = 0;
         workspace.ntried = 0;
         std::fill(workspace.comb_val.begin(),
@@ -272,6 +276,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     }
 
     col_is_taken.clear();
+    col_is_taken.shrink_to_fit();
     col_is_taken_s.clear();
 
     /* if the best split is not good enough, don't split any further */

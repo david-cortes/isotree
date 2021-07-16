@@ -800,7 +800,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       model was fit. If passing 'false', will assume they are in row-major order. Note that most of
 *       the functions in this library work only with column-major order, but here both are suitable
 *       and row-major is preferred. Both arrays must have the same orientation (row/column major).
-*       If there is numeric sparse data in combination with categorical dense data and ther are many
+*       If there is numeric sparse data in combination with categorical dense data and there are many
 *       rows, it is recommended to pass the categorical data in column major order, as it will take
 *       a faster route.
 * - ncols_numeric
