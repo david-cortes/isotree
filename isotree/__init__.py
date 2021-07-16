@@ -944,6 +944,11 @@ class IsolationForest:
         ----
         Sample weights are not supported for this method.
 
+        Note
+        ----
+        When using multiple threads, there can be small differences in the predicted scores or
+        average depth or separation/distance between runs due to roundoff error.
+
         Parameters
         ----------
         X : array or array-like (n_samples, n_features)
@@ -1648,6 +1653,11 @@ class IsolationForest:
         If using non-random splits (parameters ``prob_pick_avg_gain``, ``prob_pick_pooled_gain``,
         ``prob_split_avg_gain``, ``prob_split_pooled_gain``) and/or range penalizations
         (which are on by default), the distribution of scores might not be centered around 0.5.
+
+        Note
+        ----
+        When making predictions on CSC matrices with many rows using multiple threads, there
+        can be small differences between runs due to roundoff error.
 
         Parameters
         ----------

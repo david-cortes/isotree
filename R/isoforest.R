@@ -48,6 +48,9 @@
 #' data beforehand. The gain calculations are also standardized according to the standard deviation when
 #' using `ntry>1` or `ndim==1`, in order to avoid differences in the magnitudes of the coefficients.
 #' 
+#' If requesting outlier scores or depths or separation/distance while fitting the
+#' model and using multiple threads, there can be small differences in the predicted
+#' scores/depth/separation/distance between runs due to roundoff error.
 #' @param df Data to which to fit the model. Supported inputs type are:\itemize{
 #' \item A `data.frame`, also accepted as `data.table` or `tibble`.
 #' \item A `matrix` object from base R.
@@ -943,6 +946,9 @@ isolation.forest <- function(df,
 #' The outlier scores/depth predict functionality is optimized for making predictions on one or a
 #' few rows at a time - for making large batches of predictions, it might be faster to use the
 #' option `output_score=TRUE` in `isolation.forest`.
+#' 
+#' When making predictions on CSC matrices with many rows using multiple threads, there
+#' can be small differences between runs due to roundoff error.
 #' 
 #' When imputing missing values, the input may contain new columns (i.e. not present when the model was fitted),
 #' which will be output as-is.

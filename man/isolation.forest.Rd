@@ -432,6 +432,10 @@ When using more than one dimension for splits (i.e. splitting hyperplanes, see `
 calculating gain, the variables are standardized at each step, so there is no need to center/scale the
 data beforehand. The gain calculations are also standardized according to the standard deviation when
 using `ntry>1` or `ndim==1`, in order to avoid differences in the magnitudes of the coefficients.
+
+If requesting outlier scores or depths or separation/distance while fitting the
+model and using multiple threads, there can be small differences in the predicted
+scores/depth/separation/distance between runs due to roundoff error.
 }
 \examples{
 ### Example 1: detect an obvious outlier

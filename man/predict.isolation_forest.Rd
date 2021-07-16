@@ -102,6 +102,9 @@ The outlier scores/depth predict functionality is optimized for making predictio
 few rows at a time - for making large batches of predictions, it might be faster to use the
 option `output_score=TRUE` in `isolation.forest`.
 
+When making predictions on CSC matrices with many rows using multiple threads, there
+can be small differences between runs due to roundoff error.
+
 When imputing missing values, the input may contain new columns (i.e. not present when the model was fitted),
 which will be output as-is.
 }
