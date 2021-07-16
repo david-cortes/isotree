@@ -1012,7 +1012,7 @@ Rcpp::IntegerMatrix csc_to_dense_int
     int *restrict out = INTEGER(out_);
     for (size_t col = 0; col < ncols; col++)
     {
-        for (size_t ix = Xc_indptr[col]; ix < Xc_indptr[col+1]; ix++)
+        for (auto ix = Xc_indptr[col]; ix < Xc_indptr[col+1]; ix++)
             out[(size_t)Xc_ind[ix] + col*nrows]
                 =
             (Xc[ix] >= 0 && !ISNAN(Xc[ix]))?
@@ -1027,7 +1027,7 @@ Rcpp::IntegerMatrix csr_to_dense_int
     real_vec Xr,
     int_vec Xr_ind,
     int_vec Xr_indptr,
-    size_t ncols
+    int ncols
 )
 {
     size_t nrows = Xr_indptr.size() - 1;
@@ -1035,7 +1035,7 @@ Rcpp::IntegerMatrix csr_to_dense_int
     int *restrict out = INTEGER(out_);
     for (size_t row = 0; row < nrows; row++)
     {
-        for (size_t ix = Xr_indptr[row]; ix < Xr_indptr[row+1]; ix++)
+        for (auto ix = Xr_indptr[row]; ix < Xr_indptr[row+1]; ix++)
             out[row + (size_t)Xr_ind[ix]*nrows]
                 =
             (Xr[ix] >= 0 && !ISNAN(Xr[ix]))?
@@ -1050,7 +1050,7 @@ Rcpp::List call_take_cols_by_slice_csr
     Rcpp::NumericVector Xr_,
     Rcpp::IntegerVector Xr_ind_,
     Rcpp::IntegerVector Xr_indptr,
-    size_t ncols_take,
+    int ncols_take,
     bool as_dense
 )
 {
@@ -1063,7 +1063,7 @@ Rcpp::List call_take_cols_by_slice_csr
     size_t total_size = 0;
     for (size_t row = 0; row < nrows; row++)
     {
-        for (size_t col = Xr_indptr[row]; col < Xr_indptr[row+1]; col++)
+        for (auto col = Xr_indptr[row]; col < Xr_indptr[row+1]; col++)
             total_size += Xr_ind[col] < ncols_take;
         out_Xr_indptr[row+1] = total_size;
     }
@@ -1113,8 +1113,8 @@ Rcpp::List call_take_cols_by_index_csr
 )
 {
     /* 'cols_take' should be sorted */
-    size_t n_take = cols_take.size();
-    size_t nrows = Xr_indptr.size() - 1;
+    int n_take = cols_take.size();
+    int nrows = Xr_indptr.size() - 1;
     std::vector<double> out_Xr;
     std::vector<int> out_Xr_ind;
     std::vector<int> out_Xr_indptr(nrows + 1);
@@ -1124,10 +1124,10 @@ Rcpp::List call_take_cols_by_index_csr
     int *restrict ptr_Xr_ind = INTEGER(Xr_ind);
     int *restrict ptr_cols_take = INTEGER(cols_take);
     int *restrict ptr_cols_take_end = ptr_cols_take + n_take;
-    size_t curr_col;
+    int curr_col;
     int *search_res;
 
-    for (size_t row = 0; row < nrows; row++)
+    for (int row = 0; row < nrows; row++)
     {
         curr_ptr = ptr_Xr_ind + Xr_indptr[row];
         end_ptr = ptr_Xr_ind + Xr_indptr[row+1];

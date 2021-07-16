@@ -338,14 +338,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // call_take_cols_by_slice_csr
-Rcpp::List call_take_cols_by_slice_csr(Rcpp::NumericVector Xr_, Rcpp::IntegerVector Xr_ind_, Rcpp::IntegerVector Xr_indptr, size_t ncols_take, bool as_dense);
+Rcpp::List call_take_cols_by_slice_csr(Rcpp::NumericVector Xr_, Rcpp::IntegerVector Xr_ind_, Rcpp::IntegerVector Xr_indptr, int ncols_take, bool as_dense);
 RcppExport SEXP _isotree_call_take_cols_by_slice_csr(SEXP Xr_SEXP, SEXP Xr_ind_SEXP, SEXP Xr_indptrSEXP, SEXP ncols_takeSEXP, SEXP as_denseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type Xr_(Xr_SEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type Xr_ind_(Xr_ind_SEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type Xr_indptr(Xr_indptrSEXP);
-    Rcpp::traits::input_parameter< size_t >::type ncols_take(ncols_takeSEXP);
+    Rcpp::traits::input_parameter< int >::type ncols_take(ncols_takeSEXP);
     Rcpp::traits::input_parameter< bool >::type as_dense(as_denseSEXP);
     rcpp_result_gen = Rcpp::wrap(call_take_cols_by_slice_csr(Xr_, Xr_ind_, Xr_indptr, ncols_take, as_dense));
     return rcpp_result_gen;

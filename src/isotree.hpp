@@ -131,19 +131,23 @@ using std::memcpy;
     #define pow2(n) ((size_t)powl((long double)2, (long double)n))
 #endif
 #define square(x) ((x) * (x))
-#if defined(__GNUC__) && (__GNUC__ >= 5)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#elif defined(__clang__)
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wuninitialized"
+#ifndef _FOR_R
+    #if defined(__GNUC__) && (__GNUC__ >= 5)
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+    #elif defined(__clang__) && !defined(_FOR_R)
+        #pragma clang diagnostic push
+        #pragma clang diagnostic ignored "-Wuninitialized"
+    #endif
 #endif
 /* https://stackoverflow.com/questions/2249731/how-do-i-get-bit-by-bit-data-from-an-integer-value-in-c */
 #define extract_bit(number, bit) (((number) >> (bit)) & 1)
-#if defined(__GNUC__) && (__GNUC__ >= 5)
-    #pragma GCC diagnostic pop
-#elif defined(__clang__)
-    #pragma clang diagnostic pop
+#ifndef _FOR_R
+    #if defined(__GNUC__) && (__GNUC__ >= 5)
+        #pragma GCC diagnostic pop
+    #elif defined(__clang__)
+        #pragma clang diagnostic pop
+    #endif
 #endif
 using std::isinf;
 using std::isnan;
