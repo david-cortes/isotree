@@ -39,7 +39,7 @@ def _is_col_major(X_num):
     else:
         return X_num.strides[0] == X_num.dtype.itemsize
 
-def _copy_if_subview(X_num):
+def _copy_if_subview(X_num, prefer_row_major=False):
     ### TODO: the C++ functions should accept a 'leading dimension'
     ### parameter so as to avoid copying the data here
     if (X_num is not None) and (not issparse(X_num)):
@@ -53,7 +53,10 @@ def _copy_if_subview(X_num):
             ):
             X_num = X_num.copy()
         if _is_col_major(X_num) != col_major:
-            X_num = np.asfortranarray(X_num)
+            if prefer_row_major:
+                X_num = np.ascontiguousarray(X_num)
+            else:
+                X_num = np.asfortranarray(X_num)
     return X_num
 
 class IsolationForest:
@@ -1323,8 +1326,8 @@ class IsolationForest:
                 if self.ndim < 2:
                     self._is_extended_ = False
 
-        X_num = _copy_if_subview(X_num)
-        X_cat = _copy_if_subview(X_cat)
+        X_num = _copy_if_subview(X_num, False)
+        X_cat = _copy_if_subview(X_cat, False)
 
         return X_num, X_cat, ncat, sample_weights, column_weights, nrows
 
@@ -1495,6 +1498,9 @@ class IsolationForest:
                 X_cat = X_cat.copy()
                 X_cat[np.isnan(X_cat)] = -1
 
+            if (X_num is not None) and (isspmatrix_csc(X_num)):
+                prefer_row_major = False
+
 
             if (self.categ_cols is not None) and np.any(X_cat > self._cat_max_lev.reshape((1,-1))):
                 X_cat[X_cat > self._cat_max_lev] = -1
@@ -1503,8 +1509,11 @@ class IsolationForest:
             if (not prefer_row_major) and (not _is_col_major(X_cat)):
                 X_cat = np.asfortranarray(X_cat)
 
-        X_num = _copy_if_subview(X_num)
-        X_cat = _copy_if_subview(X_cat)
+        X_num = _copy_if_subview(X_num, prefer_row_major)
+        X_cat = _copy_if_subview(X_cat, prefer_row_major)
+
+        if (X_num is not None) and (isspmatrix_csc(X_num)) and (X_cat is not None) and (not _is_col_major(X_cat)):
+            X_cat = np.asfortranarray(X_cat)
 
         return X_num, X_cat, nrows
 

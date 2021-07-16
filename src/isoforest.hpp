@@ -628,7 +628,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                 {
                     workspace.changed_weights = true;
 
-                    if (model_params.sample_size < input_data.nrows / 20) {
+                    if (input_data.Xc_indptr != NULL && model_params.sample_size < input_data.nrows / 20) {
                         workspace.weights_arr.clear();
                         workspace.weights_map.reserve(workspace.end - workspace.st + 1);
                         for (size_t row = workspace.st; row < workspace.end_NA; row++)

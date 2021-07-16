@@ -133,7 +133,7 @@ using std::memcpy;
     #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #elif defined(__clang__)
     #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wmaybe-uninitialized"
+    #pragma clang diagnostic ignored "-Wuninitialized"
 #endif
 /* https://stackoverflow.com/questions/2249731/how-do-i-get-bit-by-bit-data-from-an-integer-value-in-c */
 #define extract_bit(number, bit) (((number) >> (bit)) & 1)
@@ -778,6 +778,10 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
                      ImputedData             *imputed_data,
                      sparse_ix *restrict      tree_num,
                      size_t                   row);
+template <class real_t, class sparse_ix>
+void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int nthreads,
+                         IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                         double output_depths[],   sparse_ix tree_num[]);
 template <class PredictionData, class sparse_ix>
 void traverse_itree_csc(WorkerForPredictCSC   &workspace,
                         std::vector<IsoTree>  &trees,

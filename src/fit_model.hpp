@@ -986,11 +986,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
        the sample size here. Note that weights for missing values with 'Divide'
        are only initialized on-demand later on. */
     workspace.changed_weights = false;
-    if (hplane_root == NULL)
-    {
-        workspace.weights_map.clear();
-        workspace.weights_arr.clear();
-    }
+    if (hplane_root == NULL) workspace.weights_map.clear();
 
     long double weight_scaling = 0;
     if (input_data.sample_weights != NULL && !input_data.weight_as_sample)
@@ -1008,7 +1004,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
             workspace.weights_map.clear();
 
             /* if the sub-sample size is small relative to the full sample size, use a mapping */
-            if (model_params.sample_size < input_data.nrows / 20)
+            if (input_data.Xc_indptr != NULL && model_params.sample_size < input_data.nrows / 20)
             {
                 for (const size_t ix : workspace.ix_arr)
                 {

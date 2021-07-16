@@ -75,6 +75,9 @@
 *       model was fit. If passing 'false', will assume they are in row-major order. Note that most of
 *       the functions in this library work only with column-major order, but here both are suitable
 *       and row-major is preferred. Both arrays must have the same orientation (row/column major).
+*       If there is numeric sparse data in combination with categorical dense data and ther are many
+*       rows, it is recommended to pass the categorical data in column major order, as it will take
+*       a faster route.
 * - ncols_numeric
 *       Number of columns in 'numeric_data'. This is ignored when the data is sparse or comes
 *       in column-major order. Note that the number of columns must not be lower than the number
@@ -158,182 +161,20 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
                                       Xc, Xc_ind, Xc_indptr,
                                       Xr, Xr_ind, Xr_indptr};
 
-    if (prediction_data.Xc_indptr != NULL && prediction_data.ncols_categ == 0)
-    {
-        size_t ntrees = (model_outputs != NULL)? model_outputs->trees.size() : model_outputs_ext->hplanes.size();
-        #ifdef _OPENMP
-        if ((size_t)nthreads > ntrees)
-            nthreads = ntrees;
-        #else
-        nthreads = 1;
-        #endif
-        std::vector<WorkerForPredictCSC> worker_memory(nthreads);
-        bool has_range_penalty = true;
-
-        bool threw_exception = false;
-        std::exception_ptr ex = NULL;
-
-        if (model_outputs != NULL)
-        {
-            for (auto &tree : model_outputs->trees)
-            {
-                for (auto &node : tree)
-                {
-                    if (node.score < 0)
-                    {
-                        if (isinf(node.range_low) && isinf(node.range_high))
-                            has_range_penalty = false;
-                        goto got_range_penalty;
-                    }
-                }
-
-                got_range_penalty:
-                {}
-            }
-
-            #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
-                    shared(worker_memory, model_outputs, prediction_data, tree_num, threw_exception)
-            for (size_t_for tree = 0; tree < model_outputs->trees.size(); tree++)
-            {
-                if (threw_exception) continue;
-                try
-                {
-                    if (!worker_memory[omp_get_thread_num()].depths.size())
-                    {
-                        worker_memory[omp_get_thread_num()].depths.resize(prediction_data.nrows);
-                        worker_memory[omp_get_thread_num()].ix_arr.resize(prediction_data.nrows);
-                        std::iota(worker_memory[omp_get_thread_num()].ix_arr.begin(),
-                                  worker_memory[omp_get_thread_num()].ix_arr.end(),
-                                  (size_t)0);
-
-                        if (model_outputs->missing_action == Divide)
-                             worker_memory[omp_get_thread_num()].weights_arr.resize(prediction_data.nrows);
-                    }
-
-                    worker_memory[omp_get_thread_num()].st  = 0;
-                    worker_memory[omp_get_thread_num()].end = prediction_data.nrows - 1;
-                    if (model_outputs->missing_action == Divide)
-                        std::fill(worker_memory[omp_get_thread_num()].weights_arr.begin(),
-                                  worker_memory[omp_get_thread_num()].weights_arr.end(),
-                                  (double)1);
-
-                    traverse_itree_csc(worker_memory[omp_get_thread_num()],
-                                       model_outputs->trees[tree],
-                                       *model_outputs,
-                                       prediction_data,
-                                       (tree_num == NULL)?
-                                            ((sparse_ix*)NULL) : (tree_num + tree*prediction_data.nrows),
-                                       (size_t)0,
-                                       has_range_penalty);
-                }
-
-                catch(...)
-                {
-                    #pragma omp critical
-                    {
-                        if (!threw_exception)
-                        {
-                            threw_exception = true;
-                            ex = std::current_exception();
-                        }
-                    }
-                }
-            }
-        }
-
-        else
-        {
-            for (auto &tree : model_outputs_ext->hplanes)
-            {
-                for (auto &node : tree)
-                {
-                    if (node.score < 0)
-                    {
-                        if (isinf(node.range_low) && isinf(node.range_high))
-                            has_range_penalty = false;
-                        goto got_range_penalty2;
-                    }
-                }
-
-                got_range_penalty2:
-                {}
-            }
-
-            #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
-                    shared(worker_memory, model_outputs_ext, prediction_data, tree_num, threw_exception)
-            for (size_t_for tree = 0; tree < model_outputs_ext->hplanes.size(); tree++)
-            {
-                if (threw_exception) continue;
-                try
-                {
-                    if (!worker_memory[omp_get_thread_num()].depths.size())
-                    {
-                        worker_memory[omp_get_thread_num()].depths.resize(prediction_data.nrows);
-                        worker_memory[omp_get_thread_num()].comb_val.resize(prediction_data.nrows);
-                        worker_memory[omp_get_thread_num()].ix_arr.resize(prediction_data.nrows);
-                        std::iota(worker_memory[omp_get_thread_num()].ix_arr.begin(),
-                                  worker_memory[omp_get_thread_num()].ix_arr.end(),
-                                  (size_t)0);
-                    }
-
-                    worker_memory[omp_get_thread_num()].st  = 0;
-                    worker_memory[omp_get_thread_num()].end = prediction_data.nrows - 1;
-
-                    traverse_hplane_csc(worker_memory[omp_get_thread_num()],
-                                        model_outputs_ext->hplanes[tree],
-                                        *model_outputs_ext,
-                                        prediction_data,
-                                        (tree_num == NULL)?
-                                            ((sparse_ix*)NULL) : (tree_num + tree*prediction_data.nrows),
-                                        (size_t)0,
-                                        has_range_penalty);
-                }
-
-                catch(...)
-                {
-                    #pragma omp critical
-                    {
-                        if (!threw_exception)
-                        {
-                            threw_exception = true;
-                            ex = std::current_exception();
-                        }
-                    }
-                }
-            }
-
-            if (threw_exception)
-                std::rethrow_exception(ex);
-        }
-
-        #ifdef _OPENMP
-        if (nthreads <= 1)
-        #endif
-        {
-            std::copy(worker_memory.front().depths.begin(), worker_memory.front().depths.end(), output_depths);
-        }
-
-        #ifdef _OPENMP
-        else
-        {
-            std::fill(output_depths, output_depths + prediction_data.nrows, (double)0);
-            for (auto &workspace : worker_memory)
-                if (workspace.depths.size())
-                    #if !defined(_MSC_VER) && !defined(_WIN32)
-                    #pragma omp simd
-                    #endif
-                    for (size_t row = 0; row < prediction_data.nrows; row++)
-                        output_depths[row] += workspace.depths[row];
-        }
-        #endif
-
-        goto process_outputs;
-    }
-
+    int nthreads_orig = nthreads;
     if ((size_t)nthreads > nrows)
         nthreads = nrows;
 
-    if (model_outputs != NULL)
+    /* For batch predictions of sparse CSC, will take a specialized route */
+    if (prediction_data.Xc_indptr != NULL && (prediction_data.categ_data == NULL || prediction_data.is_col_major))
+    {
+        batched_csc_predict(prediction_data, nthreads_orig,
+                            model_outputs, model_outputs_ext,
+                            output_depths, tree_num);
+    }
+
+    /* Regular case (no specialized CSC route) */
+    else if (model_outputs != NULL)
     {
         if (
             model_outputs->missing_action == Fail &&
@@ -423,7 +264,6 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
     }
 
     /* translate sum-of-depths to outlier score */
-    process_outputs:
     double ntrees, depth_divisor;
     if (model_outputs != NULL)
     {
@@ -455,7 +295,6 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
         remap_terminal_trees(model_outputs, model_outputs_ext,
                              prediction_data, tree_num, nthreads);
 }
-
 
 template <class PredictionData, class sparse_ix>
 void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
@@ -1056,6 +895,181 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
     }
 }
 
+template <class real_t, class sparse_ix>
+void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int nthreads,
+                         IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                         double output_depths[],   sparse_ix tree_num[])
+{
+    size_t ntrees = (model_outputs != NULL)? model_outputs->trees.size() : model_outputs_ext->hplanes.size();
+    #ifdef _OPENMP
+    if ((size_t)nthreads > ntrees)
+        nthreads = ntrees;
+    #else
+    nthreads = 1;
+    #endif
+    std::vector<WorkerForPredictCSC> worker_memory(nthreads);
+    bool has_range_penalty = true;
+
+    bool threw_exception = false;
+    std::exception_ptr ex = NULL;
+
+    if (model_outputs != NULL)
+    {
+        for (auto &tree : model_outputs->trees)
+        {
+            for (auto &node : tree)
+            {
+                if (node.score < 0 && node.col_type == Numeric)
+                {
+                    if (isinf(node.range_low) && isinf(node.range_high))
+                        has_range_penalty = false;
+                    goto got_range_penalty;
+                }
+            }
+
+            got_range_penalty:
+            {}
+        }
+
+        #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
+                shared(worker_memory, model_outputs, prediction_data, tree_num, threw_exception)
+        for (size_t_for tree = 0; tree < model_outputs->trees.size(); tree++)
+        {
+            if (threw_exception) continue;
+            try
+            {
+                WorkerForPredictCSC *ptr_worker = &worker_memory[omp_get_thread_num()];
+                if (!ptr_worker->depths.size())
+                {
+                    ptr_worker->depths.resize(prediction_data.nrows);
+                    ptr_worker->ix_arr.resize(prediction_data.nrows);
+                    std::iota(ptr_worker->ix_arr.begin(),
+                              ptr_worker->ix_arr.end(),
+                              (size_t)0);
+
+                    if (model_outputs->missing_action == Divide)
+                        ptr_worker->weights_arr.resize(prediction_data.nrows);
+                }
+
+                ptr_worker->st  = 0;
+                ptr_worker->end = prediction_data.nrows - 1;
+                if (model_outputs->missing_action == Divide)
+                    std::fill(ptr_worker->weights_arr.begin(),
+                              ptr_worker->weights_arr.end(),
+                              (double)1);
+
+                traverse_itree_csc(*ptr_worker,
+                                   model_outputs->trees[tree],
+                                   *model_outputs,
+                                   prediction_data,
+                                   (tree_num == NULL)?
+                                        ((sparse_ix*)NULL) : (tree_num + tree*prediction_data.nrows),
+                                   (size_t)0,
+                                   has_range_penalty);
+            }
+
+            catch(...)
+            {
+                #pragma omp critical
+                {
+                    if (!threw_exception)
+                    {
+                        threw_exception = true;
+                        ex = std::current_exception();
+                    }
+                }
+            }
+        }
+    }
+
+    else
+    {
+        for (auto &tree : model_outputs_ext->hplanes)
+        {
+            for (auto &node : tree)
+            {
+                if (node.score < 0)
+                {
+                    if (isinf(node.range_low) && isinf(node.range_high))
+                        has_range_penalty = false;
+                    goto got_range_penalty2;
+                }
+            }
+
+            got_range_penalty2:
+            {}
+        }
+
+        #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
+                shared(worker_memory, model_outputs_ext, prediction_data, tree_num, threw_exception)
+        for (size_t_for tree = 0; tree < model_outputs_ext->hplanes.size(); tree++)
+        {
+            if (threw_exception) continue;
+            try
+            {
+                WorkerForPredictCSC *ptr_worker = &worker_memory[omp_get_thread_num()];
+                if (!ptr_worker->depths.size())
+                {
+                    ptr_worker->depths.resize(prediction_data.nrows);
+                    ptr_worker->comb_val.resize(prediction_data.nrows);
+                    ptr_worker->ix_arr.resize(prediction_data.nrows);
+                    std::iota(ptr_worker->ix_arr.begin(),
+                              ptr_worker->ix_arr.end(),
+                              (size_t)0);
+                }
+
+                ptr_worker->st  = 0;
+                ptr_worker->end = prediction_data.nrows - 1;
+
+                traverse_hplane_csc(*ptr_worker,
+                                    model_outputs_ext->hplanes[tree],
+                                    *model_outputs_ext,
+                                    prediction_data,
+                                    (tree_num == NULL)?
+                                        ((sparse_ix*)NULL) : (tree_num + tree*prediction_data.nrows),
+                                    (size_t)0,
+                                    has_range_penalty);
+            }
+
+            catch(...)
+            {
+                #pragma omp critical
+                {
+                    if (!threw_exception)
+                    {
+                        threw_exception = true;
+                        ex = std::current_exception();
+                    }
+                }
+            }
+        }
+
+        if (threw_exception)
+            std::rethrow_exception(ex);
+    }
+
+    #ifdef _OPENMP
+    if (nthreads <= 1)
+    #endif
+    {
+        std::copy(worker_memory.front().depths.begin(), worker_memory.front().depths.end(), output_depths);
+    }
+
+    #ifdef _OPENMP
+    else
+    {
+        std::fill(output_depths, output_depths + prediction_data.nrows, (double)0);
+        for (auto &workspace : worker_memory)
+            if (workspace.depths.size())
+                #if !defined(_MSC_VER) && !defined(_WIN32)
+                #pragma omp simd
+                #endif
+                for (size_t row = 0; row < prediction_data.nrows; row++)
+                    output_depths[row] += workspace.depths[row];
+    }
+    #endif
+}
+
 template <class PredictionData, class sparse_ix>
 void traverse_itree_csc(WorkerForPredictCSC   &workspace,
                         std::vector<IsoTree>  &trees,
@@ -1080,7 +1094,7 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
     }
 
     /* in this case, the indices are sorted in the csc penalty function */
-    if (!(has_range_penalty && model_outputs.missing_action != Divide && curr_tree > 0))
+    if (!(has_range_penalty && model_outputs.missing_action != Divide && curr_tree > 0) && trees[curr_tree].col_type == Numeric)
         std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
 
     /* TODO: should mix the splitting function with the range penalty */
@@ -1088,10 +1102,51 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
     /* divide according to tree */
     size_t orig_end = workspace.end;
     size_t st_NA, end_NA, split_ix;
-    divide_subset_split(workspace.ix_arr.data(), workspace.st, workspace.end, trees[curr_tree].col_num,
-                        prediction_data.Xc, prediction_data.Xc_ind, prediction_data.Xc_indptr,
-                        trees[curr_tree].num_split, model_outputs.missing_action,
-                        st_NA, end_NA, split_ix);
+    switch(trees[curr_tree].col_type)
+    {
+        case Numeric:
+        {
+            divide_subset_split(workspace.ix_arr.data(), workspace.st, workspace.end, trees[curr_tree].col_num,
+                                prediction_data.Xc, prediction_data.Xc_ind, prediction_data.Xc_indptr,
+                                trees[curr_tree].num_split, model_outputs.missing_action,
+                                st_NA, end_NA, split_ix);
+            break;
+        }
+
+        case Categorical:
+        {
+            switch(model_outputs.cat_split_type)
+            {
+                case SingleCateg:
+                {
+                    divide_subset_split(workspace.ix_arr.data(),
+                                        prediction_data.categ_data + prediction_data.nrows * trees[curr_tree].col_num,
+                                        workspace.st, workspace.end, trees[curr_tree].chosen_cat,
+                                         model_outputs.missing_action, st_NA, end_NA, split_ix);
+                    break;
+                }
+
+                case SubSet:
+                {
+                    if (!trees[curr_tree].cat_split.size())
+                        divide_subset_split(workspace.ix_arr.data(),
+                                            prediction_data.categ_data + prediction_data.nrows * trees[curr_tree].col_num,
+                                            workspace.st, workspace.end,
+                                            model_outputs.missing_action, model_outputs.new_cat_action,
+                                            trees[curr_tree].pct_tree_left < .5, st_NA, end_NA, split_ix);
+                    else
+                        divide_subset_split(workspace.ix_arr.data(),
+                                            prediction_data.categ_data + prediction_data.nrows * trees[curr_tree].col_num,
+                                            workspace.st, workspace.end, trees[curr_tree].cat_split.data(),
+                                            (int) trees[curr_tree].cat_split.size(),
+                                            model_outputs.missing_action, model_outputs.new_cat_action,
+                                            (bool)(trees[curr_tree].pct_tree_left < .5), st_NA, end_NA, split_ix);
+                    break;
+                }
+            }
+            break;
+        }
+    }
 
     /* continue splitting recursively */
     switch(model_outputs.missing_action)
@@ -1107,7 +1162,7 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
             {
                 workspace.end = split_ix - 1;
 
-                if (has_range_penalty)
+                if (has_range_penalty && trees[curr_tree].col_type == Numeric)
                     add_csc_range_penalty(workspace,
                                           prediction_data,
                                           (double*)NULL,
@@ -1130,7 +1185,7 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
                 workspace.st  = split_ix;
                 workspace.end = orig_end;
 
-                if (has_range_penalty)
+                if (has_range_penalty && trees[curr_tree].col_type == Numeric)
                     add_csc_range_penalty(workspace,
                                           prediction_data,
                                           (double*)NULL,
@@ -1163,7 +1218,7 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
                               workspace.ix_arr.data() + end_NA);
             }
 
-            if (has_range_penalty)
+            if (has_range_penalty && trees[curr_tree].col_type == Numeric)
             {
                 size_t st = workspace.st;
                 size_t end = workspace.end;
@@ -1228,7 +1283,7 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
                 }
 
                 for (size_t row = st_NA; row < end_NA; row++)
-                    workspace.weights_arr[workspace.ix_arr[row]] *= (1 - trees[curr_tree].pct_tree_left);
+                    workspace.weights_arr[workspace.ix_arr[row]] *= (1. - trees[curr_tree].pct_tree_left);
                 traverse_itree_csc(workspace,
                                    trees,
                                    model_outputs,
@@ -1264,13 +1319,54 @@ void traverse_hplane_csc(WorkerForPredictCSC      &workspace,
     std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
     std::fill(workspace.comb_val.begin(), workspace.comb_val.begin() + (workspace.end - workspace.st + 1), 0.);
     double unused;
-    for (size_t col = 0; col < hplanes[curr_tree].col_num.size(); col++)
-        add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end,
-                        hplanes[curr_tree].col_num[col], workspace.comb_val.data(),
-                        prediction_data.Xc, prediction_data.Xc_ind, prediction_data.Xc_indptr,
-                        hplanes[curr_tree].coef[col], (double)0, hplanes[curr_tree].mean[col],
-                        (model_outputs.missing_action == Fail)?  unused : hplanes[curr_tree].fill_val[col],
-                        model_outputs.missing_action, NULL, NULL, false);
+
+    if (prediction_data.categ_data == NULL)
+    {
+        for (size_t col = 0; col < hplanes[curr_tree].col_num.size(); col++)
+            add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end,
+                            hplanes[curr_tree].col_num[col], workspace.comb_val.data(),
+                            prediction_data.Xc, prediction_data.Xc_ind, prediction_data.Xc_indptr,
+                            hplanes[curr_tree].coef[col], (double)0, hplanes[curr_tree].mean[col],
+                            (model_outputs.missing_action == Fail)?  unused : hplanes[curr_tree].fill_val[col],
+                            model_outputs.missing_action, NULL, NULL, false);
+    }
+
+    else
+    {
+        size_t ncols_numeric = 0;
+        size_t ncols_categ = 0;
+        for (size_t col = 0; col < hplanes[curr_tree].col_num.size(); col++)
+        {
+            switch(hplanes[curr_tree].col_type[col])
+            {
+                case Numeric:
+                {
+                    add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                    hplanes[curr_tree].col_num[col], workspace.comb_val.data(),
+                                    prediction_data.Xc, prediction_data.Xc_ind, prediction_data.Xc_indptr,
+                                    hplanes[curr_tree].coef[ncols_numeric], (double)0, hplanes[curr_tree].mean[ncols_numeric],
+                                    (model_outputs.missing_action == Fail)?  unused : hplanes[curr_tree].fill_val[col],
+                                    model_outputs.missing_action, NULL, NULL, false);
+                    ncols_numeric++;
+                    break;
+                }
+
+                case Categorical:
+                {
+                    add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                                    prediction_data.categ_data + hplanes[curr_tree].col_num[col] * prediction_data.nrows,
+                                    (model_outputs.cat_split_type == SubSet)? (int)hplanes[curr_tree].cat_coef[ncols_categ].size() : 0,
+                                    (model_outputs.cat_split_type == SubSet)? hplanes[curr_tree].cat_coef[ncols_categ].data() : NULL,
+                                    (model_outputs.cat_split_type == SingleCateg)? hplanes[curr_tree].fill_new[ncols_categ] : 0.,
+                                    (model_outputs.cat_split_type == SingleCateg)? hplanes[curr_tree].chosen_cat[ncols_categ] : 0,
+                                    hplanes[curr_tree].fill_val[col], hplanes[curr_tree].fill_new[ncols_categ], NULL, NULL,
+                                    model_outputs.new_cat_action, model_outputs.missing_action, model_outputs.cat_split_type, false);
+                    ncols_categ++;
+                    break;
+                }
+            }
+        }
+    }
 
     if (has_range_penalty)
     {
