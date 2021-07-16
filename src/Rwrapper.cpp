@@ -161,7 +161,7 @@ double* set_R_nan_as_C_nan(double *x, size_t n, std::vector<double> &v, int nthr
 {
     v.assign(x, x + n);
     #pragma omp parallel for schedule(static) num_threads(nthreads) shared(x, v, n)
-    for (size_t_for i = 0; i < n; i++)
+    for (size_t_for i = 0; i < (decltype(i))n; i++)
         if (isnan(v[i]))
             v[i] = NAN;
     return v.data();
@@ -170,7 +170,7 @@ double* set_R_nan_as_C_nan(double *x, size_t n, std::vector<double> &v, int nthr
 double* set_R_nan_as_C_nan(double *x, size_t n, int nthreads)
 {
     #pragma omp parallel for schedule(static) num_threads(nthreads) shared(x, n)
-    for (size_t_for i = 0; i < n; i++)
+    for (size_t_for i = 0; i < (decltype(i))n; i++)
         if (isnan(x[i]))
             x[i] = NAN;
     return x;

@@ -180,7 +180,7 @@ std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *mo
 
     /* determine maximum number of nodes in a tree */
     size_t max_nodes = 0;
-    for (size_t tree = loop_st; tree < loop_end; tree++)
+    for (size_t tree = loop_st; tree < (size_t)loop_end; tree++)
         max_nodes = std::max(max_nodes,
                              (model_outputs != NULL)?
                                 (model_outputs->trees[tree].size()) : (model_outputs_ext->hplanes[tree].size()));

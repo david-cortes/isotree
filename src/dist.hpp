@@ -173,7 +173,7 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
     if (model_outputs != NULL)
     {
         #pragma omp parallel for schedule(dynamic) num_threads(nthreads) shared(ntrees, worker_memory, prediction_data, model_outputs, ex)
-        for (size_t_for tree = 0; tree < ntrees; tree++)
+        for (size_t_for tree = 0; tree < (decltype(tree))ntrees; tree++)
         {
             if (threw_exception) continue;
             try
@@ -204,7 +204,7 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
     else
     {
         #pragma omp parallel for schedule(dynamic) num_threads(nthreads) shared(ntrees, worker_memory, prediction_data, model_outputs_ext, ex)
-        for (size_t_for hplane = 0; hplane < ntrees; hplane++)
+        for (size_t_for hplane = 0; hplane < (decltype(hplane))ntrees; hplane++)
         {
             if (threw_exception) continue;
             try
@@ -683,13 +683,13 @@ void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
                 if (w.tmat_sep.size())
                 {
                     #pragma omp parallel for schedule(static) num_threads(nthreads) shared(ncomb, tmat, w, worker_memory)
-                    for (size_t_for ix = 0; ix < ncomb; ix++)
+                    for (size_t_for ix = 0; ix < (decltype(ix))ncomb; ix++)
                         tmat[ix] += w.tmat_sep[ix];
                 }
                 else if (w.rmat.size())
                 {
                     #pragma omp parallel for schedule(static) num_threads(nthreads) shared(rmat, w, worker_memory)
-                    for (size_t_for ix = 0; ix < w.rmat.size(); ix++)
+                    for (size_t_for ix = 0; ix < (decltype(ix))w.rmat.size(); ix++)
                         rmat[ix] += w.rmat[ix];
                 }
             }
@@ -702,7 +702,7 @@ void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
                 if (w.tmat_sep.size())
                 {
                     #pragma omp parallel for schedule(static) num_threads(nthreads) shared(ncomb, tmat, w, worker_memory_m)
-                    for (size_t_for ix = 0; ix < ncomb; ix++)
+                    for (size_t_for ix = 0; ix < (decltype(ix))ncomb; ix++)
                         tmat[ix] += w.tmat_sep[ix];
                 }
             }
@@ -762,11 +762,11 @@ void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
         
         if (tmat != NULL)
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(ncomb, tmat, ntrees_dbl, div_trees)
-            for (size_t_for ix = 0; ix < ncomb; ix++)
+            for (size_t_for ix = 0; ix < (decltype(ix))ncomb; ix++)
                 tmat[ix] = std::exp2( - tmat[ix] / div_trees);
         else
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(ncomb, rmat, ntrees_dbl, div_trees)
-            for (size_t_for ix = 0; ix < n_from * n_to; ix++)
+            for (size_t_for ix = 0; ix < (decltype(ix))(n_from * n_to); ix++)
                 rmat[ix] = std::exp2( - rmat[ix] / div_trees);
     }
     
@@ -774,11 +774,11 @@ void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
     {
         if (tmat != NULL)
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(ncomb, tmat, ntrees_dbl)
-            for (size_t_for ix = 0; ix < ncomb; ix++)
+            for (size_t_for ix = 0; ix < (decltype(ix))ncomb; ix++)
                 tmat[ix] = (tmat[ix] + ntrees) / ntrees_dbl;
         else
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(n_from, rmat, ntrees_dbl)
-            for (size_t_for ix = 0; ix < n_from * n_to; ix++)
+            for (size_t_for ix = 0; ix < (decltype(ix))(n_from * n_to); ix++)
                 rmat[ix] = (rmat[ix] + ntrees) / ntrees_dbl;
     }
 }

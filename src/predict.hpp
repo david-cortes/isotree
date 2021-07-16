@@ -183,7 +183,7 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
             )
         {
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, model_outputs, prediction_data, output_depths, tree_num)
-            for (size_t_for row = 0; row < nrows; row++)
+            for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             {
                 for (std::vector<IsoTree> &tree : model_outputs->trees)
                 {
@@ -200,7 +200,7 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
         else
         {
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, model_outputs, prediction_data, output_depths, tree_num)
-            for (size_t_for row = 0; row < nrows; row++)
+            for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             {
                 for (std::vector<IsoTree> &tree : model_outputs->trees)
                 {
@@ -229,7 +229,7 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
             )
         {
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, model_outputs_ext, prediction_data, output_depths, tree_num)
-            for (size_t_for row = 0; row < nrows; row++)
+            for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             {
                 for (std::vector<IsoHPlane> &hplane : model_outputs_ext->hplanes)
                 {
@@ -246,7 +246,7 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
         else
         {
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, model_outputs_ext, prediction_data, output_depths, tree_num)
-            for (size_t_for row = 0; row < nrows; row++)
+            for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             {
                 for (std::vector<IsoHPlane> &hplane : model_outputs_ext->hplanes)
                 {
@@ -279,11 +279,11 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
 
     if (standardize)
         #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, output_depths, depth_divisor)
-        for (size_t_for row = 0; row < nrows; row++)
+        for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             output_depths[row] = std::exp2( - output_depths[row] / depth_divisor );
     else
         #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, output_depths, ntrees)
-        for (size_t_for row = 0; row < nrows; row++)
+        for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             output_depths[row] /= ntrees;
 
 
@@ -933,7 +933,7 @@ void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int
 
         #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
                 shared(worker_memory, model_outputs, prediction_data, tree_num, threw_exception)
-        for (size_t_for tree = 0; tree < model_outputs->trees.size(); tree++)
+        for (size_t_for tree = 0; tree < (decltype(tree))model_outputs->trees.size(); tree++)
         {
             if (threw_exception) continue;
             try
@@ -1002,7 +1002,7 @@ void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int
 
         #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
                 shared(worker_memory, model_outputs_ext, prediction_data, tree_num, threw_exception)
-        for (size_t_for tree = 0; tree < model_outputs_ext->hplanes.size(); tree++)
+        for (size_t_for tree = 0; tree < (decltype(tree))model_outputs_ext->hplanes.size(); tree++)
         {
             if (threw_exception) continue;
             try
@@ -1546,7 +1546,7 @@ void get_num_nodes(IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse
 {
     std::fill(n_terminal, n_terminal + model_outputs.trees.size(), 0);
     #pragma omp parallel for schedule(static) num_threads(nthreads) shared(model_outputs, n_nodes, n_terminal)
-    for (size_t_for tree = 0; tree < model_outputs.trees.size(); tree++)
+    for (size_t_for tree = 0; tree < (decltype(tree))model_outputs.trees.size(); tree++)
     {
         n_nodes[tree] = model_outputs.trees[tree].size();
         for (IsoTree &node : model_outputs.trees[tree])
@@ -1561,7 +1561,7 @@ void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *restrict n_nodes, spa
 {
     std::fill(n_terminal, n_terminal + model_outputs.hplanes.size(), 0);
     #pragma omp parallel for schedule(static) num_threads(nthreads) shared(model_outputs, n_nodes, n_terminal)
-    for (size_t_for hplane = 0; hplane < model_outputs.hplanes.size(); hplane++)
+    for (size_t_for hplane = 0; hplane <(decltype(hplane)) model_outputs.hplanes.size(); hplane++)
     {
         n_nodes[hplane] = model_outputs.hplanes[hplane].size();
         for (IsoHPlane &node : model_outputs.hplanes[hplane])

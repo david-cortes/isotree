@@ -27,7 +27,7 @@ class build_ext_subclass( build_ext ):
         # TODO: add entries for intel's ICC
         if c == 'msvc': # visual studio
             for e in self.extensions:
-                e.extra_compile_args = ['/openmp', '/O2', '/std:c++14']
+                e.extra_compile_args = ['/openmp', '/O2', '/std:c++14', '/wd4244', '/wd4267', '/wd4018']
                 ### Note: MSVC never implemented C++11
         elif (c == "clang") or (c == "clang++"):
             for e in self.extensions:

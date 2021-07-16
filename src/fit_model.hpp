@@ -456,7 +456,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 
     /* grow trees */
     #pragma omp parallel for num_threads(nthreads) schedule(dynamic) shared(model_outputs, model_outputs_ext, worker_memory, input_data, model_params, threw_exception)
-    for (size_t_for tree = 0; tree < ntrees; tree++)
+    for (size_t_for tree = 0; tree < (decltype(tree))ntrees; tree++)
     {
         if (interrupt_switch || threw_exception)
             continue; /* Cannot break with OpenMP==2.0 (MSVC) */
@@ -553,7 +553,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 if (w.row_depths.size())
                 {
                     #pragma omp parallel for schedule(static) num_threads(nthreads) shared(input_data, output_depths, w, worker_memory)
-                    for (size_t_for row = 0; row < input_data.nrows; row++)
+                    for (size_t_for row = 0; row < (decltype(row))input_data.nrows; row++)
                         output_depths[row] += w.row_depths[row];
                 }
             }
@@ -568,14 +568,14 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         {
             double depth_divisor = (double)ntrees * ((model_outputs != NULL)?
                                                      model_outputs->exp_avg_depth : model_outputs_ext->exp_avg_depth);
-            for (size_t_for row = 0; row < nrows; row++)
+            for (size_t row = 0; row < nrows; row++)
                 output_depths[row] = std::exp2( - output_depths[row] / depth_divisor );
         }
 
         else
         {
             double ntrees_dbl = (double) ntrees;
-            for (size_t_for row = 0; row < nrows; row++)
+            for (size_t row = 0; row < nrows; row++)
                 output_depths[row] /= ntrees_dbl;
         }
     }

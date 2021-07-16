@@ -200,7 +200,7 @@ void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_
                     tree_mapping[node] = curr_term++;
 
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(tree_num, tree_mapping, tree, prediction_data)
-            for (size_t_for row = 0; row < prediction_data.nrows; row++)
+            for (size_t_for row = 0; row < (decltype(row))prediction_data.nrows; row++)
                 tree_num[row + tree * prediction_data.nrows] = tree_mapping[tree_num[row + tree * prediction_data.nrows]];
         }
     }
@@ -222,7 +222,7 @@ void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_
                     tree_mapping[node] = curr_term++;
             
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(tree_num, tree_mapping, tree, prediction_data)
-            for (size_t_for row = 0; row < prediction_data.nrows; row++)
+            for (size_t_for row = 0; row < (decltype(row))prediction_data.nrows; row++)
                 tree_num[row + tree * prediction_data.nrows] = tree_mapping[tree_num[row + tree * prediction_data.nrows]];
         }
     }
