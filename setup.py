@@ -99,7 +99,7 @@ setup(
                                 include_dirs=[np.get_include(), ".", "./src", cereal_dir],
                                 language="c++",
                                 install_requires = ["numpy", "pandas>=0.24.0", "cython", "scipy"],
-                                define_macros = [("_USE_MERSENNE_TWISTER", None),
+                                define_macros = [("_USE_XOSHIRO", None),
                                                  ("_ENABLE_CEREAL", None) if has_cereal else ("NO_CEREAL", None),
                                                  ("_USE_ROBIN_MAP", None),
                                                  ("_FOR_PYTHON", None),

@@ -98,8 +98,15 @@ using std::memcpy;
 
 #define unexpected_error() throw std::runtime_error("Unexpected error. Please open an issue in GitHub.\n")
 
-/* By default, will use Mersenne-Twister for RNG, but can be switched to something faster */
-#ifdef _USE_MERSENNE_TWISTER
+/* By default, will use Xoshiro256++ or Xoshiro128++ for RNG, but can be switched to something faster */
+#ifdef _USE_XOSHIRO
+    #include "xoshiro.hpp"
+    #if SIZE_MAX >= UINT64_MAX /* 64-bit systems or higher */
+        #define RNG_engine Xorshiro::Xoshiro256PP
+    #else /* 32-bit systems and non-standard architectures */
+        #define RNG_engine Xorshiro::Xoshiro128PP
+    #endif
+#elif defined(_USE_MERSENNE_TWISTER)
     #if SIZE_MAX >= UINT64_MAX /* 64-bit systems or higher */
         #define RNG_engine std::mt19937_64
     #else /* 32-bit systems and non-standard architectures */

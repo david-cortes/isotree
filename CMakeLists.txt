@@ -16,7 +16,7 @@ set_target_properties(isotree PROPERTIES PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/inc
 add_compile_definitions(ISOTREE_COMPILE_TME)
 
 ## omit this line to use the system's default RNG engine
-add_compile_definitions(_USE_MERSENNE_TWISTER)
+add_compile_definitions(_USE_XOSHIRO)
 
 ## https://cliutils.gitlab.io/modern-cmake/chapters/packages/OpenMP.html
 find_package(OpenMP)
