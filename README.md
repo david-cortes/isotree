@@ -102,6 +102,12 @@ pip install isotree
 
 * R:
 
+Latest version (recommended):
+```r
+remotes::install_github("david-cortes/isotree")
+```
+
+From CRAN (currently has a small bug when calculating distances):
 ```r
 install.packages("isotree")
 ```
