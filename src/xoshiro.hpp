@@ -9,13 +9,13 @@ and related and neighboring rights to this software to the public domain
 worldwide. This software is distributed without any warranty.
 
 See <http://creativecommons.org/publicdomain/zero/1.0/>. */
-namespace Xorshiro {
-
 #include <cstdint>
 #include <cstring>
 using std::uint32_t;
 using std::uint64_t;
 using std::memcpy;
+
+namespace Xoshiro {
 
 [[gnu::hot]]
 static inline uint64_t rotl64(const uint64_t x, const int k) {

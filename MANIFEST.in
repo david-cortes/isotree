@@ -28,3 +28,9 @@ prune include
 exclude src/instantiate_model.cpp
 exclude src/external_facing_generic.hpp
 exclude src/isotree_exportable.hpp
+prune src/robinmap
+include src/robinmap/include/tsl/robin_growth_policy.h
+include src/robinmap/include/tsl/robin_hash.h
+include src/robinmap/include/tsl/robin_map.h
+include src/robinmap/include/tsl/robin_set.h
+include src/robinmap/LICENSE

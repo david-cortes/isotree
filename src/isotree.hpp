@@ -102,9 +102,9 @@ using std::memcpy;
 #ifdef _USE_XOSHIRO
     #include "xoshiro.hpp"
     #if SIZE_MAX >= UINT64_MAX /* 64-bit systems or higher */
-        #define RNG_engine Xorshiro::Xoshiro256PP
+        #define RNG_engine Xoshiro::Xoshiro256PP
     #else /* 32-bit systems and non-standard architectures */
-        #define RNG_engine Xorshiro::Xoshiro128PP
+        #define RNG_engine Xoshiro::Xoshiro128PP
     #endif
 #elif defined(_USE_MERSENNE_TWISTER)
     #if SIZE_MAX >= UINT64_MAX /* 64-bit systems or higher */
