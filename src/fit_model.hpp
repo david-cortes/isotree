@@ -927,7 +927,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         workspace.categs.resize(input_data.max_categ);
 
     /* IMPORTANT!!!!!
-       The standard library implementation is likely going to use the ziggurat method
+       The standard library implementation is likely going to use the Box-Muller method
        for normal sampling, which has some state memory in the **distribution object itself**
        in addition to the state memory from the RNG engine. DO NOT avoid re-generating this
        object on each tree, despite being inefficient, because then it can cause seed
