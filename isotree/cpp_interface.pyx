@@ -107,7 +107,7 @@ cdef extern from "model_joined.hpp":
         ColType       col_type
         size_t        col_num
         double        num_split
-        vector[char]  cat_split
+        vector[signed char]  cat_split
         int           chosen_cat
         size_t        tree_left
         size_t        tree_right

@@ -31,25 +31,33 @@ static inline uint32_t rotl32(const uint32_t x, const int k) {
 static inline uint32_t extract_32bits_from64_left(const uint64_t x)
 {
     uint32_t out;
-    memcpy(&out, reinterpret_cast<const uint32_t*>(&x), sizeof(uint32_t));
+    memcpy(reinterpret_cast<char*>(&out),
+           reinterpret_cast<const char*>(&x),
+           sizeof(uint32_t));
     return out;
 }
 
 static inline uint32_t extract_32bits_from64_right(const uint64_t x)
 {
     uint32_t out;
-    memcpy(&out, reinterpret_cast<const uint32_t*>(&x) + 1, sizeof(uint32_t));
+    memcpy(reinterpret_cast<char*>(&out),
+           reinterpret_cast<const char*>(&x) + sizeof(uint32_t),
+           sizeof(uint32_t));
     return out;
 }
 
 static inline void assign_32bits_to64_left(uint64_t &assign_to, const uint32_t take_from)
 {
-    memcpy(reinterpret_cast<uint32_t*>(&assign_to), &take_from, sizeof(uint32_t));
+    memcpy(reinterpret_cast<char*>(&assign_to),
+           reinterpret_cast<const char*>(&take_from),
+           sizeof(uint32_t));
 }
 
 static inline void assign_32bits_to64_right(uint64_t &assign_to, const uint32_t take_from)
 {
-    memcpy(reinterpret_cast<uint32_t*>(&assign_to) + 1, &take_from, sizeof(uint32_t));
+    memcpy(reinterpret_cast<char*>(&assign_to) + sizeof(uint32_t),
+           reinterpret_cast<const char*>(&take_from),
+           sizeof(uint32_t));
 }
 
 /* This is a fixed-increment version of Java 8's SplittableRandom generator
@@ -83,12 +91,12 @@ public:
     using result_type = uint64_t;
     uint64_t state[4];
 
-    constexpr uint64_t min()
+    constexpr uint64_t min() const
     {
         return 0;
     }
 
-    constexpr uint64_t max()
+    constexpr uint64_t max() const
     {
         return UINT64_MAX;
     }
@@ -150,12 +158,12 @@ public:
     using result_type = uint32_t;
     uint32_t state[4];
 
-    constexpr uint32_t min()
+    constexpr uint32_t min() const
     {
         return 0;
     }
 
-    constexpr uint32_t max()
+    constexpr uint32_t max() const
     {
         return UINT32_MAX;
     }
@@ -224,7 +232,7 @@ public:
 #endif
 
 constexpr static const uint64_t two53_i = (UINT64_C(1) << 53) - UINT64_C(1);
-constexpr static const int64_t two53_ii = (UINT64_C(1) << 53);
+constexpr static const int64_t two53_ii = (INT64_C(1) << 53);
 constexpr static const uint64_t two54_i = (UINT64_C(1) << 54) - UINT64_C(1);
 constexpr static const double two53_d = (double)(UINT64_C(1) << 53);
 constexpr static const uint64_t two52i = (UINT64_C(1) << 52) - UINT64_C(1);
@@ -285,13 +293,12 @@ public:
         return (double)(gen_bits(rng) & two53_i) / (double)two53_d;
         #else
         uint64_t bits = gen_bits(rng);
-        if (is_little_endian) {
-            uint32_t *rbits = reinterpret_cast<uint32_t*>(&bits) + 1;
-            *rbits = *rbits >> 11;
-        } else {
-            uint32_t *rbits = reinterpret_cast<uint32_t*>(&bits);
-            *rbits = *rbits >> 11;
-        }
+        char *rbits_ = reinterpret_cast<char*>(&bits);
+        if (is_little_endian) rbits_ += sizeof(uint32_t);
+        uint32_t rbits;
+        memcpy(&rbits, rbits_, sizeof(uint32_t));
+        rbits = rbits >> 11;
+        memcpy(rbits_, &rbits, sizeof(uint32_t));
         return (double)bits / two53_d;
         #endif
     }
@@ -323,15 +330,12 @@ public:
         return (double)((int64_t)(gen_bits(rng) & two54_i) - two53_ii) / (double)two53_d;
         #else
         uint64_t bits = gen_bits(rng);
-        if (is_little_endian) {
-            uint32_t *rbits = reinterpret_cast<uint32_t*>(&bits) + 1;
-            *rbits = *rbits >> 10;
-        }
-
-        else {
-            uint32_t *rbits = reinterpret_cast<uint32_t*>(&bits);
-            *rbits = *rbits >> 10;
-        }
+        char *rbits_ = reinterpret_cast<char*>(&bits);
+        if (is_little_endian) rbits_ += sizeof(uint32_t);
+        uint32_t rbits;
+        memcpy(&rbits, rbits_, sizeof(uint32_t));
+        rbits = rbits >> 10;
+        memcpy(rbits_, &rbits, sizeof(uint32_t));
         return (double)((int64_t)bits - two53_ii) / (double)two53_d;
         #endif
     }
@@ -376,19 +380,19 @@ public:
             double rnd1, rnd2;
             uint64_t bits1 = gen_bits(rng);
             uint64_t bits2 = gen_bits(rng);
+            char *rbits1_ = reinterpret_cast<char*>(&bits1);
+            char *rbits2_ = reinterpret_cast<char*>(&bits2);
             if (is_little_endian) {
-                uint32_t *rbits1 = reinterpret_cast<uint32_t*>(&bits1) + 1;
-                *rbits1 = *rbits1 >> 12;
-                uint32_t *rbits2 = reinterpret_cast<uint32_t*>(&bits2) + 1;
-                *rbits2 = *rbits2 >> 12;
+                rbits1_ += sizeof(uint32_t);
+                rbits2_ += sizeof(uint32_t);
             }
-
-            else {
-                uint32_t *rbits1 = reinterpret_cast<uint32_t*>(&bits1);
-                *rbits1 = *rbits1 >> 12;
-                uint32_t *rbits2 = reinterpret_cast<uint32_t*>(&bits2);
-                *rbits2 = *rbits2 >> 12;
-            }
+            uint32_t rbits1, rbits2;
+            memcpy(&rbits1, rbits1_, sizeof(uint32_t));
+            rbits1 = rbits1 >> 12;
+            memcpy(rbits1_, &rbits1, sizeof(uint32_t));
+            memcpy(&rbits2, rbits2_, sizeof(uint32_t));
+            rbits2 = rbits2 >> 12;
+            memcpy(rbits2_, &rbits2, sizeof(uint32_t));
             rnd1 = ((double)bits1 + 0.5) / two52d;
             rnd2 = ((double)bits2 + 0.5) / two52d;
             #endif
