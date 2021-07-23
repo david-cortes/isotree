@@ -1305,7 +1305,7 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 }
 
 /* For categorical columns split by subset */
-void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, char split_categ[],
+void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, signed char split_categ[],
                          MissingAction missing_action, size_t &st_NA, size_t &end_NA, size_t &split_ix)
 {
     size_t temp;
@@ -1357,7 +1357,7 @@ void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, char s
 }
 
 /* For categorical columns split by subset, used at prediction time (with similarity) */
-void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, char split_categ[],
+void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, signed char split_categ[],
                          int ncat, MissingAction missing_action, NewCategAction new_cat_action,
                          bool move_new_to_left, size_t &st_NA, size_t &end_NA, size_t &split_ix)
 {
@@ -1725,7 +1725,7 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 
 
 void get_categs(size_t ix_arr[], int x[], size_t st, size_t end, int ncat,
-                MissingAction missing_action, char categs[], size_t &npresent, bool &unsplittable)
+                MissingAction missing_action, signed char categs[], size_t &npresent, bool &unsplittable)
 {
     std::fill(categs, categs + ncat, -1);
     npresent = 0;
@@ -1736,7 +1736,7 @@ void get_categs(size_t ix_arr[], int x[], size_t st, size_t end, int ncat,
     npresent = std::accumulate(categs,
                                categs + ncat,
                                (size_t)0,
-                               [](const size_t a, const char b){return a + (b > 0);}
+                               [](const size_t a, const signed char b){return a + (b > 0);}
                                );
 
     unsplittable = npresent < 2;

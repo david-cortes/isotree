@@ -1238,7 +1238,7 @@ double eval_guided_crit_weighted(size_t ix_arr[], size_t st, size_t end,
 /* https://math.stackexchange.com/questions/3343384/expected-variance-and-kurtosis-from-pmf-in-which-possible-discrete-values-are-dr */
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *restrict x, int ncat,
                         size_t *restrict buffer_cnt, size_t *restrict buffer_pos, double *restrict buffer_prob,
-                        int &chosen_cat, char *restrict split_categ, char *restrict buffer_split,
+                        int &chosen_cat, signed char *restrict split_categ, signed char *restrict buffer_split,
                         GainCriterion criterion, double min_gain, bool all_perm,
                         MissingAction missing_action, CategSplit cat_split_type)
 {
@@ -1353,7 +1353,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
             std::sort(buffer_pos, buffer_pos + ncat, [&buffer_cnt](const size_t a, const size_t b){return buffer_cnt[a] < buffer_cnt[b];});
 
             /* set split as: (1):left (0):right (-1):not_present */
-            memset(buffer_split, 0, ncat * sizeof(char));
+            memset(buffer_split, 0, ncat * sizeof(signed char));
 
             long double cnt = (long double)(end - st + 1);
 
@@ -1395,7 +1395,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                         if (this_gain > min_gain && this_gain > best_gain)
                         {
                             best_gain = this_gain;
-                            memcpy(split_categ, buffer_split, ncat * sizeof(char));
+                            memcpy(split_categ, buffer_split, ncat * sizeof(signed char));
                         }
                     }
 
@@ -1501,7 +1501,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                             if (this_gain > min_gain && this_gain > best_gain)
                             {
                                 best_gain = this_gain;
-                                memcpy(split_categ, buffer_split, ncat * sizeof(char));
+                                memcpy(split_categ, buffer_split, ncat * sizeof(signed char));
                             }
                         }
                     }
@@ -1530,7 +1530,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
 template <class mapping>
 double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end, int *restrict x, int ncat,
                                  size_t *restrict buffer_pos, double *restrict buffer_prob,
-                                 int &chosen_cat, char *restrict split_categ, char *restrict buffer_split,
+                                 int &chosen_cat, signed char *restrict split_categ, signed char *restrict buffer_split,
                                  GainCriterion criterion, double min_gain, bool all_perm,
                                  MissingAction missing_action, CategSplit cat_split_type,
                                  mapping w)
@@ -1649,7 +1649,7 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
             std::sort(buffer_pos, buffer_pos + ncat, [&buffer_cnt](const size_t a, const size_t b){return buffer_cnt[a] < buffer_cnt[b];});
 
             /* set split as: (1):left (0):right (-1):not_present */
-            memset(buffer_split, 0, ncat * sizeof(char));
+            memset(buffer_split, 0, ncat * sizeof(signed char));
 
 
             switch(criterion)
@@ -1691,7 +1691,7 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                         if (this_gain > min_gain && this_gain > best_gain)
                         {
                             best_gain = this_gain;
-                            memcpy(split_categ, buffer_split, ncat * sizeof(char));
+                            memcpy(split_categ, buffer_split, ncat * sizeof(signed char));
                         }
                     }
 
@@ -1797,7 +1797,7 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                             if (this_gain > min_gain && this_gain > best_gain)
                             {
                                 best_gain = this_gain;
-                                memcpy(split_categ, buffer_split, ncat * sizeof(char));
+                                memcpy(split_categ, buffer_split, ncat * sizeof(signed char));
                             }
                         }
                     }

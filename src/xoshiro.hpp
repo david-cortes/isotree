@@ -255,7 +255,7 @@ static inline uint64_t gen_bits(Xoshiro128PP &rng)
 static inline bool get_is_little_endian()
 {
     const uint32_t ONE = 1;
-    return (*(reinterpret_cast<const char*>(&ONE)) != 0);
+    return (*(reinterpret_cast<const unsigned char*>(&ONE)) != 0);
 }
 static const bool is_little_endian = get_is_little_endian();
 

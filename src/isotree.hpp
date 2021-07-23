@@ -248,7 +248,7 @@ typedef struct IsoTree {
     ColType  col_type = NotUsed; /* issues with uninitialized values passed to Cereal */
     size_t   col_num;
     double   num_split;
-    std::vector<char> cat_split;
+    std::vector<signed char> cat_split;
     int      chosen_cat;
     size_t   tree_left;
     size_t   tree_right;
@@ -600,7 +600,7 @@ struct WorkerMemory {
     size_t               npresent;        /* 'npresent' and 'ncols_tried' are used interchangeable and for unrelated things */
     bool                 unsplittable;
     std::vector<bool>    is_repeated;
-    std::vector<char>    categs;
+    std::vector<signed char> categs;
     size_t               ncols_tried;     /* 'npresent' and 'ncols_tried' are used interchangeable and for unrelated things */
     int                  ncat_tried;
     std::vector<double>  btree_weights;   /* only when using weights for sampling */
@@ -609,13 +609,13 @@ struct WorkerMemory {
     /* for split criterion */
     std::vector<double>  buffer_dbl;
     std::vector<size_t>  buffer_szt;
-    std::vector<char>    buffer_chr;
+    std::vector<signed char> buffer_chr;
     double               prob_split_type;
     GainCriterion        criterion;
     double               this_gain;
     double               this_split_point;
     int                  this_categ;
-    std::vector<char>    this_split_categ;
+    std::vector<signed char> this_split_categ;
     bool                 determine_split;
 
     /* for the extended model */
@@ -1013,9 +1013,9 @@ template <class real_t, class sparse_ix>
 void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                          real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[], double split_point,
                          MissingAction missing_action, size_t &st_NA, size_t &end_NA, size_t &split_ix);
-void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, char split_categ[],
+void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, signed char split_categ[],
                          MissingAction missing_action, size_t &st_NA, size_t &end_NA, size_t &split_ix);
-void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, char split_categ[],
+void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, signed char split_categ[],
                          int ncat, MissingAction missing_action, NewCategAction new_cat_action,
                          bool move_new_to_left, size_t &st_NA, size_t &end_NA, size_t &split_ix);
 void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, int split_categ,
@@ -1031,7 +1031,7 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                MissingAction missing_action, double &xmin, double &xmax, bool &unsplittable);
 void get_categs(size_t ix_arr[], int x[], size_t st, size_t end, int ncat,
-                MissingAction missing_action, char categs[], size_t &npresent, bool &unsplittable);
+                MissingAction missing_action, signed char categs[], size_t &npresent, bool &unsplittable);
 #if !defined(_WIN32) && !defined(_WIN64)
 long double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
                                   std::vector<double> &weights_arr, hashed_map<size_t, double> &weights_map);
@@ -1223,13 +1223,13 @@ double eval_guided_crit_weighted(size_t ix_arr[], size_t st, size_t end,
                                  mapping w);
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *restrict x, int ncat,
                         size_t *restrict buffer_cnt, size_t *restrict buffer_pos, double *restrict buffer_prob,
-                        int &chosen_cat, char *restrict split_categ, char *restrict buffer_split,
+                        int &chosen_cat, signed char *restrict split_categ, signed char *restrict buffer_split,
                         GainCriterion criterion, double min_gain, bool all_perm,
                         MissingAction missing_action, CategSplit cat_split_type);
 template <class mapping>
 double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end, int *restrict x, int ncat,
                                  size_t *restrict buffer_pos, double *restrict buffer_prob,
-                                 int &chosen_cat, char *restrict split_categ, char *restrict buffer_split,
+                                 int &chosen_cat, signed char *restrict split_categ, signed char *restrict buffer_split,
                                  GainCriterion criterion, double min_gain, bool all_perm,
                                  MissingAction missing_action, CategSplit cat_split_type,
                                  mapping w);
