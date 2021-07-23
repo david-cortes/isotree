@@ -880,7 +880,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         workspace.btree_weights.assign(input_data.btree_weights_init.begin(),
                                        input_data.btree_weights_init.end());
     workspace.rnd_generator.seed(model_params.random_seed + tree_num);
-    workspace.rbin  = std::uniform_real_distribution<double>(0, 1);
+    workspace.rbin  = UniformUnitInterval(0, 1);
     sample_random_rows(workspace.ix_arr, input_data.nrows, model_params.with_replacement,
                        workspace.rnd_generator, workspace.ix_all,
                        (input_data.weight_as_sample)? input_data.sample_weights : NULL,
@@ -938,9 +938,9 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     if (hplane_root != NULL)
     {
         if (input_data.ncols_categ || model_params.coef_type == Normal)
-            workspace.coef_norm = std::normal_distribution<double>(0, 1);
+            workspace.coef_norm = StandardNormalDistr(0, 1);
         if (model_params.coef_type == Uniform)
-            workspace.coef_unif = std::uniform_real_distribution<double>(-1, 1);
+            workspace.coef_unif = UniformMinusOneToOne(-1, 1);
     }
 
     /* for the extended model, initialize extra vectors and objects */
@@ -1004,7 +1004,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
             workspace.weights_map.clear();
 
             /* if the sub-sample size is small relative to the full sample size, use a mapping */
-            if (input_data.Xc_indptr != NULL && model_params.sample_size < input_data.nrows / 20)
+            if (input_data.Xc_indptr != NULL && model_params.sample_size < input_data.nrows / 50)
             {
                 for (const size_t ix : workspace.ix_arr)
                     weight_scaling += input_data.sample_weights[ix];

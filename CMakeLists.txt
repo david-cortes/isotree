@@ -13,7 +13,7 @@ set(BUILD_SHARED_LIBS True)
 add_library(isotree SHARED ${SRC_FILES})
 target_include_directories(isotree PRIVATE ${PROJECT_SOURCE_DIR}/src)
 set_target_properties(isotree PROPERTIES PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/isotree.hpp)
-add_compile_definitions(ISOTREE_COMPILE_TME)
+add_compile_definitions(ISOTREE_COMPILE_TIME)
 
 ## omit this line to use the system's default RNG engine
 add_compile_definitions(_USE_XOSHIRO)

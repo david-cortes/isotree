@@ -733,7 +733,8 @@ class IsolationForest:
         Note
         ----
         Setting any parameter other than the number of threads will reset the model
-        - that is, if it was fitted to some data, the fitted model will be lost.
+        - that is, if it was fitted to some data, the fitted model will be lost,
+        and it will need to be refitted before being able to make predictions.
         
         Parameters
         ----------

@@ -392,7 +392,7 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, int x[], int ncat, 
             long double temp_v;
             long double s1, s2, s3, s4;
             long double coef;
-            std::uniform_real_distribution<double> runif(0, 1);
+            UniformUnitInterval runif(0, 1);
             size_t ntry = 50;
             for (size_t iternum = 0; iternum < 50; iternum++)
             {
@@ -472,7 +472,7 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, int x[], i
             long double temp_v;
             long double s1, s2, s3, s4;
             long double coef;
-            std::uniform_real_distribution<double> runif(0, 1);
+            UniformUnitInterval runif(0, 1);
             size_t ntry = 50;
             for (size_t iternum = 0; iternum < 50; iternum++)
             {

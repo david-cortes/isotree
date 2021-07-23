@@ -59,9 +59,11 @@
 #include <memory>
 #include <utility>
 #include <cstdint>
+#include <cinttypes>
 #include <exception>
 #include <stdexcept>
 #include <cassert>
+#include <cfloat>
 #include <iostream>
 #ifndef _FOR_R
     #include <cstdio>
@@ -106,32 +108,36 @@ using std::memcpy;
     #else /* 32-bit systems and non-standard architectures */
         #define RNG_engine Xoshiro::Xoshiro128PP
     #endif
-#elif defined(_USE_MERSENNE_TWISTER)
-    #if SIZE_MAX >= UINT64_MAX /* 64-bit systems or higher */
-        #define RNG_engine std::mt19937_64
-    #else /* 32-bit systems and non-standard architectures */
-        #define RNG_engine std::mt19937
+    #if defined(DBL_MANT_DIG) && (DBL_MANT_DIG == 53)
+        using Xoshiro::UniformUnitInterval;
+        using Xoshiro::UniformMinusOneToOne;
+        using Xoshiro::StandardNormalDistr;
+    #else
+        #define UniformUnitInterval std::uniform_real_distribution<double>
+        #define UniformMinusOneToOne std::uniform_real_distribution<double>
+        #define StandardNormalDistr std::normal_distribution<double>
     #endif
 #else
-    #define RNG_engine std::default_random_engine
-#endif
+    #if defined(_USE_MERSENNE_TWISTER)
+        #if SIZE_MAX >= UINT64_MAX /* 64-bit systems or higher */
+            #define RNG_engine std::mt19937_64
+        #else /* 32-bit systems and non-standard architectures */
+            #define RNG_engine std::mt19937
+        #endif
+    #else
+        #define RNG_engine std::default_random_engine
+    #endif
 
-/* Some operations here are done with bit-shifting and might not work
-   correctly on non-standard platforms */
-/* TODO: use the built-in enum from C++20 once compilers implement it  */
-#if defined(__LITTLE_ENDIAN) && defined(__BYTE_ORDER)
-    #define IS_LITTLE_ENDIAN (__BYTE_ORDER == __LITTLE_ENDIAN)
-#else
-    constexpr static const int ONE = 1;
-    #define IS_LITTLE_ENDIAN ((*((unsigned char*)&ONE)) > 0)
+    #define UniformUnitInterval std::uniform_real_distribution<double>
+    #define UniformMinusOneToOne std::uniform_real_distribution<double>
+    #define StandardNormalDistr std::normal_distribution<double>
 #endif
 
 /* At the time of writing, this brought a sizeable speed up compared to
    'unordered_map' and 'unordered_set' from both GCC and CLANG.
-   I'm not sure how portable this library is so it has these checks just
-   in case, and if detects an unusual platform, will instead use the ones
-   from the compiler's STL.  */
-#if defined(_USE_ROBIN_MAP) && (SIZE_MAX == UINT32_MAX || SIZE_MAX == UINT64_MAX)
+   But perhaps should consider others in the future, such as this:
+   https://github.com/ktprime/emhash  */
+#if defined(_USE_ROBIN_MAP)
     #include "robinmap/include/tsl/robin_growth_policy.h"
     #include "robinmap/include/tsl/robin_hash.h"
     #include "robinmap/include/tsl/robin_set.h"
@@ -146,14 +152,12 @@ using std::memcpy;
 #endif
 
 /* Short functions */
-#define ix_parent(ix) (((ix) - 1) / 2)  /* integer division takes care of deciding left-right */
-#define ix_child(ix)  (2 * (ix) + 1)
 /* https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int */
-#if defined(__LITTLE_ENDIAN) && defined(__BYTE_ORDER) && (__BYTE_ORDER == __LITTLE_ENDIAN)
-    #define pow2(n) ( ((size_t) 1) << (n) )
-#else
-    #define pow2(n) ((size_t)powl((long double)2, (long double)n))
-#endif
+#define pow2(n) ( ((size_t) 1) << (n) )
+#define div2(n) ((n) >> 1)
+#define mult2(n) ((n) << 1)
+#define ix_parent(ix) (div2((ix) - (size_t)1))  /* integer division takes care of deciding left-right */
+#define ix_child(ix)  (mult2(ix) + (size_t)1)
 #define square(x) ((x) * (x))
 #ifndef _FOR_R
     #if defined(__GNUC__) && (__GNUC__ >= 5)
@@ -199,7 +203,7 @@ using std::isnan;
 #if defined(_FOR_R) || defined(_FOR_PYTHON) || !defined(_WIN32)
     #define ISOTREE_EXPORTED 
 #else
-    #ifdef ISOTREE_COMPILE_TME
+    #ifdef ISOTREE_COMPILE_TIME
         #define ISOTREE_EXPORTED __declspec(dllexport)
     #else
         #define ISOTREE_EXPORTED __declspec(dllimport)
@@ -212,7 +216,7 @@ using std::isnan;
 *    causing installation issues with pretty much all scientific software due to OMP headers that
 *    would normally do nothing. This piece of code is to allow compilation without OMP header. */
 #ifndef _OPENMP
-    #define omp_get_thread_num() 0
+    #define omp_get_thread_num() (0)
 #endif
 
 /* Some aggregation functions will prefer more precise data types when the data is large */
@@ -582,7 +586,7 @@ struct WorkerMemory {
     std::vector<size_t>  ix_arr;
     std::vector<size_t>  ix_all;
     RNG_engine           rnd_generator;
-    std::uniform_real_distribution<double> rbin;
+    UniformUnitInterval  rbin;
     size_t               st;
     size_t               end;
     size_t               st_NA;
@@ -632,9 +636,9 @@ struct WorkerMemory {
     std::vector<double>  ext_fill_val;
     std::vector<double>  ext_fill_new;
     std::vector<int>     chosen_cat;
-    std::vector<std::vector<double>>       ext_cat_coef;
-    std::uniform_real_distribution<double> coef_unif;
-    std::normal_distribution<double>       coef_norm;
+    std::vector<std::vector<double>> ext_cat_coef;
+    UniformMinusOneToOne coef_unif;
+    StandardNormalDistr  coef_norm;
     std::vector<double> sample_weights; /* when using weights and split criterion */
 
     /* for similarity/distance calculations */

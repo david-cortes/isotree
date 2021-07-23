@@ -48,15 +48,13 @@
    https://stackoverflow.com/questions/2589096/find-most-significant-bit-left-most-that-is-set-in-a-bit-array
    https://stackoverflow.com/questions/11376288/fast-computing-of-log2-for-64-bit-integers  */
 #if SIZE_MAX == UINT32_MAX /* 32-bit systems */
-    static const int MultiplyDeBruijnBitPosition[32] =
-        {
-            0, 9,  1,  10, 13, 21, 2, 29, 11, 14, 16, 18, 22, 25, 3, 30,
-            8, 12, 20, 28, 15, 17, 24, 7, 19, 27, 23, 6,  26, 5,  4, 31
-        };
+    constexpr static const int MultiplyDeBruijnBitPosition[32] =
+    {
+        0, 9,  1,  10, 13, 21, 2, 29, 11, 14, 16, 18, 22, 25, 3, 30,
+        8, 12, 20, 28, 15, 17, 24, 7, 19, 27, 23, 6,  26, 5,  4, 31
+    };
     size_t log2ceil( size_t v )
     {
-        if (!IS_LITTLE_ENDIAN) return (size_t)(ceill(log2l((long double) v)));
-
         v--;
         v |= v >> 1; // first round down to one less than a power of 2
         v |= v >> 2;
@@ -67,7 +65,7 @@
         return MultiplyDeBruijnBitPosition[( uint32_t )( v * 0x07C4ACDDU ) >> 27] + 1;
     }
 #elif SIZE_MAX == UINT64_MAX /* 64-bit systems */
-    static const uint64_t tab64[64] = {
+    constexpr static const uint64_t tab64[64] = {
         63,  0, 58,  1, 59, 47, 53,  2,
         60, 39, 48, 27, 54, 33, 42,  3,
         61, 51, 37, 40, 49, 18, 28, 20,
@@ -79,8 +77,6 @@
 
     size_t log2ceil(size_t value)
     {
-        if (!IS_LITTLE_ENDIAN) return (size_t)(ceill(log2l((long double) value)));
-        
         value--;
         value |= value >> 1;
         value |= value >> 2;
@@ -262,19 +258,19 @@ double expected_separation_depth(long double n)
     return s_l + diff * s_u;
 }
 
-#define ix_comb(i, j, n, ncomb) (  ((ncomb)  + ((j) - (i))) - 1 - (((n) - (i)) * ((n) - (i) - 1)) / 2  )
+#define ix_comb_(i, j, n, ncomb) (  ((ncomb)  + ((j) - (i))) - (size_t)1 - div2(((n) - (i)) * ((n) - (i) - (size_t)1))  )
+#define ix_comb(i, j, n, ncomb) (  ((i) < (j))? ix_comb_(i, j, n, ncomb) : ix_comb_(j, i, n, ncomb)  )
 void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n, double counter[], double exp_remainder)
 {
     size_t i, j;
-    size_t ncomb = (n * (n - 1)) / 2;
+    size_t ncomb = ((n % 2) == 0)? (div2(n) * (n-(size_t)1)) : (n * div2(n-(size_t)1));
     if (exp_remainder <= 1)
         for (size_t el1 = st; el1 < end; el1++)
         {
             for (size_t el2 = el1 + 1; el2 <= end; el2++)
             {
-                i = std::min(ix_arr[el1], ix_arr[el2]);
-                j = std::max(ix_arr[el1], ix_arr[el2]);
                 // counter[i * (n - (i+1)/2) + j - i - 1]++; /* beaware integer division */
+                i = ix_arr[el1]; j = ix_arr[el2];
                 counter[ix_comb(i, j, n, ncomb)]++;
             }
         }
@@ -283,8 +279,7 @@ void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n, dou
         {
             for (size_t el2 = el1 + 1; el2 <= end; el2++)
             {
-                i = std::min(ix_arr[el1], ix_arr[el2]);
-                j = std::max(ix_arr[el1], ix_arr[el2]);
+                i = ix_arr[el1]; j = ix_arr[el2];
                 counter[ix_comb(i, j, n, ncomb)] += exp_remainder;
             }
         }
@@ -294,15 +289,13 @@ void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
                            double *restrict counter, double *restrict weights, double exp_remainder)
 {
     size_t i, j;
-    size_t ncomb = (n * (n - 1)) / 2;
+    size_t ncomb = ((n % 2) == 0)? (div2(n) * (n-(size_t)1)) : (n * div2(n-(size_t)1));
     if (exp_remainder <= 1)
         for (size_t el1 = st; el1 < end; el1++)
         {
             for (size_t el2 = el1 + 1; el2 <= end; el2++)
             {
-                i = std::min(ix_arr[el1], ix_arr[el2]);
-                j = std::max(ix_arr[el1], ix_arr[el2]);
-                // counter[i * (n - (i+1)/2) + j - i - 1] += weights[i] * weights[j]; /* beaware integer division */
+                i = ix_arr[el1]; j = ix_arr[el2];
                 counter[ix_comb(i, j, n, ncomb)] += weights[i] * weights[j];
             }
         }
@@ -311,8 +304,7 @@ void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
         {
             for (size_t el2 = el1 + 1; el2 <= end; el2++)
             {
-                i = std::min(ix_arr[el1], ix_arr[el2]);
-                j = std::max(ix_arr[el1], ix_arr[el2]);
+                i = ix_arr[el1]; j = ix_arr[el2];
                 counter[ix_comb(i, j, n, ncomb)] += weights[i] * weights[j] * exp_remainder;
             }
         }
@@ -323,15 +315,13 @@ void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
                            double counter[], hashed_map<size_t, double> &weights, double exp_remainder)
 {
     size_t i, j;
-    size_t ncomb = (n * (n - 1)) / 2;
+    size_t ncomb = ((n % 2) == 0)? (div2(n) * (n-(size_t)1)) : (n * div2(n-(size_t)1));
     if (exp_remainder <= 1)
         for (size_t el1 = st; el1 < end; el1++)
         {
             for (size_t el2 = el1 + 1; el2 <= end; el2++)
             {
-                i = std::min(ix_arr[el1], ix_arr[el2]);
-                j = std::max(ix_arr[el1], ix_arr[el2]);
-                // counter[i * (n - (i+1)/2) + j - i - 1] += weights[i] * weights[j]; /* beaware integer division */
+                i = ix_arr[el1]; j = ix_arr[el2];
                 counter[ix_comb(i, j, n, ncomb)] += weights[i] * weights[j];
             }
         }
@@ -340,8 +330,7 @@ void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
         {
             for (size_t el2 = el1 + 1; el2 <= end; el2++)
             {
-                i = std::min(ix_arr[el1], ix_arr[el2]);
-                j = std::max(ix_arr[el1], ix_arr[el2]);
+                i = ix_arr[el1]; j = ix_arr[el2];
                 counter[ix_comb(i, j, n, ncomb)] += weights[i] * weights[j] * exp_remainder;
             }
         }
@@ -397,7 +386,7 @@ void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, siz
 
 void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool diag_to_one)
 {
-    size_t ncomb = (n * (n - 1)) / 2;
+    size_t ncomb = ((n % 2) == 0)? (div2(n) * (n-(size_t)1)) : (n * div2(n-(size_t)1));
     for (size_t i = 0; i < (n-1); i++)
     {
         for (size_t j = i + 1; j < n; j++)
@@ -557,7 +546,7 @@ void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_rep
             size_t candidate;
 
             /* if the sample size is relatively large, use a temporary boolean vector */
-            if (((long double)ntake / (long double)nrows) > (1. / 20.))
+            if (((long double)ntake / (long double)nrows) > (1. / 50.))
             {
 
                 if (!is_repeated.size())
