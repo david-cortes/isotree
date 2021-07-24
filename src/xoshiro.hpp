@@ -91,12 +91,12 @@ public:
     using result_type = uint64_t;
     uint64_t state[4];
 
-    constexpr uint64_t min() const
+    constexpr static result_type min()
     {
         return 0;
     }
 
-    constexpr uint64_t max() const
+    constexpr static result_type max()
     {
         return UINT64_MAX;
     }
@@ -158,12 +158,12 @@ public:
     using result_type = uint32_t;
     uint32_t state[4];
 
-    constexpr uint32_t min() const
+    constexpr static result_type min()
     {
         return 0;
     }
 
-    constexpr uint32_t max() const
+    constexpr static result_type max()
     {
         return UINT32_MAX;
     }
