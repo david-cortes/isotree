@@ -5,9 +5,12 @@ Version: 0.3.0
 Authors@R: c(
   person(given="David", family="Cortes", role=c("aut", "cre", "cph"),
          email="david.cortes.rivera@gmail.com"),
-  person(given="Thibaut", family="Goetghebuer-Planchon", role="cph"),
-  person(given="David", family="Blackman", role="cph"),
-  person(given="Sebastiano", family="Vigna", role="cph")
+  person(given="Thibaut", family="Goetghebuer-Planchon", role="cph",
+         comment="Copyright holder of included robinmap library"),
+  person(given="David", family="Blackman", role="cph",
+         comment="Copyright holder of original Xoshiro code"),
+  person(given="Sebastiano", family="Vigna", role="cph",
+         comment="Copyright holder of original Xoshiro code")
   )
 Maintainer: David Cortes <david.cortes.rivera@gmail.com>
 URL: https://github.com/david-cortes/isotree
