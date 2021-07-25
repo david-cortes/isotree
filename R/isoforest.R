@@ -718,6 +718,14 @@ isolation.forest <- function(df,
     if (output_imputations && !is.null(sample_weights) && !weights_as_sample_prob)
         stop(paste0("Cannot impute missing values on-the-fly when using sample weights",
                     " as distribution density. Must first fit model and then impute values."))
+
+    if (nthreads > 1L && !R_has_openmp()) {
+        msg <- paste0("Attempting to use more than 1 thread, but ",
+                      "package was compiled without OpenMP support.")
+        if (tolower(Sys.info()[["sysname"]]) == "darwin")
+            msg <- paste0(msg, " See https://mac.r-project.org/openmp/")
+        warning(msg)
+    }
     
     ### cast all parameters
     if (!is.null(sample_weights)) {

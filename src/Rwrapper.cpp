@@ -1473,4 +1473,14 @@ SEXP deepcopy_int(SEXP x)
     return Rf_ScalarInteger(Rf_asInteger(x));
 }
 
+// [[Rcpp::export(rng = false)]]
+bool R_has_openmp()
+{
+    #ifdef _OPENMP
+    return true;
+    #else
+    return false;
+    #endif
+}
+
 #endif /* _FOR_R */

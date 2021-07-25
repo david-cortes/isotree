@@ -507,6 +507,15 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// R_has_openmp
+bool R_has_openmp();
+RcppExport SEXP _isotree_R_has_openmp() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    rcpp_result_gen = Rcpp::wrap(R_has_openmp());
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_isotree_deserialize_IsoForest", (DL_FUNC) &_isotree_deserialize_IsoForest, 1},
@@ -541,6 +550,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_increment_by1", (DL_FUNC) &_isotree_increment_by1, 1},
     {"_isotree_inplace_add", (DL_FUNC) &_isotree_inplace_add, 2},
     {"_isotree_deepcopy_int", (DL_FUNC) &_isotree_deepcopy_int, 1},
+    {"_isotree_R_has_openmp", (DL_FUNC) &_isotree_R_has_openmp, 0},
     {NULL, NULL, 0}
 };
 

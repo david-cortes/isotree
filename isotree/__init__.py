@@ -6,7 +6,7 @@ import ctypes
 import json
 import os
 from copy import deepcopy
-from ._cpp_interface import isoforest_cpp_obj, _sort_csc_indices, _reconstruct_csr_sliced, _reconstruct_csr_with_categ
+from ._cpp_interface import isoforest_cpp_obj, _sort_csc_indices, _reconstruct_csr_sliced, _reconstruct_csr_with_categ, _get_has_openmp
 
 __all__ = ["IsolationForest"]
 
@@ -631,6 +631,13 @@ class IsolationForest:
 
         assert nthreads > 0
         assert isinstance(nthreads, int)
+
+        if (nthreads > 1) and (not _get_has_openmp()):
+            msg_omp  = "Attempting to use more than 1 thread, but "
+            msg_omp += "package was built without multi-threading "
+            msg_omp += "support - see the project's GitHub page for "
+            msg_omp += "more information."
+            warnings.warn(msg_omp)
 
         if categ_cols is not None:
             categ_cols = np.array(categ_cols).reshape(-1).astype(int)

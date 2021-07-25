@@ -87,7 +87,7 @@
         return tab64[((uint64_t)((value - (value >> 1))*0x07EDD5E59A4E28C2)) >> 58] + 1;
     }
 #else /* other architectures - might not be entirely precise, and will be slower */
-    size_t log2ceil(size_t x) {return (size_t)(ceill(log2l((long double) x)));}
+    size_t log2ceil(size_t x) {return (size_t)(std::ceil(std::log2((long double) x)));}
 #endif
 
 #define THRESHOLD_EXACT_H 256 /* above this will get approximated */

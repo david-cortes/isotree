@@ -85,20 +85,24 @@ There's already many available implementations of isolation forests for both Pyt
 # Installation
 
 * Python:
-```python
+
+```
 pip install isotree
 ```
 or if that fails:
 ```
 pip install --no-use-pep517 isotree
 ```
+** *
 
-**Note for macOS users:** on macOS, the Python version of this package will compile **without** multi-threading capabilities. This is due to default apple's redistribution of `clang` not providing OpenMP modules, and aliasing it to `gcc` which causes confusions in build scripts. If you have a non-apple version of `clang` with the OpenMP modules, or if you have `gcc` installed, you can compile this package with multi-threading enabled by setting up an environment variable `ENABLE_OMP=1`:
+**Note for macOS users:** on macOS, the Python version of this package might compile **without** multi-threading capabilities. In order to enable multi-threading support, first install OpenMP:
 ```
-export ENABLE_OMP=1
-pip install isotree
+brew install libomp
 ```
-(Alternatively, can also pass argument `enable-omp` to the `setup.py` file: `python setup.py install enable-omp`)
+And then reinstall this package: `pip install --force-reinstall isotree`.
+
+** *
+
 
 * R:
 
@@ -107,7 +111,7 @@ Latest version (recommended):
 remotes::install_github("david-cortes/isotree")
 ```
 
-From CRAN (currently has a small bug when calculating distances):
+From CRAN (older version):
 ```r
 install.packages("isotree")
 ```
@@ -127,6 +131,8 @@ sudo ldconfig
 ```
 
 (Will build as a shared object - linkage is then done with `-lisotree`)
+
+The package has an optional dependency on the [Robin-Map](https://github.com/Tessil/robin-map) library. If this library is not found, will use the compiler's own hashmaps, which are less optimal.
 
 * Ruby
 

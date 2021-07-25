@@ -237,6 +237,9 @@ constexpr static const uint64_t two54_i = (UINT64_C(1) << 54) - UINT64_C(1);
 constexpr static const double two53_d = (double)(UINT64_C(1) << 53);
 constexpr static const uint64_t two52i = (UINT64_C(1) << 52) - UINT64_C(1);
 constexpr static const double two52d = (UINT64_C(1) << 52);
+constexpr static const uint32_t two22_i = (UINT32_C(1) << 22) - UINT32_C(1);
+constexpr static const uint32_t two21_i = (UINT32_C(1) << 21) - UINT32_C(1);
+constexpr static const uint32_t two20_i = (UINT32_C(1) << 20) - UINT32_C(1);
 constexpr static const double ui64_d = (double)UINT64_MAX;
 constexpr static const double i64_d = (double)INT64_MAX;
 constexpr static const double twoPI = 2. * M_PI;
@@ -297,7 +300,7 @@ public:
         if (is_little_endian) rbits_ += sizeof(uint32_t);
         uint32_t rbits;
         memcpy(&rbits, rbits_, sizeof(uint32_t));
-        rbits = rbits >> 11;
+        rbits = rbits & two21_i;
         memcpy(rbits_, &rbits, sizeof(uint32_t));
         return (double)bits / two53_d;
         #endif
@@ -334,7 +337,7 @@ public:
         if (is_little_endian) rbits_ += sizeof(uint32_t);
         uint32_t rbits;
         memcpy(&rbits, rbits_, sizeof(uint32_t));
-        rbits = rbits >> 10;
+        rbits = rbits & two22_i;
         memcpy(rbits_, &rbits, sizeof(uint32_t));
         return (double)((int64_t)bits - two53_ii) / (double)two53_d;
         #endif
@@ -388,10 +391,10 @@ public:
             }
             uint32_t rbits1, rbits2;
             memcpy(&rbits1, rbits1_, sizeof(uint32_t));
-            rbits1 = rbits1 >> 12;
+            rbits1 = rbits1 & two20_i;
             memcpy(rbits1_, &rbits1, sizeof(uint32_t));
             memcpy(&rbits2, rbits2_, sizeof(uint32_t));
-            rbits2 = rbits2 >> 12;
+            rbits2 = rbits2 & two20_i;
             memcpy(rbits2_, &rbits2, sizeof(uint32_t));
             rnd1 = ((double)bits1 + 0.5) / two52d;
             rnd2 = ((double)bits2 + 0.5) / two52d;

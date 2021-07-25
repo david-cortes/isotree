@@ -129,3 +129,7 @@ deepcopy_int <- function(x) {
     .Call(`_isotree_deepcopy_int`, x)
 }
 
+R_has_openmp <- function() {
+    .Call(`_isotree_R_has_openmp`)
+}
+

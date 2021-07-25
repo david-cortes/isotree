@@ -282,6 +282,8 @@ cdef extern from "python_helpers.hpp":
     void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext) except +
     void dealloc_Imputer(Imputer &imputer) except +
 
+    bool_t get_has_openmp() except +
+
 cdef extern from "other_helpers.hpp":
     void sort_csc_indices[real_t_, sparse_ix_](real_t_ *Xc, sparse_ix_ *Xc_ind, sparse_ix_ *Xc_indptr, size_t ncols_numeric) nogil except +
 
@@ -333,6 +335,8 @@ cdef int* get_ptr_int_mat(np.ndarray[int, ndim = 2] a):
 cdef float* get_ptr_float_mat(np.ndarray[float, ndim = 2] a):
     return &a[0, 0]
 
+def _get_has_openmp():
+    return get_has_openmp()
 
 def _sort_csc_indices(Xcsc):
     cdef size_t ncols_numeric = Xcsc.shape[1] if isspmatrix_csc(Xcsc) else Xcsc.shape[0]
