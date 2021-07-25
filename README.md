@@ -122,8 +122,8 @@ git clone --recursive https://www.github.com/david-cortes/isotree.git
 cd isotree
 mkdir build
 cd build
-cmake ..
-make
+cmake -DUSE_MARCH_NATIVE=1 -DUSE_XOSHIRO ..
+cmake --build .
 
 ### for a system-wide install in linux
 sudo make install
@@ -132,7 +132,11 @@ sudo ldconfig
 
 (Will build as a shared object - linkage is then done with `-lisotree`)
 
-The package has an optional dependency on the [Robin-Map](https://github.com/Tessil/robin-map) library. If this library is not found, will use the compiler's own hashmaps, which are less optimal.
+Be aware that the snippet above includes option `-DUSE_MARCH_NATIVE=1`, which will make it use the highest-available CPU instruction set (e.g. AVX2) and will produces objects that might not run on older CPUs - to build more "portable" objects, remove this option from the cmake command.
+
+By default (`-DUSE_XOSHIRO=1`), will use its own random number generator (either xoshiro256++ or xoshiro128++ depending on CPU) instead of the C++ header's default - can pass `-DUSE_XOSHIRO=0` to use the compiler's default, which is likely to be faster but of lesser quality.
+
+The package has an optional dependency on the [Robin-Map](https://github.com/Tessil/robin-map) library, which is added to this repository as a linked submodule. If this library is not found under `/src`, will use the compiler's own hashmaps, which are less optimal.
 
 * Ruby
 

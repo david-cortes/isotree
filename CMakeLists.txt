@@ -16,7 +16,13 @@ set_target_properties(isotree PROPERTIES PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/inc
 add_compile_definitions(ISOTREE_COMPILE_TIME)
 
 ## omit this line to use the system's default RNG engine
-add_compile_definitions(_USE_XOSHIRO)
+option(USE_XOSHIRO "Use the xoshiro RNG family" ON)
+if (USE_XOSHIRO)
+    message(STATUS "Using the Xoshiro random engine family")
+    add_compile_definitions(_USE_XOSHIRO)
+else()
+    message(STATUS "Using the compiler's default random engine")
+endif()
 
 ## https://cliutils.gitlab.io/modern-cmake/chapters/packages/OpenMP.html
 find_package(OpenMP)
@@ -59,16 +65,103 @@ check_cxx_source_compiles(
     HAS_ROBIN_MAP
 )
 if (HAS_ROBIN_MAP)
-    add_compile_options(_USE_ROBIN_MAP)
+    add_compile_definitions(_USE_ROBIN_MAP)
 else()
     message(WARNING "Robin-Map Headers not found - will use STL hashmaps which are slower.")
 endif()
 
+# Compiler optimizations
 if (MSVC)
-    add_compile_options(/O2)
+    if (NOT (${CMAKE_CXX_FLAGS_RELEASE} MATCHES "/O2"))
+        set(OLD_FLAGS ${CMAKE_REQUIRED_FLAGS})
+        set(CMAKE_REQUIRED_FLAGS "/O2")
+        check_cxx_source_compiles(
+            "
+            int main(int argc, char **argv)
+            {
+                return 0;
+            }
+            "
+            SUPPORTS_O2
+        )
+        set(CMAKE_REQUIRED_FLAGS ${OLD_FLAGS})
+        if (SUPPORTS_O2)
+            set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2")
+        endif()
+    endif()
 else()
-    add_compile_options(-O3 -march=native)
+    if (NOT (${CMAKE_CXX_FLAGS_RELEASE} MATCHES "-O3 "))
+        set(OLD_FLAGS ${CMAKE_REQUIRED_FLAGS})
+        set(CMAKE_REQUIRED_FLAGS "-O3")
+        check_cxx_source_compiles(
+            "
+            int main(int argc, char **argv)
+            {
+                return 0;
+            }
+            "
+            SUPPORTS_O3
+        )
+        set(CMAKE_REQUIRED_FLAGS ${OLD_FLAGS})
+        if (SUPPORTS_O3)
+            set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+        else()
+            set(CMAKE_REQUIRED_FLAGS "-O2")
+            check_cxx_source_compiles(
+                "
+                int main(int argc, char **argv)
+                {
+                    return 0;
+                }
+                "
+                SUPPORTS_O2
+            )
+            set(CMAKE_REQUIRED_FLAGS ${OLD_FLAGS})
+            if (SUPPORTS_O2)
+                set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
+            endif()
+        endif()
+    endif()
 endif()
+
+option(USE_MARCH_NATIVE "Build with -march=native" OFF)
+if (USE_MARCH_NATIVE AND NOT MSVC)
+    set(OLD_FLAGS ${CMAKE_REQUIRED_FLAGS})
+    set(CMAKE_REQUIRED_FLAGS "-march=native")
+    check_cxx_source_compiles(
+        "
+        int main(int argc, char **argv)
+        {
+            return 0;
+        }
+        "
+        SUPPORTS_MARCH_NATIVE
+    )
+    set(CMAKE_REQUIRED_FLAGS ${OLD_FLAGS})
+    if (SUPPORTS_MARCH_NATIVE)
+        message(STATUS "Adding flag -march=native.")
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
+    else()
+        set(CMAKE_REQUIRED_FLAGS "-mcpu=native")
+        check_cxx_source_compiles(
+            "
+            int main(int argc, char **argv)
+            {
+                return 0;
+            }
+            "
+            SUPPORTS_MCPU_NATIVE
+        )
+        set(CMAKE_REQUIRED_FLAGS ${OLD_FLAGS})
+        if (SUPPORTS_MCPU_NATIVE)
+            message(STATUS "Adding flag -mcpu=native.")
+            set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -mcpu=native")
+        else()
+            message(WARNING "Flags -march=native and -mcpu=native not supported by the compiler.")
+        endif()
+    endif()
+endif()
+
 
 include(GNUInstallDirs)
 
