@@ -34,11 +34,11 @@ endif()
 
 # https://gist.github.com/OXPHOS/b7d9d31cd3841605df53effeb528c8e0
 if (WIN32 OR MSVC)
-  find_path(CEREAL_INCLUDE_DIRS cereal
-    HINTS "$ENV{CMAKE_SOURCE_DIR}/include" "$ENV{CMAKE_BINARY_DIR}/cereal/include")
+    find_path(CEREAL_INCLUDE_DIRS cereal
+              HINTS "$ENV{CMAKE_SOURCE_DIR}/include" "$ENV{CMAKE_BINARY_DIR}/cereal/include")
 else()
-  find_path(CEREAL_INCLUDE_DIRS cereal
-    HINTS "$ENV{CMAKE_SOURCE_DIR}/include" "/usr/include" "/usr/local/include" "$ENV{CMAKE_BINARY_DIR}/cereal/include")
+    find_path(CEREAL_INCLUDE_DIRS cereal
+              HINTS "$ENV{CMAKE_SOURCE_DIR}/include" "/usr/include" "/usr/local/include" "$ENV{CMAKE_BINARY_DIR}/cereal/include")
 endif()
 set(CEREAL_INCLUDE_DIRS ${CEREAL_INCLUDE_DIRS})
 include(FindPackageHandleStandardArgs)
@@ -67,6 +67,12 @@ check_cxx_source_compiles(
 if (HAS_ROBIN_MAP)
     add_compile_definitions(_USE_ROBIN_MAP)
 else()
+    # if it's not under /src, check if there's a system install
+    find_package(tsl-robin-map)
+    if (tsl-robin-map_FOUND)
+        target_link_libraries(isotree PRIVATE tsl::robin-map)
+        add_compile_definitions(_USE_SYSTEM_ROBIN)
+    endif()
     message(WARNING "Robin-Map Headers not found - will use STL hashmaps which are slower.")
 endif()
 

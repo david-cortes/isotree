@@ -234,9 +234,7 @@ public:
 constexpr static const uint64_t two53_i = (UINT64_C(1) << 53) - UINT64_C(1);
 constexpr static const int64_t two53_ii = (INT64_C(1) << 53);
 constexpr static const uint64_t two54_i = (UINT64_C(1) << 54) - UINT64_C(1);
-constexpr static const double two53_d = (double)(UINT64_C(1) << 53);
 constexpr static const uint64_t two52i = (UINT64_C(1) << 52) - UINT64_C(1);
-constexpr static const double two52d = (UINT64_C(1) << 52);
 constexpr static const uint32_t two22_i = (UINT32_C(1) << 22) - UINT32_C(1);
 constexpr static const uint32_t two21_i = (UINT32_C(1) << 21) - UINT32_C(1);
 constexpr static const uint32_t two20_i = (UINT32_C(1) << 20) - UINT32_C(1);
@@ -293,7 +291,7 @@ public:
     double operator()(XoshiroRNG &rng)
     {
         #if SIZE_MAX >= UINT64_MAX
-        return (double)(gen_bits(rng) & two53_i) / (double)two53_d;
+        return std::ldexp((double)(gen_bits(rng) & two53_i), -53);
         #else
         uint64_t bits = gen_bits(rng);
         char *rbits_ = reinterpret_cast<char*>(&bits);
@@ -302,7 +300,7 @@ public:
         memcpy(&rbits, rbits_, sizeof(uint32_t));
         rbits = rbits & two21_i;
         memcpy(rbits_, &rbits, sizeof(uint32_t));
-        return (double)bits / two53_d;
+        return std::ldexp((double)bits, -53);
         #endif
     }
 };
@@ -330,7 +328,7 @@ public:
     double operator()(XoshiroRNG &rng)
     {
         #if SIZE_MAX >= UINT64_MAX
-        return (double)((int64_t)(gen_bits(rng) & two54_i) - two53_ii) / (double)two53_d;
+        return std::ldexp((double)((int64_t)(gen_bits(rng) & two54_i) - two53_ii), -53);
         #else
         uint64_t bits = gen_bits(rng);
         char *rbits_ = reinterpret_cast<char*>(&bits);
@@ -339,7 +337,7 @@ public:
         memcpy(&rbits, rbits_, sizeof(uint32_t));
         rbits = rbits & two22_i;
         memcpy(rbits_, &rbits, sizeof(uint32_t));
-        return (double)((int64_t)bits - two53_ii) / (double)two53_d;
+        return std::ldexp((double)((int64_t)bits - two53_ii), -53);
         #endif
     }
 };
@@ -377,8 +375,8 @@ public:
         
         else {
             #if SIZE_MAX >= UINT64_MAX
-            double rnd1 = ((double)(gen_bits(rng) & two52i) + 0.5) / two52d;
-            double rnd2 = ((double)(gen_bits(rng) & two52i) + 0.5) / two52d;
+            double rnd1 = std::ldexp(((double)(gen_bits(rng) & two52i) + 0.5), -52);
+            double rnd2 = std::ldexp(((double)(gen_bits(rng) & two52i) + 0.5), -52);
             #else
             double rnd1, rnd2;
             uint64_t bits1 = gen_bits(rng);
@@ -396,8 +394,8 @@ public:
             memcpy(&rbits2, rbits2_, sizeof(uint32_t));
             rbits2 = rbits2 & two20_i;
             memcpy(rbits2_, &rbits2, sizeof(uint32_t));
-            rnd1 = ((double)bits1 + 0.5) / two52d;
-            rnd2 = ((double)bits2 + 0.5) / two52d;
+            rnd1 = std::ldexp((double)bits1 + 0.5, -52);
+            rnd2 = std::ldexp((double)bits2 + 0.5, -52);
             #endif
 
             rnd1 = std::sqrt(-2. * std::log(rnd1));

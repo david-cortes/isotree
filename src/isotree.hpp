@@ -108,7 +108,7 @@ using std::memcpy;
     #else /* 32-bit systems and non-standard architectures */
         #define RNG_engine Xoshiro::Xoshiro128PP
     #endif
-    #if defined(DBL_MANT_DIG) && (DBL_MANT_DIG == 53)
+    #if defined(DBL_MANT_DIG) && (DBL_MANT_DIG == 53) && (FLT_RADIX == 2)
         using Xoshiro::UniformUnitInterval;
         using Xoshiro::UniformMinusOneToOne;
         using Xoshiro::StandardNormalDistr;
@@ -138,10 +138,17 @@ using std::memcpy;
    But perhaps should consider others in the future, such as this:
    https://github.com/ktprime/emhash  */
 #if defined(_USE_ROBIN_MAP)
-    #include "robinmap/include/tsl/robin_growth_policy.h"
-    #include "robinmap/include/tsl/robin_hash.h"
-    #include "robinmap/include/tsl/robin_set.h"
-    #include "robinmap/include/tsl/robin_map.h"
+    #ifndef _USE_SYSTEM_ROBIN
+        #include "robinmap/include/tsl/robin_growth_policy.h"
+        #include "robinmap/include/tsl/robin_hash.h"
+        #include "robinmap/include/tsl/robin_set.h"
+        #include "robinmap/include/tsl/robin_map.h"
+    #else
+        #include "tsl/robin_growth_policy.h"
+        #include "tsl/robin_hash.h"
+        #include "tsl/robin_set.h"
+        #include "tsl/robin_map.h"
+    #endif
     #define hashed_set tsl::robin_set
     #define hashed_map tsl::robin_map
 #else

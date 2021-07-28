@@ -30,3 +30,4 @@
 ^src/external_facing_generic\.hpp$
 ^src/instantiate_model\.cpp
 ^src/robinmap/[^i][^n][^c].*$
+^safe/.*$

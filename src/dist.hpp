@@ -152,6 +152,18 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
 
     if (tmat != NULL) n_from = 0;
 
+    if (n_from == 0) {
+        #if SIZE_MAX == UINT32_MAX
+        size_t lim_rows = (size_t)UINT16_MAX - (size_t)1;
+        #elif SIZE_MAX == UINT64_MAX
+        size_t lim_rows = (size_t)UINT32_MAX - (size_t)1;
+        #else
+        size_t lim_rows = (size_t)std::ceil(std::sqrt((long double)SIZE_MAX));
+        #endif
+        if (nrows > lim_rows)
+            throw std::runtime_error("Number of rows implies too large distance matrix (integer overflow).");
+    }
+
     if ((size_t)nthreads > ntrees)
         nthreads = (int)ntrees;
     #ifdef _OPENMP

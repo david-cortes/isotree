@@ -25,6 +25,7 @@ prune docs
 prune example
 prune image
 prune include
+prune safe
 exclude src/instantiate_model.cpp
 exclude src/external_facing_generic.hpp
 exclude src/isotree_exportable.hpp
