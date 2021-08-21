@@ -810,12 +810,12 @@ take.metadata <- function(metadata) {
         ),
         random_seed  =  metadata$params$random_seed,
         nthreads     =  metadata$model_info$nthreads,
-        cpp_obj      =  list(
+        cpp_obj      =  as.environment(list(
             ptr         =  NULL,
             serialized  =  NULL,
             imp_ptr     =  NULL,
             imp_ser     =  NULL
-        )
+        ))
     )
     
     if (NROW(this$metadata$cat_levels))

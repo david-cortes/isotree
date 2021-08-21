@@ -1,5 +1,5 @@
-cmake_minimum_required (VERSION 3.9)
-project (isotree VERSION 0.2.10)
+cmake_minimum_required (VERSION 3.9.4)
+project (isotree VERSION 0.3.0)
 set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(SRC_FILES ${PROJECT_SOURCE_DIR}/src/instantiate_model.cpp
               ${PROJECT_SOURCE_DIR}/src/merge_models.cpp
+              ${PROJECT_SOURCE_DIR}/src/subset_models.cpp
               ${PROJECT_SOURCE_DIR}/src/serialize.cpp
               ${PROJECT_SOURCE_DIR}/src/sql.cpp)
 set(BUILD_SHARED_LIBS True)
@@ -32,25 +33,6 @@ else()
 	message(STATUS "OpenMP not found - will compile without multi-threading support")
 endif()
 
-# https://gist.github.com/OXPHOS/b7d9d31cd3841605df53effeb528c8e0
-if (WIN32 OR MSVC)
-    find_path(CEREAL_INCLUDE_DIRS cereal
-              HINTS "$ENV{CMAKE_SOURCE_DIR}/include" "$ENV{CMAKE_BINARY_DIR}/cereal/include")
-else()
-    find_path(CEREAL_INCLUDE_DIRS cereal
-              HINTS "$ENV{CMAKE_SOURCE_DIR}/include" "/usr/include" "/usr/local/include" "$ENV{CMAKE_BINARY_DIR}/cereal/include")
-endif()
-set(CEREAL_INCLUDE_DIRS ${CEREAL_INCLUDE_DIRS})
-include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(Cereal DEFAULT_MSG CEREAL_INCLUDE_DIRS)
-mark_as_advanced(CEREAL_INCLUDE_DIRS)
-if(CEREAL_FOUND)
-  include_directories(${CEREAL_INCLUDE_DIRS})
-  add_compile_definitions(_ENABLE_CEREAL)
-else()
-  message(STATUS "Cereal not found - will compile without serialization functionality")
-endif(CEREAL_FOUND)
-
 # check if the robin-map library is available under /src
 include(CheckCXXSourceCompiles)
 set(CMAKE_REQUIRED_INCLUDES ${PROJECT_SOURCE_DIR}/src)
@@ -70,10 +52,17 @@ else()
     # if it's not under /src, check if there's a system install
     find_package(tsl-robin-map)
     if (tsl-robin-map_FOUND)
-        target_link_libraries(isotree PRIVATE tsl::robin-map)
+        target_link_libraries(isotree PRIVATE tsl::robin_map)
         add_compile_definitions(_USE_SYSTEM_ROBIN)
     endif()
     message(WARNING "Robin-Map Headers not found - will use STL hashmaps which are slower.")
+endif()
+
+# For handling large files with MinGW
+if (WIN32)
+    if (CMAKE_SIZEOF_VOID_P GREATER_EQUAL 8 AND (MSYS OR MINGW OR GCC))
+        add_compile_definitions(_FILE_OFFSET_BITS=64)
+    endif()
 endif()
 
 # Compiler optimizations
@@ -166,6 +155,14 @@ if (USE_MARCH_NATIVE AND NOT MSVC)
             message(WARNING "Flags -march=native and -mcpu=native not supported by the compiler.")
         endif()
     endif()
+endif()
+
+# Link-time optimization if supported
+# https://stackoverflow.com/questions/31355692/how-do-i-enable-link-time-optimization-lto-with-cmake
+include(CheckIPOSupported)
+check_ipo_supported(RESULT LTO_SUPPORTED)
+if (LTO_SUPPORTED)
+    set_property(TARGET isotree PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
 

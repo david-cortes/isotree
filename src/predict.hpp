@@ -44,8 +44,9 @@
 */
 #include "isotree.hpp"
 
-/* TODO: implement a faster predict function for CSC matrices that would
-   take the observations down the tree with an array of row indices. */
+/* TODO: should create versions of these functions that would work on the
+   serialized raw bytes instead, as it will likely be faster due to better
+   cache utilizations and those objects use less memory. */
 
 
 /* Predict outlier score, average depth, or terminal node numbers
@@ -933,8 +934,8 @@ void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                          double output_depths[],   sparse_ix tree_num[])
 {
-    size_t ntrees = (model_outputs != NULL)? model_outputs->trees.size() : model_outputs_ext->hplanes.size();
     #ifdef _OPENMP
+    size_t ntrees = (model_outputs != NULL)? model_outputs->trees.size() : model_outputs_ext->hplanes.size();
     if ((size_t)nthreads > ntrees)
         nthreads = ntrees;
     #else

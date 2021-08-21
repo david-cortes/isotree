@@ -6,19 +6,11 @@ except:
     from distutils.extension import Extension
 
 import numpy as np
+import ctypes
 from Cython.Distutils import build_ext
 from sys import platform
 import sys, os, subprocess, warnings, re
 from os import environ
-
-has_cereal = True
-try:
-    import cycereal
-    cereal_dir = cycereal.get_cereal_include_dir()
-except:
-    has_cereal = False
-    cereal_dir = "." ## <- placeholder
-
 
 found_omp = True
 def set_omp_false():
@@ -30,6 +22,7 @@ class build_ext_subclass( build_ext ):
     def build_extensions(self):
         is_msvc = self.compiler.compiler_type == "msvc"
         is_clang = hasattr(self.compiler, 'compiler_cxx') and ("clang++" in self.compiler.compiler_cxx)
+        is_windows = sys.platform[:3] == "win"
 
         if is_msvc:
             for e in self.extensions:
@@ -38,41 +31,45 @@ class build_ext_subclass( build_ext ):
         else:
             self.add_march_native()
             self.add_openmp_linkage()
+            if sys.platform[:3].lower() != "win":
+                self.add_link_time_optimization()
 
             for e in self.extensions:
+                
                 if is_clang:
                     e.extra_compile_args += ['-O3', '-std=c++17']
+                
+                ### here only 'mingw32' should be a valid option, the rest are set there just in case
+                elif (
+                    (is_windows) and
+                    (np.iinfo(ctypes.c_size_t).max >= (2**64 - 1)) and
+                    (self.compiler.compiler_type.lower()
+                    in ["mingw32", "mingw64", "mingw", "msys", "msys2", "gcc", "g++"])
+                ):
+                    e.extra_compile_args += ['-O3', '-std=gnu++11']
+                    e.define_macros += [("_FILE_OFFSET_BITS", 64)]
                 else:
                     e.extra_compile_args += ['-O3', '-std=c++11']
 
-        # if is_clang:
-        #     for e in self.extensions:
-        #         e.extra_compile_args = ['-fopenmp', '-O3', '-march=native', '-std=c++17']
-        #         # e.extra_link_args    = ['-fopenmp']
-        #         # e.extra_link_args    = ['-fopenmp=libiomp5']
-        #         e.extra_link_args    = ['-fopenmp=libomp']
-        #         ### Note: when passing C++11 to CLANG, it complains about C++17 features in CYTHON_FALLTHROUGH
-        # else: # gcc
-        #     for e in self.extensions:
-        #         e.extra_compile_args = ['-fopenmp', '-O3', '-march=native', '-std=c++11']
-        #         e.extra_link_args    = ['-fopenmp']
+            # if is_clang:
+            #     for e in self.extensions:
+            #         e.extra_compile_args += ['-fopenmp=libomp']
+            #         e.extra_link_args += ['-fopenmp']
 
-                ### when testing with clang:
-                # e.extra_compile_args = ['-fopenmp=libiomp5', '-O3', '-march=native', '-std=c++11']
-                # e.extra_link_args    = ['-fopenmp=libiomp5']
-                # e.extra_compile_args = ['-fopenmp=libiomp5', '-O2', '-march=native', '-std=c++11', '-stdlib=libc++', '-lc++abi']
-                # e.extra_link_args    = ['-fopenmp=libiomp5', '-lc++abi']
+            # for e in self.extensions:
+            #     e.extra_compile_args = ['-fopenmp', '-O3', '-march=native', '-std=c++11']
+            #     e.extra_link_args    = ['-fopenmp']
 
-                # e.extra_compile_args = ['-O2', '-march=native', '-std=c++11']
-                # e.extra_compile_args = ['-O0', '-march=native', '-std=c++11']
+            #     ## when testing with clang:
+            #     e.extra_compile_args = ['-fopenmp=libiomp5', '-O3', '-march=native', '-std=c++11']
+            #     e.extra_link_args    = ['-fopenmp']
 
-                ### for testing (run with `LD_PRELOAD=libasan.so python script.py`)
-                # e.extra_compile_args = ["-std=c++11", "-fsanitize=address", "-static-libasan", "-ggdb"]
-                # e.extra_link_args    = ["-fsanitize=address", "-static-libasan"]
+            #     e.extra_compile_args = ['-O2', '-march=native', '-std=c++11']
+            #     e.extra_compile_args = ['-O0', '-march=native', '-std=c++11']
 
-                ### when testing for oneself
-                # e.extra_compile_args += ["-Wno-sign-compare", "-Wno-switch", "-Wno-maybe-uninitialized"]
-
+            #     ## for testing (run with `LD_PRELOAD=libasan.so python script.py`)
+            #     e.extra_compile_args = ["-std=c++11", "-fsanitize=address", "-static-libasan", "-ggdb"]
+            #     e.extra_link_args    = ["-fsanitize=address", "-static-libasan"]
 
         build_ext.build_extensions(self)
 
@@ -85,6 +82,13 @@ class build_ext_subclass( build_ext ):
         elif self.test_supports_compile_arg(arg_mcpu_native):
             for e in self.extensions:
                 e.extra_compile_args.append(arg_mcpu_native)
+
+    def add_link_time_optimization(self):
+        arg_lto = "-flto"
+        if self.test_supports_compile_arg(arg_lto):
+            for e in self.extensions:
+                e.extra_compile_args.append(arg_lto)
+                e.extra_link_args.append(arg_lto)
 
     def add_openmp_linkage(self):
         arg_omp1 = "-fopenmp"
@@ -153,12 +157,12 @@ setup(
     ext_modules = [Extension(
                                 "isotree._cpp_interface",
                                 sources=["isotree/cpp_interface.pyx",
-                                         "src/merge_models.cpp", "src/serialize.cpp", "src/sql.cpp"],
-                                include_dirs=[np.get_include(), ".", "./src", cereal_dir],
+                                         "src/merge_models.cpp", "src/subset_models.cpp",
+                                         "src/serialize.cpp", "src/sql.cpp"],
+                                include_dirs=[np.get_include(), ".", "./src"],
                                 language="c++",
                                 install_requires = ["numpy", "pandas>=0.24.0", "cython", "scipy"],
                                 define_macros = [("_USE_XOSHIRO", None),
-                                                 ("_ENABLE_CEREAL", None) if has_cereal else ("NO_CEREAL", None),
                                                  ("_USE_ROBIN_MAP", None),
                                                  ("_FOR_PYTHON", None),
                                                  ("PY_GEQ_3_3", None)
@@ -177,13 +181,3 @@ if not found_omp:
     
     omp_msg += "Then reinstall this package from scratch: 'pip install --force-reinstall isotree'.\n"
     warnings.warn(omp_msg)
-
-
-if not has_cereal:
-    import warnings
-    msg  = "\n\nWarning: cereal library not found. Package will be built "
-    msg += "without serialization (importing/exporting models) capabilities. "
-    msg += "In order to enable cereal, install package 'cycereal' and reinstall "
-    msg += "'isotree' by downloading the source files and running "
-    msg += "'python setup.py install'.\n"
-    warnings.warn(msg)

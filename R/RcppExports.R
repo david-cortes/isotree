@@ -21,8 +21,8 @@ fit_model <- function(X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights,
     .Call(`_isotree_fit_model`, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, with_replacement, weight_as_sample, sample_size, ntrees, max_depth, ncols_per_tree, limit_depth, penalize_range, calc_dist, standardize_dist, sq_dist, calc_depth, standardize_depth, weigh_by_kurt, prob_pick_by_gain_avg, prob_split_by_gain_avg, prob_pick_by_gain_pl, prob_split_by_gain_pl, min_gain, cat_split_type, new_cat_action, missing_action, all_perm, build_imputer, output_imputations, min_imp_obs, depth_imp, weigh_imp_rows, random_seed, nthreads)
 }
 
-fit_tree <- function(model_R_ptr, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, max_depth, ncols_per_tree, limit_depth, penalize_range, weigh_by_kurt, prob_pick_by_gain_avg, prob_split_by_gain_avg, prob_pick_by_gain_pl, prob_split_by_gain_pl, min_gain, cat_split_type, new_cat_action, missing_action, build_imputer, min_imp_obs, imp_R_ptr, depth_imp, weigh_imp_rows, all_perm, random_seed) {
-    .Call(`_isotree_fit_tree`, model_R_ptr, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, max_depth, ncols_per_tree, limit_depth, penalize_range, weigh_by_kurt, prob_pick_by_gain_avg, prob_split_by_gain_avg, prob_pick_by_gain_pl, prob_split_by_gain_pl, min_gain, cat_split_type, new_cat_action, missing_action, build_imputer, min_imp_obs, imp_R_ptr, depth_imp, weigh_imp_rows, all_perm, random_seed)
+fit_tree <- function(model_R_ptr, serialized_obj, serialized_imputer, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, max_depth, ncols_per_tree, limit_depth, penalize_range, weigh_by_kurt, prob_pick_by_gain_avg, prob_split_by_gain_avg, prob_pick_by_gain_pl, prob_split_by_gain_pl, min_gain, cat_split_type, new_cat_action, missing_action, build_imputer, min_imp_obs, imp_R_ptr, depth_imp, weigh_imp_rows, all_perm, random_seed) {
+    .Call(`_isotree_fit_tree`, model_R_ptr, serialized_obj, serialized_imputer, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, max_depth, ncols_per_tree, limit_depth, penalize_range, weigh_by_kurt, prob_pick_by_gain_avg, prob_split_by_gain_avg, prob_pick_by_gain_pl, prob_split_by_gain_pl, min_gain, cat_split_type, new_cat_action, missing_action, build_imputer, min_imp_obs, imp_R_ptr, depth_imp, weigh_imp_rows, all_perm, random_seed)
 }
 
 predict_iso <- function(model_R_ptr, outp, tree_num, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, Xr, Xr_ind, Xr_indptr, nrows, nthreads, standardize) {
@@ -37,12 +37,24 @@ impute_iso <- function(model_R_ptr, imputer_R_ptr, is_extended, X_num, X_cat, Xr
     .Call(`_isotree_impute_iso`, model_R_ptr, imputer_R_ptr, is_extended, X_num, X_cat, Xr, Xr_ind, Xr_indptr, nrows, nthreads)
 }
 
+drop_imputer <- function(imputer_R_ptr) {
+    .Call(`_isotree_drop_imputer`, imputer_R_ptr)
+}
+
+subset_trees <- function(model_R_ptr, imputer_R_ptr, is_extended, has_imputer, trees_take) {
+    .Call(`_isotree_subset_trees`, model_R_ptr, imputer_R_ptr, is_extended, has_imputer, trees_take)
+}
+
+inplace_set_to_zero <- function(obj) {
+    invisible(.Call(`_isotree_inplace_set_to_zero`, obj))
+}
+
 get_n_nodes <- function(model_R_ptr, is_extended, nthreads) {
     .Call(`_isotree_get_n_nodes`, model_R_ptr, is_extended, nthreads)
 }
 
-append_trees_from_other <- function(model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, is_extended) {
-    .Call(`_isotree_append_trees_from_other`, model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, is_extended)
+append_trees_from_other <- function(model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, is_extended, serialized_obj, serialized_imputer) {
+    .Call(`_isotree_append_trees_from_other`, model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, is_extended, serialized_obj, serialized_imputer)
 }
 
 model_to_sql <- function(model_R_ptr, is_extended, numeric_colanmes, categ_colnames, categ_levels, output_tree_num, single_tree, tree_num, nthreads) {
@@ -55,6 +67,14 @@ model_to_sql_with_select_from <- function(model_R_ptr, is_extended, numeric_cola
 
 copy_cpp_objects <- function(model_R_ptr, is_extended, imp_R_ptr, has_imputer) {
     .Call(`_isotree_copy_cpp_objects`, model_R_ptr, is_extended, imp_R_ptr, has_imputer)
+}
+
+serialize_to_file <- function(serialized_obj, serialized_imputer, is_extended, metadata, fname) {
+    invisible(.Call(`_isotree_serialize_to_file`, serialized_obj, serialized_imputer, is_extended, metadata, fname))
+}
+
+deserialize_from_file <- function(fname) {
+    .Call(`_isotree_deserialize_from_file`, fname)
 }
 
 call_sort_csc_indices <- function(Xc, Xc_ind, Xc_indptr) {

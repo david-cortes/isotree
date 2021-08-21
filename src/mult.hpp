@@ -334,7 +334,7 @@ void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict re
     if (missing_action == Fail)
     {    
         for (size_t row = st; row <= end; row++)
-            res_write[row] += (x[ix_arr[row]] - x_mean) * coef;
+            res_write[row] = std::fma(x[ix_arr[row]] - x_mean, coef, res_write[row]);
     }
 
     else
@@ -345,7 +345,7 @@ void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict re
             {
                 if (!is_na_or_inf(x[ix_arr[row]]))
                 {
-                    res_write[row]    += (x[ix_arr[row]] - x_mean) * coef;
+                    res_write[row]     =  std::fma(x[ix_arr[row]] - x_mean, coef, res_write[row]);
                     buffer_arr[cnt++]  =  x[ix_arr[row]];
                 }
 
@@ -412,7 +412,7 @@ void add_linear_comb_weighted(size_t ix_arr[], size_t st, size_t end, double *re
     if (missing_action == Fail)
     {    
         for (size_t row = st; row <= end; row++)
-            res_write[row] += (x[ix_arr[row]] - x_mean) * coef;
+            res_write[row] = std::fma(x[ix_arr[row]] - x_mean, coef, res_write[row]);
     }
 
     else
@@ -424,7 +424,7 @@ void add_linear_comb_weighted(size_t ix_arr[], size_t st, size_t end, double *re
                 if (!is_na_or_inf(x[ix_arr[row]]))
                 {
                     w_this = w[ix_arr[row]];
-                    res_write[row]    += (x[ix_arr[row]] - x_mean) * coef;
+                    res_write[row]     = std::fma(x[ix_arr[row]] - x_mean, coef, res_write[row]);
                     obs_weight[cnt]    = w_this;
                     buffer_arr[cnt++]  =  x[ix_arr[row]];
                     cumw += w_this;
@@ -550,7 +550,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
                     else
                     {
                         buffer_arr[cnt_non_NA++]   = Xc[curr_pos];
-                        res[row - ix_arr_plus_st] += Xc[curr_pos] * coef;
+                        res[row - ix_arr_plus_st]  = std::fma(Xc[curr_pos], coef, res[row - ix_arr_plus_st]);
                     }
 
                     nmatches++;
@@ -721,7 +721,7 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
         }
 
         long double cumw = std::accumulate(obs_weight.begin(), obs_weight.begin() + end_new, (long double)0);
-        long double mid_point = cumw / 2.;
+        long double mid_point = cumw / 2.0l;
         std::vector<size_t> sorted_ix(end_new);
         std::iota(sorted_ix.begin(), sorted_ix.end(), (size_t)0);
         std::sort(sorted_ix.begin(), sorted_ix.end(),

@@ -31,3 +31,5 @@
 ^src/instantiate_model\.cpp
 ^src/robinmap/[^i][^n][^c].*$
 ^safe/.*$
+^.*\.out$
+^.*\.exe$

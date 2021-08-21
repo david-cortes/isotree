@@ -41,8 +41,9 @@ when the number of trees or rows is large.}
   \item `"impute"` for imputation of missing values in `newdata`.
 }}
 
-\item{square_mat}{When passing `type` = `"dist` or `"avg_sep"` with no `refdata`, whether to return a full square matrix or
-just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
+\item{square_mat}{When passing `type` = `"dist` or `"avg_sep"` with no `refdata`, whether to return a
+just the upper-triangular part (returned as a `dist` object and compatible with functions such as `hclust`),
+in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 p(i, j) = ((i - 1) * (n - i/2) + j - i).
 Ignored when not predicting distance/separation or when passing `refdata`.}
 
@@ -61,7 +62,8 @@ The requested prediction type, which can be: \itemize{
 and `tree_num` (integer matrix indicating the terminal node number under each tree for each
 observation, with trees as columns), for output type
 `"tree_num"`.
-\item A numeric square matrix or vector with the upper triangular part of a square matrix
+\item A numeric square matrix or `dist` object containing a vector with the upper triangular
+part of a square matrix
 (for output types `"dist"`, `"avg_sep"`, with no `refdata`).
 \item A numeric matrix with points in `newdata` as rows and points in `refdata` as columns
 (for output types `"dist"`, `"avg_sep"`, with `refdata`).
@@ -109,5 +111,5 @@ When imputing missing values, the input may contain new columns (i.e. not presen
 which will be output as-is.
 }
 \seealso{
-\link{isolation.forest} \link{unpack.isolation.forest}
+\link{isolation.forest} \link{isotree.restore.handle}
 }

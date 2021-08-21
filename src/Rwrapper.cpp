@@ -48,13 +48,7 @@
 #include <Rcpp/unwindProtect.h>
 // [[Rcpp::plugins(cpp11)]]
 // [[Rcpp::plugins(unwindProtect)]]
-
-/* This is to serialize the model objects */
-// [[Rcpp::depends(Rcereal)]]
-#include <cereal/archives/binary.hpp>
-#include <cereal/types/vector.hpp>
-#include <sstream>
-#include <string>
+#include <Rinternals.h>
 
 #ifndef _FOR_R
 #define FOR_R
@@ -80,7 +74,7 @@
 
 SEXP alloc_RawVec(void *data)
 {
-    return Rcpp::RawVector(*(size_t*)data);
+    return Rcpp::RawVector((R_xlen_t)(*(size_t*)data));
 }
 
 SEXP safe_copy_vec(void *data)
@@ -89,48 +83,37 @@ SEXP safe_copy_vec(void *data)
     return Rcpp::NumericVector(vec->begin(), vec->end());
 }
 
+Rcpp::RawVector resize_vec(Rcpp::RawVector inp, size_t new_size)
+{
+    Rcpp::RawVector out = Rcpp::unwindProtect(alloc_RawVec, (void*)&new_size);
+    memcpy(RAW(out), RAW(inp), std::min((size_t)inp.size(), new_size));
+    return out;
+}
+
 /* for model serialization and re-usage in R */
 /* https://stackoverflow.com/questions/18474292/how-to-handle-c-internal-data-structure-in-r-in-order-to-allow-save-load */
 /* this extra comment below the link is a workaround for Rcpp issue 675 in GitHub, do not remove it */
-#include <Rinternals.h>
-template <class T>
-Rcpp::RawVector serialize_cpp_obj(T *model_outputs)
+template <class Model>
+Rcpp::RawVector serialize_cpp_obj(const Model *model_outputs)
 {
-    std::stringstream ss;
-    {
-        cereal::BinaryOutputArchive oarchive(ss); // Create an output archive
-        oarchive(*model_outputs);
-    }
-    ss.seekg(0, ss.end);
-    /* Checking for potential integer overflows */
-    std::stringstream::pos_type vec_size = ss.tellg();
-    if (vec_size <= 0) {
-        Rcpp::Rcerr << "Error: model is too big to serialize, resulting object will not be usable.\n" << std::endl;
-        return Rcpp::RawVector();
-    }
-
-    Rcpp::RawVector retval;
-    size_t vec_size_ = (size_t)vec_size;
-    retval = Rcpp::unwindProtect(alloc_RawVec, (void*)&vec_size_);
-    if (!retval.size())
-        return retval;
-    ss.seekg(0, ss.beg);
-    ss.read(reinterpret_cast<char*>(&retval[0]), retval.size());
-    return retval;
+    size_t serialized_size = determine_serialized_size(*model_outputs);
+    if (!serialized_size)
+        Rcpp::stop("Unexpected error.");
+    Rcpp::RawVector out = Rcpp::unwindProtect(alloc_RawVec, (void*)&serialized_size);
+    char *out_ = (char*)RAW(out);
+    serialize_isotree(*model_outputs, out_);
+    return out;
 }
 
-template <class T>
+template <class Model>
 SEXP deserialize_cpp_obj(Rcpp::RawVector src)
 {
-    std::stringstream ss;
-    ss.write(reinterpret_cast<char*>(&src[0]), src.size());
-    ss.seekg(0, ss.beg);
-    std::unique_ptr<T> model_outputs = std::unique_ptr<T>(new T());
-    {
-        cereal::BinaryInputArchive iarchive(ss);
-        iarchive(*model_outputs);
-    }
-    return Rcpp::XPtr<T>(model_outputs.release(), true);
+    if (!src.size())
+        Rcpp::stop("Unexpected error.");
+    std::unique_ptr<Model> out(new Model());
+    const char *inp = (const char*)RAW(src);
+    deserialize_isotree(*out, inp);
+    return Rcpp::XPtr<Model>(out.release(), true);
 }
 
 // [[Rcpp::export(rng = false)]]
@@ -205,34 +188,34 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
 
     if (X_num.size())
     {
-        numeric_data_ptr = &X_num[0];
+        numeric_data_ptr = REAL(X_num);
         if (Rcpp::as<std::string>(missing_action) != std::string("fail"))
             numeric_data_ptr = set_R_nan_as_C_nan(numeric_data_ptr, nrows * ncols_numeric, Xcpp, nthreads);
     }
 
     if (X_cat.size())
     {
-        categ_data_ptr  =  &X_cat[0];
-        ncat_ptr        =  &ncat[0];
+        categ_data_ptr  =  INTEGER(X_cat);
+        ncat_ptr        =  INTEGER(ncat);
     }
 
     if (Xc.size())
     {
-        Xc_ptr          =  &Xc[0];
-        Xc_ind_ptr      =  &Xc_ind[0];
-        Xc_indptr_ptr   =  &Xc_indptr[0];
+        Xc_ptr          =  REAL(Xc);
+        Xc_ind_ptr      =  INTEGER(Xc_ind);
+        Xc_indptr_ptr   =  INTEGER(Xc_indptr);
         if (Rcpp::as<std::string>(missing_action) != std::string("fail"))
             Xc_ptr = set_R_nan_as_C_nan(Xc_ptr, Xc.size(), Xcpp, nthreads);
     }
 
     if (sample_weights.size())
     {
-        sample_weights_ptr  =  &sample_weights[0];
+        sample_weights_ptr  =  REAL(sample_weights);
     }
 
     if (col_weights.size())
     {
-        col_weights_ptr     =  &col_weights[0];
+        col_weights_ptr     =  REAL(col_weights);
     }
 
     CoefType        coef_type_C       =  Normal;
@@ -292,7 +275,8 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
 
     if (calc_dist)
     {
-        tmat      =  Rcpp::NumericVector((nrows * (nrows - (size_t)1)) / (size_t)2);
+        tmat      =  Rcpp::NumericVector(((nrows % 2) == 0)?
+                                            (div2(nrows) * (nrows-1)) : (nrows * div2(nrows-1)));
         tmat_ptr  =  REAL(tmat);
         if (sq_dist)
         {
@@ -307,9 +291,9 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
         depths_ptr  =  REAL(depths);
     }
 
-    std::unique_ptr<IsoForest>     model_ptr      =  std::unique_ptr<IsoForest>();
-    std::unique_ptr<ExtIsoForest>  ext_model_ptr  =  std::unique_ptr<ExtIsoForest>();
-    std::unique_ptr<Imputer>       imputer_ptr    =  std::unique_ptr<Imputer>();
+    std::unique_ptr<IsoForest>     model_ptr(nullptr);
+    std::unique_ptr<ExtIsoForest>  ext_model_ptr(nullptr);
+    std::unique_ptr<Imputer>       imputer_ptr(nullptr);
 
     if (ndim == 1)
         model_ptr      =  std::unique_ptr<IsoForest>(new IsoForest());
@@ -423,21 +407,26 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
 }
 
 // [[Rcpp::export(rng = false)]]
-Rcpp::RawVector fit_tree(SEXP model_R_ptr, 
-                         Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat,
-                         Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
-                         Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights,
-                         size_t nrows, size_t ncols_numeric, size_t ncols_categ,
-                         size_t ndim, size_t ntry, Rcpp::CharacterVector coef_type, bool coef_by_prop,
-                         size_t max_depth, size_t ncols_per_tree, bool limit_depth, bool penalize_range,
-                         bool weigh_by_kurt,
-                         double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
-                         double prob_pick_by_gain_pl,  double prob_split_by_gain_pl, double min_gain,
-                         Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action,
-                         Rcpp::CharacterVector missing_action, bool build_imputer, size_t min_imp_obs, SEXP imp_R_ptr,
-                         Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows,
-                         bool all_perm, uint64_t random_seed)
+Rcpp::List fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector serialized_imputer,
+                    Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat,
+                    Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
+                    Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights,
+                    size_t nrows, size_t ncols_numeric, size_t ncols_categ,
+                    size_t ndim, size_t ntry, Rcpp::CharacterVector coef_type, bool coef_by_prop,
+                    size_t max_depth, size_t ncols_per_tree, bool limit_depth, bool penalize_range,
+                    bool weigh_by_kurt,
+                    double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
+                    double prob_pick_by_gain_pl,  double prob_split_by_gain_pl, double min_gain,
+                    Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action,
+                    Rcpp::CharacterVector missing_action, bool build_imputer, size_t min_imp_obs, SEXP imp_R_ptr,
+                    Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows,
+                    bool all_perm, uint64_t random_seed)
 {
+    Rcpp::List out = Rcpp::List::create(
+        Rcpp::_["serialized"] = R_NilValue,
+        Rcpp::_["imp_ser"] = R_NilValue
+    );
+
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
     int*        ncat_ptr            =  NULL;
@@ -450,34 +439,34 @@ Rcpp::RawVector fit_tree(SEXP model_R_ptr,
 
     if (X_num.size())
     {
-        numeric_data_ptr = &X_num[0];
+        numeric_data_ptr = REAL(X_num);
         if (Rcpp::as<std::string>(missing_action) != std::string("fail"))
             numeric_data_ptr = set_R_nan_as_C_nan(numeric_data_ptr, nrows * ncols_numeric, Xcpp, 1);
     }
 
     if (X_cat.size())
     {
-        categ_data_ptr  =  &X_cat[0];
-        ncat_ptr        =  &ncat[0];
+        categ_data_ptr  =  INTEGER(X_cat);
+        ncat_ptr        =  INTEGER(ncat);
     }
 
     if (Xc.size())
     {
-        Xc_ptr         =  &Xc[0];
-        Xc_ind_ptr     =  &Xc_ind[0];
-        Xc_indptr_ptr  =  &Xc_indptr[0];
+        Xc_ptr         =  REAL(Xc);
+        Xc_ind_ptr     =  INTEGER(Xc_ind);
+        Xc_indptr_ptr  =  INTEGER(Xc_indptr);
         if (Rcpp::as<std::string>(missing_action) != std::string("fail"))
             Xc_ptr = set_R_nan_as_C_nan(Xc_ptr, Xc.size(), Xcpp, 1);
     }
 
     if (sample_weights.size())
     {
-        sample_weights_ptr  =  &sample_weights[0];
+        sample_weights_ptr  =  REAL(sample_weights);
     }
 
     if (col_weights.size())
     {
-        col_weights_ptr     =  &col_weights[0];
+        col_weights_ptr     =  REAL(col_weights);
     }
 
     CoefType        coef_type_C       =  Normal;
@@ -539,6 +528,8 @@ Rcpp::RawVector fit_tree(SEXP model_R_ptr,
     if (build_imputer)
         imputer_ptr = static_cast<Imputer*>(R_ExternalPtrAddr(imp_R_ptr));
 
+    size_t old_ntrees = (ndim == 1)? (model_ptr->trees.size()) : (ext_model_ptr->hplanes.size());
+
     add_tree(model_ptr, ext_model_ptr,
              numeric_data_ptr,  ncols_numeric,
              categ_data_ptr,    ncols_categ,    ncat_ptr,
@@ -554,11 +545,99 @@ Rcpp::RawVector fit_tree(SEXP model_R_ptr,
              cat_split_type_C, new_cat_action_C,
              depth_imp_C, weigh_imp_rows_C, all_perm,
              imputer_ptr, min_imp_obs, (uint64_t)random_seed);
+    
+    Rcpp::RawVector new_serialized, new_imp_serialized;
+    size_t new_size;
+    try
+    {
+        if (ndim == 1)
+        {
+            if (serialized_obj.size() &&
+                check_can_undergo_incremental_serialization(*model_ptr, (char*)RAW(serialized_obj)))
+            {
+                try {
+                    new_size = serialized_obj.size()
+                                + determine_serialized_size_additional_trees(*model_ptr, old_ntrees);
+                    new_serialized = resize_vec(serialized_obj, new_size);
+                    char *temp = (char*)RAW(new_serialized);
+                    incremental_serialize_isotree(*model_ptr, temp);
+                    out["serialized"] = new_serialized;
+                }
 
-    if (ndim == 1)
-        return serialize_cpp_obj(model_ptr);
-    else
-        return serialize_cpp_obj(ext_model_ptr);
+                catch(std::runtime_error &e) {
+                    goto serialize_anew_singlevar;
+                }
+            }
+
+            else {
+                serialize_anew_singlevar:
+                out["serialized"] = serialize_cpp_obj(model_ptr);
+            }
+        }
+
+        else
+        {
+            if (serialized_obj.size() &&
+                check_can_undergo_incremental_serialization(*ext_model_ptr, (char*)RAW(serialized_obj)))
+            {
+                try {
+                    new_size = serialized_obj.size()
+                                + determine_serialized_size_additional_trees(*ext_model_ptr, old_ntrees);
+                    new_serialized = resize_vec(serialized_obj, new_size);
+                    char *temp = (char*)RAW(new_serialized);
+                    incremental_serialize_isotree(*ext_model_ptr, temp);
+                    out["serialized"] = new_serialized;
+                }
+
+                catch(std::runtime_error &e) {
+                    goto serialize_anew_ext;
+                }
+            }
+
+            else {
+                serialize_anew_ext:
+                out["serialized"] = serialize_cpp_obj(ext_model_ptr);
+            }
+        }
+
+        if (imputer_ptr != NULL)
+        {
+            if (serialized_imputer.size() &&
+                check_can_undergo_incremental_serialization(*imputer_ptr, (char*)RAW(serialized_imputer)))
+            {
+                try {
+                    new_size = serialized_obj.size()
+                                + determine_serialized_size_additional_trees(*imputer_ptr, old_ntrees);
+                    new_imp_serialized = resize_vec(serialized_imputer, new_size);
+                    char *temp = (char*)RAW(new_imp_serialized);
+                    incremental_serialize_isotree(*imputer_ptr, temp);
+                    out["imp_ser"] = new_imp_serialized;
+                }
+
+                catch(std::runtime_error &e) {
+                    goto serialize_anew_imp;
+                }
+            }
+
+            else {
+                serialize_anew_imp:
+                out["imp_ser"] = serialize_cpp_obj(imputer_ptr);
+            }
+        }
+    }
+
+    catch(...)
+    {
+        if (ndim == 1)
+            model_ptr->trees.resize(old_ntrees);
+        else
+            ext_model_ptr->hplanes.resize(old_ntrees);
+        if (build_imputer)
+            imputer_ptr->imputer_tree.resize(old_ntrees);
+        throw;
+    }
+
+    return out;
 }
 
 // [[Rcpp::export(rng = false)]]
@@ -765,6 +844,108 @@ Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
 }
 
 // [[Rcpp::export(rng = false)]]
+SEXP drop_imputer(SEXP imputer_R_ptr)
+{
+    Imputer *imputer_ptr = static_cast<Imputer*>(R_ExternalPtrAddr(imputer_R_ptr));
+    if (imputer_ptr)
+        delete imputer_ptr;
+    return Rcpp::XPtr<Imputer>(nullptr, true);
+}
+
+// [[Rcpp::export(rng = false)]]
+Rcpp::List subset_trees
+(
+    SEXP model_R_ptr, SEXP imputer_R_ptr,
+    bool is_extended, bool has_imputer,
+    Rcpp::IntegerVector trees_take
+)
+{
+    IsoForest*     model_ptr      =  NULL;
+    ExtIsoForest*  ext_model_ptr  =  NULL;
+    Imputer*       imputer_ptr    =  NULL;
+    std::unique_ptr<IsoForest>     new_model_ptr(nullptr);
+    std::unique_ptr<ExtIsoForest>  new_ext_model_ptr(nullptr);
+    std::unique_ptr<Imputer>       new_imputer_ptr(nullptr);
+
+    if (is_extended) {
+        ext_model_ptr      =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        new_ext_model_ptr  =  std::unique_ptr<ExtIsoForest>(new ExtIsoForest());
+    }
+    else {
+        model_ptr          =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        new_model_ptr      =  std::unique_ptr<IsoForest>(new IsoForest());
+    }
+
+    
+    if (has_imputer) {
+        imputer_ptr        =  static_cast<Imputer*>(R_ExternalPtrAddr(imputer_R_ptr));
+        new_imputer_ptr    =  std::unique_ptr<Imputer>(new Imputer());
+    }
+
+    std::unique_ptr<size_t[]> trees_take_(new size_t[trees_take.size()]);
+    for (decltype(trees_take.size()) ix = 0; ix < trees_take.size(); ix++)
+        trees_take_[ix] = (size_t)(trees_take[ix] - 1);
+
+    subset_model(model_ptr,      new_model_ptr.get(),
+                 ext_model_ptr,  new_ext_model_ptr.get(),
+                 imputer_ptr,    new_imputer_ptr.get(),
+                 trees_take_.get(), trees_take.size());
+    trees_take_.reset();
+
+    Rcpp::List out = Rcpp::List::create(
+        Rcpp::_["model_ptr"] = R_NilValue,
+        Rcpp::_["serialized"] = R_NilValue,
+        Rcpp::_["imp_ptr"] = R_NilValue,
+        Rcpp::_["imp_ser"] = R_NilValue
+    );
+    if (!is_extended)
+        out["serialized_obj"] = serialize_cpp_obj(new_model_ptr.get());
+    else
+        out["serialized_obj"] = serialize_cpp_obj(new_ext_model_ptr.get());
+    if (has_imputer)
+        out["imputer_ser"] = serialize_cpp_obj(new_imputer_ptr.get());
+
+    if (!is_extended)
+        out["model_ptr"] = Rcpp::XPtr<IsoForest>(new_model_ptr.release(), true);
+    else
+        out["model_ptr"] = Rcpp::XPtr<ExtIsoForest>(new_ext_model_ptr.release(), true);
+    if (has_imputer)
+        out["imp_ptr"] = Rcpp::XPtr<Imputer>(new_imputer_ptr.release(), true);
+    return out;
+}
+
+// [[Rcpp::export(rng = false)]]
+void inplace_set_to_zero(SEXP obj)
+{
+    auto obj_type = TYPEOF(obj);
+    switch(obj_type)
+    {
+        case REALSXP:
+        {
+            REAL(obj)[0] = 0;
+            break;
+        }
+
+        case INTSXP:
+        {
+            INTEGER(obj)[0] = 0;
+            break;
+        }
+
+        case LGLSXP:
+        {
+            LOGICAL(obj)[0] = 0;
+            break;
+        }
+
+        default:
+        {
+            Rcpp::stop("Model object has incorrect structure.\n");
+        }
+    }
+}
+
+// [[Rcpp::export(rng = false)]]
 Rcpp::List get_n_nodes(SEXP model_R_ptr, bool is_extended, int nthreads)
 {
     size_t ntrees;
@@ -797,22 +978,31 @@ Rcpp::List get_n_nodes(SEXP model_R_ptr, bool is_extended, int nthreads)
 // [[Rcpp::export(rng = false)]]
 Rcpp::List append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
                                    SEXP imp_R_ptr, SEXP oimp_R_ptr,
-                                   bool is_extended)
+                                   bool is_extended,
+                                   Rcpp::RawVector serialized_obj,
+                                   Rcpp::RawVector serialized_imputer)
 {
-    Rcpp::List out;
+    Rcpp::List out = Rcpp::List::create(
+        Rcpp::_["serialized"] = R_NilValue,
+        Rcpp::_["imp_ser"] = R_NilValue
+    );
+
     IsoForest* model_ptr = NULL;
     IsoForest* other_ptr = NULL;
     ExtIsoForest* ext_model_ptr = NULL;
     ExtIsoForest* ext_other_ptr = NULL;
     Imputer* imputer_ptr  = NULL;
     Imputer* oimputer_ptr = NULL;
+    size_t old_ntrees;
 
     if (is_extended) {
         ext_model_ptr = static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
         ext_other_ptr = static_cast<ExtIsoForest*>(R_ExternalPtrAddr(other_R_ptr));
+        old_ntrees = ext_model_ptr->hplanes.size();
     } else {
         model_ptr = static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
         other_ptr = static_cast<IsoForest*>(R_ExternalPtrAddr(other_R_ptr));
+        old_ntrees = model_ptr->trees.size();
     }
 
     if (!Rf_isNull(imp_R_ptr) && !Rf_isNull(oimp_R_ptr) &&
@@ -827,14 +1017,97 @@ Rcpp::List append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
                  ext_model_ptr, ext_other_ptr,
                  imputer_ptr, oimputer_ptr);
 
+    Rcpp::RawVector new_serialized, new_imp_serialized;
+    size_t new_size;
+    try
+    {
+        if (!is_extended)
+        {
+            if (serialized_obj.size() &&
+                check_can_undergo_incremental_serialization(*model_ptr, (char*)RAW(serialized_obj)))
+            {
+                try {
+                    new_size = serialized_obj.size()
+                                + determine_serialized_size_additional_trees(*model_ptr, old_ntrees);
+                    new_serialized = resize_vec(serialized_obj, new_size);
+                    char *temp = (char*)RAW(new_serialized);
+                    incremental_serialize_isotree(*model_ptr, temp);
+                    out["serialized"] = new_serialized;
+                }
 
-    if (is_extended)
-        out["serialized"] = serialize_cpp_obj(ext_model_ptr);
-    else
-        out["serialized"] = serialize_cpp_obj(model_ptr);
+                catch(std::runtime_error &e) {
+                    goto serialize_anew_singlevar;
+                }
+            }
 
-    if (imputer_ptr != NULL && oimputer_ptr != NULL)
-        out["imp_ser"] = serialize_cpp_obj(imputer_ptr);
+            else {
+                serialize_anew_singlevar:
+                out["serialized"] = serialize_cpp_obj(model_ptr);
+            }
+        }
+
+        else
+        {
+            if (serialized_obj.size() &&
+                check_can_undergo_incremental_serialization(*ext_model_ptr, (char*)RAW(serialized_obj)))
+            {
+                try {
+                    new_size = serialized_obj.size()
+                                + determine_serialized_size_additional_trees(*ext_model_ptr, old_ntrees);
+                    new_serialized = resize_vec(serialized_obj, new_size);
+                    char *temp = (char*)RAW(new_serialized);
+                    incremental_serialize_isotree(*ext_model_ptr, temp);
+                    out["serialized"] = new_serialized;
+                }
+
+                catch(std::runtime_error &e) {
+                    goto serialize_anew_ext;
+                }
+            }
+
+            else {
+                serialize_anew_ext:
+                out["serialized"] = serialize_cpp_obj(ext_model_ptr);
+            }
+        }
+
+        if (imputer_ptr != NULL)
+        {
+            if (serialized_imputer.size() &&
+                check_can_undergo_incremental_serialization(*imputer_ptr, (char*)RAW(serialized_imputer)))
+            {
+                try {
+                    new_size = serialized_obj.size()
+                                + determine_serialized_size_additional_trees(*imputer_ptr, old_ntrees);
+                    new_imp_serialized = resize_vec(serialized_imputer, new_size);
+                    char *temp = (char*)RAW(new_imp_serialized);
+                    incremental_serialize_isotree(*imputer_ptr, temp);
+                    out["imp_ser"] = new_imp_serialized;
+                }
+
+                catch(std::runtime_error &e) {
+                    goto serialize_anew_imp;
+                }
+            }
+
+            else {
+                serialize_anew_imp:
+                out["imp_ser"] = serialize_cpp_obj(imputer_ptr);
+            }
+        }
+    }
+
+    catch(...)
+    {
+        if (!is_extended)
+            model_ptr->trees.resize(old_ntrees);
+        else
+            ext_model_ptr->hplanes.resize(old_ntrees);
+
+        if (imputer_ptr != NULL)
+            imputer_ptr->imputer_tree.resize(old_ntrees);
+        throw;
+    }
 
     return out;
 }
@@ -946,6 +1219,193 @@ Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, 
         out["model_ptr"]    =  Rcpp::XPtr<IsoForest>(copy_model.release(), true);
     if (has_imputer)
         out["imputer_ptr"]  =  Rcpp::XPtr<Imputer>(copy_imputer.release(), true);
+    return out;
+}
+
+/* This library will use different code paths for opening a file path
+   in order to support non-ASCII characters, depending on compiler and
+   platform support. */
+#if (defined(_WIN32) || defined(_WIN64))
+#   if defined(__GNUC__) && (__GNUC__ >= 5)
+#       define USE_CODECVT
+#       define TAKE_AS_UTF8 true
+#   elif !defined(_FOR_CRAN)
+#       define USE_RC_FOPEN
+#       define TAKE_AS_UTF8 false
+#   else
+#       define USE_SIMPLE_FOPEN
+#       define TAKE_AS_UTF8 false
+#   endif
+#else
+#   define USE_SIMPLE_FOPEN
+#   define TAKE_AS_UTF8 false
+#endif
+
+/* Now the actual implementations */
+#ifdef USE_CODECVT
+/* https://stackoverflow.com/questions/2573834/c-convert-string-or-char-to-wstring-or-wchar-t */
+/*  */
+#include <locale>
+#include <codecvt>
+#include <string>
+FILE* R_fopen(Rcpp::CharacterVector fname, const char *mode)
+{
+    Rcpp::String s(fname[0], CE_UTF8);
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    std::wstring wide = converter.from_bytes(s.get_cstring());
+    std::string mode__(mode);
+    std::wstring mode_ = converter.from_bytes(mode__);
+    return _wfopen(wide.c_str(), mode_.c_str());
+}
+#endif
+
+#ifdef USE_RC_FOPEN
+extern "C" {
+    FILE *RC_fopen(const SEXP fn, const char *mode, const Rboolean expand);
+}
+FILE* R_fopen(Rcpp::CharacterVector fname, const char *mode)
+{
+    return RC_fopen(fname[0], mode, FALSE);
+}
+#endif
+
+#ifdef USE_SIMPLE_FOPEN
+FILE* R_fopen(Rcpp::CharacterVector fname, const char *mode)
+{
+    return fopen(fname[0], mode);
+}
+#endif
+
+class FileOpener
+{
+public:
+    FILE *handle = NULL;
+    FileOpener(const SEXP fname, const char *mode)
+    {
+        if (this->handle != NULL)
+            this->close_file();
+        this->handle = R_fopen(fname, mode);
+    }
+    FILE *get_handle()
+    {
+        return this->handle;
+    }
+    void close_file()
+    {
+        if (this->handle != NULL) {
+            fclose(this->handle);
+            this->handle = NULL;
+        }
+    }
+    ~FileOpener()
+    {
+        this->close_file();
+    }
+};
+
+// [[Rcpp::export]]
+void serialize_to_file
+(
+    Rcpp::RawVector serialized_obj,
+    Rcpp::RawVector serialized_imputer,
+    bool is_extended,
+    Rcpp::RawVector metadata,
+    Rcpp::CharacterVector fname
+)
+{
+    FileOpener file_(fname[0], "wb");
+    FILE *output_file = file_.get_handle();
+    serialize_combined(
+        is_extended? nullptr : (char*)RAW(serialized_obj),
+        is_extended? (char*)RAW(serialized_obj) : nullptr,
+        serialized_imputer.size()? (char*)RAW(serialized_imputer) : nullptr,
+        metadata.size()? (char*)RAW(metadata) : nullptr,
+        metadata.size(),
+        output_file
+    );
+}
+
+// [[Rcpp::export]]
+Rcpp::List deserialize_from_file(Rcpp::CharacterVector fname)
+{
+    FileOpener file_(fname[0], "rb");
+    FILE *input_file = file_.get_handle();
+
+    bool is_isotree_model;
+    bool is_compatible;
+    bool has_combined_objects;
+    bool has_IsoForest;
+    bool has_ExtIsoForest;
+    bool has_Imputer;
+    bool has_metadata;
+    size_t size_metadata;
+    
+    inspect_serialized_object(
+        input_file,
+        is_isotree_model,
+        is_compatible,
+        has_combined_objects,
+        has_IsoForest,
+        has_ExtIsoForest,
+        has_Imputer,
+        has_metadata,
+        size_metadata
+    );
+
+    if (!is_isotree_model || !has_combined_objects)
+        Rcpp::stop("Input file is not a serialized isotree model.\n");
+    if (!is_compatible)
+        Rcpp::stop("Model file format is incompatible.\n");
+    if (!size_metadata)
+        Rcpp::stop("Input file does not contain metadata.\n");
+
+    std::unique_ptr<IsoForest> model(new IsoForest());
+    std::unique_ptr<ExtIsoForest> model_ext(new ExtIsoForest());
+    std::unique_ptr<Imputer> imputer(new Imputer());
+    Rcpp::RawVector metadata(size_metadata);
+
+    IsoForest *ptr_model = NULL;
+    ExtIsoForest *ptr_model_ext = NULL;
+    Imputer *ptr_imputer = NULL;
+    char *ptr_metadata = (char*)RAW(metadata);
+
+    if (has_IsoForest)
+        ptr_model = model.get();
+    if (has_ExtIsoForest)
+        ptr_model_ext = model_ext.get();
+    if (has_Imputer)
+        ptr_imputer = imputer.get();
+
+    deserialize_combined(
+        input_file,
+        ptr_model,
+        ptr_model_ext,
+        ptr_imputer,
+        ptr_metadata
+    );
+
+    Rcpp::List out = Rcpp::List::create(
+        Rcpp::_["ptr"] = R_NilValue,
+        Rcpp::_["serialized"] = R_NilValue,
+        Rcpp::_["imp_ptr"] = R_NilValue,
+        Rcpp::_["imp_ser"] = R_NilValue,
+        Rcpp::_["metadata"] = metadata
+    );
+
+    if (has_IsoForest)
+        out["serialized"] = serialize_cpp_obj(model.get());
+    else
+        out["serialized"] = serialize_cpp_obj(model_ext.get());
+    if (has_Imputer)
+        out["imp_ser"] = serialize_cpp_obj(imputer.get());
+
+    if (has_IsoForest)
+        out["ptr"] = Rcpp::XPtr<IsoForest>(model.release(), true);
+    else
+        out["ptr"] = Rcpp::XPtr<ExtIsoForest>(model_ext.release(), true);
+    if (has_Imputer)
+        out["imp_ptr"] = Rcpp::XPtr<Imputer>(imputer.release(), true);
+
     return out;
 }
 

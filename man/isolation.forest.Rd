@@ -246,7 +246,7 @@ variables.}
 as factors. This is recommended as it will eliminate potentially redundant categorical levels if
 they have no observations, but if the categorical variables are already of type `factor` with only
 the levels that are present, it can be skipped for slightly faster fitting times. You'll likely
-want to pass `FALSE` here if merging several models into one through \link{append.trees}.}
+want to pass `FALSE` here if merging several models into one through \link{isotree.append.trees}.}
 
 \item{weights_as_sample_prob}{If passing `sample_weights` argument, whether to consider those weights as row
 sampling weights (i.e. the higher the weights, the more likely the observation will end up included
@@ -436,6 +436,11 @@ using `ntry>1` or `ndim==1`, in order to avoid differences in the magnitudes of 
 If requesting outlier scores or depths or separation/distance while fitting the
 model and using multiple threads, there can be small differences in the predicted
 scores/depth/separation/distance between runs due to roundoff error.
+
+While it's not possible to get a quick overview of the size of the resulting
+model object, one can get a lower bound of its size in RAM by checking the
+following: `2*NROW(model$cpp_obj$serialized) / 1024^2` (which should estimate
+the size in megabytes).
 }
 \examples{
 ### Example 1: detect an obvious outlier
@@ -496,7 +501,7 @@ plot.space <- function(Z, ttl) {
      xlab = "", ylab = "")
 }
 
-### Now try ouy different variations of the model
+### Now try out different variations of the model
 
 ### Single-variable model
 iso_simple = isolation.forest(
@@ -646,5 +651,5 @@ if (require("outliertree")) {
 }
 }
 \seealso{
-\link{predict.isolation_forest},  \link{add.isolation.tree} \link{unpack.isolation.forest}
+\link{predict.isolation_forest},  \link{isotree.add.tree} \link{isotree.restore.handle}
 }

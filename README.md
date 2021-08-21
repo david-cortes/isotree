@@ -78,7 +78,7 @@ There's already many available implementations of isolation forests for both Pyt
 * Can fit trees incrementally to user-provided data samples.
 * Produces serializable model objects with reasonable file sizes.
 * Can translate the generated trees into SQL statements.
-* Fast and multi-threaded C++ code. Can be wrapped in languages other than Python/R/Ruby.
+* Fast and multi-threaded C++ code, which is architecture-agnostic, multi-platform, and with the only external dependency (Robin-Map) being optional. Can be wrapped in languages other than Python/R/Ruby.
 
 (Note that categoricals, NAs, and density-like sample weights, are treated heuristically with different options as there is no single logical extension of the original idea to them, and having them present might degrade performance/accuracy for regular numerical non-missing observations)
 
@@ -122,7 +122,7 @@ git clone --recursive https://www.github.com/david-cortes/isotree.git
 cd isotree
 mkdir build
 cd build
-cmake -DUSE_MARCH_NATIVE=1 -DUSE_XOSHIRO ..
+cmake -DUSE_MARCH_NATIVE=1 ..
 cmake --build .
 
 ### for a system-wide install in linux
@@ -133,8 +133,6 @@ sudo ldconfig
 (Will build as a shared object - linkage is then done with `-lisotree`)
 
 Be aware that the snippet above includes option `-DUSE_MARCH_NATIVE=1`, which will make it use the highest-available CPU instruction set (e.g. AVX2) and will produces objects that might not run on older CPUs - to build more "portable" objects, remove this option from the cmake command.
-
-By default (`-DUSE_XOSHIRO=1`), will use its own random number generator (either xoshiro256++ or xoshiro128++ depending on CPU) instead of the C++ header's default - can pass `-DUSE_XOSHIRO=0` to use the compiler's default, which is likely to be faster but of lesser quality.
 
 The package has an optional dependency on the [Robin-Map](https://github.com/Tessil/robin-map) library, which is added to this repository as a linked submodule. If this library is not found under `/src`, will use the compiler's own hashmaps, which are less optimal.
 
@@ -216,6 +214,10 @@ See [external repository with wrapper](https://github.com/ankane/isotree).
 * R: documentation is available internally in the package (e.g. `help(isolation.forest)`) and in [CRAN](https://cran.r-project.org/web/packages/isotree/index.html).
 * C++: documentation is available in the public header (`include/isotree.hpp`) and in the source files.
 * Ruby: see [external repository with wrapper](https://github.com/ankane/isotree) for the syntax and the [Python docs](http://isotree.readthedocs.io) for details about the parameters.
+
+# Help wanted
+
+The package does not currenly have any functionality for visualizing trees. Pull requests adding such functionality would be welcome.
 
 # References
 
