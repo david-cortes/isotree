@@ -9,4 +9,4 @@
 #include "isoforest.hpp"
 #include "mult.hpp"
 #include "predict.hpp"
-#include "utils.hpp" 
+#include "utils.hpp"

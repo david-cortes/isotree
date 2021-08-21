@@ -71,10 +71,6 @@ using std::size_t;
 #ifndef ISOTREE_H
 #define ISOTREE_H
 
-#ifndef _ENABLE_CEREAL
-#define _ENABLE_CEREAL
-#endif
-
 #ifdef _WIN32
     #define ISOTREE_EXPORTED __declspec(dllimport)
 #else
@@ -82,15 +78,15 @@ using std::size_t;
 #endif
 
 
-/* Types used through the package */
-typedef enum  NewCategAction {Weighted, Smallest, Random}      NewCategAction; /* Weighted means Impute in the extended model */
-typedef enum  MissingAction  {Divide,   Impute,   Fail}        MissingAction;  /* Divide is only for non-extended model */
-typedef enum  ColType        {Numeric,  Categorical, NotUsed}  ColType;
-typedef enum  CategSplit     {SubSet,   SingleCateg}           CategSplit;
-typedef enum  GainCriterion  {Averaged, Pooled,   NoCrit}      Criterion;      /* For guided splits */
-typedef enum  CoefType       {Uniform,  Normal}                CoefType;       /* For extended model */
-typedef enum  UseDepthImp    {Lower,    Higher,   Same}        UseDepthImp;    /* For NA imputation */
-typedef enum  WeighImpRows   {Inverse,  Prop,     Flat}        WeighImpRows;   /* For NA imputation */
+/* Types used through the package - zero is the suggested value (when appropriate) */
+typedef enum  NewCategAction {Weighted=0, Smallest=11, Random=12}      NewCategAction; /* Weighted means Impute in the extended model */
+typedef enum  MissingAction  {Divide=21,   Impute=22,   Fail=0}        MissingAction;  /* Divide is only for non-extended model */
+typedef enum  ColType        {Numeric=31,  Categorical=32, NotUsed=0}  ColType;
+typedef enum  CategSplit     {SubSet=0,   SingleCateg=41}              CategSplit;
+typedef enum  GainCriterion  {Averaged=51, Pooled=52,   NoCrit=0}      Criterion;      /* For guided splits */
+typedef enum  CoefType       {Uniform=61,  Normal=0}                   CoefType;       /* For extended model */
+typedef enum  UseDepthImp    {Lower=71,    Higher=0,   Same=72}        UseDepthImp;    /* For NA imputation */
+typedef enum  WeighImpRows   {Inverse=0,  Prop=81,     Flat=82}        WeighImpRows;   /* For NA imputation */
 
 /* Notes about new categorical action:
 *  - For single-variable case, if using 'Smallest', can then pass data at prediction time
@@ -106,7 +102,7 @@ typedef enum  WeighImpRows   {Inverse,  Prop,     Flat}        WeighImpRows;   /
 
 /* Structs that are output (modified) from the main function */
 typedef struct IsoTree {
-    ColType  col_type = NotUsed; /* issues with uninitialized values passed to Cereal */
+    ColType  col_type = NotUsed;
     size_t   col_num;
     double   num_split;
     std::vector<char> cat_split;
@@ -119,26 +115,6 @@ typedef struct IsoTree {
     double   range_high =  HUGE_VAL;
     double   remainder; /* only used for distance/similarity */
 
-    #ifdef _ENABLE_CEREAL
-    template<class Archive>
-    void serialize(Archive &archive)
-    {
-        archive(
-            this->col_type,
-            this->col_num,
-            this->num_split,
-            this->cat_split,
-            this->chosen_cat,
-            this->tree_left,
-            this->tree_right,
-            this->pct_tree_left,
-            this->score,
-            this->range_low,
-            this->range_high,
-            this->remainder
-            );
-    }
-    #endif
     IsoTree() = default;
 
 } IsoTree;
@@ -161,29 +137,6 @@ typedef struct IsoHPlane {
     double   range_high =  HUGE_VAL;
     double   remainder; /* only used for distance/similarity */
 
-    #ifdef _ENABLE_CEREAL
-    template<class Archive>
-    void serialize(Archive &archive)
-    {
-        archive(
-            this->col_num,
-            this->col_type,
-            this->coef,
-            this->mean,
-            this->cat_coef,
-            this->chosen_cat,
-            this->fill_val,
-            this->fill_new,
-            this->split_point,
-            this->hplane_left,
-            this->hplane_right,
-            this->score,
-            this->range_low,
-            this->range_high,
-            this->remainder
-            );
-    }
-    #endif
     IsoHPlane() = default;
 } IsoHPlane;
 
@@ -198,22 +151,6 @@ typedef struct IsoForest {
     double            exp_avg_depth;
     double            exp_avg_sep;
     size_t            orig_sample_size;
-
-    #ifdef _ENABLE_CEREAL
-    template<class Archive>
-    void serialize(Archive &archive)
-    {
-        archive(
-            this->trees,
-            this->new_cat_action,
-            this->cat_split_type,
-            this->missing_action,
-            this->exp_avg_depth,
-            this->exp_avg_sep,
-            this->orig_sample_size
-            );
-    }
-    #endif
     IsoForest() = default;
 } IsoForest;
 
@@ -225,22 +162,6 @@ typedef struct ExtIsoForest {
     double            exp_avg_depth;
     double            exp_avg_sep;
     size_t            orig_sample_size;
-
-    #ifdef _ENABLE_CEREAL
-    template<class Archive>
-    void serialize(Archive &archive)
-    {
-        archive(
-            this->hplanes,
-            this->new_cat_action,
-            this->cat_split_type,
-            this->missing_action,
-            this->exp_avg_depth,
-            this->exp_avg_sep,
-            this->orig_sample_size
-            );
-    }
-    #endif
     ExtIsoForest() = default;
 } ExtIsoForest;
 
@@ -250,27 +171,7 @@ typedef struct ImputeNode {
     std::vector<std::vector<double>>  cat_sum;
     std::vector<double>  cat_weight;
     size_t               parent;
-
-    #ifdef _ENABLE_CEREAL
-    template<class Archive>
-    void serialize(Archive &archive)
-    {
-        archive(
-            this->num_sum,
-            this->num_weight,
-            this->cat_sum,
-            this->cat_weight,
-            this->parent
-            );
-    }
-    #endif
     ImputeNode() = default;
-
-    ImputeNode(size_t parent)
-    {
-        this->parent = parent;
-    }
-
 } ImputeNode; /* this is for each tree node */
 
 typedef struct Imputer {
@@ -280,24 +181,7 @@ typedef struct Imputer {
     std::vector<std::vector<ImputeNode>> imputer_tree;
     std::vector<double>  col_means;
     std::vector<int>     col_modes;
-
-    #ifdef _ENABLE_CEREAL
-    template<class Archive>
-    void serialize(Archive &archive)
-    {
-        archive(
-            this->ncols_numeric,
-            this->ncols_categ,
-            this->ncat,
-            this->imputer_tree,
-            this->col_means,
-            this->col_modes
-            );
-    }
-    #endif
-
     Imputer() = default;
-
 } Imputer;
 
 #endif /* ISOTREE_H */
@@ -1129,76 +1013,467 @@ void merge_models(IsoForest*     model,      IsoForest*     other,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                   Imputer*       imputer,    Imputer*       iother);
 
-
-/* Serialization and de-serialization functions using Cereal
+/* Create a model containing a sub-set of the trees from another model
 * 
 * Parameters
 * ==========
 * - model (in)
-*       A model object to serialize, after being fitted through function 'fit_iforest'.
+*       Pointer to isolation forest model wich has already been fit through 'fit_iforest',
+*       from which the desired trees will be copied into a new model object.
+*       Pass NULL if using the extended model.
+* - ext_model (in)
+*       Pointer to extended isolation forest model which has already been fit through 'fit_iforest',
+*       from which the desired trees will be copied into a new model object.
+*       Pass NULL if using the single-variable model.
 * - imputer (in)
-*       An imputer object to serialize, after being fitted through function 'fit_iforest'
-*       with 'build_imputer=true'.
-* - output_obj (out)
-*       An already-allocated object into which a serialized object of the same class will
-*       be de-serialized. The contents of this object will be overwritten. Should be initialized
-*       through the default constructor (e.g. 'new ExtIsoForest' or 'ExtIsoForest()').
-* - output (out)
-*       An output stream (any type will do) in which to save/persist/serialize the
-*       model or imputer object using the cereal library. In the functions that do not
-*       take this parameter, it will be returned as a string containing the raw bytes.
-*       Should be opened in binary mode.
-* - serialized (in)
-*       The input stream which contains the serialized/saved/persisted model or imputer object,
-*       which will be de-serialized into 'output'. Should be opened in binary mode.
-* - output_file_path
-*       File name into which to write the serialized model or imputer object as raw bytes.
-*       Note that, on Windows, passing non-ASCII characters will fail, and in such case,
-*       you might instead want to use instead the versions that take 'wchar_t', which are
-*       only available in the MSVC compiler (it uses 'std::ofstream' internally, which as
-*       of C++20, is not required by the standard to accept 'wchar_t' in its constructor).
-*       Be aware that it will only write raw bytes, thus metadata such as CPU endianness
-*       will be lost. If you need to transfer files berween e.g. an x86 computer and a SPARC
-*       server, you'll have to use other methods.
-*       This  functionality is intended for being easily wrapper into scripting languages
-*       without having to copy the contents to to some intermediate language.
-* - input_file_path
-*       File name from which to read a serialized model or imputer object as raw bytes.
-*       See the description for 'output_file_path' for more details.
-* - move_str
-*       Whether to move ('std::move') the contents of the string passed as input in order
-*       to speed things up and avoid making a redundant copy of the raw bytes. If passing
-*       'true', the input string will be rendered empty afterwards.
+*       Pointer to imputation object which has already been fit through 'fit_iforest' along with
+*       either 'model' or 'ext_model' in the same call to 'fit_iforest'.
+*       Pass NULL if the model was built without an imputer.
+* - model_new (out)
+*       Pointer to already-allocated isolation forest model, which will be reset and to
+*       which the selected trees from 'model' will be copied.
+*       Pass NULL if using the extended model.
+* - ext_model_new (out)
+*       Pointer to already-allocated extended isolation forest model, which will be reset and to
+*       which the selected hyperplanes from 'ext_model' will be copied.
+*       Pass NULL if using the single-variable model.
+* - imputer_new (out)
+*       Pointer to already-allocated imputation object, which will be reset and to
+*       which the selected nodes from 'imputer' (matching to those of either 'model'
+*       or 'ext_model') will be copied.
+*       Pass NULL if the model was built without an imputer.
 */
-#ifdef _ENABLE_CEREAL
-ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, std::ostream &output);
-ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, const char *output_file_path);
-ISOTREE_EXPORTED std::string serialize_isoforest(IsoForest &model);
-ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, std::istream &serialized);
-ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, const char *input_file_path);
-ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, std::string &serialized, bool move_str);
-ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, std::ostream &output);
-ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, const char *output_file_path);
-ISOTREE_EXPORTED std::string serialize_ext_isoforest(ExtIsoForest &model);
-ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::istream &serialized);
-ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, const char *input_file_path);
-ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::string &serialized, bool move_str);
-ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, std::ostream &output);
-ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, const char *output_file_path);
-ISOTREE_EXPORTED std::string serialize_imputer(Imputer &imputer);
-ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, std::istream &serialized);
-ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, const char *input_file_path);
-ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, std::string &serialized, bool move_str);
-#ifdef _MSC_VER
-ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, const wchar_t *output_file_path);
-ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, const wchar_t *input_file_path);
-ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, const wchar_t *output_file_path);
-ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, const wchar_t *input_file_path);
-ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, const wchar_t *output_file_path);
-ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, const wchar_t *input_file_path);
-#endif /* _MSC_VER */
-ISOTREE_EXPORTED bool has_msvc();
-#endif /* _ENABLE_CEREAL */
+ISOTREE_EXPORTED
+void subset_model(IsoForest*     model,      IsoForest*     model_new,
+                  ExtIsoForest*  ext_model,  ExtIsoForest*  ext_model_new,
+                  Imputer*       imputer,    Imputer*       imputer_new,
+                  size_t *trees_take, size_t ntrees_take);
+
+
+/* Functions to inspect serialized objects
+* 
+* Parameters
+* ==========
+* - serialized_bytes (in)
+*       A model from this library, serialized through the functions available since
+*       version 0.3.0, in any of the varieties offered by the library (as separate
+*       objects or as combined objects with metadata).
+* - is_isotree_model (out)
+*       Whether the input 'serialized_bytes' is a serialized model from this library.
+* - is_compatible (out)
+*       Whether the serialized model is compatible (i.e. can be de-serialized) with the
+*       current setup.
+*       Serialized models are compatible between:
+*        - Different operating systems.
+*        - Different compilers.
+*        - Systems with different 'size_t' width (e.g. 32-bit and 64-bit),
+*          as long as the file was produced on a system that was either 32-bit or 64-bit,
+*          and as long as each saved value fits within the range of the machine's 'size_t' type.
+*        - Systems with different 'int' width,
+*          as long as the file was produced on a system that was 16-bit, 32-bit, or 64-bit,
+*          and as long as each saved value fits within the range of the machine's int type.
+*        - Systems with different bit endianness (e.g. x86 and PPC64 in non-le mode).
+*        - Versions of this package from 0.3.0 onwards.
+*       But are not compatible between:
+*        - Systems with different floating point numeric representations
+*          (e.g. standard IEEE754 vs. a base-10 system).
+*        - Versions of this package earlier than 0.3.0.
+*       This pretty much guarantees that a given file can be serialized and de-serialized
+*       in the same machine in which it was built, regardless of how the library was compiled.
+*       Reading a serialized model that was produced in a platform with different
+*       characteristics (e.g. 32-bit vs. 64-bit) will be much slower however.
+* - has_combined_objects (out)
+*       Whether the serialized model is in the format of combined objects (as produced by the
+*       functions named 'serialized_combined') or in the format of separate objects (as produced
+*       by the functions named 'serialized_<model>').
+*       If if is in the format of combined objects, must be de-serialized through the functions
+*       named 'deserialize_combined'; ohterwise, must be de-serialized through the functions
+*       named 'deserialize_<model>'.
+*       Note that the Python and R interfaces of this library use the combined objects format
+*       when serializing to files.
+* - has_IsoForest (out)
+*       Whether the serialized bytes include an 'IsoForest' object. If it has 'has_combined_objects=true',
+*       might include additional objects.
+* - has_ExtIsoForest (out)
+*       Whether the serialized bytes include an 'ExtIsoForest' object. If it has 'has_combined_objects=true',
+*       might include additional objects.
+* - has_Imputer (out)
+*       Whether the serialized bytes include an 'Imputer' object. If it has 'has_combined_objects=true',
+*       might include additional objects.
+* - has_metadata (out)
+*       Whether the serialized bytes include additional metadata in the form of a 'char' array.
+*       This can only be present when having 'has_combined_objects=true'.
+* - size_metadata (out)
+*       When the serialized bytes contain metadata, this denotes the size of the metadata (number
+*       of bytes that it contains).
+*/
+ISOTREE_EXPORTED
+void inspect_serialized_object
+(
+    const char *serialized_bytes,
+    bool &is_isotree_model,
+    bool &is_compatible,
+    bool &has_combined_objects,
+    bool &has_IsoForest,
+    bool &has_ExtIsoForest,
+    bool &has_Imputer,
+    bool &has_metadata,
+    size_t &size_metadata
+);
+ISOTREE_EXPORTED
+void inspect_serialized_object
+(
+    FILE *serialized_bytes,
+    bool &is_isotree_model,
+    bool &is_compatible,
+    bool &has_combined_objects,
+    bool &has_IsoForest,
+    bool &has_ExtIsoForest,
+    bool &has_Imputer,
+    bool &has_metadata,
+    size_t &size_metadata
+);
+ISOTREE_EXPORTED
+void inspect_serialized_object
+(
+    std::istream &serialized_bytes,
+    bool &is_isotree_model,
+    bool &is_compatible,
+    bool &has_combined_objects,
+    bool &has_IsoForest,
+    bool &has_ExtIsoForest,
+    bool &has_Imputer,
+    bool &has_metadata,
+    size_t &size_metadata
+);
+ISOTREE_EXPORTED
+void inspect_serialized_object
+(
+    const std::string &serialized_bytes,
+    bool &is_isotree_model,
+    bool &is_compatible,
+    bool &has_combined_objects,
+    bool &has_IsoForest,
+    bool &has_ExtIsoForest,
+    bool &has_Imputer,
+    bool &has_metadata,
+    size_t &size_metadata
+);
+
+/* Serialization and de-serialization functions (individual objects)
+*
+* Parameters
+* ==========
+* - model (in or out depending on function)
+*       A model object to serialize (when it has 'const' qualifier), after being fitted through
+*       function 'fit_iforest'; or an already-allocated object (should be initialized through
+*       the default constructor) into which a serialized object of the same class will be
+*       de-serialized. In the latter case, the contents of this object will be overwritten.
+* - output (out)
+*       A writable object or stream in which to save/persist/serialize the
+*       model or imputer object. In the functions that do not take this as a parameter,
+*       it will be returned as a string containing the raw bytes.
+*       Should be opened in binary mode.
+*       Note: on Windows, if compiling this library with a compiler other than MSVC or MINGW,
+*       there might be issues writing models to FILE pointers if the models are larger than 2GB.
+* - in (in)
+*       An readable object or stream which contains the serialized/persisted model or
+*       imputer object which will be de-serialized. Should be opened in binary mode.
+* 
+* Returns
+* =======
+* (Only for functions 'determine_serialized_size')
+* Size that the model or imputer object will use when serialized, intended to be
+* used for allocating arrays beforehand when serializing to 'char'.
+*/
+ISOTREE_EXPORTED
+size_t determine_serialized_size(const IsoForest &model);
+ISOTREE_EXPORTED
+size_t determine_serialized_size(const ExtIsoForest &model);
+ISOTREE_EXPORTED
+size_t determine_serialized_size(const Imputer &model);
+ISOTREE_EXPORTED
+void serialize_IsoForest(const IsoForest &model, char *out);
+ISOTREE_EXPORTED
+void serialize_IsoForest(const IsoForest &model, FILE *out);
+ISOTREE_EXPORTED
+void serialize_IsoForest(const IsoForest &model, std::ostream &out);
+ISOTREE_EXPORTED
+std::string serialize_IsoForest(const IsoForest &model);
+ISOTREE_EXPORTED
+void deserialize_IsoForest(IsoForest &model, const char *in);
+ISOTREE_EXPORTED
+void deserialize_IsoForest(IsoForest &model, FILE *in);
+ISOTREE_EXPORTED
+void deserialize_IsoForest(IsoForest &model, std::istream &in);
+ISOTREE_EXPORTED
+void deserialize_IsoForest(IsoForest &model, const std::string &in);
+ISOTREE_EXPORTED
+void serialize_ExtIsoForest(const ExtIsoForest &model, char *out);
+ISOTREE_EXPORTED
+void serialize_ExtIsoForest(const ExtIsoForest &model, FILE *out);
+ISOTREE_EXPORTED
+void serialize_ExtIsoForest(const ExtIsoForest &model, std::ostream &out);
+ISOTREE_EXPORTED
+std::string serialize_ExtIsoForest(const ExtIsoForest &model);
+ISOTREE_EXPORTED
+void deserialize_ExtIsoForest(ExtIsoForest &model, const char *in);
+ISOTREE_EXPORTED
+void deserialize_ExtIsoForest(ExtIsoForest &model, FILE *in);
+ISOTREE_EXPORTED
+void deserialize_ExtIsoForest(ExtIsoForest &model, std::istream &in);
+ISOTREE_EXPORTED
+void deserialize_ExtIsoForest(ExtIsoForest &model, const std::string &in);
+ISOTREE_EXPORTED
+void serialize_Imputer(const Imputer &model, char *out);
+ISOTREE_EXPORTED
+void serialize_Imputer(const Imputer &model, FILE *out);
+ISOTREE_EXPORTED
+void serialize_Imputer(const Imputer &model, std::ostream &out);
+ISOTREE_EXPORTED
+std::string serialize_Imputer(const Imputer &model);
+ISOTREE_EXPORTED
+void deserialize_Imputer(Imputer &model, const char *in);
+ISOTREE_EXPORTED
+void deserialize_Imputer(Imputer &model, FILE *in);
+ISOTREE_EXPORTED
+void deserialize_Imputer(Imputer &model, std::istream &in);
+ISOTREE_EXPORTED
+void deserialize_Imputer(Imputer &model, const std::string &in);
+
+
+/* Serialization and de-serialization functions (combined objects)
+*
+* Parameters
+* ==========
+* - model (in or out depending on function)
+*       A single-variable model object to serialize or de-serialize.
+*       If the serialized object contains this type of object, it must be
+*       passed, as an already-allocated object (initialized through the default
+*       constructor function).
+*       When de-serializing, can check if it needs to be passed through function
+*       'inspect_serialized_object'.
+*       If using the extended model, should pass NULL.
+*       Must pass one of 'model' or 'model_ext'.
+* - model_ext (in or out depending on function)
+*       An extended model object to serialize or de-serialize.
+*       If using the single-variable model, should pass NULL.
+*       Must pass one of 'model' or 'model_ext'.
+* - imputer (in or out depending on function)
+*       An imputer object to serialize or de-serialize.
+*       Like 'model' and 'model_ext', must also be passed when de-serializing
+*       if the serialized bytes contain such object.
+* - optional_metadata (in or out depending on function)
+*       Optional metadata to write at the end of the file, which will be written
+*       unformatted (it is assumed files are in binary mode).
+*       Pass NULL if there is no metadata.
+* - size_optional_metadata (in or out depending on function)
+*       Size of the optional metadata, if passed. Pass zero if there is no metadata.
+* - serialized_model (in)
+*       A single-variable model which was serialized to raw bytes in the separate-objects
+*       format, using function 'serialize_IsoForest'.
+*       Pass NULL if using the extended model.
+*       Must pass one of 'serialized_model' or 'serialized_model_ext'.
+*       Note that if it was produced on a platform with different characteristics than
+*       the one in which this function is being called (e.g. different 'size_t' width or
+*       different endianness), it will be re-serialized during the function call, which
+*       can be slow and use a lot of memory.
+* - serialized_model_ext (in)
+*       An extended model which was serialized to raw bytes in the separate-objects
+*       format, using function 'serialize_ExtIsoForest'.
+*       Pass NULL if using the single-variable model.
+*       Must pass one of 'serialized_model' or 'serialized_model_ext'.
+* - serialized_imputer (in)
+*       An imputer object which was serialized to raw bytes in the separate-objects
+*       format, using function 'serialize_Imputer'.
+* - output (out)
+*       A writable object or stream in which to save/persist/serialize the
+*       model objects. In the functions that do not take this as a parameter,
+*       it will be returned as a string containing the raw bytes.
+*       Should be opened in binary mode.
+* - in (in)
+*       An readable object or stream which contains the serialized/persisted model
+*       objects which will be de-serialized. Should be opened in binary mode.
+* 
+* Returns
+* =======
+* (Only for functions 'determine_serialized_size')
+* Size that the objects will use when serialized, intended to be
+* used for allocating arrays beforehand when serializing to 'char'.
+*/
+ISOTREE_EXPORTED
+size_t determine_serialized_size_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const size_t size_optional_metadata
+);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_combined
+(
+    const char *serialized_model,
+    const char *serialized_model_ext,
+    const char *serialized_imputer,
+    const size_t size_optional_metadata
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    char *out
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    FILE *out
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    std::ostream &out
+);
+ISOTREE_EXPORTED
+std::string serialize_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const char *serialized_model,
+    const char *serialized_model_ext,
+    const char *serialized_imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    FILE *out
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const char *serialized_model,
+    const char *serialized_model_ext,
+    const char *serialized_imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    std::ostream &out
+);
+ISOTREE_EXPORTED
+std::string serialize_combined
+(
+    const char *serialized_model,
+    const char *serialized_model_ext,
+    const char *serialized_imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata
+);
+ISOTREE_EXPORTED
+void deserialize_combined
+(
+    const char* in,
+    IsoForest *model,
+    ExtIsoForest *model_ext,
+    Imputer *imputer,
+    char *optional_metadata
+);
+ISOTREE_EXPORTED
+void deserialize_combined
+(
+    FILE* in,
+    IsoForest *model,
+    ExtIsoForest *model_ext,
+    Imputer *imputer,
+    char *optional_metadata
+);
+ISOTREE_EXPORTED
+void deserialize_combined
+(
+    std::istream &in,
+    IsoForest *model,
+    ExtIsoForest *model_ext,
+    Imputer *imputer,
+    char *optional_metadata
+);
+ISOTREE_EXPORTED
+void deserialize_combined
+(
+    const std::string &in,
+    IsoForest *model,
+    ExtIsoForest *model_ext,
+    Imputer *imputer,
+    char *optional_metadata
+);
+
+
+/* Serialize additional trees into previous serialized bytes
+*
+* Parameters
+* ==========
+* - model (in)
+*       A model object to re-serialize, which had already been serialized into
+*       'serialized_bytes' with fewer trees than it currently has, and then
+*       additional trees added through functions such as 'add_tree' or 'merge_models'.
+* - serialized_bytes (in) / old_bytes (out)
+*       Serialized version of 'model', which had previously been produced with
+*       fewer trees than it currently has and then additional trees added through
+*       functions such as 'add_tree' or 'merge_models'.
+*       Must have been produced in a setup with the same characteristics (e.g. width
+*       of 'int' and 'size_t', endianness, etc.).
+* - old_ntrees
+*       Number of trees which were serialized from 'model' into 'serialized_bytes'
+*       before. Trees that come after this index are assumed to be the additional
+*       trees to serialize.
+* 
+* Returns
+* =======
+* - For functions 'check_can_undergo_incremental_serialization', whether the serialized
+*   object can be incrementally serialized.
+* - For functions 'determine_serialized_size_additional_trees', additional size (in addition
+*   to current size) that the new serialized objects will have if they undergo incremental
+*   serialization.
+*/
+ISOTREE_EXPORTED
+bool check_can_undergo_incremental_serialization(const IsoForest &model, const char *serialized_bytes);
+ISOTREE_EXPORTED
+bool check_can_undergo_incremental_serialization(const ExtIsoForest &model, const char *serialized_bytes);
+ISOTREE_EXPORTED
+bool check_can_undergo_incremental_serialization(const Imputer &model, const char *serialized_bytes);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_additional_trees(const IsoForest &model, size_t old_ntrees);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_additional_trees(const ExtIsoForest &model, size_t old_ntrees);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_additional_trees(const Imputer &model, size_t old_ntrees);
+ISOTREE_EXPORTED
+void incremental_serialize_IsoForest(const IsoForest &model, char *old_bytes_reallocated);
+ISOTREE_EXPORTED
+void incremental_serialize_ExtIsoForest(const ExtIsoForest &model, char *old_bytes_reallocated);
+ISOTREE_EXPORTED
+void incremental_serialize_Imputer(const Imputer &model, char *old_bytes_reallocated);
+ISOTREE_EXPORTED
+void incremental_serialize_IsoForest(const IsoForest &model, std::string &old_bytes);
+ISOTREE_EXPORTED
+void incremental_serialize_ExtIsoForest(const ExtIsoForest &model, std::string &old_bytes);
+ISOTREE_EXPORTED
+void incremental_serialize_Imputer(const Imputer &model, std::string &old_bytes);
 
 
 /* Translate isolation forest model into a single SQL select statement

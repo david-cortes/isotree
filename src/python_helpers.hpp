@@ -94,4 +94,13 @@ void dealloc_Imputer(Imputer &imputer)
     imputer.~Imputer();
 }
 
+bool get_has_openmp(void)
+{
+    #ifdef _OPENMP
+    return true;
+    #else
+    return false;
+    #endif
+}
+
 #endif

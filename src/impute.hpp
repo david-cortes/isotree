@@ -739,7 +739,7 @@ void combine_imp_single(ImputedData &imp_addfrom, ImputedData &imp_addto)
 template <class ImputedData, class WorkerMemory>
 void combine_tree_imputations(WorkerMemory &workspace,
                               std::vector<ImputedData> &impute_vec,
-                              std::unordered_map<size_t, ImputedData> &impute_map,
+                              hashed_map<size_t, ImputedData> &impute_map,
                               std::vector<char> &has_missing,
                               int nthreads)
 {
@@ -927,7 +927,7 @@ void apply_imputation_results(imp_arr    &impute_vec,
 
 template <class ImputedData, class InputData>
 void apply_imputation_results(std::vector<ImputedData> &impute_vec,
-                              std::unordered_map<size_t, ImputedData> &impute_map,
+                              hashed_map<size_t, ImputedData> &impute_map,
                               Imputer   &imputer,
                               InputData &input_data,
                               int nthreads)
@@ -1206,7 +1206,7 @@ void allocate_imp_vec(std::vector<ImputedData> &impute_vec, InputData &input_dat
 
 
 template <class ImputedData, class InputData>
-void allocate_imp_map(std::unordered_map<size_t, ImputedData> &impute_map, InputData &input_data)
+void allocate_imp_map(hashed_map<size_t, ImputedData> &impute_map, InputData &input_data)
 {
     for (size_t row = 0; row < input_data.nrows; row++)
         if (input_data.has_missing[row])
@@ -1216,7 +1216,7 @@ void allocate_imp_map(std::unordered_map<size_t, ImputedData> &impute_map, Input
 template <class ImputedData, class InputData>
 void allocate_imp(InputData &input_data,
                   std::vector<ImputedData> &impute_vec,
-                  std::unordered_map<size_t, ImputedData> &impute_map,
+                  hashed_map<size_t, ImputedData> &impute_map,
                   int nthreads)
 {
     if (input_data.n_missing == 0)
@@ -1230,7 +1230,7 @@ void allocate_imp(InputData &input_data,
 template <class ImputedData, class InputData>
 void check_for_missing(InputData &input_data,
                        std::vector<ImputedData> &impute_vec,
-                       std::unordered_map<size_t, ImputedData> &impute_map,
+                       hashed_map<size_t, ImputedData> &impute_map,
                        int nthreads)
 {
     input_data.has_missing.assign(input_data.nrows, false);

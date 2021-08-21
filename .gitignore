@@ -17,6 +17,8 @@ build/
 # compiled code
 *.so
 *.o
+*.out
+*.exe
 *.lib
 *.obj
 *.dynlib
@@ -34,3 +36,4 @@ build/
 .Rproj.user
 .Rbuildignore
 .Rhistory
+safe/*

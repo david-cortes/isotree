@@ -57,7 +57,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     size_t hplane_from = hplanes.size() - 1;
     std::unique_ptr<RecursionState> recursion_state;
     std::vector<bool> col_is_taken;
-    std::unordered_set<size_t> col_is_taken_s;
+    hashed_set<size_t> col_is_taken_s;
 
     /* calculate imputation statistics if desired */
     if (impute_nodes != NULL)
@@ -460,7 +460,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 
 template <class InputData, class WorkerMemory>
 void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params,
-                       std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s)
+                       std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s)
 {
     set_col_as_taken(col_is_taken, col_is_taken_s, input_data, workspace.col_chosen, workspace.col_type);
     workspace.col_take[workspace.ntaken]      = workspace.col_chosen;

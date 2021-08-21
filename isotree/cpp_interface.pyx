@@ -1,6 +1,4 @@
-#cython: auto_pickle=True
 #cython: language_level=3
-#cython: c_string_type=unicode, c_string_encoding=utf8
 
 #     Isolation forests and variations thereof, with adjustments for incorporation
 #     of categorical variables and missing values.
@@ -55,6 +53,7 @@ from libc.stdint cimport uint64_t
 from libcpp.vector cimport vector
 from libcpp.string cimport string as cpp_string
 from libc.string cimport memcpy
+from libc.stdio cimport FILE, fopen, fclose
 from cython cimport boundscheck, nonecheck, wraparound
 import ctypes
 import os
@@ -107,7 +106,7 @@ cdef extern from "model_joined.hpp":
         ColType       col_type
         size_t        col_num
         double        num_split
-        vector[char]  cat_split
+        vector[signed char]  cat_split
         int           chosen_cat
         size_t        tree_left
         size_t        tree_right
@@ -175,20 +174,11 @@ cdef extern from "model_joined.hpp":
                       ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                       Imputer*       imputer,    Imputer*       iother) nogil except +
 
-    void serialize_isoforest(IsoForest &model, void *output_file_path) nogil except +
-    cpp_string serialize_isoforest(IsoForest &model) nogil except +
-    void deserialize_isoforest(IsoForest &output, void *input_file_path) nogil except +
-    void deserialize_isoforest(IsoForest &output, cpp_string &serialized, bool_t move_str) nogil except +
-    void serialize_ext_isoforest(ExtIsoForest &model, void *output_file_path) nogil except +
-    cpp_string serialize_ext_isoforest(ExtIsoForest &model) nogil except +
-    void deserialize_ext_isoforest(ExtIsoForest &output, void *input_file_path) nogil except +
-    void deserialize_ext_isoforest(ExtIsoForest &output, cpp_string &serialized, bool_t move_str) nogil except +
-    void serialize_imputer(Imputer &imputer, void *output_file_path) nogil except +
-    cpp_string serialize_imputer(Imputer &imputer) nogil except +
-    void deserialize_imputer(Imputer &output, void *input_file_path) nogil except +
-    void deserialize_imputer(Imputer &output, cpp_string &serialized, bool_t move_str) nogil except +
-    bool_t py_should_use_char()
-    bool_t has_cereal()
+    void subset_model(IsoForest*     model,      IsoForest*     model_new,
+                      ExtIsoForest*  ext_model,  ExtIsoForest*  ext_model_new,
+                      Imputer*       imputer,    Imputer*       imputer_new,
+                      size_t *trees_take, size_t ntrees_take) nogil except +
+
     vector[cpp_string] generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                     vector[cpp_string] &numeric_colnames, vector[cpp_string] &categ_colnames,
                                     vector[vector[cpp_string]] &categ_levels,
@@ -199,6 +189,66 @@ cdef extern from "model_joined.hpp":
                                              vector[cpp_string] &numeric_colnames, vector[cpp_string] &categ_colnames,
                                              vector[vector[cpp_string]] &categ_levels,
                                              bool_t index1, int nthreads) nogil except +
+
+    bool_t has_wchar_t_file_serializers()
+
+    void inspect_serialized_object(
+        const char *serialized_bytes,
+        bool_t &is_isotree_model,
+        bool_t &is_compatible,
+        bool_t &has_combined_objects,
+        bool_t &has_IsoForest,
+        bool_t &has_ExtIsoForest,
+        bool_t &has_Imputer,
+        bool_t &has_metadata,
+        size_t &size_metadata) nogil except +
+
+    void inspect_serialized_object(
+        FILE *serialized_bytes,
+        bool_t &is_isotree_model,
+        bool_t &is_compatible,
+        bool_t &has_combined_objects,
+        bool_t &has_IsoForest,
+        bool_t &has_ExtIsoForest,
+        bool_t &has_Imputer,
+        bool_t &has_metadata,
+        size_t &size_metadata) nogil except +
+
+    size_t determine_serialized_size_combined(
+        const IsoForest *model,
+        const ExtIsoForest *model_ext,
+        const Imputer *imputer,
+        const size_t size_optional_metadata) nogil except +
+
+    void serialize_combined(
+        const IsoForest *model,
+        const ExtIsoForest *model_ext,
+        const Imputer *imputer,
+        const char *optional_metadata,
+        const size_t size_optional_metadata,
+        char *out) nogil except +
+
+    void serialize_combined(
+        const IsoForest *model,
+        const ExtIsoForest *model_ext,
+        const Imputer *imputer,
+        const char *optional_metadata,
+        const size_t size_optional_metadata,
+        FILE *out) nogil except +
+
+    void deserialize_combined(
+        const char *inp,
+        IsoForest *model,
+        ExtIsoForest *model_ext,
+        Imputer *imputer,
+        char *optional_metadata) nogil except +
+
+    void deserialize_combined(
+        FILE* inp,
+        IsoForest *model,
+        ExtIsoForest *model_ext,
+        Imputer *imputer,
+        char *optional_metadata) nogil except +
 
     int return_EXIT_SUCCESS()
     int return_EXIT_FAILURE()
@@ -282,6 +332,8 @@ cdef extern from "python_helpers.hpp":
     void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext) except +
     void dealloc_Imputer(Imputer &imputer) except +
 
+    bool_t get_has_openmp() except +
+
 cdef extern from "other_helpers.hpp":
     void sort_csc_indices[real_t_, sparse_ix_](real_t_ *Xc, sparse_ix_ *Xc_ind, sparse_ix_ *Xc_indptr, size_t ncols_numeric) nogil except +
 
@@ -299,6 +351,32 @@ cdef extern from "other_helpers.hpp":
         size_t nrows, size_t ncols, size_t ncols_numeric, size_t ncols_categ
     ) nogil except +
 
+IF UNAME_SYSNAME != "Windows":
+    cdef FILE* cy_fopen(str fname, bool_t read):
+        cdef bytes fname_py = fname.encode()
+        cdef char* fname_c = fname_py
+        cdef char* mode
+        if (read):
+            mode = b"rb"
+        else:
+            mode = b"wb"
+        cdef FILE *out = fopen(fname_c, mode)
+        return out
+ELSE:
+    from libc.stddef cimport wchar_t
+    cdef extern from "stdio.h":
+        FILE *_wfopen(const wchar_t *filename, const wchar_t *mode)
+    cdef FILE* cy_fopen(str fname, bool_t read):
+        cdef Py_UNICODE *fname_c = fname
+        cdef str mode
+        if (read):
+            mode = "rb"
+        else:
+            mode = "wb"
+
+        cdef Py_UNICODE *mode_ptr = mode
+        cdef FILE *out = _wfopen(<wchar_t*>fname_c, <wchar_t*>mode_ptr)    
+        return out
 
 ctypedef fused sparse_ix:
     int
@@ -333,6 +411,8 @@ cdef int* get_ptr_int_mat(np.ndarray[int, ndim = 2] a):
 cdef float* get_ptr_float_mat(np.ndarray[float, ndim = 2] a):
     return &a[0, 0]
 
+def _get_has_openmp():
+    return get_has_openmp()
 
 def _sort_csc_indices(Xcsc):
     cdef size_t ncols_numeric = Xcsc.shape[1] if isspmatrix_csc(Xcsc) else Xcsc.shape[0]
@@ -418,19 +498,53 @@ def _reconstruct_csr_with_categ(
     )
 
 
-# @cython.auto_pickle(True)
 cdef class isoforest_cpp_obj:
     cdef IsoForest     isoforest
     cdef ExtIsoForest  ext_isoforest
     cdef Imputer       imputer
 
-    def __init__(self):
-        pass
-
     def __dealloc__(self):
         dealloc_IsoForest(self.isoforest)
         dealloc_IsoExtForest(self.ext_isoforest)
         dealloc_Imputer(self.imputer)
+
+    def __getstate__(self):
+        cdef IsoForest *ptr_IsoForest = NULL
+        cdef ExtIsoForest *ptr_ExtIsoForest = NULL
+        cdef Imputer *ptr_Imputer = NULL
+
+        if self.isoforest.trees.size():
+            ptr_IsoForest = &self.isoforest
+        else:
+            ptr_ExtIsoForest = &self.ext_isoforest
+        if self.imputer.imputer_tree.size():
+            ptr_Imputer = &self.imputer
+
+        cdef size_t size_ser = determine_serialized_size_combined(
+            ptr_IsoForest,
+            ptr_ExtIsoForest,
+            ptr_Imputer,
+            <size_t>0
+        )
+        cdef bytes serialized = bytes(size_ser)
+        serialize_combined(
+            ptr_IsoForest,
+            ptr_ExtIsoForest,
+            ptr_Imputer,
+            <const char*>NULL,
+            <size_t>0,
+            serialized
+        )
+        return serialized
+
+    def __setstate__(self, bytes state):
+        deserialize_combined(
+            state,
+            &self.isoforest,
+            &self.ext_isoforest,
+            &self.imputer,
+            <char*>NULL
+        )
 
     def deepcopy(self):
         other = isoforest_cpp_obj()
@@ -438,6 +552,10 @@ cdef class isoforest_cpp_obj:
         other.ext_isoforest = deepcopy_obj(self.ext_isoforest)
         other.imputer = deepcopy_obj(self.imputer)
         return other
+
+    def drop_imputer(self):
+        dealloc_Imputer(self.imputer)
+        self.imputer = get_Imputer()
 
     def get_cpp_obj(self, is_extended):
         if is_extended:
@@ -1057,118 +1175,84 @@ cdef class isoforest_cpp_obj:
                          ptr_ext_model, ptr_ext_other,
                          ptr_imp, prt_iother)
 
-    def serialize_obj(self, str fpath, bool_t use_cpp=False, bool_t is_extended=False, bool_t has_imputer=False):
-        fpath_imputer = fpath + ".imputer"
-        cdef char *fpath_as_char = NULL
-        cdef char *fpath_imp_as_char = NULL
-        cdef Py_UNICODE *fpath_as_wchar = NULL
-        cdef Py_UNICODE *fpath_imp_as_wchar = NULL
-        cdef bytes obj_as_bytes
-
-        if not has_cereal():
-          raise ValueError("Error: library was built without serialization capabilities.")
-
-        if use_cpp:
-            if py_should_use_char():
-                py_byte_string = fpath.encode()
-                fpath_as_char = py_byte_string
-                with nogil, boundscheck(False), nonecheck(False), wraparound(False):
-                    if is_extended:
-                        serialize_ext_isoforest(self.ext_isoforest, <void*>fpath_as_char)
-                    else:
-                        serialize_isoforest(self.isoforest, <void*>fpath_as_char)
-                if has_imputer:
-                    imp_bytes = fpath_imputer.encode()
-                    fpath_imp_as_char = imp_bytes
-                    with nogil, boundscheck(False), nonecheck(False), wraparound(False):
-                        serialize_imputer(self.imputer, <void*>fpath_imp_as_char)
-            else:
-                fpath_as_wchar = fpath
-                with nogil, boundscheck(False), nonecheck(False), wraparound(False):
-                    if is_extended:
-                        serialize_ext_isoforest(self.ext_isoforest, <void*>fpath_as_wchar)
-                    else:
-                        serialize_isoforest(self.isoforest, <void*>fpath_as_wchar)
-                if has_imputer:
-                    fpath_imp_as_wchar = fpath_imputer
-                    with nogil, boundscheck(False), nonecheck(False), wraparound(False):
-                        serialize_imputer(self.imputer, <void*>fpath_imp_as_wchar)
+    def serialize_obj(self, str fpath, bytes metadata, bool_t is_extended=False, bool_t has_imputer=False):
+        cdef FILE* file_ptr = cy_fopen(fpath, read=False)
+        
+        cdef IsoForest *ptr_model = NULL
+        cdef ExtIsoForest *ptr_ext_model = NULL
+        cdef Imputer *ptr_imputer = NULL
+        if not is_extended:
+            ptr_model = &self.isoforest
         else:
-            if is_extended:
-                obj_as_bytes = serialize_ext_isoforest(self.ext_isoforest)
-            else:
-                obj_as_bytes = serialize_isoforest(self.isoforest)
-            with open(fpath, "wb") as of:
-                of.write(obj_as_bytes)
-            if has_imputer:
-                obj_as_bytes = b""
-                obj_as_bytes = serialize_imputer(self.imputer)
-                with open(fpath_imputer, "wb") as of:
-                    of.write(obj_as_bytes)
+            ptr_ext_model = &self.ext_isoforest
+        if has_imputer:
+            ptr_imputer = &self.imputer
+        try:
+            serialize_combined(
+                ptr_model,
+                ptr_ext_model,
+                ptr_imputer,
+                metadata,
+                len(metadata),
+                file_ptr
+            )
+        finally:
+            fclose(file_ptr)
 
-    def deserialize_obj(self, fpath, bool_t is_extended=False, bool_t use_cpp=False):
-        fpath_imputer = fpath + ".imputer"
-        has_imputer = os.path.isfile(fpath_imputer)
-        cdef char *fpath_as_char = NULL
-        cdef char *fpath_imp_as_char = NULL
-        cdef Py_UNICODE *fpath_as_wchar = NULL
-        cdef Py_UNICODE *fpath_imp_as_wchar = NULL
-        cdef cpp_string obj_as_string
-        cdef char *ptr_to_bytes = NULL
-        cdef size_t n_bytes = 0
-        cdef bytes model_bytes = b""
+    def deserialize_obj(self, str fpath):
+        cdef bool_t is_isotree_model = 0
+        cdef bool_t is_compatible = 0
+        cdef bool_t has_combined_objects = 0
+        cdef bool_t has_IsoForest = 0
+        cdef bool_t has_ExtIsoForest = 0
+        cdef bool_t has_Imputer = 0
+        cdef bool_t has_metadata = 0
+        cdef size_t size_metadata = 0
 
-        if not has_cereal():
-          raise ValueError("Error: library was built without serialization capabilities.")
+        cdef bytes metadata
+        cdef char *ptr_metadata
 
-        if use_cpp:
-            if py_should_use_char():
-                py_byte_string = fpath.encode()
-                fpath_as_char = py_byte_string
-                with nogil, boundscheck(False), nonecheck(False), wraparound(False):
-                    if is_extended:
-                        deserialize_ext_isoforest(self.ext_isoforest, <void*>fpath_as_char)
-                    else:
-                        deserialize_isoforest(self.isoforest, <void*>fpath_as_char)
-                if has_imputer:
-                    imp_bytes = fpath_imputer.encode()
-                    fpath_imp_as_char = imp_bytes
-                    with nogil, boundscheck(False), nonecheck(False), wraparound(False):
-                        deserialize_imputer(self.imputer, <void*>fpath_imp_as_char)
-            else:
-                fpath_as_wchar = fpath
-                with nogil, boundscheck(False), nonecheck(False), wraparound(False):
-                    if is_extended:
-                        deserialize_ext_isoforest(self.ext_isoforest, <void*>fpath_as_wchar)
-                    else:
-                        deserialize_isoforest(self.isoforest, <void*>fpath_as_wchar)
-                if has_imputer:
-                    fpath_imp_as_wchar = fpath_imputer
-                    with nogil, boundscheck(False), nonecheck(False), wraparound(False):
-                        deserialize_imputer(self.imputer, <void*>fpath_imp_as_wchar)
-        else:
-            with open(fpath, "rb") as ff:
-                model_bytes = ff.read()
+        cdef IsoForest *ptr_model = &self.isoforest
+        cdef ExtIsoForest *ptr_ext_model = &self.ext_isoforest
+        cdef Imputer *ptr_imputer = &self.imputer
 
-            n_bytes = len(model_bytes)
-            ptr_to_bytes = model_bytes
-            obj_as_string = cpp_string(ptr_to_bytes, n_bytes)
-            model_bytes = b""
-            with nogil, boundscheck(False), nonecheck(False), wraparound(False):
-                if is_extended:
-                    deserialize_ext_isoforest(self.ext_isoforest, obj_as_string, 1)
-                else:
-                    deserialize_isoforest(self.isoforest, obj_as_string, 1)
-            if has_imputer:
-                obj_as_string.clear()
-                with open(fpath_imputer, "rb"):
-                    model_bytes = ff.read()
-                n_bytes = len(model_bytes)
-                ptr_to_bytes = model_bytes
-                obj_as_string = cpp_string(ptr_to_bytes, n_bytes)
-                model_bytes = b""
-                with nogil, boundscheck(False), nonecheck(False), wraparound(False):
-                    deserialize_imputer(self.imputer, obj_as_string, 1)
+        cdef FILE* file_ptr = cy_fopen(fpath, read=True)
+
+        try:
+            inspect_serialized_object(
+                file_ptr,
+                is_isotree_model,
+                is_compatible,
+                has_combined_objects,
+                has_IsoForest,
+                has_ExtIsoForest,
+                has_Imputer,
+                has_metadata,
+                size_metadata
+            )
+
+            if (not is_isotree_model or not has_combined_objects):
+                raise ValueError("Input file is not a serialized isotree model.");
+            if (not is_compatible):
+                raise ValueError("Model file format is incompatible.");
+            if (not size_metadata):
+                raise ValueError("Input file does not contain metadata.");
+
+            metadata = bytes(size_metadata)
+            ptr_metadata = metadata
+
+            deserialize_combined(
+                file_ptr,
+                ptr_model,
+                ptr_ext_model,
+                ptr_imputer,
+                ptr_metadata
+            )
+
+            return metadata.decode('utf-8').encode()
+        
+        finally:
+            fclose(file_ptr)
 
     def generate_sql(self, is_extended,
                      vector[cpp_string] numeric_colnames,
@@ -1191,3 +1275,19 @@ cdef class isoforest_cpp_obj:
                                output_tree_num, 0, single_tree, tree_num, nthreads)
         return res
 
+    def subset_model(self, np.ndarray[size_t, ndim=1] trees_take, bool_t is_extended, bool_t has_imputer):
+        cdef isoforest_cpp_obj new_obj = isoforest_cpp_obj()
+        cdef IsoForest* model = NULL
+        cdef ExtIsoForest* ext_model = NULL
+        cdef Imputer* imputer = NULL
+        if not is_extended:
+            model = &self.isoforest
+        else:
+            ext_model = &self.ext_isoforest
+        if has_imputer:
+            imputer = &self.imputer
+        subset_model(model,      &new_obj.isoforest,
+                     ext_model,  &new_obj.ext_isoforest,
+                     imputer,    &new_obj.imputer,
+                     &trees_take[0], trees_take.shape[0])
+        return new_obj

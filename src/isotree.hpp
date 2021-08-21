@@ -46,25 +46,44 @@
 #ifndef ISOTREE_H
 #define ISOTREE_H
 
+#define ISOTREE_VERSION_MAJOR 0
+#define ISOTREE_VERSION_MINOR 3
+#define ISOTREE_VERSION_PATCH 0
+
+/* For MinGW, needs to be defined before including any headers */
+#if (defined(_WIN32) || defined(_WIN64)) && (SIZE_MAX >= UINT64_MAX)
+#   if defined(__GNUG__) || defined(__GNUC__)
+#       ifndef _FILE_OFFSET_BITS
+#           define _FILE_OFFSET_BITS 64
+#       endif
+#   endif
+#endif
+#ifdef _MSC_VER
+#   define _CRT_SECURE_NO_WARNINGS
+#endif
+
+
 /* Standard headers */
 #include <cstddef>
 #include <cmath>
 #include <climits>
 #include <cstring>
+#include <cerrno>
 #include <vector>
 #include <iterator>
 #include <numeric>
 #include <algorithm>
 #include <random>
-#include <unordered_set>
-#include <unordered_map>
 #include <memory>
 #include <utility>
 #include <cstdint>
+#include <cinttypes>
 #include <exception>
 #include <stdexcept>
 #include <cassert>
+#include <cfloat>
 #include <iostream>
+#include <string>
 #ifndef _FOR_R
     #include <cstdio>
     using std::printf;
@@ -78,13 +97,6 @@
 #endif
 #ifdef _OPENMP
     #include <omp.h>
-#endif
-#ifdef _ENABLE_CEREAL
-    #include <cereal/archives/binary.hpp>
-    #include <cereal/types/vector.hpp>
-    #include <sstream>
-    #include <string>
-    #include <fstream>
 #endif
 #ifdef _FOR_R
     #include <Rcpp.h>
@@ -100,36 +112,71 @@ using std::memcpy;
 
 #define unexpected_error() throw std::runtime_error("Unexpected error. Please open an issue in GitHub.\n")
 
-/* By default, will use Mersenne-Twister for RNG, but can be switched to something faster */
-#ifdef _USE_MERSENNE_TWISTER
+/* By default, will use Xoshiro256++ or Xoshiro128++ for RNG, but can be switched to something faster */
+#ifdef _USE_XOSHIRO
+    #include "xoshiro.hpp"
     #if SIZE_MAX >= UINT64_MAX /* 64-bit systems or higher */
-        #define RNG_engine std::mt19937_64
+        #define RNG_engine Xoshiro::Xoshiro256PP
     #else /* 32-bit systems and non-standard architectures */
-        #define RNG_engine std::mt19937
+        #define RNG_engine Xoshiro::Xoshiro128PP
+    #endif
+    #if defined(DBL_MANT_DIG) && (DBL_MANT_DIG == 53) && (FLT_RADIX == 2)
+        using Xoshiro::UniformUnitInterval;
+        using Xoshiro::UniformMinusOneToOne;
+        using Xoshiro::StandardNormalDistr;
+    #else
+        #define UniformUnitInterval std::uniform_real_distribution<double>
+        #define UniformMinusOneToOne std::uniform_real_distribution<double>
+        #define StandardNormalDistr std::normal_distribution<double>
     #endif
 #else
-    #define RNG_engine std::default_random_engine
+    #if defined(_USE_MERSENNE_TWISTER)
+        #if SIZE_MAX >= UINT64_MAX /* 64-bit systems or higher */
+            #define RNG_engine std::mt19937_64
+        #else /* 32-bit systems and non-standard architectures */
+            #define RNG_engine std::mt19937
+        #endif
+    #else
+        #define RNG_engine std::default_random_engine
+    #endif
+
+    #define UniformUnitInterval std::uniform_real_distribution<double>
+    #define UniformMinusOneToOne std::uniform_real_distribution<double>
+    #define StandardNormalDistr std::normal_distribution<double>
 #endif
 
-/* Some operations here are done with bit-shifting and might not work
-   correctly on non-standard platforms */
-/* TODO: use the built-in enum from C++20 once compilers implement it  */
-#if defined(__LITTLE_ENDIAN) && defined(__BYTE_ORDER)
-    #define IS_LITTLE_ENDIAN (__BYTE_ORDER == __LITTLE_ENDIAN)
+/* At the time of writing, this brought a sizeable speed up compared to
+   'unordered_map' and 'unordered_set' from both GCC and CLANG.
+   But perhaps should consider others in the future, such as this:
+   https://github.com/ktprime/emhash  */
+#if defined(_USE_ROBIN_MAP)
+    #ifndef _USE_SYSTEM_ROBIN
+        #include "robinmap/include/tsl/robin_growth_policy.h"
+        #include "robinmap/include/tsl/robin_hash.h"
+        #include "robinmap/include/tsl/robin_set.h"
+        #include "robinmap/include/tsl/robin_map.h"
+    #else
+        #include "tsl/robin_growth_policy.h"
+        #include "tsl/robin_hash.h"
+        #include "tsl/robin_set.h"
+        #include "tsl/robin_map.h"
+    #endif
+    #define hashed_set tsl::robin_set
+    #define hashed_map tsl::robin_map
 #else
-    constexpr static const int ONE = 1;
-    #define IS_LITTLE_ENDIAN ((*((unsigned char*)&ONE)) > 0)
+    #include <unordered_set>
+    #include <unordered_map>
+    #define hashed_set std::unordered_set
+    #define hashed_map std::unordered_map
 #endif
 
 /* Short functions */
-#define ix_parent(ix) (((ix) - 1) / 2)  /* integer division takes care of deciding left-right */
-#define ix_child(ix)  (2 * (ix) + 1)
 /* https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int */
-#if defined(__LITTLE_ENDIAN) && defined(__BYTE_ORDER) && (__BYTE_ORDER == __LITTLE_ENDIAN)
-    #define pow2(n) ( ((size_t) 1) << (n) )
-#else
-    #define pow2(n) ((size_t)powl((long double)2, (long double)n))
-#endif
+#define pow2(n) ( ((size_t) 1) << (n) )
+#define div2(n) ((n) >> 1)
+#define mult2(n) ((n) << 1)
+#define ix_parent(ix) (div2((ix) - (size_t)1))  /* integer division takes care of deciding left-right */
+#define ix_child(ix)  (mult2(ix) + (size_t)1)
 #define square(x) ((x) * (x))
 #ifndef _FOR_R
     #if defined(__GNUC__) && (__GNUC__ >= 5)
@@ -175,7 +222,7 @@ using std::isnan;
 #if defined(_FOR_R) || defined(_FOR_PYTHON) || !defined(_WIN32)
     #define ISOTREE_EXPORTED 
 #else
-    #ifdef ISOTREE_COMPILE_TME
+    #ifdef ISOTREE_COMPILE_TIME
         #define ISOTREE_EXPORTED __declspec(dllexport)
     #else
         #define ISOTREE_EXPORTED __declspec(dllimport)
@@ -188,21 +235,21 @@ using std::isnan;
 *    causing installation issues with pretty much all scientific software due to OMP headers that
 *    would normally do nothing. This piece of code is to allow compilation without OMP header. */
 #ifndef _OPENMP
-    #define omp_get_thread_num() 0
+    #define omp_get_thread_num() (0)
 #endif
 
 /* Some aggregation functions will prefer more precise data types when the data is large */
 #define THRESHOLD_LONG_DOUBLE (size_t)1e6
 
 /* Types used through the package */
-typedef enum  NewCategAction {Weighted, Smallest, Random}      NewCategAction; /* Weighted means Impute in the extended model */
-typedef enum  MissingAction  {Divide,   Impute,   Fail}        MissingAction;  /* Divide is only for non-extended model */
-typedef enum  ColType        {Numeric,  Categorical, NotUsed}  ColType;
-typedef enum  CategSplit     {SubSet,   SingleCateg}           CategSplit;
-typedef enum  GainCriterion  {Averaged, Pooled,   NoCrit}      Criterion;      /* For guided splits */
-typedef enum  CoefType       {Uniform,  Normal}                CoefType;       /* For extended model */
-typedef enum  UseDepthImp    {Lower,    Higher,   Same}        UseDepthImp;    /* For NA imputation */
-typedef enum  WeighImpRows   {Inverse,  Prop,     Flat}        WeighImpRows;   /* For NA imputation */
+typedef enum  NewCategAction {Weighted=0, Smallest=11, Random=12}      NewCategAction; /* Weighted means Impute in the extended model */
+typedef enum  MissingAction  {Divide=21,   Impute=22,   Fail=0}        MissingAction;  /* Divide is only for non-extended model */
+typedef enum  ColType        {Numeric=31,  Categorical=32, NotUsed=0}  ColType;
+typedef enum  CategSplit     {SubSet=0,   SingleCateg=41}              CategSplit;
+typedef enum  GainCriterion  {Averaged=51, Pooled=52,   NoCrit=0}      Criterion;      /* For guided splits */
+typedef enum  CoefType       {Uniform=61,  Normal=0}                   CoefType;       /* For extended model */
+typedef enum  UseDepthImp    {Lower=71,    Higher=0,   Same=72}        UseDepthImp;    /* For NA imputation */
+typedef enum  WeighImpRows   {Inverse=0,  Prop=81,     Flat=82}        WeighImpRows;   /* For NA imputation */
 
 /* Notes about new categorical action:
 *  - For single-variable case, if using 'Smallest', can then pass data at prediction time
@@ -217,10 +264,10 @@ typedef enum  WeighImpRows   {Inverse,  Prop,     Flat}        WeighImpRows;   /
 
 /* Structs that are output (modified) from the main function */
 typedef struct IsoTree {
-    ColType  col_type = NotUsed; /* issues with uninitialized values passed to Cereal */
+    ColType  col_type = NotUsed; /* issues with uninitialized values when serializing */
     size_t   col_num;
     double   num_split;
-    std::vector<char> cat_split;
+    std::vector<signed char> cat_split;
     int      chosen_cat;
     size_t   tree_left;
     size_t   tree_right;
@@ -230,29 +277,7 @@ typedef struct IsoTree {
     double   range_high =  HUGE_VAL;
     double   remainder; /* only used for distance/similarity */
 
-    #ifdef _ENABLE_CEREAL
-    template<class Archive>
-    void serialize(Archive &archive)
-    {
-        archive(
-            this->col_type,
-            this->col_num,
-            this->num_split,
-            this->cat_split,
-            this->chosen_cat,
-            this->tree_left,
-            this->tree_right,
-            this->pct_tree_left,
-            this->score,
-            this->range_low,
-            this->range_high,
-            this->remainder
-            );
-    }
-    #endif
-
     IsoTree() = default;
-
 } IsoTree;
 
 typedef struct IsoHPlane {
@@ -273,30 +298,6 @@ typedef struct IsoHPlane {
     double   range_high =  HUGE_VAL;
     double   remainder; /* only used for distance/similarity */
 
-    #ifdef _ENABLE_CEREAL
-    template<class Archive>
-    void serialize(Archive &archive)
-    {
-        archive(
-            this->col_num,
-            this->col_type,
-            this->coef,
-            this->mean,
-            this->cat_coef,
-            this->chosen_cat,
-            this->fill_val,
-            this->fill_new,
-            this->split_point,
-            this->hplane_left,
-            this->hplane_right,
-            this->score,
-            this->range_low,
-            this->range_high,
-            this->remainder
-            );
-    }
-    #endif
-
     IsoHPlane() = default;
 } IsoHPlane;
 
@@ -312,22 +313,6 @@ typedef struct IsoForest {
     double            exp_avg_sep;
     size_t            orig_sample_size;
 
-    #ifdef _ENABLE_CEREAL
-    template<class Archive>
-    void serialize(Archive &archive)
-    {
-        archive(
-            this->trees,
-            this->new_cat_action,
-            this->cat_split_type,
-            this->missing_action,
-            this->exp_avg_depth,
-            this->exp_avg_sep,
-            this->orig_sample_size
-            );
-    }
-    #endif
-
     IsoForest() = default;
 } IsoForest;
 
@@ -340,22 +325,6 @@ typedef struct ExtIsoForest {
     double            exp_avg_sep;
     size_t            orig_sample_size;
 
-    #ifdef _ENABLE_CEREAL
-    template<class Archive>
-    void serialize(Archive &archive)
-    {
-        archive(
-            this->hplanes,
-            this->new_cat_action,
-            this->cat_split_type,
-            this->missing_action,
-            this->exp_avg_depth,
-            this->exp_avg_sep,
-            this->orig_sample_size
-            );
-    }
-    #endif
-
     ExtIsoForest() = default;
 } ExtIsoForest;
 
@@ -366,19 +335,6 @@ typedef struct ImputeNode {
     std::vector<double>  cat_weight;
     size_t               parent;
 
-    #ifdef _ENABLE_CEREAL
-    template<class Archive>
-    void serialize(Archive &archive)
-    {
-        archive(
-            this->num_sum,
-            this->num_weight,
-            this->cat_sum,
-            this->cat_weight,
-            this->parent
-            );
-    }
-    #endif
     ImputeNode() = default;
 
     ImputeNode(size_t parent)
@@ -395,24 +351,8 @@ typedef struct Imputer {
     std::vector<std::vector<ImputeNode>> imputer_tree;
     std::vector<double>  col_means;
     std::vector<int>     col_modes;
-
-    #ifdef _ENABLE_CEREAL
-    template<class Archive>
-    void serialize(Archive &archive)
-    {
-        archive(
-            this->ncols_numeric,
-            this->ncols_categ,
-            this->ncat,
-            this->imputer_tree,
-            this->col_means,
-            this->col_modes
-            );
-    }
-    #endif
-
+    
     Imputer() = default;
-
 } Imputer;
 
 
@@ -558,13 +498,13 @@ struct WorkerMemory {
     std::vector<size_t>  ix_arr;
     std::vector<size_t>  ix_all;
     RNG_engine           rnd_generator;
-    std::uniform_real_distribution<double> rbin;
+    UniformUnitInterval  rbin;
     size_t               st;
     size_t               end;
     size_t               st_NA;
     size_t               end_NA;
     size_t               split_ix;
-    std::unordered_map<size_t, double> weights_map;
+    hashed_map<size_t, double> weights_map;
     std::vector<double>  weights_arr;     /* when not ignoring NAs and when using weights as density */
     bool                 changed_weights; /* when using 'missing_action'='Divide' or density weights */
     double               xmin;
@@ -572,7 +512,7 @@ struct WorkerMemory {
     size_t               npresent;        /* 'npresent' and 'ncols_tried' are used interchangeable and for unrelated things */
     bool                 unsplittable;
     std::vector<bool>    is_repeated;
-    std::vector<char>    categs;
+    std::vector<signed char> categs;
     size_t               ncols_tried;     /* 'npresent' and 'ncols_tried' are used interchangeable and for unrelated things */
     int                  ncat_tried;
     std::vector<double>  btree_weights;   /* only when using weights for sampling */
@@ -581,13 +521,13 @@ struct WorkerMemory {
     /* for split criterion */
     std::vector<double>  buffer_dbl;
     std::vector<size_t>  buffer_szt;
-    std::vector<char>    buffer_chr;
+    std::vector<signed char> buffer_chr;
     double               prob_split_type;
     GainCriterion        criterion;
     double               this_gain;
     double               this_split_point;
     int                  this_categ;
-    std::vector<char>    this_split_categ;
+    std::vector<signed char> this_split_categ;
     bool                 determine_split;
 
     /* for the extended model */
@@ -608,9 +548,9 @@ struct WorkerMemory {
     std::vector<double>  ext_fill_val;
     std::vector<double>  ext_fill_new;
     std::vector<int>     chosen_cat;
-    std::vector<std::vector<double>>       ext_cat_coef;
-    std::uniform_real_distribution<double> coef_unif;
-    std::normal_distribution<double>       coef_norm;
+    std::vector<std::vector<double>> ext_cat_coef;
+    UniformMinusOneToOne coef_unif;
+    StandardNormalDistr  coef_norm;
     std::vector<double> sample_weights; /* when using weights and split criterion */
 
     /* for similarity/distance calculations */
@@ -621,7 +561,7 @@ struct WorkerMemory {
 
     /* when imputing NAs on-the-fly */
     std::vector<ImputedData> impute_vec;
-    std::unordered_map<size_t, ImputedData> impute_map;
+    hashed_map<size_t, ImputedData> impute_map;
 
 };
 
@@ -737,7 +677,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                             size_t                   curr_depth);
 template <class InputData, class WorkerMemory>
 void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params,
-                       std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s);
+                       std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s);
 void shrink_to_fit_hplane(IsoHPlane &hplane, bool clear_vectors);
 template <class InputData, class WorkerMemory>
 void simplify_hplane(IsoHPlane &hplane, WorkerMemory &workspace, InputData &input_data, ModelParams &model_params);
@@ -879,7 +819,7 @@ void combine_imp_single(ImputedData &imp_addfrom, ImputedData &imp_addto);
 template <class ImputedData, class WorkerMemory>
 void combine_tree_imputations(WorkerMemory &workspace,
                               std::vector<ImputedData> &impute_vec,
-                              std::unordered_map<size_t, ImputedData> &impute_map,
+                              hashed_map<size_t, ImputedData> &impute_map,
                               std::vector<char> &has_missing,
                               int nthreads);
 template <class ImputedData>
@@ -893,7 +833,7 @@ void apply_imputation_results(imp_arr    &impute_vec,
                               int        nthreads);
 template <class ImputedData, class InputData>
 void apply_imputation_results(std::vector<ImputedData> &impute_vec,
-                              std::unordered_map<size_t, ImputedData> &impute_map,
+                              hashed_map<size_t, ImputedData> &impute_map,
                               Imputer   &imputer,
                               InputData &input_data,
                               int nthreads);
@@ -909,16 +849,16 @@ void initialize_impute_calc(ImputedData &imp, PredictionData &prediction_data, I
 template <class ImputedData, class InputData>
 void allocate_imp_vec(std::vector<ImputedData> &impute_vec, InputData &input_data, int nthreads);
 template <class ImputedData, class InputData>
-void allocate_imp_map(std::unordered_map<size_t, ImputedData> &impute_map, InputData &input_data);
+void allocate_imp_map(hashed_map<size_t, ImputedData> &impute_map, InputData &input_data);
 template <class ImputedData, class InputData>
 void allocate_imp(InputData &input_data,
                   std::vector<ImputedData> &impute_vec,
-                  std::unordered_map<size_t, ImputedData> &impute_map,
+                  hashed_map<size_t, ImputedData> &impute_map,
                   int nthreads);
 template <class ImputedData, class InputData>
 void check_for_missing(InputData &input_data,
                        std::vector<ImputedData> &impute_vec,
-                       std::unordered_map<size_t, ImputedData> &impute_map,
+                       hashed_map<size_t, ImputedData> &impute_map,
                        int nthreads);
 template <class PredictionData>
 size_t check_for_missing(PredictionData  &prediction_data,
@@ -933,10 +873,10 @@ template <class InputData, class WorkerMemory>
 void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params);
 template <class InputData, class WorkerMemory>
 int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size_t col_num);
-bool is_col_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
+bool is_col_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s,
                   size_t col_num);
 template <class InputData>
-void set_col_as_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
+void set_col_as_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s,
                       InputData &input_data, size_t col_num, ColType col_type);
 template <class InputData, class WorkerMemory>
 void add_separation_step(WorkerMemory &workspace, InputData &input_data, double remainder);
@@ -961,7 +901,7 @@ void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n, dou
 void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
                            double *restrict counter, double *restrict weights, double exp_remainder);
 void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
-                           double counter[], std::unordered_map<size_t, double> &weights, double exp_remainder);
+                           double counter[], hashed_map<size_t, double> &weights, double exp_remainder);
 void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, size_t split_ix, size_t n,
                                      double counter[], double exp_remainder);
 void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, size_t split_ix, size_t n,
@@ -985,9 +925,9 @@ template <class real_t, class sparse_ix>
 void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                          real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[], double split_point,
                          MissingAction missing_action, size_t &st_NA, size_t &end_NA, size_t &split_ix);
-void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, char split_categ[],
+void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, signed char split_categ[],
                          MissingAction missing_action, size_t &st_NA, size_t &end_NA, size_t &split_ix);
-void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, char split_categ[],
+void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, signed char split_categ[],
                          int ncat, MissingAction missing_action, NewCategAction new_cat_action,
                          bool move_new_to_left, size_t &st_NA, size_t &end_NA, size_t &split_ix);
 void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, int split_categ,
@@ -1003,13 +943,13 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                MissingAction missing_action, double &xmin, double &xmax, bool &unsplittable);
 void get_categs(size_t ix_arr[], int x[], size_t st, size_t end, int ncat,
-                MissingAction missing_action, char categs[], size_t &npresent, bool &unsplittable);
+                MissingAction missing_action, signed char categs[], size_t &npresent, bool &unsplittable);
 #if !defined(_WIN32) && !defined(_WIN64)
 long double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
-                                  std::vector<double> &weights_arr, std::unordered_map<size_t, double> &weights_map);
+                                  std::vector<double> &weights_arr, hashed_map<size_t, double> &weights_map);
 #else
      double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
-                                  std::vector<double> &weights_arr, std::unordered_map<size_t, double> &weights_map);
+                                  std::vector<double> &weights_arr, hashed_map<size_t, double> &weights_map);
 #endif
 extern bool interrupt_switch;
 extern bool signal_is_locked;
@@ -1195,13 +1135,13 @@ double eval_guided_crit_weighted(size_t ix_arr[], size_t st, size_t end,
                                  mapping w);
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *restrict x, int ncat,
                         size_t *restrict buffer_cnt, size_t *restrict buffer_pos, double *restrict buffer_prob,
-                        int &chosen_cat, char *restrict split_categ, char *restrict buffer_split,
+                        int &chosen_cat, signed char *restrict split_categ, signed char *restrict buffer_split,
                         GainCriterion criterion, double min_gain, bool all_perm,
                         MissingAction missing_action, CategSplit cat_split_type);
 template <class mapping>
 double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end, int *restrict x, int ncat,
                                  size_t *restrict buffer_pos, double *restrict buffer_prob,
-                                 int &chosen_cat, char *restrict split_categ, char *restrict buffer_split,
+                                 int &chosen_cat, signed char *restrict split_categ, signed char *restrict buffer_split,
                                  GainCriterion criterion, double min_gain, bool all_perm,
                                  MissingAction missing_action, CategSplit cat_split_type,
                                  mapping w);
@@ -1212,46 +1152,359 @@ void merge_models(IsoForest*     model,      IsoForest*     other,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                   Imputer*       imputer,    Imputer*       iother);
 
-#if defined(_ENABLE_CEREAL) || defined(_FOR_PYTHON)
+/* subset_models.cpp */
+ISOTREE_EXPORTED
+void subset_model(IsoForest*     model,      IsoForest*     model_new,
+                  ExtIsoForest*  ext_model,  ExtIsoForest*  ext_model_new,
+                  Imputer*       imputer,    Imputer*       imputer_new,
+                  size_t *trees_take, size_t ntrees_take);
+
 /* serialize.cpp */
-ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, std::ostream &output);
-ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, const char *output_file_path);
-ISOTREE_EXPORTED std::string serialize_isoforest(IsoForest &model);
-ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, std::istream &serialized);
-ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, const char *input_file_path);
-ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, std::string &serialized, bool move_str);
-ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, std::ostream &output);
-ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, const char *output_file_path);
-ISOTREE_EXPORTED std::string serialize_ext_isoforest(ExtIsoForest &model);
-ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::istream &serialized);
-ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, const char *input_file_path);
-ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::string &serialized, bool move_str);
-ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, std::ostream &output);
-ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, const char *output_file_path);
-ISOTREE_EXPORTED std::string serialize_imputer(Imputer &imputer);
-ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, std::istream &serialized);
-ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, const char *input_file_path);
-ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, std::string &serialized, bool move_str);
-#ifdef _MSC_VER
-ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, const wchar_t *output_file_path);
-ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, const wchar_t *input_file_path);
-ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, const wchar_t *output_file_path);
-ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, const wchar_t *input_file_path);
-ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, const wchar_t *output_file_path);
-ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, const wchar_t *input_file_path);
-#endif /* _MSC_VER */
-ISOTREE_EXPORTED bool has_msvc();
-#ifdef _FOR_PYTHON
-void serialize_isoforest(IsoForest &model, void *output_file_path);
-void deserialize_isoforest(IsoForest &output_obj, void *input_file_path);
-void serialize_ext_isoforest(ExtIsoForest &model, void *output_file_path);
-void deserialize_ext_isoforest(ExtIsoForest &output_obj, void *input_file_path);
-void serialize_imputer(Imputer &imputer, void *output_file_path);
-void deserialize_imputer(Imputer &output_obj, void *input_file_path);
-bool py_should_use_char();
-bool has_cereal();
-#endif /* _FOR_PYTHON */
-#endif /* _ENABLE_CEREAL || _FOR_PYTON */
+void throw_errno();
+void throw_ferror(FILE *file);
+void throw_feoferr();
+class FileHandle
+{
+public:
+    FILE *handle = NULL;
+    FileHandle(const char *fname, const char *mode)
+    {
+        this->handle = std::fopen(fname, mode);
+        if (!(this->handle))
+            throw_errno();
+    }
+    ~FileHandle()
+    {
+        if (this->handle) {
+            int err = std::fclose(this->handle);
+            if (err)
+                fprintf(stderr, "Error: could not close file.\n");
+        }
+        this->handle = NULL;
+    }
+};
+
+#if defined(_WIN32) && (defined(_MSC_VER) || defined(__GNUC__))
+    #define WCHAR_T_FUNS
+    #include <stdio.h>
+    class WFileHandle
+    {
+    public:
+        FILE *handle = NULL;
+        WFileHandle(const wchar_t *fname, const wchar_t *mode)
+        {
+            this->handle = _wfopen(fname, mode);
+            if (!(this->handle))
+                throw_errno();
+        }
+        ~WFileHandle()
+        {
+            if (this->handle) {
+                int err = std::fclose(this->handle);
+                if (err)
+                    fprintf(stderr, "Error: could not close file.\n");
+            }
+            this->handle = NULL;
+        }
+    };
+#endif
+ISOTREE_EXPORTED
+bool has_wchar_t_file_serializers();
+ISOTREE_EXPORTED
+size_t determine_serialized_size(const IsoForest &model);
+ISOTREE_EXPORTED
+size_t determine_serialized_size(const ExtIsoForest &model);
+ISOTREE_EXPORTED
+size_t determine_serialized_size(const Imputer &model);
+ISOTREE_EXPORTED
+void serialize_IsoForest(const IsoForest &model, char *out);
+ISOTREE_EXPORTED
+void serialize_IsoForest(const IsoForest &model, FILE *out);
+ISOTREE_EXPORTED
+void serialize_IsoForest(const IsoForest &model, std::ostream &out);
+ISOTREE_EXPORTED
+std::string serialize_IsoForest(const IsoForest &model);
+ISOTREE_EXPORTED
+void serialize_IsoForest_ToFile(const IsoForest &model, const char *fname);
+#ifdef WCHAR_T_FUNS
+ISOTREE_EXPORTED
+void serialize_IsoForest_ToFile(const IsoForest &model, const wchar_t *fname);
+#endif
+ISOTREE_EXPORTED
+void deserialize_IsoForest(IsoForest &model, const char *in);
+ISOTREE_EXPORTED
+void deserialize_IsoForest(IsoForest &model, FILE *in);
+ISOTREE_EXPORTED
+void deserialize_IsoForest(IsoForest &model, std::istream &in);
+ISOTREE_EXPORTED
+void deserialize_IsoForest(IsoForest &model, const std::string &in);
+ISOTREE_EXPORTED
+void deserialize_IsoForest_FromFile(IsoForest &model, const char *fname);
+#ifdef WCHAR_T_FUNS
+ISOTREE_EXPORTED
+void deserialize_IsoForest_FromFile(IsoForest &model, const wchar_t *fname);
+#endif
+ISOTREE_EXPORTED
+void serialize_ExtIsoForest(const ExtIsoForest &model, char *out);
+ISOTREE_EXPORTED
+void serialize_ExtIsoForest(const ExtIsoForest &model, FILE *out);
+ISOTREE_EXPORTED
+void serialize_ExtIsoForest(const ExtIsoForest &model, std::ostream &out);
+ISOTREE_EXPORTED
+std::string serialize_ExtIsoForest(const ExtIsoForest &model);
+ISOTREE_EXPORTED
+void serialize_ExtIsoForest_ToFile(const ExtIsoForest &model, const char *fname);
+#ifdef WCHAR_T_FUNS
+ISOTREE_EXPORTED
+void serialize_ExtIsoForest_ToFile(const ExtIsoForest &model, const wchar_t *fname);
+#endif
+ISOTREE_EXPORTED
+void deserialize_ExtIsoForest(ExtIsoForest &model, const char *in);
+ISOTREE_EXPORTED
+void deserialize_ExtIsoForest(ExtIsoForest &model, FILE *in);
+ISOTREE_EXPORTED
+void deserialize_ExtIsoForest(ExtIsoForest &model, std::istream &in);
+ISOTREE_EXPORTED
+void deserialize_ExtIsoForest(ExtIsoForest &model, const std::string &in);
+ISOTREE_EXPORTED
+void deserialize_ExtIsoForest_FromFile(ExtIsoForest &model, const char *fname);
+#ifdef WCHAR_T_FUNS
+ISOTREE_EXPORTED
+void deserialize_ExtIsoForest_FromFile(ExtIsoForest &model, const wchar_t *fname);
+#endif
+ISOTREE_EXPORTED
+void serialize_Imputer(const Imputer &model, char *out);
+ISOTREE_EXPORTED
+void serialize_Imputer(const Imputer &model, FILE *out);
+ISOTREE_EXPORTED
+void serialize_Imputer(const Imputer &model, std::ostream &out);
+ISOTREE_EXPORTED
+std::string serialize_Imputer(const Imputer &model);
+ISOTREE_EXPORTED
+void serialize_Imputer_ToFile(const Imputer &model, const char *fname);
+#ifdef WCHAR_T_FUNS
+ISOTREE_EXPORTED
+void serialize_Imputer_ToFile(const Imputer &model, const wchar_t *fname);
+#endif
+ISOTREE_EXPORTED
+void deserialize_Imputer(Imputer &model, const char *in);
+ISOTREE_EXPORTED
+void deserialize_Imputer(Imputer &model, FILE *in);
+ISOTREE_EXPORTED
+void deserialize_Imputer(Imputer &model, std::istream &in);
+ISOTREE_EXPORTED
+void deserialize_Imputer(Imputer &model, const std::string &in);
+ISOTREE_EXPORTED
+void deserialize_Imputer_FromFile(Imputer &model, const char *fname);
+#ifdef WCHAR_T_FUNS
+ISOTREE_EXPORTED
+void deserialize_Imputer_FromFile(Imputer &model, const wchar_t *fname);
+#endif
+void serialize_isotree(const IsoForest &model, char *out);
+void serialize_isotree(const ExtIsoForest &model, char *out);
+void serialize_isotree(const Imputer &model, char *out);
+void deserialize_isotree(IsoForest &model, const char *in);
+void deserialize_isotree(ExtIsoForest &model, const char *in);
+void deserialize_isotree(Imputer &model, const char *in);
+void incremental_serialize_isotree(const IsoForest &model, char *old_bytes_reallocated);
+void incremental_serialize_isotree(const ExtIsoForest &model, char *old_bytes_reallocated);
+void incremental_serialize_isotree(const Imputer &model, char *old_bytes_reallocated);
+ISOTREE_EXPORTED
+void incremental_serialize_IsoForest(const IsoForest &model, std::string &old_bytes);
+ISOTREE_EXPORTED
+void incremental_serialize_ExtIsoForest(const ExtIsoForest &model, std::string &old_bytes);
+ISOTREE_EXPORTED
+void incremental_serialize_Imputer(const Imputer &model, std::string &old_bytes);
+ISOTREE_EXPORTED
+void inspect_serialized_object
+(
+    const char *serialized_bytes,
+    bool &is_isotree_model,
+    bool &is_compatible,
+    bool &has_combined_objects,
+    bool &has_IsoForest,
+    bool &has_ExtIsoForest,
+    bool &has_Imputer,
+    bool &has_metadata,
+    size_t &size_metadata
+);
+ISOTREE_EXPORTED
+void inspect_serialized_object
+(
+    FILE *serialized_bytes,
+    bool &is_isotree_model,
+    bool &is_compatible,
+    bool &has_combined_objects,
+    bool &has_IsoForest,
+    bool &has_ExtIsoForest,
+    bool &has_Imputer,
+    bool &has_metadata,
+    size_t &size_metadata
+);
+ISOTREE_EXPORTED
+void inspect_serialized_object
+(
+    std::istream &serialized_bytes,
+    bool &is_isotree_model,
+    bool &is_compatible,
+    bool &has_combined_objects,
+    bool &has_IsoForest,
+    bool &has_ExtIsoForest,
+    bool &has_Imputer,
+    bool &has_metadata,
+    size_t &size_metadata
+);
+ISOTREE_EXPORTED
+void inspect_serialized_object
+(
+    const std::string &serialized_bytes,
+    bool &is_isotree_model,
+    bool &is_compatible,
+    bool &has_combined_objects,
+    bool &has_IsoForest,
+    bool &has_ExtIsoForest,
+    bool &has_Imputer,
+    bool &has_metadata,
+    size_t &size_metadata
+);
+ISOTREE_EXPORTED
+bool check_can_undergo_incremental_serialization(const IsoForest &model, const char *serialized_bytes);
+ISOTREE_EXPORTED
+bool check_can_undergo_incremental_serialization(const ExtIsoForest &model, const char *serialized_bytes);
+ISOTREE_EXPORTED
+bool check_can_undergo_incremental_serialization(const Imputer &model, const char *serialized_bytes);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_additional_trees(const IsoForest &model, size_t old_ntrees);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_additional_trees(const ExtIsoForest &model, size_t old_ntrees);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_additional_trees(const Imputer &model, size_t old_ntrees);
+ISOTREE_EXPORTED
+void incremental_serialize_IsoForest(const IsoForest &model, char *old_bytes_reallocated);
+ISOTREE_EXPORTED
+void incremental_serialize_ExtIsoForest(const ExtIsoForest &model, char *old_bytes_reallocated);
+ISOTREE_EXPORTED
+void incremental_serialize_Imputer(const Imputer &model, char *old_bytes_reallocated);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const size_t size_optional_metadata
+);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_combined
+(
+    const char *serialized_model,
+    const char *serialized_model_ext,
+    const char *serialized_imputer,
+    const size_t size_optional_metadata
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    char *out
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    FILE *out
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    std::ostream &out
+);
+ISOTREE_EXPORTED
+std::string serialize_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const char *serialized_model,
+    const char *serialized_model_ext,
+    const char *serialized_imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    FILE *out
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const char *serialized_model,
+    const char *serialized_model_ext,
+    const char *serialized_imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    std::ostream &out
+);
+ISOTREE_EXPORTED
+std::string serialize_combined
+(
+    const char *serialized_model,
+    const char *serialized_model_ext,
+    const char *serialized_imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata
+);
+ISOTREE_EXPORTED
+void deserialize_combined
+(
+    const char* in,
+    IsoForest *model,
+    ExtIsoForest *model_ext,
+    Imputer *imputer,
+    char *optional_metadata
+);
+ISOTREE_EXPORTED
+void deserialize_combined
+(
+    FILE* in,
+    IsoForest *model,
+    ExtIsoForest *model_ext,
+    Imputer *imputer,
+    char *optional_metadata
+);
+ISOTREE_EXPORTED
+void deserialize_combined
+(
+    std::istream &in,
+    IsoForest *model,
+    ExtIsoForest *model_ext,
+    Imputer *imputer,
+    char *optional_metadata
+);
+ISOTREE_EXPORTED
+void deserialize_combined
+(
+    const std::string &in,
+    IsoForest *model,
+    ExtIsoForest *model_ext,
+    Imputer *imputer,
+    char *optional_metadata
+);
 
 /* sql.cpp */
 ISOTREE_EXPORTED

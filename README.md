@@ -78,48 +78,46 @@ There's already many available implementations of isolation forests for both Pyt
 * Can fit trees incrementally to user-provided data samples.
 * Produces serializable model objects with reasonable file sizes.
 * Can translate the generated trees into SQL statements.
-* Fast and multi-threaded C++ code. Can be wrapped in languages other than Python/R/Ruby.
+* Fast and multi-threaded C++ code, which is architecture-agnostic, multi-platform, and with the only external dependency (Robin-Map) being optional. Can be wrapped in languages other than Python/R/Ruby.
 
 (Note that categoricals, NAs, and density-like sample weights, are treated heuristically with different options as there is no single logical extension of the original idea to them, and having them present might degrade performance/accuracy for regular numerical non-missing observations)
 
 # Installation
 
 * Python:
-```python
+
+```
 pip install isotree
 ```
 or if that fails:
 ```
 pip install --no-use-pep517 isotree
 ```
+** *
 
-**Note for macOS users:** on macOS, the Python version of this package will compile **without** multi-threading capabilities. This is due to default apple's redistribution of `clang` not providing OpenMP modules, and aliasing it to `gcc` which causes confusions in build scripts. If you have a non-apple version of `clang` with the OpenMP modules, or if you have `gcc` installed, you can compile this package with multi-threading enabled by setting up an environment variable `ENABLE_OMP=1`:
+**Note for macOS users:** on macOS, the Python version of this package might compile **without** multi-threading capabilities. In order to enable multi-threading support, first install OpenMP:
 ```
-export ENABLE_OMP=1
-pip install isotree
+brew install libomp
 ```
-(Alternatively, can also pass argument `enable-omp` to the `setup.py` file: `python setup.py install enable-omp`)
+And then reinstall this package: `pip install --force-reinstall isotree`.
+
+** *
+
 
 * R:
 
-Latest version (recommended):
-```r
-remotes::install_github("david-cortes/isotree")
-```
-
-From CRAN (currently has a small bug when calculating distances):
 ```r
 install.packages("isotree")
 ```
 
 * C++:
 ```
-git clone https://www.github.com/david-cortes/isotree.git
+git clone --recursive https://www.github.com/david-cortes/isotree.git
 cd isotree
 mkdir build
 cd build
-cmake ..
-make
+cmake -DUSE_MARCH_NATIVE=1 ..
+cmake --build .
 
 ### for a system-wide install in linux
 sudo make install
@@ -127,6 +125,10 @@ sudo ldconfig
 ```
 
 (Will build as a shared object - linkage is then done with `-lisotree`)
+
+Be aware that the snippet above includes option `-DUSE_MARCH_NATIVE=1`, which will make it use the highest-available CPU instruction set (e.g. AVX2) and will produces objects that might not run on older CPUs - to build more "portable" objects, remove this option from the cmake command.
+
+The package has an optional dependency on the [Robin-Map](https://github.com/Tessil/robin-map) library, which is added to this repository as a linked submodule. If this library is not found under `/src`, will use the compiler's own hashmaps, which are less optimal.
 
 * Ruby
 
@@ -206,6 +208,10 @@ See [external repository with wrapper](https://github.com/ankane/isotree).
 * R: documentation is available internally in the package (e.g. `help(isolation.forest)`) and in [CRAN](https://cran.r-project.org/web/packages/isotree/index.html).
 * C++: documentation is available in the public header (`include/isotree.hpp`) and in the source files.
 * Ruby: see [external repository with wrapper](https://github.com/ankane/isotree) for the syntax and the [Python docs](http://isotree.readthedocs.io) for details about the parameters.
+
+# Help wanted
+
+The package does not currenly have any functionality for visualizing trees. Pull requests adding such functionality would be welcome.
 
 # References
 

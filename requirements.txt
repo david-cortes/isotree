@@ -2,4 +2,3 @@ pandas>=0.24.0
 numpy>=1.18
 cython
 scipy
-cycereal

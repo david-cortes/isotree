@@ -125,10 +125,10 @@ void reconstruct_csr_with_categ
             num_is_seq = true;
     }
 
-    std::unordered_set<size_t> cols_numeric_set;
-    std::unordered_set<size_t> cols_categ_set(cols_categ, cols_categ + ncols_categ);
-    std::unordered_map<size_t, sparse_ix__> orig_to_rec_num;
-    std::unordered_map<size_t, size_t> orig_to_rec_cat;
+    hashed_set<size_t> cols_numeric_set;
+    hashed_set<size_t> cols_categ_set(cols_categ, cols_categ + ncols_categ);
+    hashed_map<size_t, sparse_ix__> orig_to_rec_num;
+    hashed_map<size_t, size_t> orig_to_rec_cat;
 
     sparse_ix__ col_orig;
     sparse_ix__ *restrict col_ptr;
@@ -145,7 +145,7 @@ void reconstruct_csr_with_categ
     else
     {
         if (ncols_numeric)
-            cols_numeric_set = std::unordered_set<size_t>(cols_numeric, cols_numeric + ncols_numeric);
+            cols_numeric_set = hashed_set<size_t>(cols_numeric, cols_numeric + ncols_numeric);
         for (size_t col = 0; col < ncols_numeric; col++)
             orig_to_rec_num[cols_numeric[col]] = col;
     }

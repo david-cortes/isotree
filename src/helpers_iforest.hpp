@@ -124,7 +124,7 @@ int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size
     return -1; /* this will never be reached, but CRAN complains otherwise */
 }
 
-bool is_col_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
+bool is_col_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s,
                   size_t col_num)
 {
     if (col_is_taken.size())
@@ -134,7 +134,7 @@ bool is_col_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &c
 }
 
 template <class InputData>
-void set_col_as_taken(std::vector<bool> &col_is_taken, std::unordered_set<size_t> &col_is_taken_s,
+void set_col_as_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s,
                       InputData &input_data, size_t col_num, ColType col_type)
 {
     col_num += ((col_type == Numeric)? 0 : input_data.ncols_numeric);
@@ -161,10 +161,7 @@ void add_separation_step(WorkerMemory &workspace, InputData &input_data, double 
 template <class InputData, class WorkerMemory>
 void add_remainder_separation_steps(WorkerMemory &workspace, InputData &input_data, long double sum_weight)
 {
-    if (
-            ((workspace.end - workspace.st) > 0 && !workspace.changed_weights) ||
-            (sum_weight > 0 && workspace.changed_weights)
-        )
+    if ((workspace.end - workspace.st) > 0 && (!workspace.changed_weights || sum_weight > 0))
     {
         double expected_dsep;
         if (!workspace.changed_weights)

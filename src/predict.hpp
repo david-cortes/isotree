@@ -44,8 +44,9 @@
 */
 #include "isotree.hpp"
 
-/* TODO: implement a faster predict function for CSC matrices that would
-   take the observations down the tree with an array of row indices. */
+/* TODO: should create versions of these functions that would work on the
+   serialized raw bytes instead, as it will likely be faster due to better
+   cache utilizations and those objects use less memory. */
 
 
 /* Predict outlier score, average depth, or terminal node numbers
@@ -296,6 +297,7 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
 }
 
 template <class PredictionData, class sparse_ix>
+[[gnu::hot]]
 void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                                IsoForest             &model_outputs,
                                PredictionData        &prediction_data,
@@ -421,6 +423,7 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
 enum NumericConfig {DenseRowMajor, DenseColMajor, SparseCSR, SparseCSC};
 
 template <class PredictionData, class sparse_ix, class ImputedData>
+[[gnu::hot]]
 double traverse_itree(std::vector<IsoTree>     &tree,
                       IsoForest                &model_outputs,
                       PredictionData           &prediction_data,
@@ -706,6 +709,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
 /* this is a simpler version for situations in which there is
    only numeric data in dense arrays and no missing values */
 template <class PredictionData, class sparse_ix>
+[[gnu::hot]]
 void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
                           ExtIsoForest            &model_outputs,
                           PredictionData          &prediction_data,
@@ -753,6 +757,7 @@ void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
 
 /* this is the full version that works with potentially missing values, sparse matrices, and categoricals */
 template <class PredictionData, class sparse_ix, class ImputedData>
+[[gnu::hot]]
 void traverse_hplane(std::vector<IsoHPlane>   &hplane,
                      ExtIsoForest             &model_outputs,
                      PredictionData           &prediction_data,
@@ -929,8 +934,8 @@ void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                          double output_depths[],   sparse_ix tree_num[])
 {
-    size_t ntrees = (model_outputs != NULL)? model_outputs->trees.size() : model_outputs_ext->hplanes.size();
     #ifdef _OPENMP
+    size_t ntrees = (model_outputs != NULL)? model_outputs->trees.size() : model_outputs_ext->hplanes.size();
     if ((size_t)nthreads > ntrees)
         nthreads = ntrees;
     #else

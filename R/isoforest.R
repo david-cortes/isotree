@@ -51,6 +51,11 @@
 #' If requesting outlier scores or depths or separation/distance while fitting the
 #' model and using multiple threads, there can be small differences in the predicted
 #' scores/depth/separation/distance between runs due to roundoff error.
+#' 
+#' While it's not possible to get a quick overview of the size of the resulting
+#' model object, one can get a lower bound of its size in RAM by checking the
+#' following: `2*NROW(model$cpp_obj$serialized) / 1024^2` (which should estimate
+#' the size in megabytes).
 #' @param df Data to which to fit the model. Supported inputs type are:\itemize{
 #' \item A `data.frame`, also accepted as `data.table` or `tibble`.
 #' \item A `matrix` object from base R.
@@ -234,7 +239,7 @@
 #' as factors. This is recommended as it will eliminate potentially redundant categorical levels if
 #' they have no observations, but if the categorical variables are already of type `factor` with only
 #' the levels that are present, it can be skipped for slightly faster fitting times. You'll likely
-#' want to pass `FALSE` here if merging several models into one through \link{append.trees}.
+#' want to pass `FALSE` here if merging several models into one through \link{isotree.append.trees}.
 #' @param weights_as_sample_prob If passing `sample_weights` argument, whether to consider those weights as row
 #' sampling weights (i.e. the higher the weights, the more likely the observation will end up included
 #' in each tree sub-sample), or as distribution density weights (i.e. putting a weight of two is the same
@@ -354,7 +359,7 @@
 #'   passing `output_dist` = `TRUE`.
 #'   \item `imputed`: the input data with missing values imputed according to the model (if passing `output_imputations` = `TRUE`).
 #' }
-#' @seealso \link{predict.isolation_forest},  \link{add.isolation.tree} \link{unpack.isolation.forest}
+#' @seealso \link{predict.isolation_forest},  \link{isotree.add.tree} \link{isotree.restore.handle}
 #' @references \itemize{
 #' \item Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "Isolation forest." 2008 Eighth IEEE International Conference on Data Mining. IEEE, 2008.
 #' \item Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "Isolation-based anomaly detection." ACM Transactions on Knowledge Discovery from Data (TKDD) 6.1 (2012): 3.
@@ -426,7 +431,7 @@
 #'      xlab = "", ylab = "")
 #' }
 #' 
-#' ### Now try ouy different variations of the model
+#' ### Now try out different variations of the model
 #' 
 #' ### Single-variable model
 #' iso_simple = isolation.forest(
@@ -718,6 +723,14 @@ isolation.forest <- function(df,
     if (output_imputations && !is.null(sample_weights) && !weights_as_sample_prob)
         stop(paste0("Cannot impute missing values on-the-fly when using sample weights",
                     " as distribution density. Must first fit model and then impute values."))
+
+    if (nthreads > 1L && !R_has_openmp()) {
+        msg <- paste0("Attempting to use more than 1 thread, but ",
+                      "package was compiled without OpenMP support.")
+        if (tolower(Sys.info()[["sysname"]]) == "darwin")
+            msg <- paste0(msg, " See https://mac.r-project.org/openmp/")
+        warning(msg)
+    }
     
     ### cast all parameters
     if (!is.null(sample_weights)) {
@@ -895,8 +908,10 @@ isolation.forest <- function(df,
 #'   `avg_depth` and `tree_num`, respectively.
 #'   \item `"impute"` for imputation of missing values in `newdata`.
 #' }
-#' @param square_mat When passing `type` = `"dist` or `"avg_sep"` with no `refdata`, whether to return a full square matrix or
-#' just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
+#' @param square_mat When passing `type` = `"dist` or `"avg_sep"` with no `refdata`, whether to return a
+# full square matrix (returned as a numeric `matrix` object) or
+#' just the upper-triangular part (returned as a `dist` object and compatible with functions such as `hclust`),
+#' in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 #' p(i, j) = ((i - 1) * (n - i/2) + j - i).
 #' Ignored when not predicting distance/separation or when passing `refdata`.
 #' @param refdata If passing this and calculating distance or average separation depth, will calculate distances
@@ -911,7 +926,8 @@ isolation.forest <- function(df,
 #' and `tree_num` (integer matrix indicating the terminal node number under each tree for each
 #' observation, with trees as columns), for output type
 #' `"tree_num"`.
-#' \item A numeric square matrix or vector with the upper triangular part of a square matrix
+#' \item A numeric square matrix or `dist` object containing a vector with the upper triangular
+#' part of a square matrix
 #' (for output types `"dist"`, `"avg_sep"`, with no `refdata`).
 #' \item A numeric matrix with points in `newdata` as rows and points in `refdata` as columns
 #' (for output types `"dist"`, `"avg_sep"`, with `refdata`).
@@ -952,10 +968,10 @@ isolation.forest <- function(df,
 #' 
 #' When imputing missing values, the input may contain new columns (i.e. not present when the model was fitted),
 #' which will be output as-is.
-#' @seealso \link{isolation.forest} \link{unpack.isolation.forest}
+#' @seealso \link{isolation.forest} \link{isotree.restore.handle}
 #' @export
 predict.isolation_forest <- function(object, newdata, type="score", square_mat=FALSE, refdata=NULL, ...) {
-    unpack.isolation.forest(object)
+    isotree.restore.handle(object)
     
     allowed_type <- c("score", "avg_depth", "dist", "avg_sep", "tree_num", "impute")
     check.str.option(type, "type", allowed_type)
@@ -966,7 +982,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
     }
     if ((type == "tree_num") && (object$metadata$ncols_cat > 0) && (object$params$new_categ_action == "weighted"))
         stop("Cannot output tree number when using 'new_categ_action' = 'weighted'.")
-    if ("numeric" %in% class(newdata) && is.null(dim(newdata))) {
+    if (inherits(newdata, "numeric") && is.null(dim(newdata))) {
         newdata <- matrix(newdata, nrow=1)
     }
     
@@ -1068,7 +1084,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
 #' @seealso \link{isolation.forest}
 #' @export
 print.isolation_forest <- function(x, ...) {
-    unpack.isolation.forest(x)
+    isotree.restore.handle(x)
     
     if (x$params$ndim > 1) cat("Extended ")
     cat("Isolation Forest model")
@@ -1115,14 +1131,11 @@ summary.isolation_forest <- function(object, ...) {
 #' @param column_weights Sampling weights for each column in `df`. Ignored when picking columns by deterministic criterion.
 #' If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
 #' @return The same `model` object now modified, as invisible.
-#' @details Be aware that, if something goes wrong in the process (such as running out of RAM or
-#' receiving an interrupt signal), the `model` object that was passed here might be rendered unusable.
-#' 
-#' For safety purposes, the model object can be deep copied (including the underlying C++ object)
-#' through function \link{deepcopy.isotree} before undergoing an in-place modification like this.
-#' @seealso \link{isolation.forest} \link{unpack.isolation.forest}
+#' @details For safety purposes, the model object can be deep copied (including the underlying C++ object)
+#' through function \link{isotree.deep.copy} before undergoing an in-place modification like this.
+#' @seealso \link{isolation.forest} \link{isotree.restore.handle}
 #' @export
-add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights = NULL) {
+isotree.add.tree <- function(model, df, sample_weights = NULL, column_weights = NULL) {
     
     if (!is.null(sample_weights) && model$weights_as_sample_prob)
         stop("Cannot use sampling weights with 'partial_fit'.")
@@ -1133,7 +1146,7 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
     if (is.na(model$params$ntrees) || model$params$ntrees >= .Machine$integer.max)
         stop("Resulting object would exceed number of trees limit.")
     
-    unpack.isolation.forest(model)
+    isotree.restore.handle(model)
     
     
     if (!is.null(sample_weights))
@@ -1157,38 +1170,49 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
         ncat  <-  integer()
     
     pdata <- process.data.new(df, model$metadata, FALSE)
+
+    serialized <- model$cpp_obj$serialized
+    if (!NROW(serialized))
     
-    model$cpp_obj$serialized <- fit_tree(model$cpp_obj$ptr, 
-                                         pdata$X_num, pdata$X_cat, unname(ncat),
-                                         pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
-                                         sample_weights, column_weights,
-                                         pdata$nrows, model$metadata$ncols_num, model$metadata$ncols_cat,
-                                         model$params$ndim, model$params$ntry,
-                                         model$params$coefs, model$params$coef_by_prop,
-                                         model$params$max_depth, model$params$ncols_per_tree,
-                                         FALSE, model$params$penalize_range,
-                                         model$params$weigh_by_kurtosis,
-                                         model$params$prob_pick_avg_gain, model$params$prob_split_avg_gain,
-                                         model$params$prob_pick_pooled_gain,  model$params$prob_split_pooled_,
-                                         model$params$min_gain,
-                                         model$params$categ_split_type, model$params$new_categ_action,
-                                         model$params$missing_action, model$params$build_imputer,
-                                         model$params$min_imp_obs, model$cpp_obj$imp_ptr,
-                                         model$params$depth_imp, model$params$weigh_imp_rows,
-                                         model$params$all_perm, model$random_seed)
+    serialized <- raw()
+    imp_ser <- raw()
+    if (NROW(model$cpp_obj$serialized))
+        serialized <- model$cpp_obj$serialized
+    if (NROW(model$cpp_obj$imp_ser))
+        imp_ser    <- model$cpp_obj$imp_ser
     
+    cpp_outputs <- fit_tree(model$cpp_obj$ptr, serialized, imp_ser,
+                            pdata$X_num, pdata$X_cat, unname(ncat),
+                            pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
+                            sample_weights, column_weights,
+                            pdata$nrows, model$metadata$ncols_num, model$metadata$ncols_cat,
+                            model$params$ndim, model$params$ntry,
+                            model$params$coefs, model$params$coef_by_prop,
+                            model$params$max_depth, model$params$ncols_per_tree,
+                            FALSE, model$params$penalize_range,
+                            model$params$weigh_by_kurtosis,
+                            model$params$prob_pick_avg_gain, model$params$prob_split_avg_gain,
+                            model$params$prob_pick_pooled_gain,  model$params$prob_split_pooled_,
+                            model$params$min_gain,
+                            model$params$categ_split_type, model$params$new_categ_action,
+                            model$params$missing_action, model$params$build_imputer,
+                            model$params$min_imp_obs, model$cpp_obj$imp_ptr,
+                            model$params$depth_imp, model$params$weigh_imp_rows,
+                            model$params$all_perm, model$random_seed)
     
+    model$cpp_obj$serialized  <-  cpp_outputs$serialized
+    model$cpp_obj$imp_ser     <-  cpp_outputs$imp_ser
     increment_by1(model$params$ntrees)
     return(invisible(model))
 }
 
 #' @title Unpack isolation forest model after de-serializing
-#' @description  After persisting an isolation forest model object through `saveRDS`, `save`, or restarting a session, the
+#' @description After persisting an isolation forest model object through `saveRDS`, `save`, or restarting a session, the
 #' underlying C++ objects that constitute the isolation forest model and which live only on the C++ heap memory are not saved along,
 #' thus not restored after loading a saved model through `readRDS` or `load`.
 #' 
 #' The model object however keeps serialized versions of the C++ objects as raw bytes, from which the C++ objects can be
-#' reconstructed, and are done so automatically after calling `predict`, `print`, `summary`, or `add.isolation.tree` on the
+#' reconstructed, and are done so automatically after calling `predict`, `print`, `summary`, or `isotree.add.tree` on the
 #' freshly-loaded object from `readRDS` or `load`.
 #' 
 #' This function allows to automatically de-serialize the object ("complete" or "restore" the
@@ -1219,13 +1243,13 @@ add.isolation.tree <- function(model, df, sample_weights = NULL, column_weights 
 #' print(iso2$cpp_obj$ptr)
 #' 
 #' ### now unpack it
-#' unpack.isolation.forest(iso2)
+#' isotree.restore.handle(iso2)
 #' 
 #' cat("Model pointer after unpacking is this: \n")
 #' print(iso2$cpp_obj$ptr)
 #' @export
-unpack.isolation.forest <- function(model)  {
-    if (!("isolation_forest" %in% class(model)))
+isotree.restore.handle <- function(model)  {
+    if (!inherits(model, "isolation_forest"))
         stop("'model' must be an isolation forest model object as output by function 'isolation.forest'.")
     
     if (check_null_ptr_model(model$cpp_obj$ptr)) {
@@ -1248,8 +1272,8 @@ unpack.isolation.forest <- function(model)  {
 #' with length equal to the number of trees. `"total"` contains the total number of nodes that
 #' each tree has, while `"terminal"` contains the number of terminal nodes per tree.
 #' @export
-get.num.nodes <- function(model)  {
-    unpack.isolation.forest(model)
+isotree.get.num.nodes <- function(model)  {
+    isotree.restore.handle(model)
     return(get_n_nodes(model$cpp_obj$ptr, model$params$ndim > 1, model$nthreads))
 }
 
@@ -1279,11 +1303,8 @@ get.num.nodes <- function(model)  {
 #' @param other Another Isolation Forest model, from which trees will be appended into
 #' `model`. It will not be modified during the call to this function.
 #' @return The same input `model` object, now with the new trees appended, returned as invisible.
-#' @details Be aware that, if something goes wrong in the process (such as running out of RAM or
-#' receiving an interrupt signal), the `model` object that was passed here might be rendered unusable.
-#' 
-#' For safety purposes, the model object can be deep copied (including the underlying C++ object)
-#' through function \link{deepcopy.isotree} before undergoing an in-place modification like this.
+#' @details For safety purposes, the model object can be deep copied (including the underlying C++ object)
+#' through function \link{isotree.deep.copy} before undergoing an in-place modification like this.
 #' @examples 
 #' library(isotree)
 #' 
@@ -1303,7 +1324,7 @@ get.num.nodes <- function(model)  {
 #' nodes2 <- predict(iso2, head(X1, 3), type="tree_num")
 #' 
 #' ### Append the trees from 'iso2' into 'iso1'
-#' iso1 <- append.trees(iso1, iso2)
+#' iso1 <- isotree.append.trees(iso1, iso2)
 #' 
 #' ### Check that it predicts the same as the two models
 #' nodes.comb <- predict(iso1, head(X1, 3), type="tree_num")
@@ -1314,8 +1335,8 @@ get.num.nodes <- function(model)  {
 #' nodes.comb$avg_depth
 #' (3*nodes1$avg_depth + 2*nodes2$avg_depth) / 5
 #' @export
-append.trees <- function(model, other) {
-    if (!("isolation_forest" %in% class(model)) || !("isolation_forest" %in% class(other))) {
+isotree.append.trees <- function(model, other) {
+    if (!inherits(model, "isolation_forest") || !inherits(other, "isolation_forest")) {
         stop("'model' and 'other' must be isolation forest models.")
     }
     if ((model$params$ndim == 1) != (other$params$ndim == 1)) {
@@ -1329,14 +1350,19 @@ append.trees <- function(model, other) {
     if (is.na(model$params$ntrees + other$params$ntrees) || (model$params$ntrees + other$params$ntrees) > .Machine$integer.max)
         stop("Resulting object would exceed number of trees limit.")
     
-    serialized <- append_trees_from_other(model$cpp_obj$ptr,      other$cpp_obj$ptr,
-                                          model$cpp_obj$imp_ptr,  other$cpp_obj$imp_ptr,
-                                          model$params$ndim > 1)
-    model$cpp_obj$serialized <- serialized$serialized
-    if ("imp_ser" %in% names(model)) {
-        model$cpp_obj$imp_ser <- serialized$imp_ser
-    }
-    
+    serialized <- raw()
+    imp_ser <- raw()
+    if (NROW(model$cpp_obj$serialized))
+        serialized <- model$cpp_obj$serialized
+    if (NROW(model$cpp_obj$imp_ser))
+        imp_ser    <- model$cpp_obj$imp_ser
+
+    cpp_outputs <- append_trees_from_other(model$cpp_obj$ptr,      other$cpp_obj$ptr,
+                                           model$cpp_obj$imp_ptr,  other$cpp_obj$imp_ptr,
+                                           model$params$ndim > 1,
+                                           serialized, imp_ser)
+    model$cpp_obj$serialized  <-  cpp_outputs$serialized
+    model$cpp_obj$imp_ser     <-  cpp_outputs$imp_ser
     inplace_add(model$params$ntrees, other$params$ntrees)
     return(invisible(model))
 }
@@ -1353,81 +1379,136 @@ append.trees <- function(model, other) {
 #' something exportable as JSON, and must be something that Python's Pandas could
 #' use as column names (e.g. strings/character).
 #' 
-#' It is recommended to visually inspect the produced `.metadata` file in any case.
-#' @details This function will create 2 files: the serialized model, in binary format,
-#' with the name passed in `file`; and a metadata file in JSON format with the same
-#' name but ending in `.metadata`. The second file should \bold{NOT} be edited manually,
-#' except for the field `nthreads` if desired.
+#' Can optionally generate a JSON file with metadata such as the column names and the
+#' levels of categorical variables, which can be inspected visually in order to detect
+#' potential issues (e.g. character encoding) or to make sure that the columns are of
+#' the right types.
 #' 
-#' If the model was built with `build_imputer=TRUE`, there will also be a third binary file
-#' ending in `.imputer`.
-#' 
-#' The metadata will contain, among other things, the encoding that was used for
+#' Requires the `jsonlite` package in order to work.
+#' @details The metadata file, if produced, will contain, among other things, the encoding that was used for
 #' categorical columns - this is under `data_info.cat_levels`, as an array of arrays by column,
 #' with the first entry for each column corresponding to category 0, second to category 1,
 #' and so on (the C++ version takes them as integers). When passing `categ_cols`, there
 #' will be no encoding but it will save the maximum category integer and the column
-#' numbers instead of names. This metadata is written to a JSON file
-#' using the `jsonlite` package, which must be installed in order for this to work.
+#' numbers instead of names.
 #' 
-#' The serialized file can be used in the C++ version by reading it as a binary raw file
-#' and de-serializing its contents with the `cereal` library or using the provided C++ functions
-#' for de-serialization. If using `ndim=1`, it will be an object of class `IsoForest`, and if
-#' using `ndim>1`, will be an object of class `ExtIsoForest`. The imputer file, if produced, will
-#' be an object of class `Imputer`.
+#' The serialized file can be used in the C++ version by reading it as a binary file
+#' and de-serializing its contents using the C++ function 'deserialize_combined'
+#' (recommended to use 'inspect_serialized_object' beforehand).
 #' 
 #' Be aware that this function will write raw bytes from memory as-is without compression,
 #' so the file sizes can end up being much larger than when using `saveRDS`.
 #' 
-#' The metadata is not used in the C++ version, but is necessary for the Python version.
+#' The metadata is not used in the C++ version, but is necessary for the R and Python versions.
 #' 
 #' Note that the model treats boolean/logical variables as categorical. Thus, if the model was fit
 #' to a `data.frame` with boolean columns, when importing this model into C++, they need to be
 #' encoded in the same order - e.g. the model might encode `TRUE` as zero and `FALSE`
 #' as one - you need to look at the metadata for this.
+#' 
+#' The files produced by this function will be compatible between:\itemize{
+#' \item Different operating systems.
+#' \item Different compilers.
+#' \item Different Python/R versions.
+#' \item Systems with different 'size_t' width (e.g. 32-bit and 64-bit),
+#' as long as the file was produced on a system that was either 32-bit or 64-bit,
+#' and as long as each saved value fits within the range of the machine's 'size_t' type.
+#' \item Systems with different 'int' width,
+#' as long as the file was produced on a system that was 16-bit, 32-bit, or 64-bit,
+#' and as long as each saved value fits within the range of the machine's int type.
+#' \item Systems with different bit endianness (e.g. x86 and PPC64 in non-le mode).
+#' \item Versions of this package from 0.3.0 onwards.
+#' }
+#' 
+#' But will not be compatible between:\itemize{
+#' \item Systems with different floating point numeric representations
+#' (e.g. standard IEEE754 vs. a base-10 system).
+#' \item Versions of this package earlier than 0.3.0.
+#' }
+#' This pretty much guarantees that a given file can be serialized and de-serialized
+#' in the same machine in which it was built, regardless of how the library was compiled.
+#' 
+#' Reading a serialized model that was produced in a platform with different
+#' characteristics (e.g. 32-bit vs. 64-bit) will be much slower.
+#' 
+#' On Windows, if compiling this library with a compiler other than MSVC or MINGW,
+#' (not currently supported by CRAN's build systems at the moment of writing)
+#' there might be issues exporting models larger than 2GB.
+#' 
+#' In non-windows systems, if the file name contains non-ascii characters, the file name
+#' must be in the system's native encoding. In windows, file names with non-ascii
+#' characters are supported as long as the package is compiled with GCC5 or newer.
+#' 
+#' Note that, while `readRDS` and `load` will not make any changes to the serialized format
+#' of the objects, reading a serialized model from a file will forcibly re-serialize,
+#' using the system's own setup (e.g. 32-bit vs. 64-bit, endianness, etc.), and as such
+#' can be used to convert formats.
 #' @param model An Isolation Forest model as returned by function \link{isolation.forest}.
 #' @param file File path where to save the model. File connections are not accepted, only
 #' file paths
-#' @param ... Additional arguments to pass to \link{writeBin} - you might want to pass
-#' extra parameters if passing files between different CPU architectures or similar.
-#' @return No return value.
-#' @seealso \link{load.isotree.model} \link{writeBin} \link{unpack.isolation.forest}
-#' @references \url{https://uscilab.github.io/cereal/}
+#' @param add_metadata_file Whether to generate a JSON file with metadata, which will have
+#' the same name as the model but will end in '.metadata'. This file is not used by the
+#' de-serialization function, it's only meant to be inspected manually, since such contents
+#' will already be written in the produced model file.
+#' @return The same `model` object that was passed as input, as invisible.
+#' @seealso \link{isotree.import.model} \link{isotree.restore.handle}
 #' @export
-export.isotree.model <- function(model, file, ...) {
-    if (!("isolation_forest" %in% class(model)))
+isotree.export.model <- function(model, file, add_metada_file=FALSE) {
+    if (!inherits(model, "isolation_forest"))
         stop("This function is only available for isolation forest objects as returned from 'isolation.forest'.")
+
+    file <- path.expand(file)
     metadata <- export.metadata(model)
-    file.metadata <- paste0(file, ".metadata")
-    jsonlite::write_json(export.metadata(model), file.metadata,
-                         pretty=TRUE, auto_unbox=TRUE)
-    writeBin(model$cpp_obj$serialized, file, ...)
-    if (model$params$build_imputer) {
-        file.imp <- paste0(file, ".imputer")
-        writeBin(model$cpp_obj$imp_ser, file.imp, ...)
+
+    if (add_metada_file) {
+        file.metadata <- paste0(file, ".metadata")
+        jsonlite::write_json(metadata, file.metadata,
+                             pretty=TRUE, auto_unbox=TRUE)
     }
-    return(invisible(NULL))
+
+    # https://github.com/jeroen/jsonlite/issues/366
+    metadata <- jsonlite::toJSON(metadata, pretty=FALSE, auto_unbox=TRUE)
+    metadata <- enc2utf8(metadata)
+    metadata <- charToRaw(metadata)
+
+    serialized <- raw()
+    imp_ser <- raw()
+    if (NROW(model$cpp_obj$serialized))
+        serialized <- model$cpp_obj$serialized
+    if (NROW(model$cpp_obj$imp_ser))
+        imp_ser    <- model$cpp_obj$imp_ser
+    serialize_to_file(
+        serialized,
+        imp_ser,
+        model$params$ndim > 1,
+        metadata,
+        file
+    )
+    return(invisible(model))
 }
 
 #' @title Load an Isolation Forest model exported from Python
 #' @description Loads a serialized Isolation Forest model as produced and exported
 #' by the Python version of this package. Note that the metadata must be something
-#' importable in R - e.g. column names must be valid for R (numbers are not valid names for R).
-#' It's recommended to visually inspect the `.metadata` file in any case.
+#' importable in R - e.g. column names must be valid for R (numbers are valid for
+#' Python's pandas, but not for R, for example).
+#' 
+#' It's recommended to generate a '.metadata' file (passing `add_metada_file=TRUE`) and
+#' to visually inspect said file in any case.
 #' 
 #' This function is not meant to be used for passing models to and from R -
 #' in such case, one can use `saveRDS` and `readRDS` instead as they will
 #' likely result in smaller file sizes (although this function will still
 #' work correctly for serialization within R).
-#' @param file Path to the saved isolation forest model along with its metadata file,
-#' and imputer file if produced. Must be a file path, not a file connection.
-#' @details Internally, this function uses `readr::read_file_raw` (from the `readr` package)
-#' and `jsonlite::fromJSON` (from the `jsonlite` package). Be sure to have those installed
-#' and that the files are readable through them.
-#' 
-#' Note: If the model was fit to a ``DataFrame`` using Pandas' own Boolean types,
+#' @param file Path to the saved isolation forest model.
+#' Must be a file path, not a file connection,
+#' and the character encoding should correspond to the system's native encoding.
+#' @details If the model was fit to a ``DataFrame`` using Pandas' own Boolean types,
 #' take a look at the metadata to check if these columns will be taken as booleans
-#' (R logicals) or as categoricals with string values `"True"` or `"False"`.
+#' (R logicals) or as categoricals with string values `"True"` and `"False"`.
+#' 
+#' See the documentation for \link{isotree.export.model} for details about compatibility
+#' of the generated files across different machines and versions.
 #' 
 #' If using this function to de-serialize a model in a production system, one might
 #' want to delete the serialized bytes inside the object afterwards in order to free up memory.
@@ -1435,31 +1516,23 @@ export.isotree.model <- function(model, file, ...) {
 #' - e.g.: `model$cpp_obj$serialized = NULL; model$cpp_obj$imp_ser = NULL; gc()`.
 #' @return An isolation forest model, as if it had been constructed through
 #' \link{isolation.forest}.
-#' @seealso \link{export.isotree.model} \link{unpack.isolation.forest}
+#' @seealso \link{isotree.export.model} \link{isotree.restore.handle}
 #' @export
-load.isotree.model <- function(file) {
+isotree.import.model <- function(file) {
     if (!file.exists(file)) stop("'file' does not exist.")
-    metadata.file <- paste0(file, ".metadata")
-    if (!file.exists(metadata.file)) stop("No matching metadata for 'file'.")
-    
-    metadata <- jsonlite::fromJSON(metadata.file,
+    res <- deserialize_from_file(file)
+    metadata <- rawToChar(res$metadata)
+    Encoding(metadata) <- "UTF-8"
+    metadata <- enc2native(metadata)
+    metadata <- jsonlite::fromJSON(metadata,
                                    simplifyVector = TRUE,
                                    simplifyDataFrame = FALSE,
                                    simplifyMatrix = FALSE)
-    
     this <- take.metadata(metadata)
-    this$cpp_obj$serialized <- readr::read_file_raw(file)
-    if (this$params$ndim == 1L)
-        this$cpp_obj$ptr <- deserialize_IsoForest(this$cpp_obj$serialized)
-    else
-        this$cpp_obj$ptr <- deserialize_ExtIsoForest(this$cpp_obj$serialized)
-    
-    imputer.file <- paste0(file, ".imputer")
-    if (file.exists(imputer.file)) {
-        this$cpp_obj$imp_ser <- readr::read_file_raw(imputer.file)
-        this$cpp_obj$imp_ptr <- deserialize_Imputer(this$cpp_obj$imp_ser)
-    }
-    
+    this$cpp_obj$ptr         <-  res$ptr
+    this$cpp_obj$serialized  <-  res$serialized
+    this$cpp_obj$imp_ser     <-  res$imp_ser
+    this$cpp_obj$imp_ptr     <-  res$imp_ptr
     class(this) <- "isolation_forest"
     return(this)
 }
@@ -1547,7 +1620,7 @@ load.isotree.model <- function(file) {
 isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALSE, tree = NULL,
                            table_from = NULL, select_as = "outlier_score",
                            column_names = NULL, column_names_categ = NULL) {
-    unpack.isolation.forest(model)
+    isotree.restore.handle(model)
     
     allowed_enclose <- c("doublequotes", "squarebraces", "none")
     if (NROW(enclose) != 1L)
@@ -1574,12 +1647,12 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
     }
     
     if (!is.null(table_from)) {
-        if ((NROW(table_from) != 1L) || !("character" %in% class(table_from)))
+        if ((NROW(table_from) != 1L) || !is.character(table_from))
             stop("'table_from' must be a single character variable.")
         if (is.na(table_from))
             stop("Invalid 'table_from'.")
         
-        if ((NROW(select_as) != 1L) || !("character" %in% class(select_as)))
+        if ((NROW(select_as) != 1L) || !is.character(select_as))
             stop("'select_as' must be a single character variable.")
         if (is.na(select_as))
             stop("Invalid 'select_as'.")
@@ -1593,7 +1666,7 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
         if (!is.null(column_names)) {
             if (NROW(column_names) != model$metadata$ncols_num)
                 stop(sprintf("'column_names' must have length %d", model$metadata$ncols_num))
-            if (!("character" %in% class(column_names)))
+            if (!is.character(column_names))
                 stop("'column_names' must be a character vector.")
             cols_num <- column_names
         } else {
@@ -1611,7 +1684,7 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
         if (!is.null(column_names_categ)) {
             if (NROW(column_names_categ) != model$metadata$ncols_cat)
                 stop(sprintf("'column_names_categ' must have length %d", model$metadata$ncols_cat))
-            if (!("character" %in% class(column_names_categ)))
+            if (!is.character(column_names_categ))
                 stop("'column_names_categ' must be a character vector.")
             cols_cat <- column_names_categ
         } else {
@@ -1657,13 +1730,13 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
 #' @title Deep-Copy an Isolation Forest Model Object
 #' @details Generates a deep copy of a model object, including the C++ objects inside it.
 #' This function is only meaningful if one intends to call a function that modifies the
-#' internal C++ objects - currently, the only such function are \link{add.isolation.tree}
-#' and \link{append.trees} - as otherwise R's objects follow a copy-on-write logic.
+#' internal C++ objects - currently, the only such function are \link{isotree.add.tree}
+#' and \link{isotree.append.trees} - as otherwise R's objects follow a copy-on-write logic.
 #' @param model An `isolation_forest` model object.
 #' @return A new `isolation_forest` object, with deep-copied C++ objects.
 #' @export
-deepcopy.isotree <- function(model) {
-    unpack.isolation.forest(model)
+isotree.deep.copy <- function(model) {
+    isotree.restore.handle(model)
     new_pointers <- copy_cpp_objects(model$cpp_obj$ptr, model$params$ndim > 1,
                                      model$cpp_obj$imputer_ptr, !is.null(model$cpp_obj$imputer_ptr))
     new_model <- model
@@ -1676,5 +1749,60 @@ deepcopy.isotree <- function(model) {
         )
     )
     new_model$params$ntrees <- deepcopy_int(model$params$ntrees)
+    return(new_model)
+}
+
+#' @title Drop Imputer Sub-Object from Isolation Forest Model Object
+#' @details Drops the imputer sub-object from an isolation forest model object, if it was fitted with data imputation
+#' capabilities. The imputer, if constructed, is likely to be a very heavy object which might
+#' not be needed for all purposes.
+#' @param model An `isolation_forest` model object.
+#' @return The same `model` object, but now with the imputer removed. Note that `model` is modified in-place
+#' in any event.
+#' @export
+isotree.drop.imputer <- function(model) {
+    if (!inherits(model, "isolation_forest"))
+        stop("This function is only available for isolation forest objects as returned from 'isolation.forest'.")
+    inplace_set_to_zero(model$params$build_imputer)
+    if (!is.null(model$cpp_obj$imp_ptr))
+        model$cpp_obj$imp_ptr <- drop_imputer(model$cpp_obj$imp_ptr)
+    model$cpp_obj$imputer_ser <- NULL
+    return(model)
+}
+
+#' @title Subset trees of a given model
+#' @details Creates a new isolation forest model containing only selected trees of a
+#' given isolation forest model object.
+#' @param model An `isolation_forest` model object.
+#' @param trees_take Indices of the trees of `model` to copy over to a new model,
+#' as an integer vector.
+#' Must be integers with numeration starting at one
+#' @return A new isolation forest model object, containing only the subset of trees
+#' from this `model` that was specified under `trees_take`.
+#' @export
+isotree.subset.trees <- function(model, trees_take) {
+    isotree.restore.handle(model)
+    trees_take <- as.integer(trees_take)
+    if (!NROW(trees_take))
+        stop("'trees_take' cannot be empty.")
+    if (anyNA(trees_take) || min(trees_take) < 1L || max(trees_take) > model$params$ntrees)
+        stop("'trees_take' contains invalid indices.")
+
+    ntrees_new <- length(trees_take)
+    new_cpp_obj <- subset_trees(
+        model$cpp_obj$ptr, model$cpp_obj$imp_ptr,
+        model$params$ndim > 1, model$params$build_imputer,
+        trees_take
+    )
+    new_model <- model
+    new_model$cpp_obj <- NULL
+    new_model$params$ntrees <- ntrees_new
+    new_model$params$build_imputer <- as.logical(NROW(new_cpp_obj$imputer_ser))
+    new_model$cpp_obj <- as.environment(list(
+        ptr         =  new_cpp_obj$model_ptr,
+        serialized  =  new_cpp_obj$serialized_obj,
+        imp_ptr     =  new_cpp_obj$imp_ptr,
+        imp_ser     =  new_cpp_obj$imputer_ser
+    ))
     return(new_model)
 }

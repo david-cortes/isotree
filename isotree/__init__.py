@@ -6,7 +6,7 @@ import ctypes
 import json
 import os
 from copy import deepcopy
-from ._cpp_interface import isoforest_cpp_obj, _sort_csc_indices, _reconstruct_csr_sliced, _reconstruct_csr_with_categ
+from ._cpp_interface import isoforest_cpp_obj, _sort_csc_indices, _reconstruct_csr_sliced, _reconstruct_csr_with_categ, _get_has_openmp
 
 __all__ = ["IsolationForest"]
 
@@ -632,6 +632,13 @@ class IsolationForest:
         assert nthreads > 0
         assert isinstance(nthreads, int)
 
+        if (nthreads > 1) and (not _get_has_openmp()):
+            msg_omp  = "Attempting to use more than 1 thread, but "
+            msg_omp += "package was built without multi-threading "
+            msg_omp += "support - see the project's GitHub page for "
+            msg_omp += "more information."
+            warnings.warn(msg_omp)
+
         if categ_cols is not None:
             categ_cols = np.array(categ_cols).reshape(-1).astype(int)
             categ_cols.sort()
@@ -733,7 +740,8 @@ class IsolationForest:
         Note
         ----
         Setting any parameter other than the number of threads will reset the model
-        - that is, if it was fitted to some data, the fitted model will be lost.
+        - that is, if it was fitted to some data, the fitted model will be lost,
+        and it will need to be refitted before being able to make predictions.
         
         Parameters
         ----------
@@ -2089,47 +2097,49 @@ class IsolationForest:
 
         return self
 
-    def export_model(self, file, use_cpp = True):
+    def export_model(self, file, add_metada_file = False):
         """
         Export Isolation Forest model
 
         Save Isolation Forest model to a serialized file along with its
         metadata, in order to be re-used in Python or in the R or the C++ versions of this package.
         
-        Although the model objects are always serializable through ``pickle``, this function
-        might provide a faster alternative and use less memory when the models to serialize are big.
+        This function is not suggested to be used for passing models to and from Python -
+        in such case, one can use ``pickle`` instead, although the function
+        still works correctly for serializing objects between Python processes.
         
         Note that, if the model was fitted to a ``DataFrame``, the column names must be
         something exportable as JSON, and must be something that R could
-        use as column names (e.g. strings/character).
+        use as column names (for example, using integers as column names is valid in pandas
+        but not in R).
         
-        It is recommended to visually inspect the produced ``.metadata`` file in any case.
+        Can optionally generate a JSON file with metadata such as the column names and the
+        levels of categorical variables, which can be inspected visually in order to detect
+        potential issues (e.g. character encoding) or to make sure that the columns are of
+        the right types.
 
-        This function will create 2 files: the serialized model, in binary format,
-        with the name passed in ``file``; and a metadata file in JSON format with the same
-        name but ending in ``.metadata``. The second file should **NOT** be edited manually,
-        except for the field ``nthreads`` if desired.
-        
-        If the model was built with ``build_imputer=True``, there will also be a third binary file
-        ending in ``.imputer``.
-        
-        The metadata will contain, among other things, the encoding that was used for
+        The metadata file, if produced, will contain, among other things, the encoding that was used for
         categorical columns - this is under ``data_info.cat_levels``, as an array of arrays by column,
         with the first entry for each column corresponding to category 0, second to category 1,
         and so on (the C++ version takes them as integers). When passing ``categ_cols``, there
         will be no encoding but it will save the maximum category integer and the column
         numbers instead of names.
         
-        The serialized file can be used in the C++ version by reading it as a binary raw file
-        and de-serializing its contents with the ``cereal`` library or using the provided C++ functions
-        for de-serialization. If using ``ndim=1``, it will be an object of class ``IsoForest``, and if
-        using ``ndim>1``, will be an object of class ``ExtIsoForest``. The imputer file, if produced, will
-        be an object of class ``Imputer``.
+        The serialized file can be used in the C++ version by reading it as a binary file
+        and de-serializing its contents using the C++ function 'deserialize_combined'
+        (recommended to use 'inspect_serialized_object' beforehand).
 
         Be aware that this function will write raw bytes from memory as-is without compression,
         so the file sizes can end up being much larger than when using ``pickle``.
         
         The metadata is not used in the C++ version, but is necessary for the R and Python versions.
+
+        Note
+        ----
+        While in earlier versions of this library this functionality use to be faster than
+        ``pickle``, starting with version 0.3.0, this function and ``pickle`` should have
+        similar timings and it's recommended to use ``pickle`` for serializing objects
+        across Python processes.
 
         Note
         ----
@@ -2141,39 +2151,75 @@ class IsolationForest:
         you might need to pass values as e.g. ``"True"`` instead of ``TRUE`` (look at the ``.metadata``
         file to determine this).
 
+        Note
+        ----
+        The files produced by this function will be compatible between:
+        
+        * Different operating systems.
+
+        * Different compilers.
+
+        * Different Python/R versions.
+
+        * Systems with different 'size_t' width (e.g. 32-bit and 64-bit),
+          as long as the file was produced on a system that was either 32-bit or 64-bit,
+          and as long as each saved value fits within the range of the machine's 'size_t' type.
+
+        * Systems with different 'int' width,
+          as long as the file was produced on a system that was 16-bit, 32-bit, or 64-bit,
+          and as long as each saved value fits within the range of the machine's int type.
+
+        * Systems with different bit endianness (e.g. x86 and PPC64 in non-le mode).
+
+        * Versions of this package from 0.3.0 onwards.
+
+        But will not be compatible between:
+
+        * Systems with different floating point numeric representations
+          (e.g. standard IEEE754 vs. a base-10 system).
+
+        * Versions of this package earlier than 0.3.0.
+
+        This pretty much guarantees that a given file can be serialized and de-serialized
+        in the same machine in which it was built, regardless of how the library was compiled.
+
+        Reading a serialized model that was produced in a platform with different
+        characteristics (e.g. 32-bit vs. 64-bit) will be much slower.
+
+        Note
+        ----
+        On Windows, if compiling this library with a compiler other than MSVC or MINGW,
+        there might be issues exporting models larger than 2GB.
+
         Parameters
         ----------
         file : str
             The output file path into which to export the model. Must be a file name, not a
             file handle.
-        use_cpp : bool
-            Whether to use C++ directly for IO. Using the C++ funcionality directly is faster, and
-            will write directly to a file instead of first creating the file contents in-memory,
-            but in Windows, if the library was compiled with a compiler other than MSVC,
-            file paths that contain non-ASCII characters will faill to write
-            and might crash the Python process along with it. If passing ``False``, it will at
-            first create the file contents in-memory in a Python object, and then use a Python
-            file handle to write such contents into a file.
+        add_metada_file : bool
+            Whether to generate a JSON file with metadata, which will have
+            the same name as the model but will end in '.metadata'. This file is not used by the
+            de-serialization function, it's only meant to be inspected manually, since such contents
+            will already be written in the produced model file.
 
         Returns
         -------
         self : obj
             This object.
-
-        References
-        ----------
-        .. [1] https://uscilab.github.io/cereal
         """
         assert self.is_fitted_
         file = os.path.expanduser(file)
         metadata = self._export_metadata()
-        with open(file + ".metadata", "w") as of:
-            json.dump(metadata, of, indent=4)
-        self._cpp_obj.serialize_obj(file, use_cpp, self.ndim > 1, has_imputer=self.build_imputer)
+        if add_metada_file:
+            with open(file + ".metadata", "w") as of:
+                json.dump(metadata, of, indent=4)
+        metadata = json.dumps(metadata)
+        metadata = metadata.encode('utf-8')
+        self._cpp_obj.serialize_obj(file, metadata, self.ndim > 1, has_imputer=self.build_imputer)
         return self
 
     @staticmethod
-    def import_model(file, use_cpp = False):
+    def import_model(file):
         """
         Load an Isolation Forest model exported from R or Python
 
@@ -2181,11 +2227,16 @@ class IsolationForest:
         by the function ``export_model`` or by the R version of this package.
         Note that the metadata must be something
         importable in Python - e.g. column names must be valid for Pandas.
-        It's recommended to visually inspect the ``.metadata`` file in any case.
+        
+        It's recommended to generate a '.metadata' file (passing ``add_metada_file=True``) and
+        to visually inspect said file in any case.
         
         While the model objects can be serialized through ``pickle``, using the
         package's own functions might result in a faster and more memory-efficient
         alternative.
+
+        See the documentation for ``export_model`` for details about compatibility
+        of the generated files across different machines and versions.
 
         Note
         ----
@@ -2198,14 +2249,6 @@ class IsolationForest:
         file : str
             The input file path containing an exported model along with its metadata file.
             Must be a file name, not a file handle.
-        use_cpp : bool
-            Whether to use C++ directly for IO. Using the C++ funcionality directly is faster, and
-            will read directly from a file into a model object instead of first reading the file
-            contents in-memory, but in Windows, if the library was compiled with a compiler other than MSVC,
-            file paths that contain non-ASCII characters will
-            faill to read and might crash the Python process along with it. If passing ``False``,
-            it will at first read the file contents in-memory into a Python object, and then recreate
-            the model from those bytes.
 
         Returns
         -------
@@ -2215,11 +2258,9 @@ class IsolationForest:
         """
         file = os.path.expanduser(file)
         obj = IsolationForest()
-        metadata_file = file + ".metadata"
-        with open(metadata_file, "r") as ff:
-            metadata = json.load(ff)
+        metadata = obj._cpp_obj.deserialize_obj(file)
+        metadata = json.loads(metadata)
         obj._take_metadata(metadata)
-        obj._cpp_obj.deserialize_obj(file, obj.ndim > 1, use_cpp)
         return obj
 
     def generate_sql(self, enclose="doublequotes", output_tree_num = False, tree = None,
@@ -2371,6 +2412,57 @@ class IsolationForest:
         if single_tree:
             return out[0]
         return out
+
+    def drop_imputer(self):
+        """
+        Drops the imputer sub-object from this model object
+
+        Drops the imputer sub-object from this model object, if it was fitted with data imputation
+        capabilities. The imputer, if constructed, is likely to be a very heavy object which might
+        not be needed for all purposes.
+
+        Returns
+        -------
+        self : obj
+            This object
+        """
+        self._cpp_obj.drop_imputer()
+        return self
+
+    def subset_trees(self, trees_take):
+        """
+        Subset trees of a given model
+
+        Creates a new model containing only selected trees of this
+        model object.
+
+        Parameters
+        ----------
+        trees_take : array_like(n,)
+            Indices of the trees of this model to copy over to the new model.
+            Must be integers with numeration starting at zero.
+
+        Returns
+        -------
+        new_model : obj
+            A new IsolationForest model object, containing only the subset of trees
+            from this object that was specified under 'trees_take'.
+        """
+        assert self.is_fitted_
+        trees_take = np.array(trees_take).reshape(-1).astype(ctypes.c_size_t)
+        if not trees_take.shape[0]:
+            raise ValueError("'trees_take' is empty.")
+        if trees_take.max() >= self.ntrees:
+            raise ValueError("Attempting to take tree indices that the model does not have.")
+        new_cpp_obj = self._cpp_obj.subset_model(trees_take, self.ndim>1, self.build_imputer)
+        old_cpp_obj = self._cpp_obj
+        try:
+            self._cpp_obj = None
+            new_obj = deepcopy(self)
+            new_obj._cpp_obj = new_cpp_obj
+        finally:
+            self._cpp_obj = old_cpp_obj
+        return new_obj
 
     ### https://github.com/numpy/numpy/issues/19069
     def _is_np_int(self, el):

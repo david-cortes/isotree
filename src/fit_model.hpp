@@ -406,7 +406,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 
     /* if imputing missing values on-the-fly, need to determine which are missing */
     std::vector<ImputedData<sparse_ix>> impute_vec;
-    std::unordered_map<size_t, ImputedData<sparse_ix>> impute_map;
+    hashed_map<size_t, ImputedData<sparse_ix>> impute_map;
     if (model_params.impute_at_fit)
         check_for_missing(input_data, impute_vec, impute_map, nthreads);
 
@@ -880,7 +880,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         workspace.btree_weights.assign(input_data.btree_weights_init.begin(),
                                        input_data.btree_weights_init.end());
     workspace.rnd_generator.seed(model_params.random_seed + tree_num);
-    workspace.rbin  = std::uniform_real_distribution<double>(0, 1);
+    workspace.rbin  = UniformUnitInterval(0, 1);
     sample_random_rows(workspace.ix_arr, input_data.nrows, model_params.with_replacement,
                        workspace.rnd_generator, workspace.ix_all,
                        (input_data.weight_as_sample)? input_data.sample_weights : NULL,
@@ -927,7 +927,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         workspace.categs.resize(input_data.max_categ);
 
     /* IMPORTANT!!!!!
-       The standard library implementation is likely going to use the ziggurat method
+       The standard library implementation is likely going to use the Box-Muller method
        for normal sampling, which has some state memory in the **distribution object itself**
        in addition to the state memory from the RNG engine. DO NOT avoid re-generating this
        object on each tree, despite being inefficient, because then it can cause seed
@@ -938,9 +938,9 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     if (hplane_root != NULL)
     {
         if (input_data.ncols_categ || model_params.coef_type == Normal)
-            workspace.coef_norm = std::normal_distribution<double>(0, 1);
+            workspace.coef_norm = StandardNormalDistr(0, 1);
         if (model_params.coef_type == Uniform)
-            workspace.coef_unif = std::uniform_real_distribution<double>(-1, 1);
+            workspace.coef_unif = UniformMinusOneToOne(-1, 1);
     }
 
     /* for the extended model, initialize extra vectors and objects */
@@ -1004,16 +1004,14 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
             workspace.weights_map.clear();
 
             /* if the sub-sample size is small relative to the full sample size, use a mapping */
-            if (input_data.Xc_indptr != NULL && model_params.sample_size < input_data.nrows / 20)
+            if (input_data.Xc_indptr != NULL && model_params.sample_size < input_data.nrows / 50)
             {
                 for (const size_t ix : workspace.ix_arr)
-                {
                     weight_scaling += input_data.sample_weights[ix];
-                    workspace.weights_map[ix] = input_data.sample_weights[ix];
-                }
                 weight_scaling = (long double)model_params.sample_size / weight_scaling;
-                for (auto &w : workspace.weights_map)
-                    w.second *= weight_scaling;
+                workspace.weights_map.reserve(workspace.ix_arr.size());
+                for (const size_t ix : workspace.ix_arr)
+                    workspace.weights_map[ix] = input_data.sample_weights[ix] * weight_scaling;
             }
 
             /* if the sub-sample size is large, fill a full array matching to the sample size */
