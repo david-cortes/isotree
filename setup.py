@@ -51,6 +51,9 @@ class build_ext_subclass( build_ext ):
                 else:
                     e.extra_compile_args += ['-O3', '-std=c++11']
 
+                if (os.path.exists("src/robinmap/include/tsl")):
+                    e.define_macros += [("_USE_ROBIN_MAP", None)]
+
             # if is_clang:
             #     for e in self.extensions:
             #         e.extra_compile_args += ['-fopenmp=libomp']
@@ -163,7 +166,6 @@ setup(
                                 language="c++",
                                 install_requires = ["numpy", "pandas>=0.24.0", "cython", "scipy"],
                                 define_macros = [("_USE_XOSHIRO", None),
-                                                 ("_USE_ROBIN_MAP", None),
                                                  ("_FOR_PYTHON", None),
                                                  ("PY_GEQ_3_3", None)
                                                  if (sys.version_info[0] >= 3 and sys.version_info[1] >= 3) else

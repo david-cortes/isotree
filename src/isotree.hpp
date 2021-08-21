@@ -58,6 +58,9 @@
 #       endif
 #   endif
 #endif
+#ifdef _MSC_VER
+#   define _CRT_SECURE_NO_WARNINGS
+#endif
 
 
 /* Standard headers */
@@ -1183,7 +1186,7 @@ public:
 
 #if defined(_WIN32) && (defined(_MSC_VER) || defined(__GNUC__))
     #define WCHAR_T_FUNS
-    extern "C" FILE *_wfopen(const wchar_t *filename, const wchar_t *mode);
+    #include <stdio.h>
     class WFileHandle
     {
     public:
