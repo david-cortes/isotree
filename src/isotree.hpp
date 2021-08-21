@@ -80,6 +80,7 @@
 #include <cassert>
 #include <cfloat>
 #include <iostream>
+#include <string>
 #ifndef _FOR_R
     #include <cstdio>
     using std::printf;
@@ -1224,7 +1225,7 @@ ISOTREE_EXPORTED
 void serialize_IsoForest_ToFile(const IsoForest &model, const char *fname);
 #ifdef WCHAR_T_FUNS
 ISOTREE_EXPORTED
-void serialize_IsoForest_ToFile(const IsoForest &model, const wchar_t *fname)
+void serialize_IsoForest_ToFile(const IsoForest &model, const wchar_t *fname);
 #endif
 ISOTREE_EXPORTED
 void deserialize_IsoForest(IsoForest &model, const char *in);
@@ -1252,7 +1253,7 @@ ISOTREE_EXPORTED
 void serialize_ExtIsoForest_ToFile(const ExtIsoForest &model, const char *fname);
 #ifdef WCHAR_T_FUNS
 ISOTREE_EXPORTED
-void serialize_ExtIsoForest_ToFile(const ExtIsoForest &model, const wchar_t *fname)
+void serialize_ExtIsoForest_ToFile(const ExtIsoForest &model, const wchar_t *fname);
 #endif
 ISOTREE_EXPORTED
 void deserialize_ExtIsoForest(ExtIsoForest &model, const char *in);
@@ -1280,7 +1281,7 @@ ISOTREE_EXPORTED
 void serialize_Imputer_ToFile(const Imputer &model, const char *fname);
 #ifdef WCHAR_T_FUNS
 ISOTREE_EXPORTED
-void serialize_Imputer_ToFile(const Imputer &model, const wchar_t *fname)
+void serialize_Imputer_ToFile(const Imputer &model, const wchar_t *fname);
 #endif
 ISOTREE_EXPORTED
 void deserialize_Imputer(Imputer &model, const char *in);
