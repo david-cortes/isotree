@@ -451,12 +451,12 @@ void read_bytes(void *ptr, const size_t n_els, const char *&in, std::vector<char
         return;
     }
     if (n_els == 0) return;
-    if (buffer.size() < n_els * sizeof(dtype))
-        buffer.resize((size_t)2 * n_els * sizeof(dtype));
-    memcpy(buffer.data(), in, n_els * sizeof(dtype));
-    in += n_els * sizeof(dtype);
+    if (buffer.size() < n_els * sizeof(saved_type))
+        buffer.resize((size_t)2 * n_els * sizeof(saved_type));
+    memcpy(buffer.data(), in, n_els * sizeof(saved_type));
+    in += n_els * sizeof(saved_type);
 
-    if (diff_endian) swap_endianness((dtype*)buffer.data(), n_els);
+    if (diff_endian) swap_endianness((saved_type*)buffer.data(), n_els);
     convert_dtype<dtype, saved_type>(ptr, buffer, n_els);
 }
 
@@ -478,12 +478,12 @@ void read_bytes(void *ptr, const size_t n_els, char *&in, std::vector<char> &buf
         return;
     }
     if (n_els == 0) return;
-    if (buffer.size() < n_els * sizeof(dtype))
-        buffer.resize((size_t)2 * n_els * sizeof(dtype));
-    memcpy(buffer.data(), in, n_els * sizeof(dtype));
-    in += n_els * sizeof(dtype);
+    if (buffer.size() < n_els * sizeof(saved_type))
+        buffer.resize((size_t)2 * n_els * sizeof(saved_type));
+    memcpy(buffer.data(), in, n_els * sizeof(saved_type));
+    in += n_els * sizeof(saved_type);
 
-    if (diff_endian) swap_endianness((dtype*)buffer.data(), n_els);
+    if (diff_endian) swap_endianness((saved_type*)buffer.data(), n_els);
     convert_dtype<dtype, saved_type>(ptr, buffer, n_els);
 }
 
@@ -505,12 +505,12 @@ void read_bytes(void *ptr, const size_t n_els, std::istream &in, std::vector<cha
         return;
     }
     if (n_els == 0) return;
-    if (buffer.size() < n_els * sizeof(dtype))
-        buffer.resize((size_t)2 * n_els * sizeof(dtype));
-    in.read((char*)buffer.data(), n_els * sizeof(dtype));
+    if (buffer.size() < n_els * sizeof(saved_type))
+        buffer.resize((size_t)2 * n_els * sizeof(saved_type));
+    in.read((char*)buffer.data(), n_els * sizeof(saved_type));
     if (in.bad()) throw_errno();
 
-    if (diff_endian) swap_endianness((dtype*)buffer.data(), n_els);
+    if (diff_endian) swap_endianness((saved_type*)buffer.data(), n_els);
     convert_dtype<dtype, saved_type>(ptr, buffer, n_els);
 }
 
@@ -534,12 +534,12 @@ void read_bytes(void *ptr, const size_t n_els, FILE *&in, std::vector<char> &buf
     }
     if (n_els == 0) return;
     if (feof(in)) throw_feoferr();
-    if (buffer.size() < n_els * sizeof(dtype))
-        buffer.resize((size_t)2 * n_els * sizeof(dtype));
-    size_t n_read = fread(buffer.data(), sizeof(dtype), n_els, in);
+    if (buffer.size() < n_els * sizeof(saved_type))
+        buffer.resize((size_t)2 * n_els * sizeof(saved_type));
+    size_t n_read = fread(buffer.data(), sizeof(saved_type), n_els, in);
     if (n_read != n_els || ferror(in)) throw_ferror(in);
 
-    if (diff_endian) swap_endianness((dtype*)buffer.data(), n_els);
+    if (diff_endian) swap_endianness((saved_type*)buffer.data(), n_els);
     convert_dtype<dtype, saved_type>(ptr, buffer, n_els);
 }
 
@@ -564,13 +564,13 @@ void read_bytes(std::vector<dtype> &vec, const size_t n_els, const char *&in, st
         return;
     }
     if (n_els) {
-        if (buffer.size() < n_els * sizeof(dtype))
-            buffer.resize((size_t)2 * n_els * sizeof(dtype));
-        read_bytes<dtype>(buffer.data(), n_els, in);
+        if (buffer.size() < n_els * sizeof(saved_type))
+            buffer.resize((size_t)2 * n_els * sizeof(saved_type));
+        read_bytes<saved_type>(buffer.data(), n_els, in);
         vec.resize(n_els);
         vec.shrink_to_fit();
         
-        if (diff_endian) swap_endianness((dtype*)buffer.data(), n_els);
+        if (diff_endian) swap_endianness((saved_type*)buffer.data(), n_els);
         convert_dtype<dtype, saved_type>(vec.data(), buffer, n_els);
     }
     
@@ -579,7 +579,7 @@ void read_bytes(std::vector<dtype> &vec, const size_t n_els, const char *&in, st
         vec.shrink_to_fit();
     }
 
-    in += n_els * sizeof(dtype);
+    in += n_els * sizeof(saved_type);
 }
 
 template <class dtype>
@@ -607,12 +607,12 @@ void read_bytes(std::vector<dtype> &vec, const size_t n_els, std::istream &in, s
     vec.shrink_to_fit();
 
     if (n_els) {
-        if (buffer.size() < n_els * sizeof(dtype))
-            buffer.resize((size_t)2 * n_els * sizeof(dtype));
-        in.read(buffer.data(), n_els * sizeof(dtype));
+        if (buffer.size() < n_els * sizeof(saved_type))
+            buffer.resize((size_t)2 * n_els * sizeof(saved_type));
+        in.read(buffer.data(), n_els * sizeof(saved_type));
         if (in.bad()) throw_errno();
 
-        if (diff_endian) swap_endianness((dtype*)buffer.data(), n_els);
+        if (diff_endian) swap_endianness((saved_type*)buffer.data(), n_els);
         convert_dtype<dtype, saved_type>(vec.data(), buffer, n_els);
     }
 }
@@ -644,13 +644,13 @@ void read_bytes(std::vector<dtype> &vec, const size_t n_els, FILE *&in, std::vec
 
     if (n_els) {
         if (feof(in)) throw_feoferr();
-        if (buffer.size() < n_els * sizeof(dtype))
-            buffer.resize((size_t)2 * n_els * sizeof(dtype));
+        if (buffer.size() < n_els * sizeof(saved_type))
+            buffer.resize((size_t)2 * n_els * sizeof(saved_type));
 
-        size_t n_read = fread(buffer.data(), sizeof(dtype), n_els, in);
+        size_t n_read = fread(buffer.data(), sizeof(saved_type), n_els, in);
         if (n_read != n_els || ferror(in)) throw_ferror(in);
 
-        if (diff_endian) swap_endianness((dtype*)buffer.data(), n_els);
+        if (diff_endian) swap_endianness((saved_type*)buffer.data(), n_els);
         convert_dtype<dtype, saved_type>(vec.data(), buffer, n_els);
     }
 }
