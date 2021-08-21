@@ -262,10 +262,52 @@ void endian_swap(int64_t &bytes)
 {
     swap64b((char*)&bytes);
 }
+/* Note: on macOS, some compilers will  take 'size_t' as different from 'uin64_t',
+   hence it needs a separate one. However, in other compiler and platforms this
+   leads to a a duplicated function definition, and thus needs this separation
+   in names (otherwise, compilers such as GCC will not compile it). */
+void endian_swap_size_t(char *bytes)
+{
+    #if (SIZE_MAX == UINT32_MAX)
+    swap32b(bytes);
+    #elif (SIZE_MAX == UINT64_MAX)
+    swap64b(bytes);
+    #else
+    std::reverse(bytes, bytes + sizeof(size_t));
+    #endif
+}
+void endian_swap_int(char *bytes)
+{
+    #if (INT_MAX == INT16_MAX)
+    swap16b(bytes);
+    #elif (INT_MAX == INT32_MAX)
+    swap32b(bytes);
+    #elif (SIZE_MAX == INT64_MAX)
+    swap64b(bytes);
+    #else
+    std::reverse(bytes, bytes + sizeof(int));
+    #endif
+}
 
 template <class dtype>
 void swap_endianness(dtype *ptr, size_t n_els)
 {
+    #ifndef __GNUC__
+    if (std::is_same<dtype, size_t>::value)
+    {
+        for (size_t ix = 0; ix < n_els; ix++)
+            endian_swap_size_t((char*)&ptr[ix]);
+        return;
+    }
+
+    else if (std::is_same<dtype, int>::value)
+    {
+        for (size_t ix = 0; ix < n_els; ix++)
+            endian_swap_int((char*)&ptr[ix]);
+        return;
+    }
+    #endif
+
     for (size_t ix = 0; ix < n_els; ix++)
         endian_swap(ptr[ix]);
 }

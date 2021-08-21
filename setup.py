@@ -97,6 +97,7 @@ class build_ext_subclass( build_ext ):
         arg_omp1 = "-fopenmp"
         arg_omp2 = "-qopenmp"
         arg_omp3 = "-xopenmp"
+        arg_omp4 = "-fiopenmp"
         args_apple_omp = ["-Xclang", "-fopenmp", "-lomp"]
         if self.test_supports_compile_arg(arg_omp1):
             for e in self.extensions:
@@ -114,6 +115,10 @@ class build_ext_subclass( build_ext ):
             for e in self.extensions:
                 e.extra_compile_args.append(arg_omp3)
                 e.extra_link_args.append(arg_omp3)
+        elif self.test_supports_compile_arg(arg_omp4):
+            for e in self.extensions:
+                e.extra_compile_args.append(arg_omp4)
+                e.extra_link_args.append(arg_omp4)
         else:
             set_omp_false()
 

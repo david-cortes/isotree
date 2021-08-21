@@ -368,7 +368,7 @@ ELSE:
         FILE *_wfopen(const wchar_t *filename, const wchar_t *mode)
     cdef FILE* cy_fopen(str fname, bool_t read):
         cdef Py_UNICODE *fname_c = fname
-        cdef str mode = "r"
+        cdef str mode
         if (read):
             mode = "rb"
         else:

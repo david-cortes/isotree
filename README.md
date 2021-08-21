@@ -106,12 +106,6 @@ And then reinstall this package: `pip install --force-reinstall isotree`.
 
 * R:
 
-Latest version (recommended):
-```r
-remotes::install_github("david-cortes/isotree")
-```
-
-From CRAN (older version):
 ```r
 install.packages("isotree")
 ```
