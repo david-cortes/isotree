@@ -288,6 +288,11 @@ void endian_swap_int(char *bytes)
     std::reverse(bytes, bytes + sizeof(int));
     #endif
 }
+template <class T>
+void endian_swap(T &bytes)
+{
+    std::reverse((char*)&bytes, (char*)&bytes + sizeof(T));
+}
 
 template <class dtype>
 void swap_endianness(dtype *ptr, size_t n_els)
