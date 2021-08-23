@@ -37,3 +37,7 @@ build/
 .Rbuildignore
 .Rhistory
 safe/*
+src/Makevars
+config.log
+config.status
+autom4te.cache/*

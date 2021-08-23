@@ -31,6 +31,7 @@ class build_ext_subclass( build_ext ):
         else:
             self.add_march_native()
             self.add_openmp_linkage()
+            self.add_restrict_qualifier()
             if sys.platform[:3].lower() != "win":
                 self.add_link_time_optimization()
 
@@ -151,11 +152,43 @@ class build_ext_subclass( build_ext ):
             pass
         return is_supported
 
+    def add_restrict_qualifier(self):
+        supports_restrict = False
+        try:
+            if not hasattr(self.compiler, "compiler_cxx"):
+                return None
+            print("--- Checking compiler support for '__restrict' qualifier")
+            fname = "isotree_compiler_testing.cpp"
+            with open(fname, "w") as ftest:
+                ftest.write(u"int main(int argc, char**argv) {return 0;}\n")
+            try:
+                cmd = [self.compiler.compiler_cxx[0]]
+            except:
+                cmd = list(self.compiler.compiler_cxx)
+            val_good = subprocess.call(cmd + [fname])
+            try:
+                with open(fname, "w") as ftest:
+                    ftest.write(u"int main(int argc, char**argv) {double *__restrict x = nullptr; return 0;}\n")
+                val = subprocess.call(cmd + [fname])
+                supports_restrict = (val == val_good)
+            except:
+                return None
+        except:
+            pass
+        try:
+            os.remove(fname)
+        except:
+            pass
+        
+        if supports_restrict:
+            for e in self.extensions:
+                e.define_macros += [("SUPPORTS_RESTRICT", "1")]
+
 
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.3.0',
+    version = '0.3.1',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',
@@ -171,10 +204,7 @@ setup(
                                 language="c++",
                                 install_requires = ["numpy", "pandas>=0.24.0", "cython", "scipy"],
                                 define_macros = [("_USE_XOSHIRO", None),
-                                                 ("_FOR_PYTHON", None),
-                                                 ("PY_GEQ_3_3", None)
-                                                 if (sys.version_info[0] >= 3 and sys.version_info[1] >= 3) else
-                                                 ("PY_LT_3_3", None)]
+                                                 ("_FOR_PYTHON", None)]
                             )]
     )
 

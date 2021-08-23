@@ -202,7 +202,7 @@ using std::isnan;
 
 
 /* Aliasing for compiler optimizations */
-#if defined(__GNUG__) || defined(__GNUC__) || defined(_MSC_VER) || defined(__clang__) || defined(__INTEL_COMPILER)
+#if defined(__GNUG__) || defined(__GNUC__) || defined(_MSC_VER) || defined(__clang__) || defined(__INTEL_COMPILER) || defined(SUPPORTS_RESTRICT)
     #define restrict __restrict
 #else
     #define restrict 
