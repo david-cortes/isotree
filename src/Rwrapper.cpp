@@ -660,38 +660,34 @@ void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector
 
     if (X_num.size())
     {
-        numeric_data_ptr  =  &X_num[0];
+        numeric_data_ptr  =  REAL(X_num);
     }
 
     if (X_cat.size())
     {
-        categ_data_ptr    =  &X_cat[0];
+        categ_data_ptr    =  INTEGER(X_cat);
     }
 
     if (Xc_indptr.size())
     {
-        if (Xc.size())
-            Xc_ptr         =  &Xc[0];
-        if (Xc_ind.size())
-            Xc_ind_ptr     =  &Xc_ind[0];
-        Xc_indptr_ptr      =  &Xc_indptr[0];
+        Xc_ptr         =  REAL(Xc);
+        Xc_ind_ptr     =  INTEGER(Xc_ind);
+        Xc_indptr_ptr  =  INTEGER(Xc_indptr);
     }
 
     if (Xr_indptr.size())
     {
-        if (Xr.size())
-            Xr_ptr         =  &Xr[0];
-        if (Xr_ind.size())
-            Xr_ind_ptr     =  &Xr_ind[0];
-        Xr_indptr_ptr      =  &Xr_indptr[0];
+        Xr_ptr         =  REAL(Xr);
+        Xr_ind_ptr     =  INTEGER(Xr_ind);
+        Xr_indptr_ptr  =  INTEGER(Xr_indptr);
     }
 
     if (tree_num.size())
     {
-        tree_num_ptr = &tree_num[0];
+        tree_num_ptr = INTEGER(tree_num);
     }
 
-    double* depths_ptr =  &outp[0];
+    double* depths_ptr =  REAL(outp);
 
     IsoForest*     model_ptr      =  NULL;
     ExtIsoForest*  ext_model_ptr  =  NULL;
@@ -737,21 +733,19 @@ void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericMatrix dm
 
     if (X_num.size())
     {
-        numeric_data_ptr  =  &X_num[0];
+        numeric_data_ptr  =  REAL(X_num);
     }
 
     if (X_cat.size())
     {
-        categ_data_ptr    =  &X_cat[0];
+        categ_data_ptr    =  INTEGER(X_cat);
     }
 
     if (Xc_indptr.size())
     {
-        if (Xc.size())
-            Xc_ptr         =  &Xc[0];
-        if (Xc_ind.size())
-            Xc_ind_ptr     =  &Xc_ind[0];
-        Xc_indptr_ptr  =  &Xc_indptr[0];
+        Xc_ptr         =  REAL(Xc);
+        Xc_ind_ptr     =  INTEGER(Xc_ind);
+        Xc_indptr_ptr  =  INTEGER(Xc_indptr);
     }
 
     double*  tmat_ptr    =  n_from? (double*)NULL : REAL(tmat);
@@ -801,21 +795,19 @@ Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
 
     if (X_num.size())
     {
-        numeric_data_ptr  =  &X_num[0];
+        numeric_data_ptr  =  REAL(X_num);
     }
 
     if (X_cat.size())
     {
-        categ_data_ptr    =  &X_cat[0];
+        categ_data_ptr    =  INTEGER(X_cat);
     }
 
     if (Xr_indptr.size())
     {
-        if (Xr.size())
-            Xr_ptr         =  &Xr[0];
-        if (Xr_ind.size())
-            Xr_ind_ptr     =  &Xr_ind[0];
-        Xr_indptr_ptr  =  &Xr_indptr[0];
+        Xr_ptr         =  REAL(Xr);
+        Xr_ind_ptr     =  INTEGER(Xr_ind);
+        Xr_indptr_ptr  =  INTEGER(Xr_indptr);
     }
 
     if (X_num.size()) numeric_data_ptr = set_R_nan_as_C_nan(numeric_data_ptr, X_num.size(), nthreads);
@@ -965,9 +957,9 @@ Rcpp::List get_n_nodes(SEXP model_R_ptr, bool is_extended, int nthreads)
     Rcpp::IntegerVector n_nodes(ntrees);
     Rcpp::IntegerVector n_terminal(ntrees);
     if (is_extended)
-        get_num_nodes(*ext_model_ptr, &n_nodes[0], &n_terminal[0], nthreads);
+        get_num_nodes(*ext_model_ptr, INTEGER(n_nodes), INTEGER(n_terminal), nthreads);
     else
-        get_num_nodes(*model_ptr, &n_nodes[0], &n_terminal[0], nthreads);
+        get_num_nodes(*model_ptr, INTEGER(n_nodes), INTEGER(n_terminal), nthreads);
 
     return Rcpp::List::create(
                 Rcpp::_["total"]    = n_nodes,
