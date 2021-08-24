@@ -54,8 +54,9 @@ else()
     if (tsl-robin-map_FOUND)
         target_link_libraries(isotree PRIVATE tsl::robin_map)
         add_compile_definitions(_USE_SYSTEM_ROBIN)
+    else()
+        message(WARNING "Robin-Map Headers not found - will use STL hashmaps which are slower.")
     endif()
-    message(WARNING "Robin-Map Headers not found - will use STL hashmaps which are slower.")
 endif()
 
 # For handling large files with MinGW
