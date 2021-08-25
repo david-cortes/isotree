@@ -103,35 +103,6 @@ ISOTREE_EXPORTED
 void merge_models(IsoForest*     model,      IsoForest*     other,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                   Imputer*       imputer,    Imputer*       iother);
-#ifdef _ENABLE_CEREAL
-ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, std::ostream &output);
-ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, const char *output_file_path);
-ISOTREE_EXPORTED std::string serialize_isoforest(IsoForest &model);
-ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, std::istream &serialized);
-ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, const char *input_file_path);
-ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, std::string &serialized, bool move_str);
-ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, std::ostream &output);
-ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, const char *output_file_path);
-ISOTREE_EXPORTED std::string serialize_ext_isoforest(ExtIsoForest &model);
-ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::istream &serialized);
-ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, const char *input_file_path);
-ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, std::string &serialized, bool move_str);
-ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, std::ostream &output);
-ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, const char *output_file_path);
-ISOTREE_EXPORTED std::string serialize_imputer(Imputer &imputer);
-ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, std::istream &serialized);
-ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, const char *input_file_path);
-ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, std::string &serialized, bool move_str);
-#ifdef _MSC_VER
-ISOTREE_EXPORTED void serialize_isoforest(IsoForest &model, const wchar_t *output_file_path);
-ISOTREE_EXPORTED void deserialize_isoforest(IsoForest &output_obj, const wchar_t *input_file_path);
-ISOTREE_EXPORTED void serialize_ext_isoforest(ExtIsoForest &model, const wchar_t *output_file_path);
-ISOTREE_EXPORTED void deserialize_ext_isoforest(ExtIsoForest &output_obj, const wchar_t *input_file_path);
-ISOTREE_EXPORTED void serialize_imputer(Imputer &imputer, const wchar_t *output_file_path);
-ISOTREE_EXPORTED void deserialize_imputer(Imputer &output_obj, const wchar_t *input_file_path);
-#endif /* _MSC_VER */
-ISOTREE_EXPORTED bool has_msvc();
-#endif /* _ENABLE_CEREAL */
 ISOTREE_EXPORTED
 std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                           std::string &table_from, std::string &select_as,
@@ -144,3 +115,203 @@ std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *mo
                                       std::vector<std::vector<std::string>> &categ_levels,
                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
                                       int nthreads);
+
+ISOTREE_EXPORTED
+size_t determine_serialized_size(const IsoForest &model);
+ISOTREE_EXPORTED
+size_t determine_serialized_size(const ExtIsoForest &model);
+ISOTREE_EXPORTED
+size_t determine_serialized_size(const Imputer &model);
+ISOTREE_EXPORTED
+void serialize_IsoForest(const IsoForest &model, char *out);
+ISOTREE_EXPORTED
+void serialize_IsoForest(const IsoForest &model, FILE *out);
+ISOTREE_EXPORTED
+void serialize_IsoForest(const IsoForest &model, std::ostream &out);
+ISOTREE_EXPORTED
+std::string serialize_IsoForest(const IsoForest &model);
+ISOTREE_EXPORTED
+void deserialize_IsoForest(IsoForest &model, const char *in);
+ISOTREE_EXPORTED
+void deserialize_IsoForest(IsoForest &model, FILE *in);
+ISOTREE_EXPORTED
+void deserialize_IsoForest(IsoForest &model, std::istream &in);
+ISOTREE_EXPORTED
+void deserialize_IsoForest(IsoForest &model, const std::string &in);
+ISOTREE_EXPORTED
+void serialize_ExtIsoForest(const ExtIsoForest &model, char *out);
+ISOTREE_EXPORTED
+void serialize_ExtIsoForest(const ExtIsoForest &model, FILE *out);
+ISOTREE_EXPORTED
+void serialize_ExtIsoForest(const ExtIsoForest &model, std::ostream &out);
+ISOTREE_EXPORTED
+std::string serialize_ExtIsoForest(const ExtIsoForest &model);
+ISOTREE_EXPORTED
+void deserialize_ExtIsoForest(ExtIsoForest &model, const char *in);
+ISOTREE_EXPORTED
+void deserialize_ExtIsoForest(ExtIsoForest &model, FILE *in);
+ISOTREE_EXPORTED
+void deserialize_ExtIsoForest(ExtIsoForest &model, std::istream &in);
+ISOTREE_EXPORTED
+void deserialize_ExtIsoForest(ExtIsoForest &model, const std::string &in);
+ISOTREE_EXPORTED
+void serialize_Imputer(const Imputer &model, char *out);
+ISOTREE_EXPORTED
+void serialize_Imputer(const Imputer &model, FILE *out);
+ISOTREE_EXPORTED
+void serialize_Imputer(const Imputer &model, std::ostream &out);
+ISOTREE_EXPORTED
+std::string serialize_Imputer(const Imputer &model);
+ISOTREE_EXPORTED
+void deserialize_Imputer(Imputer &model, const char *in);
+ISOTREE_EXPORTED
+void deserialize_Imputer(Imputer &model, FILE *in);
+ISOTREE_EXPORTED
+void deserialize_Imputer(Imputer &model, std::istream &in);
+ISOTREE_EXPORTED
+void deserialize_Imputer(Imputer &model, const std::string &in);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const size_t size_optional_metadata
+);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_combined
+(
+    const char *serialized_model,
+    const char *serialized_model_ext,
+    const char *serialized_imputer,
+    const size_t size_optional_metadata
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    char *out
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    FILE *out
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    std::ostream &out
+);
+ISOTREE_EXPORTED
+std::string serialize_combined
+(
+    const IsoForest *model,
+    const ExtIsoForest *model_ext,
+    const Imputer *imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const char *serialized_model,
+    const char *serialized_model_ext,
+    const char *serialized_imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    FILE *out
+);
+ISOTREE_EXPORTED
+void serialize_combined
+(
+    const char *serialized_model,
+    const char *serialized_model_ext,
+    const char *serialized_imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata,
+    std::ostream &out
+);
+ISOTREE_EXPORTED
+std::string serialize_combined
+(
+    const char *serialized_model,
+    const char *serialized_model_ext,
+    const char *serialized_imputer,
+    const char *optional_metadata,
+    const size_t size_optional_metadata
+);
+ISOTREE_EXPORTED
+void deserialize_combined
+(
+    const char* in,
+    IsoForest *model,
+    ExtIsoForest *model_ext,
+    Imputer *imputer,
+    char *optional_metadata
+);
+ISOTREE_EXPORTED
+void deserialize_combined
+(
+    FILE* in,
+    IsoForest *model,
+    ExtIsoForest *model_ext,
+    Imputer *imputer,
+    char *optional_metadata
+);
+ISOTREE_EXPORTED
+void deserialize_combined
+(
+    std::istream &in,
+    IsoForest *model,
+    ExtIsoForest *model_ext,
+    Imputer *imputer,
+    char *optional_metadata
+);
+ISOTREE_EXPORTED
+void deserialize_combined
+(
+    const std::string &in,
+    IsoForest *model,
+    ExtIsoForest *model_ext,
+    Imputer *imputer,
+    char *optional_metadata
+);
+ISOTREE_EXPORTED
+bool check_can_undergo_incremental_serialization(const IsoForest &model, const char *serialized_bytes);
+ISOTREE_EXPORTED
+bool check_can_undergo_incremental_serialization(const ExtIsoForest &model, const char *serialized_bytes);
+ISOTREE_EXPORTED
+bool check_can_undergo_incremental_serialization(const Imputer &model, const char *serialized_bytes);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_additional_trees(const IsoForest &model, size_t old_ntrees);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_additional_trees(const ExtIsoForest &model, size_t old_ntrees);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_additional_trees(const Imputer &model, size_t old_ntrees);
+ISOTREE_EXPORTED
+void incremental_serialize_IsoForest(const IsoForest &model, char *old_bytes_reallocated);
+ISOTREE_EXPORTED
+void incremental_serialize_ExtIsoForest(const ExtIsoForest &model, char *old_bytes_reallocated);
+ISOTREE_EXPORTED
+void incremental_serialize_Imputer(const Imputer &model, char *old_bytes_reallocated);
+ISOTREE_EXPORTED
+void incremental_serialize_IsoForest(const IsoForest &model, std::string &old_bytes);
+ISOTREE_EXPORTED
+void incremental_serialize_ExtIsoForest(const ExtIsoForest &model, std::string &old_bytes);
+ISOTREE_EXPORTED
+void incremental_serialize_Imputer(const Imputer &model, std::string &old_bytes);
+
