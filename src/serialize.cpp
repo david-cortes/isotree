@@ -142,7 +142,7 @@ enum EndingIndicator {
 #include <stdlib.h>
 void swap16b(char *bytes)
 {
-    if (sizeof(unsigned short) == 2) {
+    if (std::numeric_limits<unsigned short>::max() == UINT16_MAX) {
         unsigned short temp;
         memcpy(&temp, bytes, sizeof(unsigned short));
         temp = _byteswap_ushort(temp);
@@ -155,7 +155,7 @@ void swap16b(char *bytes)
 }
 void swap32b(char *bytes)
 {
-    if (sizeof(unsigned long) == 4) {
+    if (std::numeric_limits<unsigned long>::max() == UINT32_MAX) {
         unsigned long temp;
         memcpy(&temp, bytes, sizeof(unsigned long));
         temp = _byteswap_ulong(temp);
