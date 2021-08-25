@@ -69,6 +69,7 @@ endif()
 # Compiler optimizations
 check_cxx_source_compiles(
     "
+    #include <cstddef>
     int main(int argc, char **argv)
     {
         double *__restrict x = nullptr;
