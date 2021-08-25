@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.9.4)
+cmake_minimum_required (VERSION 3.12.4)
 project (isotree VERSION 0.3.1)
 set(CMAKE_BUILD_TYPE Release)
 
