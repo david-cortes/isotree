@@ -1453,14 +1453,14 @@ isotree.append.trees <- function(model, other) {
 #' @return The same `model` object that was passed as input, as invisible.
 #' @seealso \link{isotree.import.model} \link{isotree.restore.handle}
 #' @export
-isotree.export.model <- function(model, file, add_metada_file=FALSE) {
+isotree.export.model <- function(model, file, add_metadata_file=FALSE) {
     if (!inherits(model, "isolation_forest"))
         stop("This function is only available for isolation forest objects as returned from 'isolation.forest'.")
 
     file <- path.expand(file)
     metadata <- export.metadata(model)
 
-    if (add_metada_file) {
+    if (add_metadata_file) {
         file.metadata <- paste0(file, ".metadata")
         jsonlite::write_json(metadata, file.metadata,
                              pretty=TRUE, auto_unbox=TRUE)

@@ -4,7 +4,7 @@
 \alias{isotree.export.model}
 \title{Export Isolation Forest model}
 \usage{
-isotree.export.model(model, file, add_metada_file = FALSE)
+isotree.export.model(model, file, add_metadata_file = FALSE)
 }
 \arguments{
 \item{model}{An Isolation Forest model as returned by function \link{isolation.forest}.}
