@@ -30,7 +30,7 @@ find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
     target_link_libraries(isotree PUBLIC OpenMP::OpenMP_CXX)
 else()
-	message(STATUS "OpenMP not found - will compile without multi-threading support")
+    message(STATUS "OpenMP not found - will compile without multi-threading support")
 endif()
 
 # check if the robin-map library is available under /src
