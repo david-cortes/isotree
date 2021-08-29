@@ -99,7 +99,7 @@ double digamma(double x)
     double y, z, z2;
 
     /* check for positive integer up to 10 */
-    if( (x <= THRESHOLD_EXACT_H) && (x == floor(x)) )
+    if( (x <= THRESHOLD_EXACT_H) && (x == std::floor(x)) )
         return harmonic(x - 1) - EULERS_GAMMA;
 
     if( x < 1.0e17 )
@@ -118,7 +118,7 @@ double digamma(double x)
         y = 0.0;
     }
 
-    y = log(x)  -  (0.5/x)  -  y;
+    y = std::log(x)  -  (0.5/x)  -  y;
     return y;
 }
 
@@ -128,7 +128,7 @@ double digamma(double x)
 double harmonic(size_t n)
 {
     if (n > THRESHOLD_EXACT_H)
-        return logl((long double)n) + (long double)EULERS_GAMMA
+        return std::log((long double)n) + (long double)EULERS_GAMMA
                 + 0.5 * (1./(long double)n)
                 - 0.5 * (1./square((long double)n))
                       * ( 1./6. -   (1./square((long double)n))
@@ -139,8 +139,8 @@ double harmonic(size_t n)
 
 double harmonic_recursive(double a, double b)
 {
-    if (b == a + 1) return 1 / a;
-    double m = floor((a + b) / 2);
+    if (b == a + 1) return 1. / a;
+    double m = std::floor((a + b) / 2.);
     return harmonic_recursive(a, m) + harmonic_recursive(m, b);
 }
 
@@ -174,7 +174,7 @@ double expected_avg_depth(long double approx_sample_size)
     else if (approx_sample_size < (long double)INT32_MAX)
         return 2. * (digamma(approx_sample_size + 1.) + EULERS_GAMMA - 1.);
     else
-        return 2. * logl(approx_sample_size) + 2.*((long double)EULERS_GAMMA - 1.)
+        return 2. * std::log(approx_sample_size) + 2.*((long double)EULERS_GAMMA - 1.)
                 + (1./approx_sample_size)
                 - (1./square(approx_sample_size))
                    * ( 1./6. -   (1./square(approx_sample_size))
@@ -251,10 +251,10 @@ double expected_separation_depth(long double n)
 {
     if (n >= THRESHOLD_EXACT_S)
         return 3;
-    double s_l = expected_separation_depth((size_t) floorl(n));
-    long double u = ceill(n);
+    double s_l = expected_separation_depth((size_t) std::floor(n));
+    long double u = std::ceil(n);
     double s_u = s_l + (-s_l * u + 3. * u - 4.) / (u * (u - 1.));
-    double diff = n - floorl(n);
+    double diff = n - std::floor(n);
     return s_l + diff * s_u;
 }
 
