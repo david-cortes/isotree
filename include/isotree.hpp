@@ -687,18 +687,20 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       If there is numeric sparse data in combination with categorical dense data and there are many
 *       rows, it is recommended to pass the categorical data in column major order, as it will take
 *       a faster route.
-* - ncols_numeric
-*       Number of columns in 'numeric_data'. This is ignored when the data is sparse or comes
-*       in column-major order. Note that the number of columns must not be lower than the number
-*       of columns to which the model was fit, and when using column-major order, must have
-*       the same number of columns as the data to which the model was fit (i.e. cannot have
-*       new columns).
-* - ncols_categ
-*       Number of columns in 'categ_data'. This is ignored when the data comes
-*       in column-major order. Note that the number of columns must not be lower than the number
-*       of columns to which the model was fit, and when using column-major order, must have
-*       the same number of columns as the data to which the model was fit (i.e. cannot have
-*       new columns).
+*       If passing 'is_col_major=true', must also provide 'ld_numeric' and/or 'ld_categ'.
+* - ld_numeric
+*       Leading dimension of the array 'numeric_data', if it is passed in row-major format.
+*       Typically, this corresponds to the number of columns, but may be larger (the array will
+*       be accessed assuming that row 'n' starts at 'numeric_data + n*ld_numeric'). If passing
+*       'numeric_data' in column-major order, this is ignored and will be assumed that the
+*       leading dimension corresponds to the number of rows. This is ignored when passing numeric
+*       data in sparse format.
+* - ld_categ
+*       Leading dimension of the array 'categ_data', if it is passed in row-major format.
+*       Typically, this corresponds to the number of columns, but may be larger (the array will
+*       be accessed assuming that row 'n' starts at 'categ_data + n*ld_categ'). If passing
+*       'categ_data' in column-major order, this is ignored and will be assumed that the
+*       leading dimension corresponds to the number of rows.
 * - Xc[nnz]
 *       Pointer to numeric data in sparse numeric matrix in CSC format (column-compressed).
 *       Pass NULL if there are no sparse numeric columns.
@@ -756,7 +758,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 */
 ISOTREE_EXPORTED
 void predict_iforest(real_t numeric_data[], int categ_data[],
-                     bool is_col_major, size_t ncols_numeric, size_t ncols_categ,
+                     bool is_col_major, size_t ld_numeric, size_t ld_categ,
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                      size_t nrows, int nthreads, bool standardize,
