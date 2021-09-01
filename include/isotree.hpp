@@ -140,9 +140,6 @@ typedef struct IsoHPlane {
     IsoHPlane() = default;
 } IsoHPlane;
 
-/* Note: don't use long doubles in the outside outputs or there will be issues with MINGW in windows */
-
-
 typedef struct IsoForest {
     std::vector< std::vector<IsoTree> > trees;
     NewCategAction    new_cat_action;
