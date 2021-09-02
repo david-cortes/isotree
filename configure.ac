@@ -1,9 +1,8 @@
-AC_INIT([isotree], 0.3.1) 
+AC_INIT([isotree], 0.3.2) 
 AC_LANG(C++)
-AC_TRY_COMPILE(
-    [],
-    [double *__restrict x;],
-    [SUPPORTS_RESTRICT="-DSUPPORTS_RESTRICT=1"],
+AC_COMPILE_IFELSE(
+    [AC_LANG_PROGRAM([[]], [[double *__restrict x;]])]
+    [SUPPORTS_RESTRICT="-DSUPPORTS_RESTRICT=1"]
     [SUPPORTS_RESTRICT=""]
 )
 AC_SUBST(SUPPORTS_RESTRICT)
