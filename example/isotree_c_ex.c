@@ -139,7 +139,7 @@ double bits_to_random_floating(uint64_t bits)
 #ifndef M_PI
 #   define M_PI 3.14159265358979323846
 #endif
-double apply_box_muller_transform(double array[], size_t n)
+void apply_box_muller_transform(double array[], size_t n)
 {
     const double twoPI = 2. * M_PI;
     double u, v;
