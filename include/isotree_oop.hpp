@@ -80,7 +80,9 @@ ISOTREE_EXPORTED
 class IsolationForest
 {
 public:
-    int nthreads = 1; /* <- May be manually changed at any time */
+    /*  Note: if passing nthreads<0, will reset it to 'max_threads + nthreads + 1',
+        so passing -1 means using all available threads.  */
+    int nthreads = -1; /* <- May be manually changed at any time */
 
     uint64_t random_seed = 1;
 

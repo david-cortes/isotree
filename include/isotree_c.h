@@ -121,7 +121,7 @@ typedef uint8_t WeighImpRows_t;
 
 /*  Parameters to fit the model  */
 typedef struct isotree_parameters {
-    int nthreads; /* <- May be manually changed at any time, default=1 */
+    int nthreads; /* <- May be manually changed at any time, default=-1 */
 
     uint64_t random_seed; /* default=1 */
 
@@ -215,8 +215,8 @@ typedef void* isotree_model_t; /* <- it's a pointer to a C++ 'IsolationForest' o
     that converts it. */
 static inline isotree_parameters get_default_isotree_parameters()
 {
-    return (isotree_parameters){
-        1, 1, 3, 3, Normal, false, true, 0, 500, 0, 0, true, false,
+    return (isotree_parameters) {
+        -1, 1, 3, 3, Normal, false, true, 0, 500, 0, 0, true, false,
         false, 0., 0., 0., 0., 0., Impute, SubSet, Weighted,
         false, false, false, 3, Higher, Inverse
     };

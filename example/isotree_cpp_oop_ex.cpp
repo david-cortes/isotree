@@ -50,11 +50,7 @@ int main()
     X[get_ix(100, 1)] = 3.;
 
     /* Fit a small isolation forest model
-       (see 'fit_model.cpp' for the documentation)
-
-       Note that you might want to set the number of threads
-       to the maximum available for better performance
-       (the default is to run single-threaded). */
+       (see 'fit_model.cpp' for the documentation) */
     isotree::IsolationForest iso = isotree::IsolationForest();
     iso.fit(X.data(), nrow, ncol);
 

@@ -50,7 +50,7 @@ using std::cerr;
 using isotree::IsolationForest;
 
 struct IsoTree_Params {
-    int nthreads = 1; /* <- May be manually changed at any time */
+    int nthreads = -1; /* <- May be manually changed at any time */
 
     uint64_t random_seed = 1;
 
