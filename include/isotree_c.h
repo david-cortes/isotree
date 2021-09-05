@@ -439,6 +439,15 @@ void isotree_serialize_to_raw(const isotree_model_t isotree_model, char *output)
 ISOTREE_EXPORTED
 isotree_model_t isotree_deserialize_from_raw(const char *serialized_model, int nthreads);
 
+/*  If passing a negative number, will set to:
+      nthreads = max_threads + nthreads + 1
+    So passing -1 means using all threads, passing -2 all but 1 thread, and so on. */
+ISOTREE_EXPORTED
+void isotree_set_num_threads(isotree_model_t isotree_model, int nthreads);
+
+ISOTREE_EXPORTED
+int isotree_get_num_threads(const isotree_model_t isotree_model);
+
 #ifdef __cplusplus
 }
 #endif

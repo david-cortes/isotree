@@ -626,6 +626,36 @@ void* isotree_deserialize_from_raw(const char *serialized_model, int nthreads)
     }
 }
 
+ISOTREE_EXPORTED
+void isotree_set_num_threads(void *isotree_model, int nthreads)
+{
+    if (!isotree_model) {
+        cerr << "Passed NULL 'isotree_model' to 'isotree_set_num_threads'." << std::endl;
+        return;
+    }
+    if (nthreads < 0) {
+        #ifndef _OPENMP
+        nthreads = 1;
+        #else
+        nthreads = omp_get_max_threads() + nthreads + 1;
+        #endif
+    }
+    IsolationForest *model = (IsolationForest*)isotree_model;
+    model->nthreads = nthreads;
+}
+
+ISOTREE_EXPORTED
+int isotree_get_num_threads(const void *isotree_model)
+{
+    if (!isotree_model) {
+        cerr << "Passed NULL 'isotree_model' to 'isotree_get_num_threads'." << std::endl;
+        return -INT_MAX;
+    }
+    IsolationForest *model = (IsolationForest*)isotree_model;
+    return model->nthreads;
+}
+
+
 } /* extern "C" */
 
 #endif
