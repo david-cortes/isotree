@@ -357,7 +357,7 @@ public:
    - Adds +0.5, leaving [2^-1, 2^52-2^-1]
    - Divides by 2^52, leaving [2^-53, 1-2^-53]
    Which is how it reaches an unbiased open uniform distribution. */
-constexpr static const double exp52 = std::ldexp(1, -52);
+// constexpr static const double exp52 = std::ldexp(1, -52);
 class StandardNormalDistr
 {
 public:
@@ -380,10 +380,10 @@ public:
         
         else {
             #if SIZE_MAX >= UINT64_MAX
-            // double rnd1 = std::ldexp(((double)(gen_bits(rng) & two52i) + 0.5), -52);
-            // double rnd2 = std::ldexp(((double)(gen_bits(rng) & two52i) + 0.5), -52);
-            double rnd1 = ((double)(gen_bits(rng) & two52i) + 0.5) * exp52;
-            double rnd2 = ((double)(gen_bits(rng) & two52i) + 0.5) * exp52;
+            double rnd1 = std::ldexp(((double)(gen_bits(rng) & two52i) + 0.5), -52);
+            double rnd2 = std::ldexp(((double)(gen_bits(rng) & two52i) + 0.5), -52);
+            // double rnd1 = ((double)(gen_bits(rng) & two52i) + 0.5) * exp52;
+            // double rnd2 = ((double)(gen_bits(rng) & two52i) + 0.5) * exp52;
             #else
             double rnd1, rnd2;
             uint64_t bits1 = gen_bits(rng);
@@ -401,10 +401,10 @@ public:
             memcpy(&rbits2, rbits2_, sizeof(uint32_t));
             rbits2 = rbits2 & two20_i;
             memcpy(rbits2_, &rbits2, sizeof(uint32_t));
-            // rnd1 = std::ldexp((double)bits1 + 0.5, -52);
-            // rnd2 = std::ldexp((double)bits2 + 0.5, -52);
-            rnd1 = ((double)bits1 + 0.5) * exp52;
-            rnd2 = ((double)bits2 + 0.5) * exp52;
+            rnd1 = std::ldexp((double)bits1 + 0.5, -52);
+            rnd2 = std::ldexp((double)bits2 + 0.5, -52);
+            // rnd1 = ((double)bits1 + 0.5) * exp52;
+            // rnd2 = ((double)bits2 + 0.5) * exp52;
             #endif
 
             rnd1 = std::sqrt(-2. * std::log(rnd1));
