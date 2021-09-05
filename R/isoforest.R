@@ -1,6 +1,7 @@
 #' @importFrom parallel detectCores
 #' @importFrom stats predict
 #' @importFrom utils head
+#' @importFrom Rcpp evalCpp
 #' @useDynLib isotree, .registration=TRUE
 
 #' @title Create Isolation Forest Model
