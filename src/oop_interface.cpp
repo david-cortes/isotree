@@ -429,12 +429,12 @@ void IsolationForest::check_params()
         #endif
     }
     if (nthreads < 0) {
-        fprintf(stderr, "Invalid number of threads, will set to 1.\n");
+        std::fprintf(stderr, "Invalid number of threads, will set to 1.\n");
         this->nthreads = 1;
     }
     #ifndef _OPENMP
     if (nthreads > 1) {
-        fprintf("Attempting to use multithreading, but library was compiled without OpenMP support.\n");
+        std::fprintf(stderr, "Attempting to use multithreading, but library was compiled without OpenMP support.\n");
         this->nthreads = 1;
     }
     #endif
