@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 set(SRC_FILES ${PROJECT_SOURCE_DIR}/src/instantiate_model.cpp
+              ${PROJECT_SOURCE_DIR}/src/oop_interface.cpp
+              ${PROJECT_SOURCE_DIR}/src/c_interface.cpp
               ${PROJECT_SOURCE_DIR}/src/merge_models.cpp
               ${PROJECT_SOURCE_DIR}/src/subset_models.cpp
               ${PROJECT_SOURCE_DIR}/src/serialize.cpp
@@ -13,7 +15,10 @@ set(SRC_FILES ${PROJECT_SOURCE_DIR}/src/instantiate_model.cpp
 set(BUILD_SHARED_LIBS True)
 add_library(isotree SHARED ${SRC_FILES})
 target_include_directories(isotree PRIVATE ${PROJECT_SOURCE_DIR}/src)
-set_target_properties(isotree PROPERTIES PUBLIC_HEADER ${PROJECT_SOURCE_DIR}/include/isotree.hpp)
+set(HEADER_FILES "${PROJECT_SOURCE_DIR}/include/isotree.hpp"
+                 "${PROJECT_SOURCE_DIR}/include/isotree_oop.hpp"
+                 "${PROJECT_SOURCE_DIR}/include/isotree_c.h")
+set_target_properties(isotree PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")
 add_compile_definitions(ISOTREE_COMPILE_TIME)
 
 ## omit this line to use the system's default RNG engine

@@ -1,0 +1,446 @@
+/*    Isolation forests and variations thereof, with adjustments for incorporation
+*     of categorical variables and missing values.
+*     Writen for C++11 standard and aimed at being used in R and Python.
+*     
+*     This library is based on the following works:
+*     [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
+*         "Isolation forest."
+*         2008 Eighth IEEE International Conference on Data Mining. IEEE, 2008.
+*     [2] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
+*         "Isolation-based anomaly detection."
+*         ACM Transactions on Knowledge Discovery from Data (TKDD) 6.1 (2012): 3.
+*     [3] Hariri, Sahand, Matias Carrasco Kind, and Robert J. Brunner.
+*         "Extended Isolation Forest."
+*         arXiv preprint arXiv:1811.02141 (2018).
+*     [4] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
+*         "On detecting clustered anomalies using SCiForest."
+*         Joint European Conference on Machine Learning and Knowledge Discovery in Databases. Springer, Berlin, Heidelberg, 2010.
+*     [5] https://sourceforge.net/projects/iforest/
+*     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
+*     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
+*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
+*     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+* 
+*     BSD 2-Clause License
+*     Copyright (c) 2019-2021, David Cortes
+*     All rights reserved.
+*     Redistribution and use in source and binary forms, with or without
+*     modification, are permitted provided that the following conditions are met:
+*     * Redistributions of source code must retain the above copyright notice, this
+*       list of conditions and the following disclaimer.
+*     * Redistributions in binary form must reproduce the above copyright notice,
+*       this list of conditions and the following disclaimer in the documentation
+*       and/or other materials provided with the distribution.
+*     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+*     AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+*     IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+*     DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+*     FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+*     DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+*     SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+*     CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+*     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+*     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/***********************************************************************************
+    -------------------
+    IsoTree C interface
+    -------------------
+
+    This is a C wrapper over the "isotree_oop.hpp" interface but with C ABI, so as
+    to ensure better compatibility between compilers and make for easier FFI
+    bindings.
+
+    In order to achieve both compatibility and ease of use, it uses structs to pass
+    arguments but in two different ways, which might be a bit confusing at a fist
+    glance:
+     - As a plain C struct that is defined in this same header and only used through
+       'static inline' functions but allowing easy modification of its members
+       through C syntax, thus ensuring that any usage of them is confined to the
+       same compilation unit where this header is used and not passed to any shared
+       object compiled elsewhere.
+     - As opaque void pointers to an underlying C++ struct which is only used
+       internally by the shared object, but providing functions to translate to it
+       from the C structs which are more user friendly.
+    
+    Note that this is a more limited interface compared to the non-OOP C++ interface
+    from the header 'isotree.hpp' - for example, this interface only allows passing
+    data in 'double' and 'int' types, and does not have all the same functionality
+    for object serialization, distance calculations, or producing predictions while
+    a model is being fitted. If possible, it is recommended to use the 'isotree.hpp'
+    interface instead of the C interface or the OOP C++ interface.
+
+    See the 'isotree.hpp' and 'isotree_oop.hpp' headers for documentation about the
+    functions and the parameters that they take.
+
+***********************************************************************************/
+
+#ifndef ISOTREE_C_H
+#define ISOTREE_C_H
+
+#include <stddef.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdio.h>
+
+#ifndef ISOTREE_EXPORTED
+#   ifdef _WIN32
+#       define ISOTREE_EXPORTED __declspec(dllimport)
+#   else
+#       define ISOTREE_EXPORTED 
+#   endif
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+/* Types used through the package - zero is the suggested value (when appropriate) */
+#ifndef ISOTREE_H
+typedef enum  NewCategAction {Weighted=0,  Smallest=11,    Random=12}  NewCategAction; /* Weighted means Impute in the extended model */
+typedef enum  MissingAction  {Divide=21,   Impute=22,      Fail=0}     MissingAction;  /* Divide is only for non-extended model */
+typedef enum  ColType        {Numeric=31,  Categorical=32, NotUsed=0}  ColType;
+typedef enum  CategSplit     {SubSet=0,    SingleCateg=41}             CategSplit;
+typedef enum  GainCriterion  {Averaged=51, Pooled=52,      NoCrit=0}   Criterion;      /* For guided splits */
+typedef enum  CoefType       {Uniform=61,  Normal=0}                   CoefType;       /* For extended model */
+typedef enum  UseDepthImp    {Lower=71,    Higher=0,       Same=72}    UseDepthImp;    /* For NA imputation */
+typedef enum  WeighImpRows   {Inverse=0,   Prop=81,        Flat=82}    WeighImpRows;   /* For NA imputation */
+#endif
+
+typedef uint8_t isotree_bool;
+typedef uint8_t NewCategAction_t;
+typedef uint8_t MissingAction_t;
+typedef uint8_t ColType_t;
+typedef uint8_t CategSplit_t;
+typedef uint8_t GainCriterion_t;
+typedef uint8_t CoefType_t;
+typedef uint8_t UseDepthImp_t;
+typedef uint8_t WeighImpRows_t;
+
+/*  Parameters to fit the model  */
+typedef struct isotree_parameters {
+    int nthreads; /* <- May be manually changed at any time, default=1 */
+
+    uint64_t random_seed; /* default=1 */
+
+    /*  General tree construction parameters  */
+    size_t ndim; /* default=3 */
+    size_t ntry; /* default=3 */
+    CoefType coef_type; /* only for ndim>1, default=Normal */
+    bool   with_replacement; /* default=false */
+    bool   weight_as_sample; /* default=true */
+    size_t sample_size; /* default=0 */
+    size_t ntrees; /* default=500 */
+    size_t max_depth; /* default=0 */
+    size_t ncols_per_tree; /* default=0 */
+    bool   limit_depth; /* default=true */
+    bool   penalize_range; /* default=false */
+    bool   weigh_by_kurt; /* default=false */
+    double prob_pick_by_gain_avg; /* default=0 */
+    double prob_split_by_gain_avg; /* only for ndim==1, default=0 */
+    double prob_pick_by_gain_pl; /* default=0 */
+    double prob_split_by_gain_pl;  /* only for ndim==1, default=0 */
+    double min_gain; /* default=0 */
+    MissingAction missing_action; /* default=Impute */
+
+    /*  For categorical variables  */
+    CategSplit cat_split_type; /* default=SubSet */
+    NewCategAction new_cat_action; /* default=Weighted */
+    bool   coef_by_prop; /* default=false */
+    bool   all_perm; /* default=false */
+
+    /*  For imputation methods (when using 'build_imputer=true' and calling 'impute')  */
+    bool   build_imputer; /* default=false */
+    size_t min_imp_obs; /* default=3 */
+    UseDepthImp depth_imp; /* default=Higher */
+    WeighImpRows weigh_imp_rows; /* default=Inverse */
+} isotree_parameters;
+
+/*  General notes about passing data to this library:
+     - All data passed to the 'fit_model' function must be in column-major
+       order (like Fortran). Most of the prediction functions support
+       row-major order however, and predictions are typically faster in
+       row-major order (with some exceptions). When passing data in row-major
+       format, must also pass the leading dimension of the array (typically
+       corresponds to the number of column, but may be larger than that when
+       passing a subset of a larger array).
+     - Data can be passed in different formats. When data in some format
+       is not to be passed to some function, the struct here should contain
+       a NULL pointer in the non-used members.
+     - The library supports numeric and categorical data. Categorical data
+       should be passed as integers with numeration starting at 0, with missing
+       values encoded as negative integers. If passing categorical data, must
+       also pass the number of categories per column ('ncat').
+     - Numeric data may be passed in sparse CSC format (in which case the array
+       'numeric_data' should be NULL). Some prediction functions may also
+       accept sparse data in CSR format.
+     - The structs here ('isotree_input_data' and 'isotree_prediction_data')
+       are not used in any function call, they are just laid out for easier
+       understanding of the format. */
+typedef struct isotree_input_data {
+    size_t nrows;
+    double *numeric_data;
+    size_t ncols_numeric;
+    int *categ_data;
+    size_t ncols_categ;
+    int *ncateg;
+    double *csc_values;
+    int *csc_indices;
+    int *csc_indptr;
+    double *row_weights;
+    double *column_weights;
+} isotree_input_data;
+
+typedef struct isotree_prediction_data {
+    size_t nrows;
+    bool is_col_major; /* applies to 'numeric_data' and 'categ_data' */
+    double *numeric_data;
+    size_t ld_numeric; /* this is >= 'ncols_numeric', typically == */
+    int *categ_data;
+    size_t ld_categ; /* this is >= 'ncols_categ', typically == */
+    bool is_csc; /* applies to 'sparse_*' */
+    double *sparse_values;
+    int *sparse_indices;
+    int *sparse_indptr;
+} isotree_prediction_data;
+
+typedef void* isotree_parameters_t; /* <- do not confuse with 'isotree_parameters' */
+typedef void* isotree_model_t; /* <- it's a pointer to a C++ 'IsolationForest' object instance */
+
+
+/*  Note: this returns an 'isotree_parameters' type, but the function that fits the
+    model requires instead an 'isotree_parameters_t' object. See below for a function
+    that converts it. */
+static inline isotree_parameters get_default_isotree_parameters()
+{
+    return (isotree_parameters){
+        1, 1, 3, 3, Normal, false, true, 0, 500, 0, 0, true, false,
+        false, 0., 0., 0., 0., 0., Impute, SubSet, Weighted,
+        false, false, false, 3, Higher, Inverse
+    };
+}
+
+/*  Alternatively, this function returns 'isotree_parameters_t', which can be passed directly
+    to the model-fitting function, and can be modified using the less-convenient function
+    'set_isotree_parameters'. Note that it is a pointer and thust must be freed after using
+    it through the function 'delete_isotree_parameters'.  */
+ISOTREE_EXPORTED
+isotree_parameters_t allocate_default_isotree_parameters();
+
+/*  This is the equivalent to 'free' or C++'s 'delete'.  */
+ISOTREE_EXPORTED
+void delete_isotree_parameters(isotree_parameters_t parameters);
+
+
+/*  The arguments to this function are all pointers. It works as follows:
+     - 'isotree_parameters' is a void pointer to a C++ struct which contains
+       parameters to pass to the model fitting function. This is what gets
+       modified by this function.
+     - If a given pointer is NULL, will not modify the value of the underlying
+       parameter in the opaque C++ struct.
+     - If a given pointer is *not* NULL, will be de-referenced and its value
+       assigned to the corresponding member of the opaque struct pointer.  */
+ISOTREE_EXPORTED
+void set_isotree_parameters
+(
+    isotree_parameters_t isotree_parameters,
+    int*       nthreads,
+    uint64_t*  random_seed,
+    size_t*    ndim,
+    size_t*    ntry,
+    CoefType_t*     coef_type,
+    isotree_bool*   with_replacement,
+    isotree_bool*   weight_as_sample,
+    size_t*    sample_size,
+    size_t*    ntrees,
+    size_t*    max_depth,
+    size_t*    ncols_per_tree,
+    isotree_bool*   limit_depth,
+    isotree_bool*   penalize_range,
+    isotree_bool*   weigh_by_kurt,
+    double*    prob_pick_by_gain_avg,
+    double*    prob_split_by_gain_avg,
+    double*    prob_pick_by_gain_pl,
+    double*    prob_split_by_gain_pl,
+    double*    min_gain,
+    MissingAction_t*   missing_action,
+    CategSplit_t*      cat_split_type,
+    NewCategAction_t*  new_cat_action,
+    isotree_bool*   coef_by_prop,
+    isotree_bool*   all_perm,
+    isotree_bool*   build_imputer,
+    size_t*    min_imp_obs,
+    UseDepthImp_t*   depth_imp,
+    WeighImpRows_t*  weigh_imp_rows
+);
+
+/*  This function will overwrite the values in all of the pointers, outputting
+    the current values in the C++ opaque struct. */
+ISOTREE_EXPORTED
+void get_isotree_parameters
+(
+    const isotree_parameters_t isotree_parameters,
+    int*       nthreads,
+    uint64_t*  random_seed,
+    size_t*    ndim,
+    size_t*    ntry,
+    CoefType_t*     coef_type,
+    isotree_bool*   with_replacement,
+    isotree_bool*   weight_as_sample,
+    size_t*    sample_size,
+    size_t*    ntrees,
+    size_t*    max_depth,
+    size_t*    ncols_per_tree,
+    isotree_bool*   limit_depth,
+    isotree_bool*   penalize_range,
+    isotree_bool*   weigh_by_kurt,
+    double*    prob_pick_by_gain_avg,
+    double*    prob_split_by_gain_avg,
+    double*    prob_pick_by_gain_pl,
+    double*    prob_split_by_gain_pl,
+    double*    min_gain,
+    MissingAction_t*   missing_action,
+    CategSplit_t*      cat_split_type,
+    NewCategAction_t*  new_cat_action,
+    isotree_bool*   coef_by_prop,
+    isotree_bool*   all_perm,
+    isotree_bool*   build_imputer,
+    size_t*    min_imp_obs,
+    UseDepthImp_t*   depth_imp,
+    WeighImpRows_t*  weigh_imp_rows
+);
+
+/*  This is a short-hand for an easier-to-use alternative to the function that sets the parameters,
+    so as to allow using the more transparent C struct instead. In order to modify values in the C
+    struct, it's just enough with reassigning each member and then passing it to this function.
+
+    Note that the output is a pointer and must be freed afterwards through 'delete_isotree_parameters'. */
+static inline isotree_parameters_t allocate_isotree_parameters(isotree_parameters parameters)
+{
+    isotree_parameters_t out = allocate_default_isotree_parameters();
+    if (!out) return NULL;
+    uint8_t coef_type = parameters.coef_type, with_replacement = parameters.with_replacement,
+            weight_as_sample = parameters.weight_as_sample, limit_depth = parameters.limit_depth,
+            penalize_range = parameters.penalize_range, weigh_by_kurt = parameters.weigh_by_kurt,
+            missing_action = parameters.missing_action, cat_split_type = parameters.cat_split_type,
+            new_cat_action = parameters.new_cat_action, coef_by_prop = parameters.coef_by_prop,
+            all_perm = parameters.all_perm, build_imputer = parameters.build_imputer,
+            depth_imp = parameters.depth_imp, weigh_imp_rows = parameters.weigh_imp_rows;
+    set_isotree_parameters(
+        out, &parameters.nthreads, &parameters.random_seed,
+        &parameters.ndim, &parameters.ntry, &coef_type, &with_replacement,
+        &weight_as_sample, &parameters.sample_size, &parameters.ntrees, &parameters.max_depth,
+        &parameters.ncols_per_tree, &limit_depth, &penalize_range, &weigh_by_kurt,
+        &parameters.prob_pick_by_gain_avg, &parameters.prob_split_by_gain_avg,
+        &parameters.prob_pick_by_gain_pl, &parameters.prob_split_by_gain_pl,
+        &parameters.min_gain, &missing_action, &cat_split_type, &new_cat_action, &coef_by_prop,
+        &all_perm, &build_imputer, &parameters.min_imp_obs, &depth_imp, &weigh_imp_rows
+    );
+    return out;
+}
+
+
+ISOTREE_EXPORTED
+isotree_model_t isotree_fit
+(
+    const isotree_parameters_t,
+    size_t nrows,
+    double *numeric_data,
+    size_t ncols_numeric,
+    int *categ_data,
+    size_t ncols_categ,
+    int *ncateg,
+    double *csc_values,
+    int *csc_indices,
+    int *csc_indptr,
+    double *row_weights,
+    double *column_weights
+);
+
+ISOTREE_EXPORTED
+void delete_isotree_model(isotree_model_t isotree_model);
+
+/*  Here the data can be row-major or column-major. If passing sparse data,
+    it's recommended to do so in CSC format (column-major), and to pass the
+    categorical data also in column-major order if there is any.
+
+    'output_scores' must always be passed, while 'output_tree_num' is
+    optional. */
+ISOTREE_EXPORTED
+void isotree_predict
+(
+    isotree_model_t isotree_model,
+    double *output_scores,
+    int *output_tree_num,
+    isotree_bool standardize_scores,
+    size_t nrows,
+    isotree_bool is_col_major,
+    double *numeric_data,
+    size_t ld_numeric,
+    int *categ_data,
+    size_t ld_categ,
+    isotree_bool is_csc,
+    double *sparse_values,
+    int *sparse_indices,
+    int *sparse_indptr
+);
+
+/*  Here the data is only supported in column-major order.  */
+ISOTREE_EXPORTED
+void isotree_predict_distance
+(
+    isotree_model_t isotree_model,
+    isotree_bool output_triangular,
+    isotree_bool standardize_distance,
+    isotree_bool assume_full_distr,
+    double *output_dist, /* <- output goes here */
+    size_t nrows,
+    double *numeric_data,
+    int *categ_data,
+    double *csc_values,
+    int *csc_indices,
+    int *csc_indptr
+);
+
+/*  This will replace NAN values in-place. Note that for sparse inputs it
+    will impute NANs, not values that are ommited from the sparse format. */
+ISOTREE_EXPORTED
+void isotree_impute
+(
+    isotree_model_t isotree_model,
+    size_t nrows,
+    isotree_bool is_col_major, /* applies to 'numeric_data' and 'categ_data' */
+    double *numeric_data,
+    int *categ_data,
+    double *csr_values,
+    int *csr_indices,
+    int *csr_indptr
+);
+
+ISOTREE_EXPORTED
+void isotree_serialize_to_file(const isotree_model_t isotree_model, FILE *output);
+
+/*  'nthreads' here means 'what value to set 'nthreads' to in the resulting
+    object' (which are used for the prediction functions). The de-serialization
+    process itself is always single-threaded.  */
+ISOTREE_EXPORTED
+isotree_model_t isotree_deserialize_from_file(FILE *serialized_model, int nthreads);
+
+/*  Can serialize to an array of raw bytes (char*), in which case this function
+    will tell how large the array needs to be to hold the serialized model. */
+ISOTREE_EXPORTED
+size_t isotree_serialize_get_raw_size(const isotree_model_t isotree_model);
+
+ISOTREE_EXPORTED
+void isotree_serialize_to_raw(const isotree_model_t isotree_model, char *output);
+
+ISOTREE_EXPORTED
+isotree_model_t isotree_deserialize_from_raw(const char *serialized_model, int nthreads);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* ifndef ISOTREE_C_H */

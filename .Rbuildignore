@@ -29,6 +29,9 @@
 ^src/isotree_exportable\.hpp$
 ^src/external_facing_generic\.hpp$
 ^src/instantiate_model\.cpp
+^src/c_interface\.cpp
+^src/oop_interface\.cpp
+^src/oop_interface\.hpp
 ^src/robinmap/[^i][^n][^c].*$
 ^safe/.*$
 ^.*\.out$

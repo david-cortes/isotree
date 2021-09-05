@@ -78,7 +78,7 @@ There's already many available implementations of isolation forests for both Pyt
 * Can fit trees incrementally to user-provided data samples.
 * Produces serializable model objects with reasonable file sizes.
 * Can translate the generated trees into SQL statements.
-* Fast and multi-threaded C++ code, which is architecture-agnostic, multi-platform, and with the only external dependency (Robin-Map) being optional. Can be wrapped in languages other than Python/R/Ruby.
+* Fast and multi-threaded C++ code with an ISO C interface, which is architecture-agnostic, multi-platform, and with the only external dependency (Robin-Map) being optional. Can be wrapped in languages other than Python/R/Ruby.
 
 (Note that categoricals, NAs, and density-like sample weights, are treated heuristically with different options as there is no single logical extension of the original idea to them, and having them present might degrade performance/accuracy for regular numerical non-missing observations)
 
@@ -110,7 +110,7 @@ And then reinstall this package: `pip install --force-reinstall isotree`.
 install.packages("isotree")
 ```
 
-* C++:
+* C and C++:
 ```
 git clone --recursive https://www.github.com/david-cortes/isotree.git
 cd isotree
@@ -166,6 +166,7 @@ print("Point with highest outlier score: ",
 ```
 
 * R:
+
 (see documentation for more examples - `help(isotree::isolation.forest)`)
 ```r
 ### Random data from a standard normal distribution
@@ -189,7 +190,18 @@ cat("Point with highest outlier score: ",
 
 * C++:
 
-See file [isotree_cpp_ex.cpp](https://github.com/david-cortes/isotree/blob/master/example/isotree_cpp_ex.cpp).
+The package comes with two different C++ interfaces: (a) a struct-based interface which exposes the full library's functionalities but makes little checks on the inputs it receives and is perhaps a bit difficult to use due to the large number of arguments that functions require; and (b) a scikit-learn-like interface in which the model exposes a single class with methods like 'fit' and 'predict', which is less flexible than the struct-based interface but easier to use and the function signatures disallow some potential errors due to invalid parameter combinations.
+
+
+See files: [isotree_cpp_ex.cpp](https://github.com/david-cortes/isotree/blob/master/example/isotree_cpp_ex.cpp) for an example with the struct-based interface; and [isotree_cpp_oop_ex.cpp](https://github.com/david-cortes/isotree/blob/master/example/isotree_cpp_oop_ex.cpp) for an example with the scikit-learn-like interface.
+
+Note that the second interface does not expose all the functionalities - for example, it only supports inputs of classes 'double' and 'int', while the struct-based interface also supports 'float'/'size_t'.
+
+* C:
+
+See file [isotree_c_ex.c](https://github.com/david-cortes/isotree/blob/master/example/isotree_c_ex.c).
+
+Note that the C interface is a simple wrapper over the scikit-learn-like C++ interface, but using only ISO C bindings for better compatibility and easier wrapping in other languages.
 
 * Ruby
 
@@ -199,14 +211,15 @@ See [external repository with wrapper](https://github.com/ankane/isotree).
 
 * Python: example notebook [here](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb), (also example as imputer in sklearn pipeline [here](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb)).
 * R: examples available in the documentation (`help(isotree::isolation.forest)`, [link to CRAN](https://cran.r-project.org/web/packages/isotree/index.html)).
-* C++: see short example in the section above.
+* C++: see short examples in the section above.
 * Ruby: see [external repository with wrapper](https://github.com/ankane/isotree).
 
 # Documentation
 
 * Python: documentation is available at [ReadTheDocs](http://isotree.readthedocs.io/en/latest/).
 * R: documentation is available internally in the package (e.g. `help(isolation.forest)`) and in [CRAN](https://cran.r-project.org/web/packages/isotree/index.html).
-* C++: documentation is available in the public header (`include/isotree.hpp`) and in the source files.
+* C++: documentation is available in the public header (`include/isotree.hpp`) and in the source files. See also the header for the scikit-learn-like interface (`include/isotree_oop.hpp`).
+* C: interface is not documented per-se, but the same documentation from the C++ header applies to it. See also its header for some non-comprehensive comments about the parameters that functions take (`include/isotree_c.h`).
 * Ruby: see [external repository with wrapper](https://github.com/ankane/isotree) for the syntax and the [Python docs](http://isotree.readthedocs.io) for details about the parameters.
 
 # Help wanted
