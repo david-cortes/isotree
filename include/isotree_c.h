@@ -159,7 +159,7 @@ typedef struct isotree_parameters {
 } isotree_parameters;
 
 /*  General notes about passing data to this library:
-     - All data passed to the 'fit_model' function must be in column-major
+     - All data passed to the 'isotree_fit' function must be in column-major
        order (like Fortran). Most of the prediction functions support
        row-major order however, and predictions are typically faster in
        row-major order (with some exceptions). When passing data in row-major
@@ -175,7 +175,10 @@ typedef struct isotree_parameters {
        also pass the number of categories per column ('ncat').
      - Numeric data may be passed in sparse CSC format (in which case the array
        'numeric_data' should be NULL). Some prediction functions may also
-       accept sparse data in CSR format.
+       accept sparse data in CSR format. Note that, if passing numeric data
+       in sparse format, there should be no further numeric data in dense
+       format passed to the same function (i.e. can pass at most one of
+       'numeric_data' or 'csc_*', and same for the prediction functions).
      - The structs here ('isotree_input_data' and 'isotree_prediction_data')
        are not used in any function call, they are just laid out for easier
        understanding of the format. */
@@ -225,7 +228,9 @@ static inline isotree_parameters get_default_isotree_parameters()
 /*  Alternatively, this function returns 'isotree_parameters_t', which can be passed directly
     to the model-fitting function, and can be modified using the less-convenient function
     'set_isotree_parameters'. Note that it is a pointer and thust must be freed after using
-    it through the function 'delete_isotree_parameters'.  */
+    it through the function 'delete_isotree_parameters'.
+
+    If allocation fails, will return a NULL pointer.  */
 ISOTREE_EXPORTED
 isotree_parameters_t allocate_default_isotree_parameters();
 
@@ -342,6 +347,9 @@ static inline isotree_parameters_t allocate_isotree_parameters(isotree_parameter
 }
 
 
+/*  This returns a pointer to a struct, must be freed after use through
+    the function 'delete_isotree_model'. If anything fails, will print
+    an error message to 'stderr' and return a NULL pointer.  */
 ISOTREE_EXPORTED
 isotree_model_t isotree_fit
 (
@@ -362,12 +370,19 @@ isotree_model_t isotree_fit
 ISOTREE_EXPORTED
 void delete_isotree_model(isotree_model_t isotree_model);
 
-/*  Here the data can be row-major or column-major. If passing sparse data,
-    it's recommended to do so in CSC format (column-major), and to pass the
-    categorical data also in column-major order if there is any.
+/*  Here the data can be row-major or column-major. If passing dense data
+    (arrays 'numeric_data' and 'categ_data', this is the most usual case),
+    it's recommended to pass it in row-major order (the order for them
+    must be signaled through 'is_col_major').
+
+    If passing sparse data, it's recommended to do so in CSC format
+    (column-major), and to pass the categorical data also in column-major
+    order if there is any. Sparse data might alternatively be passed in
+    CSR format (must be signaled through 'is_csc').
 
     'output_scores' must always be passed, while 'output_tree_num' is
-    optional. */
+    optional. Both of those should have length equal to the number of
+    rows in the data that is passed here. */
 ISOTREE_EXPORTED
 void isotree_predict
 (
@@ -387,7 +402,13 @@ void isotree_predict
     int *sparse_indptr
 );
 
-/*  Here the data is only supported in column-major order.  */
+/*  Here the data is only supported in column-major order.
+     - If passing 'output_triangular=true', then 'output_dist'
+       should have length 'nrows*(nrows-1)/2' (which corresponds
+       to the upper diagonal of a symmetric square matrix).
+     - If passing 'output_triangular=false', then 'output_dist'
+       should have length 'nrows^2' (which corresponds to a full
+       symmetric square matrix).  */
 ISOTREE_EXPORTED
 void isotree_predict_distance
 (
@@ -424,12 +445,16 @@ void isotree_serialize_to_file(const isotree_model_t isotree_model, FILE *output
 
 /*  'nthreads' here means 'what value to set 'nthreads' to in the resulting
     object' (which are used for the prediction functions). The de-serialization
-    process itself is always single-threaded.  */
+    process itself is always single-threaded.
+
+    If there is an error, will print a message to 'stderr' and return a NULL pointer.  */
 ISOTREE_EXPORTED
 isotree_model_t isotree_deserialize_from_file(FILE *serialized_model, int nthreads);
 
 /*  Can serialize to an array of raw bytes (char*), in which case this function
-    will tell how large the array needs to be to hold the serialized model. */
+    will tell how large the array needs to be to hold the serialized model.
+
+    If an error occurs, will print a message to 'stderr' and return 0.  */
 ISOTREE_EXPORTED
 size_t isotree_serialize_get_raw_size(const isotree_model_t isotree_model);
 
