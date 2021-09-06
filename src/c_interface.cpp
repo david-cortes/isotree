@@ -336,9 +336,11 @@ void isotree_predict
     uint8_t is_csc,
     double *sparse_values,
     int *sparse_indices,
-    int *sparse_indptr
+    int *sparse_indptr,
+    int *exit_status
 )
 {
+    *exit_status = 1;
     if (!isotree_model) {
         cerr << "Passed NULL 'isotree_model' to 'isotree_predict'." << std::endl;
         return;
@@ -349,16 +351,27 @@ void isotree_predict
     }
     IsolationForest *model = (IsolationForest*)isotree_model;
 
-    if (!sparse_indptr) {
-        model->predict(numeric_data, categ_data, (bool)is_col_major,
-                       nrows, ld_numeric, ld_categ, (bool)standardize_scores,
-                       output_scores, output_tree_num);
+    try
+    {
+        if (!sparse_indptr) {
+            model->predict(numeric_data, categ_data, (bool)is_col_major,
+                           nrows, ld_numeric, ld_categ, (bool)standardize_scores,
+                           output_scores, output_tree_num);
+        }
+
+        else {
+            model->predict(sparse_values, sparse_indices, sparse_indptr, (bool)is_csc,
+                           categ_data, (bool)is_col_major, ld_categ, nrows, (bool)standardize_scores,
+                           output_scores, output_tree_num);
+        }
+
+        *exit_status = 0;
     }
 
-    else {
-        model->predict(sparse_values, sparse_indices, sparse_indptr, (bool)is_csc,
-                       categ_data, (bool)is_col_major, ld_categ, nrows, (bool)standardize_scores,
-                       output_scores, output_tree_num);
+    catch (std::exception &e)
+    {
+        cerr << e.what();
+        cerr.flush();
     }
 }
 
@@ -374,9 +387,11 @@ void isotree_predict_distance
     int *categ_data,
     double *csc_values,
     int *csc_indices,
-    int *csc_indptr
+    int *csc_indptr,
+    int *exit_status
 )
 {
+    *exit_status = 1;
     if (!isotree_model) {
         cerr << "Passed NULL 'isotree_model' to 'isotree_predict_distance'." << std::endl;
         return;
@@ -387,19 +402,30 @@ void isotree_predict_distance
     }
     IsolationForest *model = (IsolationForest*)isotree_model;
 
-    if (!csc_indptr) {
-        model->predict_distance(numeric_data, categ_data,
-                                nrows,
-                                (bool) assume_full_distr, (bool) standardize_distance,
-                                (bool) output_triangular,
-                                output_dist);
+    try
+    {
+        if (!csc_indptr) {
+            model->predict_distance(numeric_data, categ_data,
+                                    nrows,
+                                    (bool) assume_full_distr, (bool) standardize_distance,
+                                    (bool) output_triangular,
+                                    output_dist);
+        }
+
+        else {
+            model->predict_distance(csc_values, csc_indices, csc_indptr, categ_data,
+                                    nrows, (bool) assume_full_distr, (bool) standardize_distance,
+                                    (bool) output_triangular,
+                                    output_dist);
+        }
+
+        *exit_status = 0;
     }
 
-    else {
-        model->predict_distance(csc_values, csc_indices, csc_indptr, categ_data,
-                                nrows, (bool) assume_full_distr, (bool) standardize_distance,
-                                (bool) output_triangular,
-                                output_dist);
+    catch (std::exception &e)
+    {
+        cerr << e.what();
+        cerr.flush();
     }
 }
 
@@ -412,9 +438,11 @@ void isotree_impute
     int *categ_data,
     double *csr_values,
     int *csr_indices,
-    int *csr_indptr
+    int *csr_indptr,
+    int *exit_status
 )
 {
+    *exit_status = 1;
     if (!isotree_model) {
         cerr << "Passed NULL 'isotree_model' to 'isotree_impute'." << std::endl;
         return;
@@ -422,18 +450,30 @@ void isotree_impute
 
     IsolationForest *model = (IsolationForest*)isotree_model;
 
-    if (!csr_indptr) {
-        model->impute(numeric_data, categ_data, (bool) is_col_major, nrows);
+    try
+    {
+        if (!csr_indptr) {
+            model->impute(numeric_data, categ_data, (bool) is_col_major, nrows);
+        }
+
+        else {
+            model->impute(csr_values, csr_indices, csr_indptr,
+                          categ_data, (bool) is_col_major, nrows);
+        }
+
+        *exit_status = 0;
     }
 
-    else {
-        model->impute(csr_values, csr_indices, csr_indptr,
-                      categ_data, (bool) is_col_major, nrows);
+    catch (std::exception &e)
+    {
+        cerr << e.what();
+        cerr.flush();
     }
 }
 
-void isotree_serialize_to_file(const void *isotree_model, FILE *output)
+void isotree_serialize_to_file(const void *isotree_model, FILE *output, int *exit_status)
 {
+    *exit_status = 1;
     if (!isotree_model) {
         cerr << "Passed NULL 'isotree_model' to 'isotree_serialize_to_file'." << std::endl;
         return;
@@ -448,6 +488,7 @@ void isotree_serialize_to_file(const void *isotree_model, FILE *output)
     try
     {
         model->serialize(output);
+        *exit_status = 0;
     }
 
     catch (std::exception &e)
@@ -510,8 +551,9 @@ size_t isotree_serialize_get_raw_size(const void *isotree_model)
     }
 }
 
-void isotree_serialize_to_raw(const void *isotree_model, char *output)
+void isotree_serialize_to_raw(const void *isotree_model, char *output, int *exit_status)
 {
+    *exit_status = 1;
     if (!isotree_model) {
         cerr << "Passed NULL 'isotree_model' to 'isotree_serialize_to_raw'." << std::endl;
         return;
@@ -529,6 +571,7 @@ void isotree_serialize_to_raw(const void *isotree_model, char *output)
             (size_t)0,
             output
         );
+        *exit_status = 1;
     }
 
     catch (std::exception &e)
@@ -627,8 +670,9 @@ void* isotree_deserialize_from_raw(const char *serialized_model, int nthreads)
 }
 
 ISOTREE_EXPORTED
-void isotree_set_num_threads(void *isotree_model, int nthreads)
+void isotree_set_num_threads(void *isotree_model, int nthreads, int *exit_status)
 {
+    *exit_status = 1;
     if (!isotree_model) {
         cerr << "Passed NULL 'isotree_model' to 'isotree_set_num_threads'." << std::endl;
         return;
@@ -642,6 +686,7 @@ void isotree_set_num_threads(void *isotree_model, int nthreads)
     }
     IsolationForest *model = (IsolationForest*)isotree_model;
     model->nthreads = nthreads;
+    *exit_status = 0;
 }
 
 ISOTREE_EXPORTED

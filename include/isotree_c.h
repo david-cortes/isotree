@@ -109,6 +109,9 @@ typedef enum  UseDepthImp    {Lower=71,    Higher=0,       Same=72}    UseDepthI
 typedef enum  WeighImpRows   {Inverse=0,   Prop=81,        Flat=82}    WeighImpRows;   /* For NA imputation */
 #endif
 
+/* These codes are used to signal error status from functions */
+enum IsoTreeErrorStatus {IsoTreeSuccess=0, IsoTreeError=1};
+
 typedef uint8_t isotree_bool;
 typedef uint8_t NewCategAction_t;
 typedef uint8_t MissingAction_t;
@@ -382,7 +385,13 @@ void delete_isotree_model(isotree_model_t isotree_model);
 
     'output_scores' must always be passed, while 'output_tree_num' is
     optional. Both of those should have length equal to the number of
-    rows in the data that is passed here. */
+    rows in the data that is passed here. 
+
+    Upon return, 'exit_status' will be set to zero if it executes
+    successfully, or to one if an error happens (along with printing a
+    message to 'stderr' if an error is encountered). Note that the only
+    possible throwable error that can happen inside 'isotree_predict'
+    is an out-of-memory condition when passing CSC data.  */
 ISOTREE_EXPORTED
 void isotree_predict
 (
@@ -399,7 +408,8 @@ void isotree_predict
     isotree_bool is_csc,
     double *sparse_values,
     int *sparse_indices,
-    int *sparse_indptr
+    int *sparse_indptr,
+    int *exit_status
 );
 
 /*  Here the data is only supported in column-major order.
@@ -408,7 +418,11 @@ void isotree_predict
        to the upper diagonal of a symmetric square matrix).
      - If passing 'output_triangular=false', then 'output_dist'
        should have length 'nrows^2' (which corresponds to a full
-       symmetric square matrix).  */
+       symmetric square matrix).
+
+    Note that unlike 'isotree_predict', there are more possible
+    error-throwing scenarios in this function, such as receiving a
+    stop signal (errors are signaled in the same way). */
 ISOTREE_EXPORTED
 void isotree_predict_distance
 (
@@ -422,11 +436,12 @@ void isotree_predict_distance
     int *categ_data,
     double *csc_values,
     int *csc_indices,
-    int *csc_indptr
+    int *csc_indptr,
+    int *exit_status
 );
 
 /*  This will replace NAN values in-place. Note that for sparse inputs it
-    will impute NANs, not values that are ommited from the sparse format. */
+    will impute NANs, not values that are ommited from the sparse format.  */
 ISOTREE_EXPORTED
 void isotree_impute
 (
@@ -437,11 +452,12 @@ void isotree_impute
     int *categ_data,
     double *csr_values,
     int *csr_indices,
-    int *csr_indptr
+    int *csr_indptr,
+    int *exit_status
 );
 
 ISOTREE_EXPORTED
-void isotree_serialize_to_file(const isotree_model_t isotree_model, FILE *output);
+void isotree_serialize_to_file(const isotree_model_t isotree_model, FILE *output, int *exit_status);
 
 /*  'nthreads' here means 'what value to set 'nthreads' to in the resulting
     object' (which are used for the prediction functions). The de-serialization
@@ -459,7 +475,7 @@ ISOTREE_EXPORTED
 size_t isotree_serialize_get_raw_size(const isotree_model_t isotree_model);
 
 ISOTREE_EXPORTED
-void isotree_serialize_to_raw(const isotree_model_t isotree_model, char *output);
+void isotree_serialize_to_raw(const isotree_model_t isotree_model, char *output, int *exit_status);
 
 ISOTREE_EXPORTED
 isotree_model_t isotree_deserialize_from_raw(const char *serialized_model, int nthreads);
@@ -468,8 +484,9 @@ isotree_model_t isotree_deserialize_from_raw(const char *serialized_model, int n
       nthreads = max_threads + nthreads + 1
     So passing -1 means using all threads, passing -2 all but 1 thread, and so on. */
 ISOTREE_EXPORTED
-void isotree_set_num_threads(isotree_model_t isotree_model, int nthreads);
+void isotree_set_num_threads(isotree_model_t isotree_model, int nthreads, int *exit_status);
 
+/*  If an error occurs (e.g. passing a NULL pointer), will return -INT_MAX */
 ISOTREE_EXPORTED
 int isotree_get_num_threads(const isotree_model_t isotree_model);
 

@@ -66,6 +66,7 @@ int main()
        (see file 'predict.cpp' for the documentation) */
     double *outlier_scores = (double*)malloc(nrow * sizeof(double));
     if (!outlier_scores) throw_oom();
+    int predict_status;
     isotree_predict(
         model,
         outlier_scores,
@@ -80,8 +81,10 @@ int main()
         false,
         NULL,
         NULL,
-        NULL
+        NULL,
+        &predict_status
     );
+    if (predict_status == IsoTreeError) throw_oom();
 
     size_t row_highest = get_idx_max(outlier_scores, nrow);
     printf("Point with highest outlier score: [");
