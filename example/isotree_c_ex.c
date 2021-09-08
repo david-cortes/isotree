@@ -63,8 +63,11 @@ int main()
     if (!model) throw_oom();
 
     /* Check which row has the highest outlier score
-       (see file 'predict.cpp' for the documentation) */
-    double *outlier_scores = (double*)malloc(nrow * sizeof(double));
+       (see file 'predict.cpp' for the documentation)
+
+       IMPORTANT: the array where to save outlier scores
+       must be passed already initialized to zeros. */
+    double *outlier_scores = (double*)calloc(nrow, sizeof(double));
     if (!outlier_scores) throw_oom();
     int predict_status;
     isotree_predict(
