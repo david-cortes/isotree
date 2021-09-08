@@ -195,7 +195,10 @@ public:
         predictions in row-major order will be faster). If the data is in row-major
         order, must also provide the leading dimension of the array (typically this
         corresponds to the number of columns, but might be larger if using a subset
-        of a larger array).  */
+        of a larger array).
+
+        IMPORTANT: 'output_depths' should be passed already initialized to
+        zeros (here and in the other 'predict' functions).  */
     void predict(double numeric_data[], int categ_data[], bool is_col_major,
                  size_t nrows, size_t ld_numeric, size_t ld_categ, bool standardize,
                  double output_depths[], int tree_num[]);

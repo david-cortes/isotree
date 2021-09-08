@@ -385,7 +385,10 @@ void delete_isotree_model(isotree_model_t isotree_model);
 
     'output_scores' must always be passed, while 'output_tree_num' is
     optional. Both of those should have length equal to the number of
-    rows in the data that is passed here. 
+    rows in the data that is passed here.
+
+    IMPORTANT: 'output_scores' should be passed already initialized to
+    zeros.
 
     Upon return, 'exit_status' will be set to zero if it executes
     successfully, or to one if an error happens (along with printing a
