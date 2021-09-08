@@ -198,6 +198,7 @@ void IsolationForest::fit(double Xc[], int Xc_ind[], int Xc_indptr[],
 std::vector<double> IsolationForest::predict(double X[], size_t nrows, bool standardize)
 {
     this->check_is_fitted();
+    this->check_nthreads();
     std::vector<double> out(nrows);
     predict_iforest(
         X, (int*)nullptr,
@@ -216,6 +217,7 @@ void IsolationForest::predict(double numeric_data[], int categ_data[], bool is_c
                               double output_depths[], int tree_num[])
 {
     this->check_is_fitted();
+    this->check_nthreads();
     predict_iforest(
         numeric_data, categ_data,
         is_col_major, ld_numeric, ld_categ,
@@ -232,6 +234,7 @@ void IsolationForest::predict(double X_sparse[], int X_ind[], int X_indptr[], bo
                               double output_depths[], int tree_num[])
 {
     this->check_is_fitted();
+    this->check_nthreads();
     std::vector<double> out(nrows);
     predict_iforest(
         (double*)nullptr, categ_data,
@@ -249,6 +252,7 @@ std::vector<double> IsolationForest::predict_distance(double X[], size_t nrows,
                                                       bool triangular)
 {
     this->check_is_fitted();
+    this->check_nthreads();
     std::vector<double> tmat((nrows % 2)? (nrows * div2(nrows-1)) : (div2(nrows) * (nrows-1)));
     std::vector<double> dmat(triangular? square(nrows) : 0);
 
@@ -270,6 +274,7 @@ void IsolationForest::predict_distance(double numeric_data[], int categ_data[],
                                        double dist_matrix[])
 {
     this->check_is_fitted();
+    this->check_nthreads();
     std::vector<double> tmat(triangular? 0 : ((nrows % 2)? (nrows * div2(nrows-1)) : (div2(nrows) * (nrows-1))));
 
     calc_similarity(numeric_data, categ_data,
@@ -290,6 +295,7 @@ void IsolationForest::predict_distance(double Xc[], int Xc_ind[], int Xc_indptr[
                                        double dist_matrix[])
 {
     this->check_is_fitted();
+    this->check_nthreads();
     std::vector<double> tmat(triangular? 0 : ((nrows % 2)? (nrows * div2(nrows-1)) : (div2(nrows) * (nrows-1))));
 
     calc_similarity((double*)nullptr, (int*)nullptr,
@@ -307,6 +313,7 @@ void IsolationForest::predict_distance(double Xc[], int Xc_ind[], int Xc_indptr[
 void IsolationForest::impute(double X[], size_t nrows)
 {
     this->check_is_fitted();
+    this->check_nthreads();
     if (!this->imputer.imputer_tree.size())
         throw std::runtime_error("Model was built without imputation capabilities.\n");
     impute_missing_values(X, (int*)nullptr, true,
@@ -322,6 +329,7 @@ void IsolationForest::impute(double numeric_data[], int categ_data[], bool is_co
     this->check_is_fitted();
     if (!this->imputer.imputer_tree.size())
         throw std::runtime_error("Model was built without imputation capabilities.\n");
+    this->check_nthreads();
     impute_missing_values(numeric_data, categ_data, is_col_major,
                           (double*)nullptr, (int*)nullptr, (int*)nullptr,
                           nrows, this->nthreads,
@@ -336,6 +344,7 @@ void IsolationForest::impute(double Xr[], int Xr_ind[], int Xr_indptr[],
     this->check_is_fitted();
     if (!this->imputer.imputer_tree.size())
         throw std::runtime_error("Model was built without imputation capabilities.\n");
+    this->check_nthreads();
     impute_missing_values((double*)nullptr, categ_data, is_col_major,
                           Xr, Xr_ind, Xr_indptr,
                           nrows, this->nthreads,
@@ -379,13 +388,13 @@ std::ostream& isotree::operator<<(std::ostream &ost, const IsolationForest &mode
 
 std::istream& operator>>(std::istream &ist, IsolationForest &model)
 {
-    model = IsolationForest::deserialize(ist, 1);
+    model = IsolationForest::deserialize(ist, -1);
     return ist;
 }
 
 std::istream& isotree::operator>>(std::istream &ist, IsolationForest &model)
 {
-    model = IsolationForest::deserialize(ist, 1);
+    model = IsolationForest::deserialize(ist, -1);
     return ist;
 }
 
@@ -410,6 +419,29 @@ Imputer& IsolationForest::get_imputer()
     return this->imputer;
 }
 
+void IsolationForest::check_nthreads()
+{
+    if (this->nthreads < 0) {
+        #ifdef _OPENMP
+        this->nthreads = omp_get_max_threads() + this->nthreads + 1;
+        #else
+        this->nthreads = 1;
+        #endif
+    }
+    if (nthreads <= 0) {
+        fprintf(stderr, "'isotree' got invalid 'nthreads', will set to 1.\n");
+        this->nthreads = 1;
+    }
+    #ifndef _OPENMP
+    else if (nthreads > 1) {
+        fprintf(stderr,
+                "Passed nthreads:%d to 'isotree', but library was compiled without multithreading.\n",
+                this->nthreads);
+        this->nthreads = 1;
+    }
+    #endif
+}
+
 void IsolationForest::override_previous_fit()
 {
     if (this->is_fitted) {
@@ -421,23 +453,7 @@ void IsolationForest::override_previous_fit()
 
 void IsolationForest::check_params()
 {
-    if (this->nthreads < 0) {
-        #ifdef _OPENMP
-        this->nthreads = omp_get_max_threads() + 1 + nthreads;
-        #else
-        this->nthreads = 1;
-        #endif
-    }
-    if (nthreads < 0) {
-        std::fprintf(stderr, "Invalid number of threads, will set to 1.\n");
-        this->nthreads = 1;
-    }
-    #ifndef _OPENMP
-    if (nthreads > 1) {
-        std::fprintf(stderr, "Attempting to use multithreading, but library was compiled without OpenMP support.\n");
-        this->nthreads = 1;
-    }
-    #endif
+    this->check_nthreads();
 
     if (this->prob_pick_by_gain_avg < 0) throw std::runtime_error("'prob_pick_by_gain_avg' must be >= 0.\n");
     if (this->prob_pick_by_gain_pl < 0) throw std::runtime_error("'prob_pick_by_gain_pl' must be >= 0.\n");

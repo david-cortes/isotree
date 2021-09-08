@@ -280,7 +280,7 @@ public:
 
     /*  To serialize and deserialize in a more idiomatic way
         ('stream << model' and 'stream >> model').
-        Note that 'ist >> model' will set 'nthreads=1', which you might
+        Note that 'ist >> model' will set 'nthreads=-1', which you might
         want to modify afterwards. */
     friend std::ostream& operator<<(std::ostream &ost, const IsolationForest &model);
 
@@ -296,6 +296,12 @@ public:
     ExtIsoForest& get_model_ext();
 
     Imputer& get_imputer();
+
+    /*  This converts from a negative 'nthreads' to the actual number (provided it
+        was compiled with OpenMP support), and will set to 1 if the number is invalid.
+        If the library was compiled without multi-threading and it requests more than
+        one thread, will write a message to 'stderr'.  */
+    void check_nthreads();
 
 private:
     bool is_fitted = false;
