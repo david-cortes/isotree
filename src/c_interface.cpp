@@ -49,6 +49,8 @@
 using std::cerr;
 using isotree::IsolationForest;
 
+enum IsoTreeExitCodes {IsoTreeSuccess=0, IsoTreeError=1};
+
 struct IsoTree_Params {
     int nthreads = -1; /* <- May be manually changed at any time */
 
@@ -321,7 +323,7 @@ void delete_isotree_model(void *isotree_model)
     delete ptr;
 }
 
-void isotree_predict
+int isotree_predict
 (
     void *isotree_model,
     double *output_scores,
@@ -336,18 +338,16 @@ void isotree_predict
     uint8_t is_csc,
     double *sparse_values,
     int *sparse_indices,
-    int *sparse_indptr,
-    int *exit_status
+    int *sparse_indptr
 )
 {
-    *exit_status = 1;
     if (!isotree_model) {
         cerr << "Passed NULL 'isotree_model' to 'isotree_predict'." << std::endl;
-        return;
+        return IsoTreeError;
     }
     if (!output_scores) {
         cerr << "Passed NULL 'output_scores' to 'isotree_predict'." << std::endl;
-        return;
+        return IsoTreeError;
     }
     IsolationForest *model = (IsolationForest*)isotree_model;
 
@@ -365,7 +365,7 @@ void isotree_predict
                            output_scores, output_tree_num);
         }
 
-        *exit_status = 0;
+        return IsoTreeSuccess;
     }
 
     catch (std::exception &e)
@@ -373,9 +373,11 @@ void isotree_predict
         cerr << e.what();
         cerr.flush();
     }
+
+    return IsoTreeError;
 }
 
-void isotree_predict_distance
+int isotree_predict_distance
 (
     void *isotree_model,
     uint8_t output_triangular,
@@ -387,18 +389,16 @@ void isotree_predict_distance
     int *categ_data,
     double *csc_values,
     int *csc_indices,
-    int *csc_indptr,
-    int *exit_status
+    int *csc_indptr
 )
 {
-    *exit_status = 1;
     if (!isotree_model) {
         cerr << "Passed NULL 'isotree_model' to 'isotree_predict_distance'." << std::endl;
-        return;
+        return IsoTreeError;
     }
     if (!output_dist) {
         cerr << "Passed NULL 'output_dist' to 'isotree_predict_distance'." << std::endl;
-        return;
+        return IsoTreeError;
     }
     IsolationForest *model = (IsolationForest*)isotree_model;
 
@@ -419,7 +419,7 @@ void isotree_predict_distance
                                     output_dist);
         }
 
-        *exit_status = 0;
+        return IsoTreeSuccess;
     }
 
     catch (std::exception &e)
@@ -427,9 +427,11 @@ void isotree_predict_distance
         cerr << e.what();
         cerr.flush();
     }
+
+    return IsoTreeError;
 }
 
-void isotree_impute
+int isotree_impute
 (
     void *isotree_model,
     size_t nrows,
@@ -438,14 +440,12 @@ void isotree_impute
     int *categ_data,
     double *csr_values,
     int *csr_indices,
-    int *csr_indptr,
-    int *exit_status
+    int *csr_indptr
 )
 {
-    *exit_status = 1;
     if (!isotree_model) {
         cerr << "Passed NULL 'isotree_model' to 'isotree_impute'." << std::endl;
-        return;
+        return IsoTreeError;
     }
 
     IsolationForest *model = (IsolationForest*)isotree_model;
@@ -461,7 +461,7 @@ void isotree_impute
                           categ_data, (bool) is_col_major, nrows);
         }
 
-        *exit_status = 0;
+        return IsoTreeSuccess;
     }
 
     catch (std::exception &e)
@@ -469,18 +469,19 @@ void isotree_impute
         cerr << e.what();
         cerr.flush();
     }
+
+    return IsoTreeError;
 }
 
-void isotree_serialize_to_file(const void *isotree_model, FILE *output, int *exit_status)
+int isotree_serialize_to_file(const void *isotree_model, FILE *output)
 {
-    *exit_status = 1;
     if (!isotree_model) {
         cerr << "Passed NULL 'isotree_model' to 'isotree_serialize_to_file'." << std::endl;
-        return;
+        return IsoTreeError;
     }
     if (!output) {
         cerr << "Passed invalid file handle to 'isotree_serialize_to_file'." << std::endl;
-        return;
+        return IsoTreeError;
     }
 
     const IsolationForest *model = (const IsolationForest*)isotree_model;
@@ -488,7 +489,7 @@ void isotree_serialize_to_file(const void *isotree_model, FILE *output, int *exi
     try
     {
         model->serialize(output);
-        *exit_status = 0;
+        return IsoTreeSuccess;
     }
 
     catch (std::exception &e)
@@ -496,6 +497,8 @@ void isotree_serialize_to_file(const void *isotree_model, FILE *output, int *exi
         cerr << e.what();
         cerr.flush();
     }
+
+    return IsoTreeError;
 }
 
 void* isotree_deserialize_from_file(FILE *serialized_model, int nthreads)
@@ -551,12 +554,11 @@ size_t isotree_serialize_get_raw_size(const void *isotree_model)
     }
 }
 
-void isotree_serialize_to_raw(const void *isotree_model, char *output, int *exit_status)
+int isotree_serialize_to_raw(const void *isotree_model, char *output)
 {
-    *exit_status = 1;
     if (!isotree_model) {
         cerr << "Passed NULL 'isotree_model' to 'isotree_serialize_to_raw'." << std::endl;
-        return;
+        return IsoTreeError;
     }
 
     const IsolationForest *model = (const IsolationForest*)isotree_model;
@@ -571,7 +573,7 @@ void isotree_serialize_to_raw(const void *isotree_model, char *output, int *exit
             (size_t)0,
             output
         );
-        *exit_status = 1;
+        return IsoTreeSuccess;
     }
 
     catch (std::exception &e)
@@ -579,6 +581,8 @@ void isotree_serialize_to_raw(const void *isotree_model, char *output, int *exit
         cerr << e.what();
         cerr.flush();
     }
+
+    return IsoTreeError;
 }
 
 
@@ -670,12 +674,11 @@ void* isotree_deserialize_from_raw(const char *serialized_model, int nthreads)
 }
 
 ISOTREE_EXPORTED
-void isotree_set_num_threads(void *isotree_model, int nthreads, int *exit_status)
+int isotree_set_num_threads(void *isotree_model, int nthreads)
 {
-    *exit_status = 1;
     if (!isotree_model) {
         cerr << "Passed NULL 'isotree_model' to 'isotree_set_num_threads'." << std::endl;
-        return;
+        return IsoTreeError;
     }
     if (nthreads < 0) {
         #ifndef _OPENMP
@@ -686,7 +689,7 @@ void isotree_set_num_threads(void *isotree_model, int nthreads, int *exit_status
     }
     IsolationForest *model = (IsolationForest*)isotree_model;
     model->nthreads = nthreads;
-    *exit_status = 0;
+    return IsoTreeSuccess;
 }
 
 ISOTREE_EXPORTED

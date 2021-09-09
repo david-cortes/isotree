@@ -1,6 +1,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
+#include <inttypes.h>
 #include "isotree_c.h"
 
 /*  To compile this example, first build the package through the cmake system:
@@ -69,8 +71,7 @@ int main()
        must be passed already initialized to zeros. */
     double *outlier_scores = (double*)calloc(nrow, sizeof(double));
     if (!outlier_scores) throw_oom();
-    int predict_status;
-    isotree_predict(
+    int predict_exit_code = isotree_predict(
         model,
         outlier_scores,
         NULL,
@@ -84,10 +85,9 @@ int main()
         false,
         NULL,
         NULL,
-        NULL,
-        &predict_status
+        NULL
     );
-    if (predict_status == IsoTreeError) throw_oom();
+    if (predict_exit_code == IsoTreeError) throw_oom();
 
     size_t row_highest = get_idx_max(outlier_scores, nrow);
     printf("Point with highest outlier score: [");

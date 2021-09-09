@@ -110,7 +110,7 @@ typedef enum  WeighImpRows   {Inverse=0,   Prop=81,        Flat=82}    WeighImpR
 #endif
 
 /* These codes are used to signal error status from functions */
-enum IsoTreeErrorStatus {IsoTreeSuccess=0, IsoTreeError=1};
+enum IsoTreeExitCodes {IsoTreeSuccess=0, IsoTreeError=1};
 
 typedef uint8_t isotree_bool;
 typedef uint8_t NewCategAction_t;
@@ -121,6 +121,7 @@ typedef uint8_t GainCriterion_t;
 typedef uint8_t CoefType_t;
 typedef uint8_t UseDepthImp_t;
 typedef uint8_t WeighImpRows_t;
+typedef int isotree_exit_code;
 
 /*  Parameters to fit the model  */
 typedef struct isotree_parameters {
@@ -390,13 +391,13 @@ void delete_isotree_model(isotree_model_t isotree_model);
     IMPORTANT: 'output_scores' should be passed already initialized to
     zeros.
 
-    Upon return, 'exit_status' will be set to zero if it executes
-    successfully, or to one if an error happens (along with printing a
-    message to 'stderr' if an error is encountered). Note that the only
-    possible throwable error that can happen inside 'isotree_predict'
-    is an out-of-memory condition when passing CSC data.  */
+    Will return 0 if it executes successfully, or 1 if an error happens
+    (along with printing a message to 'stderr' if an error is encountered).
+    Note that the only possible throwable error that can happen inside
+    'isotree_predict' is an out-of-memory condition when passing
+    CSC data.  */
 ISOTREE_EXPORTED
-void isotree_predict
+isotree_exit_code isotree_predict
 (
     isotree_model_t isotree_model,
     double *output_scores,
@@ -411,8 +412,7 @@ void isotree_predict
     isotree_bool is_csc,
     double *sparse_values,
     int *sparse_indices,
-    int *sparse_indptr,
-    int *exit_status
+    int *sparse_indptr
 );
 
 /*  Here the data is only supported in column-major order.
@@ -427,7 +427,7 @@ void isotree_predict
     error-throwing scenarios in this function, such as receiving a
     stop signal (errors are signaled in the same way). */
 ISOTREE_EXPORTED
-void isotree_predict_distance
+isotree_exit_code isotree_predict_distance
 (
     isotree_model_t isotree_model,
     isotree_bool output_triangular,
@@ -439,14 +439,13 @@ void isotree_predict_distance
     int *categ_data,
     double *csc_values,
     int *csc_indices,
-    int *csc_indptr,
-    int *exit_status
+    int *csc_indptr
 );
 
 /*  This will replace NAN values in-place. Note that for sparse inputs it
     will impute NANs, not values that are ommited from the sparse format.  */
 ISOTREE_EXPORTED
-void isotree_impute
+isotree_exit_code isotree_impute
 (
     isotree_model_t isotree_model,
     size_t nrows,
@@ -455,12 +454,11 @@ void isotree_impute
     int *categ_data,
     double *csr_values,
     int *csr_indices,
-    int *csr_indptr,
-    int *exit_status
+    int *csr_indptr
 );
 
 ISOTREE_EXPORTED
-void isotree_serialize_to_file(const isotree_model_t isotree_model, FILE *output, int *exit_status);
+isotree_exit_code isotree_serialize_to_file(const isotree_model_t isotree_model, FILE *output);
 
 /*  'nthreads' here means 'what value to set 'nthreads' to in the resulting
     object' (which are used for the prediction functions). The de-serialization
@@ -478,7 +476,7 @@ ISOTREE_EXPORTED
 size_t isotree_serialize_get_raw_size(const isotree_model_t isotree_model);
 
 ISOTREE_EXPORTED
-void isotree_serialize_to_raw(const isotree_model_t isotree_model, char *output, int *exit_status);
+isotree_exit_code isotree_serialize_to_raw(const isotree_model_t isotree_model, char *output);
 
 ISOTREE_EXPORTED
 isotree_model_t isotree_deserialize_from_raw(const char *serialized_model, int nthreads);
@@ -487,7 +485,7 @@ isotree_model_t isotree_deserialize_from_raw(const char *serialized_model, int n
       nthreads = max_threads + nthreads + 1
     So passing -1 means using all threads, passing -2 all but 1 thread, and so on. */
 ISOTREE_EXPORTED
-void isotree_set_num_threads(isotree_model_t isotree_model, int nthreads, int *exit_status);
+isotree_exit_code isotree_set_num_threads(isotree_model_t isotree_model, int nthreads);
 
 /*  If an error occurs (e.g. passing a NULL pointer), will return -INT_MAX */
 ISOTREE_EXPORTED
