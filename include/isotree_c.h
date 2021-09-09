@@ -98,7 +98,7 @@ extern "C" {
 
 
 /* Types used through the package - zero is the suggested value (when appropriate) */
-#ifndef ISOTREE_H
+#if !defined(ISOTREE_H) && !defined(ISOTREE_OOP_H)
 typedef enum  NewCategAction {Weighted=0,  Smallest=11,    Random=12}  NewCategAction; /* Weighted means Impute in the extended model */
 typedef enum  MissingAction  {Divide=21,   Impute=22,      Fail=0}     MissingAction;  /* Divide is only for non-extended model */
 typedef enum  ColType        {Numeric=31,  Categorical=32, NotUsed=0}  ColType;
