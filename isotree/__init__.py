@@ -1998,6 +1998,12 @@ class IsolationForest:
         else:
             ncols_per_tree = self.ncols_per_tree
 
+        if isinstance(self.random_state, np.random.RandomState):
+            seed = self.random_state.randint(np.iinfo(np.int32).max)
+        else:
+            seed = self.random_seed
+        seed += self._ntrees
+
         self._cpp_obj.fit_tree(_get_num_dtype(X_num, sample_weights, column_weights),
                                _get_int_dtype(X_num),
                                X_num, X_cat, ncat, sample_weights, column_weights,
@@ -2026,7 +2032,7 @@ class IsolationForest:
                                self.depth_imp,
                                self.weigh_imp_rows,
                                ctypes.c_bool(self.all_perm).value,
-                               ctypes.c_int(self.nthreads).value)
+                               ctypes.c_int(seed).value)
         self._ntrees += 1
         return self
 

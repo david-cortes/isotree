@@ -1199,7 +1199,7 @@ isotree.add.tree <- function(model, df, sample_weights = NULL, column_weights = 
                             model$params$missing_action, model$params$build_imputer,
                             model$params$min_imp_obs, model$cpp_obj$imp_ptr,
                             model$params$depth_imp, model$params$weigh_imp_rows,
-                            model$params$all_perm, model$random_seed)
+                            model$params$all_perm, model$random_seed + (model$params$ntrees-1L))
     
     model$cpp_obj$serialized  <-  cpp_outputs$serialized
     model$cpp_obj$imp_ser     <-  cpp_outputs$imp_ser
