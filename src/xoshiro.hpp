@@ -291,8 +291,11 @@ public:
     double operator()(XoshiroRNG &rng)
     {
         #if SIZE_MAX >= UINT64_MAX
+        #   if __cplusplus >= 201402L
+        return (double)(gen_bits(rng) & two53_i) * 0x1.0p-53;
+        #   else
         return std::ldexp(gen_bits(rng) & two53_i, -53);
-        // return (double)(gen_bits(rng) & two53_i) * 0x1.0p-53;
+        #   endif
         #else
         uint64_t bits = gen_bits(rng);
         char *rbits_ = reinterpret_cast<char*>(&bits);
@@ -301,8 +304,11 @@ public:
         memcpy(&rbits, rbits_, sizeof(uint32_t));
         rbits = rbits & two21_i;
         memcpy(rbits_, &rbits, sizeof(uint32_t));
+        #   if __cplusplus >= 201402L
+        return (double)bits * 0x1.0p-53;
+        #   else
         return std::ldexp(bits, -53);
-        // return (double)bits * 0x1.0p-53;
+        #endif
         #endif
     }
 };
@@ -330,8 +336,11 @@ public:
     double operator()(XoshiroRNG &rng)
     {
         #if SIZE_MAX >= UINT64_MAX
+        #   if __cplusplus >= 201402L
+        double out = (double)((int64_t)(gen_bits(rng) & two54_i) - two53_ii) * 0x1.0p-53;
+        #   else
         double out = std::ldexp((int64_t)(gen_bits(rng) & two54_i) - two53_ii, -53);
-        // double out = (double)((int64_t)(gen_bits(rng) & two54_i) - two53_ii) * 0x1.0p-53;
+        #endif
         if (out == 0) out = 1;
         return out;
         #else
@@ -342,8 +351,11 @@ public:
         memcpy(&rbits, rbits_, sizeof(uint32_t));
         rbits = rbits & two22_i;
         memcpy(rbits_, &rbits, sizeof(uint32_t));
+        #   if __cplusplus >= 201402L
+        double out = (double)((int64_t)bits - two53_ii) * 0x1.0p-53;
+        #   else
         double out = std::ldexp((int64_t)bits - two53_ii, -53);
-        // double out = (double)((int64_t)bits - two53_ii) * 0x1.0p-53;
+        #endif
         if (out == 0) out = 1;
         return out;
         #endif
@@ -361,7 +373,6 @@ public:
    - Adds +0.5, leaving [2^-1, 2^52-2^-1]
    - Divides by 2^52, leaving [2^-53, 1-2^-53]
    Which is how it reaches an unbiased open uniform distribution. */
-// constexpr static const double exp52 = std::ldexp(1, -52);
 class StandardNormalDistr
 {
 public:
@@ -384,10 +395,13 @@ public:
         
         else {
             #if SIZE_MAX >= UINT64_MAX
+            #   if __cplusplus >= 201402L
+            double rnd1 = ((double)(gen_bits(rng) & two52i) + 0.5) * 0x1.0p-52;
+            double rnd2 = ((double)(gen_bits(rng) & two52i) + 0.5) * 0x1.0p-52;
+            #   else
             double rnd1 = std::ldexp(((double)(gen_bits(rng) & two52i) + 0.5), -52);
             double rnd2 = std::ldexp(((double)(gen_bits(rng) & two52i) + 0.5), -52);
-            // double rnd1 = ((double)(gen_bits(rng) & two52i) + 0.5) * exp52;
-            // double rnd2 = ((double)(gen_bits(rng) & two52i) + 0.5) * exp52;
+            #   endif
             #else
             double rnd1, rnd2;
             uint64_t bits1 = gen_bits(rng);
@@ -405,10 +419,13 @@ public:
             memcpy(&rbits2, rbits2_, sizeof(uint32_t));
             rbits2 = rbits2 & two20_i;
             memcpy(rbits2_, &rbits2, sizeof(uint32_t));
+            #   if __cplusplus >= 201402L
+            rnd1 = ((double)bits1 + 0.5) * 0x1.0p-52;
+            rnd2 = ((double)bits2 + 0.5) * 0x1.0p-52;
+            #   else
             rnd1 = std::ldexp((double)bits1 + 0.5, -52);
             rnd2 = std::ldexp((double)bits2 + 0.5, -52);
-            // rnd1 = ((double)bits1 + 0.5) * exp52;
-            // rnd2 = ((double)bits2 + 0.5) * exp52;
+            #   endif
             #endif
 
             rnd1 = std::sqrt(-2. * std::log(rnd1));
