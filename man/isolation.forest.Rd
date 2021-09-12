@@ -27,6 +27,7 @@ isolation.forest(
   weights_as_sample_prob = TRUE,
   sample_with_replacement = FALSE,
   penalize_range = FALSE,
+  standardize_data = TRUE,
   weigh_by_kurtosis = FALSE,
   coefs = "normal",
   assume_full_distr = TRUE,
@@ -116,7 +117,10 @@ depth than usual, which corresponds to a balanced tree depth).  When a terminal 
 the remaining isolation depth for them is estimated assuming the data and splits are both uniformly random
 (separation depth follows a similar process with expected value calculated as in reference [6]). Default setting
 for references [1], [2], [3], [4] is the same as the default here, but it's recommended to pass higher values if
-using the model for purposes other than outlier detection.}
+using the model for purposes other than outlier detection.
+
+If passing `NULL` or zero, will not limit the depth of the trees (that is, will grow them until each
+observation is isolated or until no further split is possible).}
 
 \item{ncols_per_tree}{Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
 somewhat similar to the 'mtry' parameter of random forests.
@@ -270,6 +274,9 @@ Note that this can make a very large difference in the results when using `prob_
 Be aware that this option can make the distribution of outlier scores a bit different
 (i.e. not centered around 0.5)}
 
+\item{standardize_data}{Whether to standardize the features at each node before creating alinear combination of them as suggested
+in [4]. This is ignored when using `ndim=1`.}
+
 \item{weigh_by_kurtosis}{Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
 for each tree as briefly proposed in reference [1]. Note that this is only done at the beginning of each tree
 sample, so if not using sub-samples, it's better to pass column weights calculated externally. For
@@ -284,7 +291,7 @@ Using this option makes the model more likely to pick the columns that have anom
 when viewed as a 1-d distribution, and can bring a large improvement in some datasets.}
 
 \item{coefs}{For the extended model, whether to sample random coefficients according to a normal distribution `~ N(0, 1)`
-(as proposed in reference [3]) or according to a uniform distribution `~ Unif(-1, +1)` as proposed in reference [4].
+(as proposed in reference [4]) or according to a uniform distribution `~ Unif(-1, +1)` as proposed in reference [3].
 Ignored for the single-variable model. Note that, for categorical variables, the coefficients will be sampled ~ N (0,1)
 regardless - in order for both types of variables to have transformations in similar ranges (which will tend
 to boost the importance of categorical variables), pass ``"uniform"`` here.}
@@ -401,7 +408,7 @@ distances by checking the depth after which two observations become separated, a
 trees beyond balanced-tree limit. Offers options to vary between randomized and deterministic splits too.
 
 \bold{Important:} The default parameters in this software do not correspond to the suggested parameters in
-any of the references.
+any of the references (see section "Matching models from references").
 In particular, the following default values are likely to cause huge differences when compared to the
 defaults in other software: `ndim`, `sample_size`, `ntrees`. The defaults here are
 nevertheless more likely to result in better models. In order to mimic scikit-learn for example, one
@@ -442,6 +449,18 @@ model object, one can get a lower bound of its size in RAM by checking the
 following: `2*NROW(model$cpp_obj$serialized) / 1024^2` (which should estimate
 the size in megabytes).
 }
+\section{Matching models from references}{
+
+Shorthands for parameter combinations that match some of the references:\itemize{
+\item 'iForest' (reference [1]): `ndim=1`, `sample_size=256`, `max_depth=8`, `ntrees=100`, `missing_action="fail"`.
+\item 'EIF' (reference [3]): `ndim=2`, `sample_size=256`, `max_depth=8`, `ntrees=100`, `missing_action="fail"`,
+`coefs="uniform"`, `standardize_data=False` (plus standardizing the data \bold{before} passing it).
+\item 'SCiForest' (reference [4]): `ndim=2`, `sample_size=256`, `max_depth=8`, `ntrees=100`, ``missing_action="fail"``,
+`coefs="normal"`, `ntry=10`, `prob_pick_avg_gain=1`, `penalize_range=True`.
+Might provide much better results with `max_depth=NULL` despite the reference's recommendation.
+}
+}
+
 \examples{
 ### Example 1: detect an obvious outlier
 ### (Random data from a standard normal distribution)

@@ -86,6 +86,22 @@ class IsolationForest:
 
     Note
     ----
+    Shorthands for parameter combinations that match some of the references:
+
+    'iForest' (reference [1]):
+        ``ndim=1``, ``sample_size=256``, ``max_depth=8``, ``ntrees=100``, ``missing_action="fail"``.
+
+    'EIF' (reference [3]):
+        ``ndim=2``, ``sample_size=256``, ``max_depth=8``, ``ntrees=100``, ``missing_action="fail"``,
+        ``coefs="uniform"``, ``standardize_data=False`` (plus standardizing the data **before** passing it).
+    
+    'SCiForest' (reference [4]):
+        ``ndim=2``, ``sample_size=256``, ``max_depth=8``, ``ntrees=100``, ``missing_action="fail"``,
+        ``coefs="normal"``, ``ntry=10``, ``prob_pick_avg_gain=1``, ``penalize_range=True``.
+        Might provide much better results with ``max_depth=None`` despite the reference's recommendation.
+
+    Note
+    ----
     The model offers many tunable parameters. The most likely candidate to tune is
     ``prob_pick_pooled_gain``, for which higher values tend to
     result in a better ability to flag outliers in the training data at the expense of hindered
@@ -342,6 +358,9 @@ class IsolationForest:
 
         Be aware that this option can make the distribution of outlier scores a bit different
         (i.e. not centered around 0.5)
+    standardize_data : bool
+        Whether to standardize the features at each node before creating alinear combination of them as suggested
+        in [4]. This is ignored when using ``ndim=1``.
     weigh_by_kurtosis : bool
         Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
         for each tree as briefly proposed in [1]. Note that this is only done at the beginning of each tree
@@ -357,7 +376,7 @@ class IsolationForest:
         when viewed as a 1-d distribution, and can bring a large improvement in some datasets.
     coefs : str, one of "normal" or "uniform"
         For the extended model, whether to sample random coefficients according to a normal distribution ~ N(0, 1)
-        (as proposed in [3]) or according to a uniform distribution ~ Unif(-1, +1) as proposed in [4]. Ignored for the
+        (as proposed in [4]) or according to a uniform distribution ~ Unif(-1, +1) as proposed in [3]. Ignored for the
         single-variable model. Note that, for categorical variables, the coefficients will be sampled ~ N (0,1)
         regardless - in order for both types of variables to have transformations in similar ranges (which will tend
         to boost the importance of categorical variables), pass ``"uniform"`` here.
@@ -452,7 +471,7 @@ class IsolationForest:
                  categ_split_type = "subset", all_perm = False,
                  coef_by_prop = False, recode_categ = True,
                  weights_as_sample_prob = True, sample_with_replacement = False,
-                 penalize_range = False, weigh_by_kurtosis = False,
+                 penalize_range = False, standardize_data = True, weigh_by_kurtosis = False,
                  coefs = "normal", assume_full_distr = True,
                  build_imputer = False, min_imp_obs = 3,
                  depth_imp = "higher", weigh_imp_rows = "inverse",
@@ -480,6 +499,7 @@ class IsolationForest:
         self.weights_as_sample_prob = weights_as_sample_prob
         self.sample_with_replacement = sample_with_replacement
         self.penalize_range = penalize_range
+        self.standardize_data = standardize_data
         self.weigh_by_kurtosis = weigh_by_kurtosis
         self.coefs = coefs
         self.assume_full_distr = assume_full_distr
@@ -515,7 +535,8 @@ class IsolationForest:
                  coef_by_prop = self.coef_by_prop, recode_categ = self.recode_categ,
                  weights_as_sample_prob = self.weights_as_sample_prob,
                  sample_with_replacement = self.sample_with_replacement if (self.bootstrap is None) else self.bootstrap,
-                 penalize_range = self.penalize_range, weigh_by_kurtosis = self.weigh_by_kurtosis,
+                 penalize_range = self.penalize_range, standardize_data = self.standardize_data,
+                 weigh_by_kurtosis = self.weigh_by_kurtosis,
                  coefs = self.coefs, assume_full_distr = self.assume_full_distr,
                  build_imputer = self.build_imputer, min_imp_obs = self.min_imp_obs,
                  depth_imp = self.depth_imp, weigh_imp_rows = self.weigh_imp_rows,
@@ -530,7 +551,7 @@ class IsolationForest:
                  categ_split_type = "subset", all_perm = False,
                  coef_by_prop = False, recode_categ = True,
                  weights_as_sample_prob = True, sample_with_replacement = False,
-                 penalize_range = True, weigh_by_kurtosis = False,
+                 penalize_range = True, standardize_data = True, weigh_by_kurtosis = False,
                  coefs = "normal", assume_full_distr = True,
                  build_imputer = False, min_imp_obs = 3,
                  depth_imp = "higher", weigh_imp_rows = "inverse",
@@ -671,6 +692,7 @@ class IsolationForest:
         self.weights_as_sample_prob  =  bool(weights_as_sample_prob)
         self.sample_with_replacement =  bool(sample_with_replacement)
         self.penalize_range          =  bool(penalize_range)
+        self.standardize_data        =  bool(standardize_data)
         self.weigh_by_kurtosis       =  bool(weigh_by_kurtosis)
         self.assume_full_distr       =  bool(assume_full_distr)
         self.build_imputer           =  bool(build_imputer)
@@ -899,6 +921,7 @@ class IsolationForest:
                                 ctypes.c_size_t(ncols_per_tree).value,
                                 ctypes.c_bool(limit_depth).value,
                                 ctypes.c_bool(self.penalize_range).value,
+                                ctypes.c_bool(self.standardize_data).value,
                                 ctypes.c_bool(False).value,
                                 ctypes.c_bool(False).value,
                                 ctypes.c_bool(False).value,
@@ -1086,6 +1109,7 @@ class IsolationForest:
                                                                    ctypes.c_size_t(ncols_per_tree).value,
                                                                    ctypes.c_bool(limit_depth).value,
                                                                    ctypes.c_bool(self.penalize_range).value,
+                                                                   ctypes.c_bool(self.standardize_data).value,
                                                                    ctypes.c_bool(output_distance is not None).value,
                                                                    ctypes.c_bool(output_distance == "dist").value,
                                                                    ctypes.c_bool(square_mat).value,
@@ -2544,6 +2568,7 @@ class IsolationForest:
             "weights_as_sample_prob" : self.weights_as_sample_prob,
             "sample_with_replacement" : self.sample_with_replacement,
             "penalize_range" : self.penalize_range,
+            "standardize_data" : self.standardize_data,
             "weigh_by_kurtosis" : self.weigh_by_kurtosis,
             "assume_full_distr" : self.assume_full_distr,
         }
@@ -2590,6 +2615,10 @@ class IsolationForest:
         self.weights_as_sample_prob = metadata["params"]["weights_as_sample_prob"]
         self.sample_with_replacement = metadata["params"]["sample_with_replacement"]
         self.penalize_range = metadata["params"]["penalize_range"]
+        try:
+            self.standardize_data = metadata["params"]["standardize_data"]
+        except:
+            self.standardize_data = True
         self.weigh_by_kurtosis = metadata["params"]["weigh_by_kurtosis"]
         self.assume_full_distr = metadata["params"]["assume_full_distr"]
 

@@ -68,6 +68,7 @@ struct IsoTree_Params {
     size_t ncols_per_tree = 0;
     bool   limit_depth = true;
     bool   penalize_range = false;
+    bool   standardize_data = true;
     bool   weigh_by_kurt = false;
     double prob_pick_by_gain_avg = 0.;
     double prob_split_by_gain_avg = 0.; /* only for ndim==1 */
@@ -121,6 +122,7 @@ void set_isotree_parameters
     size_t*    ncols_per_tree,
     uint8_t*   limit_depth,
     uint8_t*   penalize_range,
+    uint8_t*   standardize_data,
     uint8_t*   weigh_by_kurt,
     double*    prob_pick_by_gain_avg,
     double*    prob_split_by_gain_avg,
@@ -152,6 +154,7 @@ void set_isotree_parameters
     if (ncols_per_tree) params->ncols_per_tree = *ncols_per_tree;
     if (limit_depth) params->limit_depth = *limit_depth;
     if (penalize_range) params->penalize_range = *penalize_range;
+    if (standardize_data) params->standardize_data = *standardize_data;
     if (weigh_by_kurt) params->weigh_by_kurt = *weigh_by_kurt;
     if (prob_pick_by_gain_avg) params->prob_pick_by_gain_avg = *prob_pick_by_gain_avg;
     if (prob_split_by_gain_avg) params->prob_split_by_gain_avg = *prob_split_by_gain_avg;
@@ -186,6 +189,7 @@ void get_isotree_parameters
     size_t*    ncols_per_tree,
     uint8_t*   limit_depth,
     uint8_t*   penalize_range,
+    uint8_t*   standardize_data,
     uint8_t*   weigh_by_kurt,
     double*    prob_pick_by_gain_avg,
     double*    prob_split_by_gain_avg,
@@ -217,6 +221,7 @@ void get_isotree_parameters
     *ncols_per_tree = params->ncols_per_tree;
     *limit_depth = params->limit_depth;
     *penalize_range = params->penalize_range;
+    *standardize_data = params->standardize_data;
     *weigh_by_kurt = params->weigh_by_kurt;
     *prob_pick_by_gain_avg = params->prob_pick_by_gain_avg;
     *prob_split_by_gain_avg = params->prob_split_by_gain_avg;
@@ -274,7 +279,8 @@ void* isotree_fit
                 params->with_replacement, params->weight_as_sample,
                 params->sample_size, params->ntrees,
                 params->max_depth, params->ncols_per_tree,
-                params->limit_depth, params->penalize_range, params->weigh_by_kurt,
+                params->limit_depth, params->penalize_range,
+                params->standardize_data, params->weigh_by_kurt,
                 params->prob_pick_by_gain_avg, params->prob_split_by_gain_avg,
                 params->prob_pick_by_gain_pl,  params->prob_split_by_gain_pl,
                 params->min_gain, params->missing_action,

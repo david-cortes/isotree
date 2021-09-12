@@ -18,7 +18,7 @@
 #' trees beyond balanced-tree limit. Offers options to vary between randomized and deterministic splits too.
 #' 
 #' \bold{Important:} The default parameters in this software do not correspond to the suggested parameters in
-#' any of the references.
+#' any of the references (see section "Matching models from references").
 #' In particular, the following default values are likely to cause huge differences when compared to the
 #' defaults in other software: `ndim`, `sample_size`, `ntrees`. The defaults here are
 #' nevertheless more likely to result in better models. In order to mimic scikit-learn for example, one
@@ -44,6 +44,15 @@
 #' especially for the single-variable model. In smaller datasets, one might also want to experiment
 #' with `weigh_by_kurtosis` and perhaps lower `ndim`.
 #' 
+#' @section Matching models from references:
+#' Shorthands for parameter combinations that match some of the references:\itemize{
+#' \item 'iForest' (reference [1]): `ndim=1`, `sample_size=256`, `max_depth=8`, `ntrees=100`, `missing_action="fail"`.
+#' \item 'EIF' (reference [3]): `ndim=2`, `sample_size=256`, `max_depth=8`, `ntrees=100`, `missing_action="fail"`,
+#' `coefs="uniform"`, `standardize_data=False` (plus standardizing the data \bold{before} passing it).
+#' \item 'SCiForest' (reference [4]): `ndim=2`, `sample_size=256`, `max_depth=8`, `ntrees=100`, ``missing_action="fail"``,
+#' `coefs="normal"`, `ntry=10`, `prob_pick_avg_gain=1`, `penalize_range=True`.
+#' Might provide much better results with `max_depth=NULL` despite the reference's recommendation.
+#' }
 #' @details When using more than one dimension for splits (i.e. splitting hyperplanes, see `ndim`) and when
 #' calculating gain, the variables are standardized at each step, so there is no need to center/scale the
 #' data beforehand. The gain calculations are also standardized according to the standard deviation when
@@ -123,6 +132,9 @@
 #' (separation depth follows a similar process with expected value calculated as in reference [6]). Default setting
 #' for references [1], [2], [3], [4] is the same as the default here, but it's recommended to pass higher values if
 #' using the model for purposes other than outlier detection.
+#' 
+#' If passing `NULL` or zero, will not limit the depth of the trees (that is, will grow them until each
+#' observation is isolated or until no further split is possible).
 #' @param ncols_per_tree Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
 #' somewhat similar to the 'mtry' parameter of random forests.
 #' In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
@@ -260,6 +272,8 @@
 #' 
 #' Be aware that this option can make the distribution of outlier scores a bit different
 #' (i.e. not centered around 0.5)
+#' @param standardize_data Whether to standardize the features at each node before creating alinear combination of them as suggested
+#' in [4]. This is ignored when using `ndim=1`.
 #' @param weigh_by_kurtosis Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
 #' for each tree as briefly proposed in reference [1]. Note that this is only done at the beginning of each tree
 #' sample, so if not using sub-samples, it's better to pass column weights calculated externally. For
@@ -273,7 +287,7 @@
 #' Using this option makes the model more likely to pick the columns that have anomalous values
 #' when viewed as a 1-d distribution, and can bring a large improvement in some datasets.
 #' @param coefs For the extended model, whether to sample random coefficients according to a normal distribution `~ N(0, 1)`
-#' (as proposed in reference [3]) or according to a uniform distribution `~ Unif(-1, +1)` as proposed in reference [4].
+#' (as proposed in reference [4]) or according to a uniform distribution `~ Unif(-1, +1)` as proposed in reference [3].
 #' Ignored for the single-variable model. Note that, for categorical variables, the coefficients will be sampled ~ N (0,1)
 #' regardless - in order for both types of variables to have transformations in similar ranges (which will tend
 #' to boost the importance of categorical variables), pass ``"uniform"`` here.
@@ -579,7 +593,7 @@ isolation.forest <- function(df,
                              categ_split_type = "subset", all_perm = FALSE,
                              coef_by_prop = FALSE, recode_categ = TRUE,
                              weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
-                             penalize_range = FALSE, weigh_by_kurtosis = FALSE,
+                             penalize_range = FALSE, standardize_data = TRUE, weigh_by_kurtosis = FALSE,
                              coefs = "normal", assume_full_distr = TRUE,
                              build_imputer = FALSE, output_imputations = FALSE, min_imp_obs = 3,
                              depth_imp = "higher", weigh_imp_rows = "inverse",
@@ -595,10 +609,10 @@ isolation.forest <- function(df,
         sample_size = as.integer(ceiling(sample_size * NROW(df)))
     if ((ncols_per_tree > 0) && (ncols_per_tree <= 1))
         ncols_per_tree = as.integer(ceiling(ncols_per_tree * NCOL(df)))
+
     check.pos.int(ntrees,          "ntrees")
     check.pos.int(ndim,            "ndim")
     check.pos.int(ntry,            "ntry")
-    check.pos.int(max_depth,       "max_depth")
     check.pos.int(min_imp_obs,     "min_imp_obs")
     check.pos.int(random_seed,     "random_seed")
     check.pos.int(ncols_per_tree,  "ncols_per_tree")
@@ -609,6 +623,8 @@ isolation.forest <- function(df,
     allowed_coefs             <-  c("normal",       "uniform")
     allowed_depth_imp         <-  c("lower",        "higher",   "same")
     allowed_weigh_imp_rows    <-  c("inverse",      "prop",     "flat")
+
+    max_depth  <-  check.max.depth(max_depth)
     
     check.str.option(missing_action,    "missing_action",    allowed_missing_action)
     check.str.option(new_categ_action,  "new_categ_action",  allowed_new_categ_action)
@@ -628,6 +644,7 @@ isolation.forest <- function(df,
     check.is.bool(weights_as_sample_prob,   "weights_as_sample_prob")
     check.is.bool(sample_with_replacement,  "sample_with_replacement")
     check.is.bool(penalize_range,           "penalize_range")
+    check.is.bool(standardize_data,         "standardize_data")
     check.is.bool(weigh_by_kurtosis,        "weigh_by_kurtosis")
     check.is.bool(assume_full_distr,        "assume_full_distr")
     check.is.bool(output_score,             "output_score")
@@ -766,6 +783,7 @@ isolation.forest <- function(df,
     weights_as_sample_prob   <-  as.logical(weights_as_sample_prob)
     sample_with_replacement  <-  as.logical(sample_with_replacement)
     penalize_range           <-  as.logical(penalize_range)
+    standardize_data         <-  as.logical(standardize_data)
     weigh_by_kurtosis        <-  as.logical(weigh_by_kurtosis)
     assume_full_distr        <-  as.logical(assume_full_distr)
     
@@ -790,7 +808,7 @@ isolation.forest <- function(df,
                              pdata$nrows, pdata$ncols_num, pdata$ncols_cat, ndim, ntry,
                              coefs, coef_by_prop, sample_with_replacement, weights_as_sample_prob,
                              sample_size, ntrees,  max_depth, ncols_per_tree, FALSE,
-                             penalize_range, output_dist, TRUE, square_dist,
+                             penalize_range, standardize_data, output_dist, TRUE, square_dist,
                              output_score, TRUE, weigh_by_kurtosis,
                              prob_pick_avg_gain, prob_split_avg_gain,
                              prob_pick_pooled_gain,  prob_split_pooled_gain, min_gain,
@@ -827,6 +845,7 @@ isolation.forest <- function(df,
             weights_as_sample_prob = weights_as_sample_prob,
             sample_with_replacement = sample_with_replacement,
             penalize_range = penalize_range,
+            standardize_data = standardize_data,
             weigh_by_kurtosis = weigh_by_kurtosis,
             coefs = coefs, assume_full_distr = assume_full_distr,
             build_imputer = build_imputer, min_imp_obs = min_imp_obs,
@@ -1190,7 +1209,7 @@ isotree.add.tree <- function(model, df, sample_weights = NULL, column_weights = 
                             model$params$ndim, model$params$ntry,
                             model$params$coefs, model$params$coef_by_prop,
                             model$params$max_depth, model$params$ncols_per_tree,
-                            FALSE, model$params$penalize_range,
+                            FALSE, model$params$penalize_range, model$params$standardize_data,
                             model$params$weigh_by_kurtosis,
                             model$params$prob_pick_avg_gain, model$params$prob_split_avg_gain,
                             model$params$prob_pick_pooled_gain,  model$params$prob_split_pooled_,

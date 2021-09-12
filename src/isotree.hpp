@@ -404,6 +404,7 @@ typedef struct {
     size_t    ncols_per_tree;
     size_t    max_depth;
     bool      penalize_range;
+    bool      standardize_data;
     uint64_t  random_seed;
     bool      weigh_by_kurt;
     double    prob_pick_by_gain_avg;
@@ -621,7 +622,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 real_t sample_weights[], bool with_replacement, bool weight_as_sample,
                 size_t nrows, size_t sample_size, size_t ntrees,
                 size_t max_depth, size_t ncols_per_tree,
-                bool   limit_depth, bool penalize_range,
+                bool   limit_depth, bool penalize_range, bool standardize_data,
                 bool   standardize_dist, double tmat[],
                 double output_depths[], bool standardize_depth,
                 real_t col_weights[], bool weigh_by_kurt,
@@ -640,7 +641,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
              real_t sample_weights[], size_t nrows,
              size_t max_depth,     size_t ncols_per_tree,
-             bool   limit_depth,   bool penalize_range,
+             bool   limit_depth,   bool penalize_range, bool standardize_data,
              real_t col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
              double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
@@ -995,17 +996,28 @@ void calc_mean_and_sd_t(size_t ix_arr[], size_t st, size_t end, real_t_ *restric
 template <class real_t_>
 void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x,
                       MissingAction missing_action, double &x_sd, double &x_mean);
+template <class real_t_>
+double calc_mean_only(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x);
 template <class real_t_, class mapping>
 void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x, mapping w,
                                MissingAction missing_action, double &x_sd, double &x_mean);
+template <class real_t_, class mapping>
+double calc_mean_only_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x, mapping w);
 template <class real_t_, class sparse_ix>
 void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                       real_t_ *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                       double &x_sd, double &x_mean);
+template <class real_t_, class sparse_ix>
+double calc_mean_only(size_t ix_arr[], size_t st, size_t end, size_t col_num,
+                      real_t_ *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[]);
 template <class real_t_, class sparse_ix, class mapping>
 void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, size_t col_num,
                                real_t_ *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                                double &x_sd, double &x_mean, mapping w);
+template <class real_t_, class sparse_ix, class mapping>
+double calc_mean_only_weighted(size_t ix_arr[], size_t st, size_t end, size_t col_num,
+                               real_t_ *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                               mapping w);
 template <class real_t_>
 void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict res,
                      real_t_ *restrict x, double &coef, double x_sd, double x_mean, double &fill_val,

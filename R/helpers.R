@@ -4,6 +4,17 @@ check.pos.int <- function(var, name) {
     }
 }
 
+check.max.depth <- function(max_depth) {
+    if (!is.null(max_depth)) {
+        if (NROW(max_depth) != 1 || max_depth < 1) {
+            stop(paste0("'max_depth' must be a non-negative integer."))
+        }
+        return(as.integer(max_depth))
+    } else {
+        return(0L)
+    }
+}
+
 check.str.option <- function(option, name, allowed) {
     if (NROW(option) != 1 || !(option %in% allowed)) {
         stop(paste0("'", name, "' must be one of '", paste(allowed, collapse = "', '"), "'."))
@@ -770,6 +781,7 @@ export.metadata <- function(model) {
         weights_as_sample_prob = model$params$weights_as_sample_prob,
         sample_with_replacement = model$params$sample_with_replacement,
         penalize_range = model$params$penalize_range,
+        standardize_data = model$params$standardize_data,
         weigh_by_kurtosis = model$params$weigh_by_kurtosis,
         assume_full_distr = model$params$assume_full_distr
     )
@@ -794,6 +806,7 @@ take.metadata <- function(metadata) {
             weights_as_sample_prob = metadata$params$weights_as_sample_prob,
             sample_with_replacement = metadata$params$sample_with_replacement,
             penalize_range = metadata$params$penalize_range,
+            standardize_data = metadata$params$standardize_data,
             weigh_by_kurtosis = metadata$params$weigh_by_kurtosis,
             coefs = metadata$params$coefs, assume_full_distr = metadata$params$assume_full_distr,
             build_imputer = metadata$model_info$build_imputer, min_imp_obs = metadata$params$min_imp_obs,
@@ -817,6 +830,9 @@ take.metadata <- function(metadata) {
             imp_ser     =  NULL
         ))
     )
+
+    if (!NROW(this$metadata$standardize_data))
+        this$metadata$standardize_data <- TRUE
     
     if (NROW(this$metadata$cat_levels))
         names(this$metadata$cat_levels) <- this$metadata$cols_cat

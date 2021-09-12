@@ -98,6 +98,7 @@ public:
     size_t ncols_per_tree = 0;
     bool   limit_depth = true;
     bool   penalize_range = false;
+    bool   standardize_data = true; /* only for ndim==1 */
     bool   weigh_by_kurt = false;
     double prob_pick_by_gain_avg = 0.;
     double prob_split_by_gain_avg = 0.; /* only for ndim==1 */
@@ -142,8 +143,8 @@ public:
         size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
         bool with_replacement, bool weight_as_sample,
         size_t sample_size, size_t ntrees,
-        size_t max_depth, size_t ncols_per_tree,
-        bool   limit_depth, bool penalize_range, bool weigh_by_kurt,
+        size_t max_depth, size_t ncols_per_tree, bool   limit_depth,
+        bool penalize_range, bool standardize_data, bool weigh_by_kurt,
         double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
         double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
         double min_gain, MissingAction missing_action,

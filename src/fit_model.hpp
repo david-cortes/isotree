@@ -101,7 +101,7 @@
 *       and for random splits.
 * - coef_type
 *       For the extended model, whether to sample random coefficients according to a normal distribution ~ N(0, 1)
-*       (as proposed in [3]) or according to a uniform distribution ~ Unif(-1, +1) as proposed in [4]. Ignored for the
+*       (as proposed in [4]) or according to a uniform distribution ~ Unif(-1, +1) as proposed in [3]. Ignored for the
 *       single-variable model.
 * - sample_weights[nrows]
 *       Weights for the rows when building a tree, either as sampling importances when using
@@ -149,6 +149,9 @@
 *       as proposed in [4] and implemented in the authors' original code in [5]. Not used in single-variable model
 *       when splitting by categorical variables. Note that this can make a very large difference in the results
 *       when using `prob_pick_pooled_gain`.
+* - standardize_data
+*       Whether to standardize the features at each node before creating a linear combination of them as suggested
+*       in [4]. This is ignored when using 'ndim=1'.
 * - standardize_dist
 *       If passing 'tmat' (see documentation for it), whether to standardize the resulting average separation
 *       depths in order to produce a distance metric or not, in the same way this is done for the outlier score.
@@ -346,7 +349,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 real_t sample_weights[], bool with_replacement, bool weight_as_sample,
                 size_t nrows, size_t sample_size, size_t ntrees,
                 size_t max_depth, size_t ncols_per_tree,
-                bool   limit_depth, bool penalize_range,
+                bool   limit_depth, bool penalize_range, bool standardize_data,
                 bool   standardize_dist, double tmat[],
                 double output_depths[], bool standardize_depth,
                 real_t col_weights[], bool weigh_by_kurt,
@@ -389,7 +392,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 std::vector<char>(), 0};
     ModelParams model_params = {with_replacement, sample_size, ntrees, ncols_per_tree,
                                 limit_depth? log2ceil(sample_size) : max_depth? max_depth : (sample_size - 1),
-                                penalize_range, random_seed, weigh_by_kurt,
+                                penalize_range, standardize_data, random_seed, weigh_by_kurt,
                                 prob_pick_by_gain_avg, (model_outputs == NULL)? 0 : prob_split_by_gain_avg,
                                 prob_pick_by_gain_pl,  (model_outputs == NULL)? 0 : prob_split_by_gain_pl,
                                 min_gain, cat_split_type, new_cat_action, missing_action, all_perm,
@@ -698,6 +701,9 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - penalize_range
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
+* - penalize_range
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
 * - col_weights
 *       Sampling weights for each column, assuming all the numeric columns come before the categorical columns.
 *       Ignored when picking columns by deterministic criterion.
@@ -759,7 +765,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
              real_t sample_weights[], size_t nrows,
              size_t max_depth,     size_t ncols_per_tree,
-             bool   limit_depth,   bool penalize_range,
+             bool   limit_depth,   bool penalize_range, bool standardize_data,
              real_t col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
              double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
@@ -790,7 +796,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 std::vector<char>(), 0};
     ModelParams model_params = {false, nrows, (size_t)1, ncols_per_tree,
                                 max_depth? max_depth : (nrows - 1),
-                                penalize_range, random_seed, weigh_by_kurt,
+                                penalize_range, standardize_data, random_seed, weigh_by_kurt,
                                 prob_pick_by_gain_avg, (model_outputs == NULL)? 0 : prob_split_by_gain_avg,
                                 prob_pick_by_gain_pl,  (model_outputs == NULL)? 0 : prob_split_by_gain_pl,
                                 min_gain, cat_split_type, new_cat_action, missing_action, all_perm,

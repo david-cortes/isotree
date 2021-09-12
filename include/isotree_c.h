@@ -141,6 +141,7 @@ typedef struct isotree_parameters {
     size_t ncols_per_tree; /* default=0 */
     bool   limit_depth; /* default=true */
     bool   penalize_range; /* default=false */
+    bool   standardize_data; /* default=true */
     bool   weigh_by_kurt; /* default=false */
     double prob_pick_by_gain_avg; /* default=0 */
     double prob_split_by_gain_avg; /* only for ndim==1, default=0 */
@@ -224,7 +225,7 @@ static inline isotree_parameters get_default_isotree_parameters()
 {
     return (isotree_parameters) {
         -1, 1, 3, 3, Normal, false, true, 0, 500, 0, 0, true, false,
-        false, 0., 0., 0., 0., 0., Impute, SubSet, Weighted,
+        true, false, 0., 0., 0., 0., 0., Impute, SubSet, Weighted,
         false, false, false, 3, Higher, Inverse
     };
 }
@@ -268,6 +269,7 @@ void set_isotree_parameters
     size_t*    ncols_per_tree,
     isotree_bool*   limit_depth,
     isotree_bool*   penalize_range,
+    isotree_bool*   standardize_data,
     isotree_bool*   weigh_by_kurt,
     double*    prob_pick_by_gain_avg,
     double*    prob_split_by_gain_avg,
@@ -304,6 +306,7 @@ void get_isotree_parameters
     size_t*    ncols_per_tree,
     isotree_bool*   limit_depth,
     isotree_bool*   penalize_range,
+    isotree_bool*   standardize_data,
     isotree_bool*   weigh_by_kurt,
     double*    prob_pick_by_gain_avg,
     double*    prob_split_by_gain_avg,
@@ -332,7 +335,8 @@ static inline isotree_parameters_t allocate_isotree_parameters(isotree_parameter
     if (!out) return NULL;
     uint8_t coef_type = parameters.coef_type, with_replacement = parameters.with_replacement,
             weight_as_sample = parameters.weight_as_sample, limit_depth = parameters.limit_depth,
-            penalize_range = parameters.penalize_range, weigh_by_kurt = parameters.weigh_by_kurt,
+            penalize_range = parameters.penalize_range, standardize_data = parameters.standardize_data,
+            weigh_by_kurt = parameters.weigh_by_kurt,
             missing_action = parameters.missing_action, cat_split_type = parameters.cat_split_type,
             new_cat_action = parameters.new_cat_action, coef_by_prop = parameters.coef_by_prop,
             all_perm = parameters.all_perm, build_imputer = parameters.build_imputer,
@@ -341,7 +345,7 @@ static inline isotree_parameters_t allocate_isotree_parameters(isotree_parameter
         out, &parameters.nthreads, &parameters.random_seed,
         &parameters.ndim, &parameters.ntry, &coef_type, &with_replacement,
         &weight_as_sample, &parameters.sample_size, &parameters.ntrees, &parameters.max_depth,
-        &parameters.ncols_per_tree, &limit_depth, &penalize_range, &weigh_by_kurt,
+        &parameters.ncols_per_tree, &limit_depth, &penalize_range, &standardize_data, &weigh_by_kurt,
         &parameters.prob_pick_by_gain_avg, &parameters.prob_split_by_gain_avg,
         &parameters.prob_pick_by_gain_pl, &parameters.prob_split_by_gain_pl,
         &parameters.min_gain, &missing_action, &cat_split_type, &new_cat_action, &coef_by_prop,
