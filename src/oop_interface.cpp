@@ -51,17 +51,17 @@ using namespace isotree;
 IsolationForest::IsolationForest
 (
     size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
-        bool with_replacement, bool weight_as_sample,
-        size_t sample_size, size_t ntrees,
-        size_t max_depth, size_t ncols_per_tree, bool   limit_depth,
-        bool penalize_range, bool standardize_data, bool weigh_by_kurt,
-        double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
-        double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
-        double min_gain, MissingAction missing_action,
-        CategSplit cat_split_type, NewCategAction new_cat_action,
-        bool   all_perm, bool build_imputer, size_t min_imp_obs,
-        UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
-        uint64_t random_seed, int nthreads
+    bool with_replacement, bool weight_as_sample,
+    size_t sample_size, size_t ntrees,
+    size_t max_depth, size_t ncols_per_tree, bool   limit_depth,
+    bool penalize_range, bool standardize_data, bool weigh_by_kurt,
+    double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
+    double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
+    double min_gain, MissingAction missing_action,
+    CategSplit cat_split_type, NewCategAction new_cat_action,
+    bool   all_perm, bool build_imputer, size_t min_imp_obs,
+    UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
+    uint64_t random_seed, int nthreads
 )
         :
         ndim(ndim),
