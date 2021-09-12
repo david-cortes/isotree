@@ -1,12 +1,12 @@
 check.pos.int <- function(var, name) {
-    if (NROW(var) != 1 || var < 1) {
+    if (NROW(var) != 1L || var < 1) {
         stop(paste0("'", name, "' must be a positive integer."))
     }
 }
 
 check.max.depth <- function(max_depth) {
     if (!is.null(max_depth)) {
-        if (NROW(max_depth) != 1 || max_depth < 1) {
+        if (NROW(max_depth) != 1L || max_depth < 0) {
             stop(paste0("'max_depth' must be a non-negative integer."))
         }
         return(as.integer(max_depth))

@@ -30,7 +30,7 @@ likely result in smaller file sizes (although this function will still
 work correctly for serialization within R).
 }
 \details{
-If the model was fit to a ``DataFrame`` using Pandas' own Boolean types,
+If the model was fit to a `DataFrame` using Pandas' own Boolean types,
 take a look at the metadata to check if these columns will be taken as booleans
 (R logicals) or as categoricals with string values `"True"` and `"False"`.
 

@@ -193,7 +193,7 @@ linear combinations of variables. See the documentation for parameter `prob_pick
 
 \item{prob_split_pooled_gain}{Probability of making each split by selecting a column at random and determining the split point as
 that which gives the highest pooled gain. Not supported for the extended model as the splits are on
-linear combinations of variables. See the documentation for parameter `prob_pick_pooled_gain`` for more details.}
+linear combinations of variables. See the documentation for parameter `prob_pick_pooled_gain` for more details.}
 
 \item{min_gain}{Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
 are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
@@ -294,7 +294,7 @@ when viewed as a 1-d distribution, and can bring a large improvement in some dat
 (as proposed in reference [4]) or according to a uniform distribution `~ Unif(-1, +1)` as proposed in reference [3].
 Ignored for the single-variable model. Note that, for categorical variables, the coefficients will be sampled ~ N (0,1)
 regardless - in order for both types of variables to have transformations in similar ranges (which will tend
-to boost the importance of categorical variables), pass ``"uniform"`` here.}
+to boost the importance of categorical variables), pass `"uniform"` here.}
 
 \item{assume_full_distr}{When calculating pairwise distances (see reference [8]), whether to assume that the fitted model represents
 a full population distribution (will use a standardizing criterion assuming infinite sample as in reference [6],
@@ -455,7 +455,7 @@ Shorthands for parameter combinations that match some of the references:\itemize
 \item 'iForest' (reference [1]): `ndim=1`, `sample_size=256`, `max_depth=8`, `ntrees=100`, `missing_action="fail"`.
 \item 'EIF' (reference [3]): `ndim=2`, `sample_size=256`, `max_depth=8`, `ntrees=100`, `missing_action="fail"`,
 `coefs="uniform"`, `standardize_data=False` (plus standardizing the data \bold{before} passing it).
-\item 'SCiForest' (reference [4]): `ndim=2`, `sample_size=256`, `max_depth=8`, `ntrees=100`, ``missing_action="fail"``,
+\item 'SCiForest' (reference [4]): `ndim=2`, `sample_size=256`, `max_depth=8`, `ntrees=100`, `missing_action="fail"`,
 `coefs="normal"`, `ntry=10`, `prob_pick_avg_gain=1`, `penalize_range=True`.
 Might provide much better results with `max_depth=NULL` despite the reference's recommendation.
 }
