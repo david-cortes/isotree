@@ -330,8 +330,10 @@ public:
     double operator()(XoshiroRNG &rng)
     {
         #if SIZE_MAX >= UINT64_MAX
-        return std::ldexp((int64_t)(gen_bits(rng) & two54_i) - two53_ii, -53);
-        // return (double)((int64_t)(gen_bits(rng) & two54_i) - two53_ii) * 0x1.0p-53;
+        double out = std::ldexp((int64_t)(gen_bits(rng) & two54_i) - two53_ii, -53);
+        // double out = (double)((int64_t)(gen_bits(rng) & two54_i) - two53_ii) * 0x1.0p-53;
+        if (out == 0) out = 1;
+        return out;
         #else
         uint64_t bits = gen_bits(rng);
         char *rbits_ = reinterpret_cast<char*>(&bits);
@@ -340,8 +342,10 @@ public:
         memcpy(&rbits, rbits_, sizeof(uint32_t));
         rbits = rbits & two22_i;
         memcpy(rbits_, &rbits, sizeof(uint32_t));
-        return std::ldexp((int64_t)bits - two53_ii, -53);
-        // return (double)((int64_t)bits - two53_ii) * 0x1.0p-53;
+        double out = std::ldexp((int64_t)bits - two53_ii, -53);
+        // double out = (double)((int64_t)bits - two53_ii) * 0x1.0p-53;
+        if (out == 0) out = 1;
+        return out;
         #endif
     }
 };
