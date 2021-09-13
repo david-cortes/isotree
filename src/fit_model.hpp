@@ -217,12 +217,12 @@
 *       criterion. Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
 *       groups when they are smaller. Recommended to pass higher values when used for imputation of missing values.
 *       When used for outlier detection, higher values of this parameter result in models that are able to better flag
-*       outliers in the training data, but generalize poorly to outliers in new data and to values of variables
-*       outside of the ranges from the training data. Passing small 'sample_size' and high values of this parameter will
-*       tend to flag too many outliers. When splits are not made according to any of 'prob_pick_by_gain_avg',
-*       'prob_pick_by_gain_pl', 'prob_split_by_gain_avg', 'prob_split_by_gain_pl', both the column and the split point
-*       are decided at random. Note that, if passing value 1 (100%) with no sub-sampling and using the single-variable model,
-*       every single tree will have the exact same splits.
+*       outliers in the training data, but generalize poorly to outliers in new data (including out-of-bag samples
+*       for each tree) and to values of variables outside of the ranges from the training data. Passing small 
+*       'sample_size' and high values of this parameter will tend to flag too many outliers. When splits are not
+*       made according to any of 'prob_pick_by_gain_avg', 'prob_pick_by_gain_pl', 'prob_split_by_gain_avg', 'prob_split_by_gain_pl',
+*       both the column and the split point are decided at random. Note that, if passing value 1 (100%) with no 
+*       sub-sampling and using the single-variable model, every single tree will have the exact same splits.
 *       Be aware that 'penalize_range' can also have a large impact when using 'prob_pick_pooled_gain'.
 *       Important detail: if using either 'prob_pick_avg_gain' or 'prob_pick_pooled_gain', the distribution of
 *       outlier scores is unlikely to be centered around 0.5.

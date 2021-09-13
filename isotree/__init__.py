@@ -105,7 +105,8 @@ class IsolationForest:
     The model offers many tunable parameters. The most likely candidate to tune is
     ``prob_pick_pooled_gain``, for which higher values tend to
     result in a better ability to flag outliers in the training data at the expense of hindered
-    performance when making predictions on new data (calling method ``predict``) and poorer
+    performance when making predictions(calling method ``predict``) on new data (including out-of-bag
+    samples for each tree) and poorer
     generalizability to inputs with values outside the variables' ranges to which the model was fit
     (see plots generated from the examples in GitHub notebook for a better idea of the difference). The next candidate to tune is
     ``sample_size`` - the default is to use all rows, but in some datasets introducing sub-sampling can help,
@@ -123,13 +124,6 @@ class IsolationForest:
     files (e.g. models that weight over 10GB) when the number of rows in the data is large.
     Using fewer trees, smaller sample sizes, and shallower trees can help to reduce model
     sizes if that becomes a problem.
-
-    Note
-    ----
-    When using more than one dimension for splits (i.e. splitting hyperplanes, see ``ndim``) and when
-    calculating gain, the variables are standardized at each step, so there is no need to center/scale the
-    data beforehand. The gain calculations are also standardized according to the standard deviation when
-    using ``ntry>1`` or ``ndim==1``, in order to avoid differences in the magnitudes of the coefficients.
 
     Parameters
     ----------
@@ -167,8 +161,8 @@ class IsolationForest:
         Recommended value in [4] is 2, while [3] recommends a low value such as 2 or 3. Models with values higher than 1
         are referred hereafter as the extended model (as in [3]).
 
-        Note that, when using ``ndim>1``, the variables are standardized at each step as suggested in [4],
-        which makes the models slightly different than in [3].
+        Note that, when using ``ndim>1`` plus ``standardize_data=True``, the variables are standardized at
+        each step as suggested in [4], which makes the models slightly different than in [3].
     ntry : int
         In the extended model with non-random splits, how many random combinations to try for determining the best gain.
         Only used when deciding splits by gain (see documentation for parameters 'prob_pick_avg_gain' and 'prob_pick_pooled_gain').
@@ -246,7 +240,8 @@ class IsolationForest:
         Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
         groups when they are smaller. Recommended to pass higher values when used for imputation of missing values.
         When used for outlier detection, higher values of this parameter result in models that are able to better flag
-        outliers in the training data of each tree, but generalize poorly to outliers in new data and to values of variables
+        outliers in the training data of each tree, but generalize poorly to outliers in new data (including
+        out-of-bag samples for each tree) and to values of variables
         outside of the ranges from the training data. Passing small 'sample_size' and high values of this parameter will
         tend to flag too many outliers.
         
