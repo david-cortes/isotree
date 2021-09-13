@@ -96,7 +96,7 @@ public:
     size_t ntrees = 500;
     size_t max_depth = 0;
     size_t ncols_per_tree = 0;
-    bool   limit_depth = true;
+    bool   limit_depth = true; /* if 'true', then 'max_depth' is ignored */
     bool   penalize_range = false;
     bool   standardize_data = true; /* only for ndim==1 */
     bool   weigh_by_kurt = false;

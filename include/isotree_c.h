@@ -137,9 +137,9 @@ typedef struct isotree_parameters {
     bool   weight_as_sample; /* default=true */
     size_t sample_size; /* default=0 */
     size_t ntrees; /* default=500 */
-    size_t max_depth; /* default=0 */
+    size_t max_depth; /* default=0 [ignored if 'limit_depth==true'] */
     size_t ncols_per_tree; /* default=0 */
-    bool   limit_depth; /* default=true */
+    bool   limit_depth; /* default=true [if 'true' then 'max_depth' is ignored] */
     bool   penalize_range; /* default=false */
     bool   standardize_data; /* default=true */
     bool   weigh_by_kurt; /* default=false */

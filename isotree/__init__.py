@@ -105,13 +105,15 @@ class IsolationForest:
     The model offers many tunable parameters. The most likely candidate to tune is
     ``prob_pick_pooled_gain``, for which higher values tend to
     result in a better ability to flag outliers in the training data at the expense of hindered
-    performance when making predictions(calling method ``predict``) on new data (including out-of-bag
+    performance when making predictions (calling method ``predict``) on new data (including out-of-bag
     samples for each tree) and poorer
     generalizability to inputs with values outside the variables' ranges to which the model was fit
     (see plots generated from the examples in GitHub notebook for a better idea of the difference). The next candidate to tune is
     ``sample_size`` - the default is to use all rows, but in some datasets introducing sub-sampling can help,
     especially for the single-variable model. In smaller datasets, one might also want to experiment
-    with ``weigh_by_kurtosis`` and perhaps lower ``ndim``.
+    with ``weigh_by_kurtosis`` and perhaps lower ``ndim``. If using ``prob_pick_pooled_gain``, models
+    are likely to benefit from deeper trees (controlled by ``max_depth``), but using large samples
+    and/or deeper trees can result in significantly slower model fitting and predictions.
 
     Note
     ----
@@ -186,6 +188,10 @@ class IsolationForest:
         remaining isolation depth for them is estimated assuming the data and splits are both uniformly random (separation depth
         follows a similar process with expected value calculated as in [6]). Default setting for [1], [2], [3], [4] is "auto",
         but it's recommended to pass higher values if using the model for purposes other than outlier detection.
+
+        Note that models that use ``prob_pick_pooled_gain`` or ``prob_pick_avg_gain`` are likely to benefit from
+        deeper trees (larger ``max_depth``), but deeper trees can result in much slower model fitting and
+        predictions.
     ncols_per_tree : None, int, or float(0,1)
         Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
         somewhat similar to the 'mtry' parameter of random forests.
@@ -222,6 +228,8 @@ class IsolationForest:
         Note that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable model, every single tree will have
         the exact same splits.
 
+        Under this option, models are likely to produce better results when increasing ``max_depth``.
+
         Important detail: if using either ``prob_pick_avg_gain`` or ``prob_pick_pooled_gain``, the distribution of
         outlier scores is unlikely to be centered around 0.5.
     prob_pick_pooled_gain : float(0, 1)
@@ -252,6 +260,8 @@ class IsolationForest:
         every single tree will have the exact same splits.
 
         Be aware that ``penalize_range`` can also have a large impact when using ``prob_pick_pooled_gain``.
+
+        Under this option, models are likely to produce better results when increasing ``max_depth``.
 
         Important detail: if using either ``prob_pick_avg_gain`` or ``prob_pick_pooled_gain``, the distribution of
         outlier scores is unlikely to be centered around 0.5.

@@ -269,6 +269,9 @@ typedef struct Imputer {
 *       author's code in [5] is 10.
 * - max_depth
 *       Maximum depth of the binary trees to grow. Will get overwritten if passing 'limit_depth' = 'true'.
+*       Models that use 'prob_pick_by_gain_pl' or 'prob_pick_by_gain_avg' are likely to benefit from
+*       deeper trees (larger 'max_depth'), but deeper trees can result in much slower model fitting and
+*       predictions.
 * - ncols_per_tree
 *       Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
 *       similar to the 'mtry' parameter of random forests.
@@ -279,8 +282,9 @@ typedef struct Imputer {
 *       Whether to automatically set the maximum depth to the corresponding depth of a balanced binary tree with number of
 *       terminal nodes corresponding to the sub-sample size (the reason being that, if trying to detect outliers, an outlier
 *       will only be so if it turns out to be isolated with shorter average depth than usual, which corresponds to a balanced
-*       tree depth). Default setting for [1], [2], [3], [4] is 'true', but it's recommended to pass higher values if
-*       using the model for purposes other than outlier detection.
+*       tree depth). Default setting for [1], [2], [3], [4] is 'true', but it's recommended to pass 'false' here
+*       and higher values for 'max_depth' if using the model for purposes other than outlier detection.
+*       Note that, if passing 'limit_depth=true', then 'max_depth' is ignored.
 * - penalize_range
 *       Whether to penalize (add -1 to the terminal depth) observations at prediction time that have a value
 *       of the chosen split variable (linear combination in extended model) that falls outside of a pre-determined

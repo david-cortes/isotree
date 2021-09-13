@@ -120,7 +120,11 @@ for references [1], [2], [3], [4] is the same as the default here, but it's reco
 using the model for purposes other than outlier detection.
 
 If passing `NULL` or zero, will not limit the depth of the trees (that is, will grow them until each
-observation is isolated or until no further split is possible).}
+observation is isolated or until no further split is possible).
+
+Note that models that use `prob_pick_pooled_gain` or `prob_pick_avg_gain` are likely to benefit from
+deeper trees (larger `max_depth`), but deeper trees can result in much slower model fitting and
+predictions.}
 
 \item{ncols_per_tree}{Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
 somewhat similar to the 'mtry' parameter of random forests.
@@ -154,6 +158,8 @@ so the results from it might not match with this library's.
 Note that, if passing a value of 1 (100\%) with no sub-sampling and using the
 single-variable model, every single tree will have the exact same splits.
 
+Under this option, models are likely to produce better results when increasing ``max_depth``.
+
 Important detail: if using either `prob_pick_avg_gain` or `prob_pick_pooled_gain`, the distribution of
 outlier scores is unlikely to be centered around 0.5.}
 
@@ -184,6 +190,8 @@ are decided at random. Note that, if passing value = 1 (100\%) with no sub-sampl
 every single tree will have the exact same splits.
 
 Be aware that `penalize_range` can also have a large impact when using `prob_pick_pooled_gain`.
+
+Under this option, models are likely to produce better results when increasing `max_depth`.
 
 Important detail: if using either `prob_pick_avg_gain` or `prob_pick_pooled_gain`, the distribution of
 outlier scores is unlikely to be centered around 0.5.}
@@ -434,7 +442,9 @@ generalizability to inputs with values outside the variables' ranges to which th
 (see plots generated from the examples for a better idea of the difference). The next candidate to tune is
 `sample_size` - the default is to use all rows, but in some datasets introducing sub-sampling can help,
 especially for the single-variable model. In smaller datasets, one might also want to experiment
-with `weigh_by_kurtosis` and perhaps lower `ndim`.
+with `weigh_by_kurtosis` and perhaps lower `ndim`.If using `prob_pick_pooled_gain`, models
+are likely to benefit from deeper trees (controlled by `max_depth`), but using large samples
+and/or deeper trees can result in significantly slower model fitting and predictions.
 }
 \details{
 If requesting outlier scores or depths or separation/distance while fitting the
