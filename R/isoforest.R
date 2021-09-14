@@ -36,7 +36,7 @@
 #' 
 #' The model offers many tunable parameters. The most likely candidate to tune is
 #' `prob_pick_pooled_gain`, for which higher values tend to
-#' result in a better ability to flag outliers in the training data (`df`) at the expense of hindered
+#' result in a better ability to flag outliers in the training data (`data`) at the expense of hindered
 #' performance when making predictions(calling function `predict`) on new data (including out-of-bag
 #' samples for each tree) and poorer
 #' generalizability to inputs with values outside the variables' ranges to which the model was fit
@@ -64,7 +64,7 @@
 #' model object, one can get a lower bound of its size in RAM by checking the
 #' following: `2*NROW(model$cpp_obj$serialized) / 1024^2` (which should estimate
 #' the size in megabytes).
-#' @param df Data to which to fit the model. Supported inputs type are:\itemize{
+#' @param data Data to which to fit the model. Supported inputs type are:\itemize{
 #' \item A `data.frame`, also accepted as `data.table` or `tibble`.
 #' \item A `matrix` object from base R.
 #' \item A sparse matrix in CSC format, either from package `Matrix` (class `dgCMatrix`) or
@@ -79,7 +79,7 @@
 #' Other input and column types are not supported.
 #' @param sample_size Sample size of the data sub-samples with which each binary tree will be built.
 #' Recommended value in references [1], [2], [3], [4] is 256, while the default value in the author's code in reference [5] is
-#' `nrow(df)`.
+#' `nrow(data)`.
 #' 
 #' If passing `NULL`, will take the full number of rows in the data (no sub-sampling).
 #' 
@@ -121,7 +121,7 @@
 #' at one.
 #' 
 #' This is ignored when the input is passed as a `data.frame` as then it will consider columns as
-#' categorical depending on their type/class (see the documentation for `df` for details).
+#' categorical depending on their type/class (see the documentation for `data` for details).
 #' @param max_depth Maximum depth of the binary trees to grow. By default, will limit it to the corresponding
 #' depth of a balanced binary tree with number of terminal nodes corresponding to the sub-sample size (the reason
 #' being that, if trying to detect outliers, an outlier will only be so if it turns out to be isolated with shorter average
@@ -311,7 +311,7 @@
 #' missing values of new (or the same) observations. Be aware that this will significantly increase the memory
 #' requirements and serialized object sizes. Note that this is not related to 'missing_action' as missing values
 #' inside the model are treated differently and follow their own imputation or division strategy.
-#' @param output_imputations Whether to output imputed missing values for `df`. Passing `TRUE` here will force
+#' @param output_imputations Whether to output imputed missing values for `data`. Passing `TRUE` here will force
 #' `build_imputer` to `TRUE`. Note that, for sparse matrix inputs, even though the output will be sparse, it will
 #' generate a dense representation of each row with missing values.
 #' 
@@ -346,20 +346,20 @@
 #' @param square_dist If passing `output_dist` = `TRUE`, whether to return a full square matrix or
 #' just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 #' p(i, j) = ((i - 1) * (n - i/2) + j - i).
-#' @param sample_weights Sample observation weights for each row of `df`, with higher weights indicating either higher sampling
+#' @param sample_weights Sample observation weights for each row of `data`, with higher weights indicating either higher sampling
 #' probability (i.e. the observation has a larger effect on the fitted model, if using sub-samples), or
 #' distribution density (i.e. if the weight is two, it has the same effect of including the same data
 #' point twice), according to parameter `weights_as_sample_prob`. Not supported when calculating pairwise
 #' distances while the model is being fit (done by passing `output_dist` = `TRUE`).
 #' 
-#' If `df` is a `data.frame` and the variable passed here matches to the name of a column in `df`
+#' If `data` is a `data.frame` and the variable passed here matches to the name of a column in `data`
 #' (with or without enclosing `sample_weights` in quotes), it will assume the weights are to be
 #' taken as that column name.
-#' @param column_weights Sampling weights for each column in `df`. Ignored when picking columns by deterministic criterion.
+#' @param column_weights Sampling weights for each column in `data`. Ignored when picking columns by deterministic criterion.
 #' If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
 #' Note that, if passing a data.frame with both numeric and categorical columns, the column names must
 #' not be repeated, otherwise the column weights passed here will not end up matching. If passing a `data.frame`
-#' to `df`, will assume the column order is the same as in there, regardless of whether the entries passed to
+#' to `data`, will assume the column order is the same as in there, regardless of whether the entries passed to
 #' `column_weights` are named or not.
 #' @param random_seed Seed that will be used for random number generation.
 #' @param nthreads Number of parallel threads to use. If passing a negative number, will use
@@ -588,11 +588,11 @@
 #' }
 #' }
 #' @export
-isolation.forest <- function(df,
-                             sample_size = min(NROW(df), 10000L), ntrees = 500, ndim = min(3, NCOL(df)),
+isolation.forest <- function(data,
+                             sample_size = min(NROW(data), 10000L), ntrees = 500, ndim = min(3, NCOL(data)),
                              ntry = 3, categ_cols = NULL,
                              max_depth = ceiling(log2(sample_size)),
-                             ncols_per_tree = NCOL(df),
+                             ncols_per_tree = NCOL(data),
                              prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
                              prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
                              min_gain = 0, missing_action = ifelse(ndim > 1, "impute", "divide"),
@@ -609,13 +609,13 @@ isolation.forest <- function(df,
                              random_seed = 1, nthreads = parallel::detectCores()) {
     ### validate inputs
     if (is.null(sample_size) || output_score || output_dist || output_imputations)
-        sample_size <- NROW(df)
+        sample_size <- NROW(data)
     if (NROW(sample_size) != 1 || sample_size < 5) { stop("'sample_size' must be an integer >= 5.") }
     if (NROW(ncols_per_tree) != 1) { stop("'ncols_per_tree' must be an integer or proportion.") }
     if ((sample_size > 0) && (sample_size <= 1))
-        sample_size = as.integer(ceiling(sample_size * NROW(df)))
+        sample_size = as.integer(ceiling(sample_size * NROW(data)))
     if ((ncols_per_tree > 0) && (ncols_per_tree <= 1))
-        ncols_per_tree = as.integer(ceiling(ncols_per_tree * NCOL(df)))
+        ncols_per_tree = as.integer(ceiling(ncols_per_tree * NCOL(data)))
 
     check.pos.int(ntrees,          "ntrees")
     check.pos.int(ndim,            "ndim")
@@ -672,7 +672,7 @@ isolation.forest <- function(df,
     if (is.null(min_gain) || NROW(min_gain) > 1 || is.na(min_gain) || min_gain < 0)
         stop("'min_gain' must be a decimal non-negative number.")
 
-    if ((ndim == 1) && (sample_size == NROW(df)) && (prob_pick_avg_gain >= 1 || prob_pick_pooled_gain >= 1) && !sample_with_replacement) {
+    if ((ndim == 1) && (sample_size == NROW(data)) && (prob_pick_avg_gain >= 1 || prob_pick_pooled_gain >= 1) && !sample_with_replacement) {
         warning(paste0("Passed parameters for deterministic single-variable splits ",
                        "with no sub-sampling. ",
                        "Every tree fitted will end up doing exactly the same splits. ",
@@ -695,38 +695,38 @@ isolation.forest <- function(df,
             stop("'new_categ_action' = 'weighted' not supported in extended model.")
     }
     
-    if (ndim > NCOL(df))
-        stop("'ndim' must be less or equal than the number of columns in 'df'.")
+    if (ndim > NCOL(data))
+        stop("'ndim' must be less or equal than the number of columns in 'data'.")
     
     nthreads <- check.nthreads(nthreads)
-    if (sample_size > NROW(df)) stop("'sample_size' cannot be greater then the number of rows in 'df'.")
+    if (sample_size > NROW(data)) stop("'sample_size' cannot be greater then the number of rows in 'data'.")
 
     categ_cols <- check.categ.cols(categ_cols)
 
-    if (is.data.frame(df)) {
+    if (is.data.frame(data)) {
         subst_sample_weights <- head(as.character(substitute(sample_weights)), 1L)
-        if (NROW(subst_sample_weights) && subst_sample_weights %in% names(df)) {
+        if (NROW(subst_sample_weights) && subst_sample_weights %in% names(data)) {
             sample_weights <- subst_sample_weights
         }
-        if (!is.null(sample_weights) && is.character(sample_weights) && (sample_weights %in% names(df))) {
-            temp <- df[[sample_weights]]
-            df <- df[, setdiff(names(df), sample_weights)]
+        if (!is.null(sample_weights) && is.character(sample_weights) && (sample_weights %in% names(data))) {
+            temp <- data[[sample_weights]]
+            data <- data[, setdiff(names(data), sample_weights)]
             sample_weights <- temp
-            if (!NCOL(df))
-                stop("'df' has no non-weight columns.")
+            if (!NCOL(data))
+                stop("'data' has no non-weight columns.")
         }
     }
     
     if (!is.null(sample_weights)) check.is.1d(sample_weights, "sample_weights")
     if (!is.null(column_weights)) check.is.1d(column_weights, "column_weights")
     
-    if (!is.null(sample_weights) && (sample_size == NROW(df)) && weights_as_sample_prob)
+    if (!is.null(sample_weights) && (sample_size == NROW(data)) && weights_as_sample_prob)
         stop("Sampling weights are only supported when using sub-samples for each tree.")
     
     if (weigh_by_kurtosis & !is.null(column_weights))
         stop("Cannot pass column weights when weighting columns by kurtosis.")
     
-    if ((output_score || output_dist || output_imputations) & (sample_size != NROW(df)))
+    if ((output_score || output_dist || output_imputations) & (sample_size != NROW(data)))
         stop("Cannot calculate scores/distances/imputations when sub-sampling data ('sample_size').")
     
     if ((output_score || output_dist) & sample_with_replacement)
@@ -740,7 +740,7 @@ isolation.forest <- function(df,
     if (build_imputer && missing_action == "fail")
         stop("Cannot impute missing values when passing 'missing_action' = 'fail'.")
     
-    if (output_imputations && NROW(intersect(class(df), c("dgCMatrix", "matrix.csc"))))
+    if (output_imputations && NROW(intersect(class(data), c("dgCMatrix", "matrix.csc"))))
         warning(paste0("Imputing missing values from CSC/dgCMatrix matrix on-the-fly can be very slow, ",
                        "it's recommended if possible to fit the model first and then pass the ",
                        "same matrix as CSR/dgRMatrix to 'predict'."))
@@ -795,7 +795,7 @@ isolation.forest <- function(df,
     assume_full_distr        <-  as.logical(assume_full_distr)
     
     ### split column types
-    pdata <- process.data(df, sample_weights, column_weights, recode_categ, categ_cols)
+    pdata <- process.data(data, sample_weights, column_weights, recode_categ, categ_cols)
     
     ### extra check for potential integer overflow
     if (all_perm && (ndim == 1) &&
@@ -904,7 +904,7 @@ isolation.forest <- function(df,
         if (output_imputations) {
             outp$imputed   <-  reconstruct.from.imp(cpp_outputs$imputed_num,
                                                     cpp_outputs$imputed_cat,
-                                                    df, this, pdata)
+                                                    data, this, pdata)
         }
         return(outp)
     }
@@ -1150,19 +1150,19 @@ summary.isolation_forest <- function(object, ...) {
 #' @param model An Isolation Forest object as returned by \link{isolation.forest}, to which an additional tree will be added.
 #' 
 #' This object will be modified in-place.
-#' @param df A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC format)
+#' @param data A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC format)
 #' to which to fit the new tree.
 #' @param sample_weights Sample observation weights for each row of 'X', with higher weights indicating
 #' distribution density (i.e. if the weight is two, it has the same effect of including the same data
 #' point twice). If not `NULL`, model must have been built with `weights_as_sample_prob` = `FALSE`.
-#' @param column_weights Sampling weights for each column in `df`. Ignored when picking columns by deterministic criterion.
+#' @param column_weights Sampling weights for each column in `data`. Ignored when picking columns by deterministic criterion.
 #' If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
 #' @return The same `model` object now modified, as invisible.
 #' @details For safety purposes, the model object can be deep copied (including the underlying C++ object)
 #' through function \link{isotree.deep.copy} before undergoing an in-place modification like this.
 #' @seealso \link{isolation.forest} \link{isotree.restore.handle}
 #' @export
-isotree.add.tree <- function(model, df, sample_weights = NULL, column_weights = NULL) {
+isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights = NULL) {
     
     if (!is.null(sample_weights) && model$weights_as_sample_prob)
         stop("Cannot use sampling weights with 'partial_fit'.")
@@ -1184,19 +1184,19 @@ isotree.add.tree <- function(model, df, sample_weights = NULL, column_weights = 
         column_weights  <- as.numeric(column_weights)
     else
         column_weights  <- numeric()
-    if (NROW(sample_weights) && NROW(sample_weights) != NROW(df))
-        stop(sprintf("'sample_weights' has different number of rows than df (%d vs. %d).",
-                     NROW(df), NROW(sample_weights)))
-    if (NROW(column_weights)  && NCOL(df) != NROW(column_weights))
-        stop(sprintf("'column_weights' has different dimension than number of columns in df (%d vs. %d).",
-                     NCOL(df), NROW(column_weights)))
+    if (NROW(sample_weights) && NROW(sample_weights) != NROW(data))
+        stop(sprintf("'sample_weights' has different number of rows than data (%d vs. %d).",
+                     NROW(data), NROW(sample_weights)))
+    if (NROW(column_weights)  && NCOL(data) != NROW(column_weights))
+        stop(sprintf("'column_weights' has different dimension than number of columns in data (%d vs. %d).",
+                     NCOL(data), NROW(column_weights)))
     
     if (model$metadata$ncols_cat)
         ncat  <-  sapply(model$metadata$cat_levs, NROW)
     else
         ncat  <-  integer()
     
-    pdata <- process.data.new(df, model$metadata, FALSE)
+    pdata <- process.data.new(data, model$metadata, FALSE)
 
     serialized <- model$cpp_obj$serialized
     if (!NROW(serialized))

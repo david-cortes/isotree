@@ -5,14 +5,14 @@
 \title{Create Isolation Forest Model}
 \usage{
 isolation.forest(
-  df,
-  sample_size = min(NROW(df), 10000L),
+  data,
+  sample_size = min(NROW(data), 10000L),
   ntrees = 500,
-  ndim = min(3, NCOL(df)),
+  ndim = min(3, NCOL(data)),
   ntry = 3,
   categ_cols = NULL,
   max_depth = ceiling(log2(sample_size)),
-  ncols_per_tree = NCOL(df),
+  ncols_per_tree = NCOL(data),
   prob_pick_avg_gain = 0,
   prob_pick_pooled_gain = 0,
   prob_split_avg_gain = 0,
@@ -46,7 +46,7 @@ isolation.forest(
 )
 }
 \arguments{
-\item{df}{Data to which to fit the model. Supported inputs type are:\itemize{
+\item{data}{Data to which to fit the model. Supported inputs type are:\itemize{
 \item A `data.frame`, also accepted as `data.table` or `tibble`.
 \item A `matrix` object from base R.
 \item A sparse matrix in CSC format, either from package `Matrix` (class `dgCMatrix`) or
@@ -62,7 +62,7 @@ Other input and column types are not supported.}
 
 \item{sample_size}{Sample size of the data sub-samples with which each binary tree will be built.
 Recommended value in references [1], [2], [3], [4] is 256, while the default value in the author's code in reference [5] is
-`nrow(df)`.
+`nrow(data)`.
 
 If passing `NULL`, will take the full number of rows in the data (no sub-sampling).
 
@@ -108,7 +108,7 @@ and the vector passed here should correspond to the column numbers, with numerat
 at one.
 
 This is ignored when the input is passed as a `data.frame` as then it will consider columns as
-categorical depending on their type/class (see the documentation for `df` for details).}
+categorical depending on their type/class (see the documentation for `data` for details).}
 
 \item{max_depth}{Maximum depth of the binary trees to grow. By default, will limit it to the corresponding
 depth of a balanced binary tree with number of terminal nodes corresponding to the sub-sample size (the reason
@@ -320,7 +320,7 @@ missing values of new (or the same) observations. Be aware that this will signif
 requirements and serialized object sizes. Note that this is not related to 'missing_action' as missing values
 inside the model are treated differently and follow their own imputation or division strategy.}
 
-\item{output_imputations}{Whether to output imputed missing values for `df`. Passing `TRUE` here will force
+\item{output_imputations}{Whether to output imputed missing values for `data`. Passing `TRUE` here will force
 `build_imputer` to `TRUE`. Note that, for sparse matrix inputs, even though the output will be sparse, it will
 generate a dense representation of each row with missing values.
 
@@ -362,21 +362,21 @@ using the full number of rows.}
 just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 p(i, j) = ((i - 1) * (n - i/2) + j - i).}
 
-\item{sample_weights}{Sample observation weights for each row of `df`, with higher weights indicating either higher sampling
+\item{sample_weights}{Sample observation weights for each row of `data`, with higher weights indicating either higher sampling
 probability (i.e. the observation has a larger effect on the fitted model, if using sub-samples), or
 distribution density (i.e. if the weight is two, it has the same effect of including the same data
 point twice), according to parameter `weights_as_sample_prob`. Not supported when calculating pairwise
 distances while the model is being fit (done by passing `output_dist` = `TRUE`).
 
-If `df` is a `data.frame` and the variable passed here matches to the name of a column in `df`
+If `data` is a `data.frame` and the variable passed here matches to the name of a column in `data`
 (with or without enclosing `sample_weights` in quotes), it will assume the weights are to be
 taken as that column name.}
 
-\item{column_weights}{Sampling weights for each column in `df`. Ignored when picking columns by deterministic criterion.
+\item{column_weights}{Sampling weights for each column in `data`. Ignored when picking columns by deterministic criterion.
 If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
 Note that, if passing a data.frame with both numeric and categorical columns, the column names must
 not be repeated, otherwise the column weights passed here will not end up matching. If passing a `data.frame`
-to `df`, will assume the column order is the same as in there, regardless of whether the entries passed to
+to `data`, will assume the column order is the same as in there, regardless of whether the entries passed to
 `column_weights` are named or not.}
 
 \item{random_seed}{Seed that will be used for random number generation.}
@@ -435,7 +435,7 @@ sizes if that becomes a problem.
 
 The model offers many tunable parameters. The most likely candidate to tune is
 `prob_pick_pooled_gain`, for which higher values tend to
-result in a better ability to flag outliers in the training data (`df`) at the expense of hindered
+result in a better ability to flag outliers in the training data (`data`) at the expense of hindered
 performance when making predictions(calling function `predict`) on new data (including out-of-bag
 samples for each tree) and poorer
 generalizability to inputs with values outside the variables' ranges to which the model was fit
