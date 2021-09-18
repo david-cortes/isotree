@@ -31,4 +31,4 @@ Imports: Rcpp (>= 1.0.1)
 Suggests: MASS, outliertree, jsonlite
 Enhances: Matrix, SparseM
 LinkingTo: Rcpp
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2

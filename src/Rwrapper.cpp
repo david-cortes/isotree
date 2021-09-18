@@ -74,13 +74,46 @@
 
 SEXP alloc_RawVec(void *data)
 {
-    return Rcpp::RawVector((R_xlen_t)(*(size_t*)data));
+    size_t vecsize = *(size_t*)data;
+    if (vecsize > (size_t)std::numeric_limits<R_xlen_t>::max())
+        Rcpp::stop("Object is too big for R to handle.");
+    return Rcpp::RawVector((R_xlen_t)vecsize);
 }
 
 SEXP safe_copy_vec(void *data)
 {
     std::vector<double> *vec = (std::vector<double>*)data;
     return Rcpp::NumericVector(vec->begin(), vec->end());
+}
+
+SEXP safe_copy_intvec(void *data)
+{
+    std::vector<int> *vec = (std::vector<int>*)data;
+    return Rcpp::IntegerVector(vec->begin(), vec->end());
+}
+
+SEXP safe_int_matrix(void *dims)
+{
+    size_t *dims_ = (size_t*)dims;
+    size_t nrows = dims_[0];
+    size_t ncols = dims_[1];
+    return Rcpp::IntegerMatrix(nrows, ncols);
+}
+
+template <class Model>
+SEXP safe_XPtr(void *model_ptr)
+{
+    return Rcpp::XPtr<Model>((Model*)model_ptr, true);
+}
+
+SEXP safe_errlist(void *ignored)
+{
+    return Rcpp::List::create(Rcpp::_["err"] = Rcpp::LogicalVector::create(1));
+}
+
+SEXP safe_FALSE(void *ignored)
+{
+    return Rcpp::LogicalVector::create(0);
 }
 
 Rcpp::RawVector resize_vec(Rcpp::RawVector inp, size_t new_size)
@@ -99,6 +132,8 @@ Rcpp::RawVector serialize_cpp_obj(const Model *model_outputs)
     size_t serialized_size = determine_serialized_size(*model_outputs);
     if (!serialized_size)
         Rcpp::stop("Unexpected error.");
+    if (serialized_size > (size_t)std::numeric_limits<R_xlen_t>::max())
+        Rcpp::stop("Resulting model is too large for R to handle.");
     Rcpp::RawVector out = Rcpp::unwindProtect(alloc_RawVec, (void*)&serialized_size);
     char *out_ = (char*)RAW(out);
     serialize_isotree(*model_outputs, out_);
@@ -113,7 +148,9 @@ SEXP deserialize_cpp_obj(Rcpp::RawVector src)
     std::unique_ptr<Model> out(new Model());
     const char *inp = (const char*)RAW(src);
     deserialize_isotree(*out, inp);
-    return Rcpp::XPtr<Model>(out.release(), true);
+    SEXP out_ = Rcpp::unwindProtect(safe_XPtr<Model>, out.get());
+    out.release();
+    return out_;
 }
 
 // [[Rcpp::export(rng = false)]]
@@ -150,6 +187,16 @@ double* set_R_nan_as_C_nan(double *x, size_t n, std::vector<double> &v, int nthr
     return v.data();
 }
 
+double* set_R_nan_as_C_nan(double *x, size_t n, Rcpp::NumericVector &v, int nthreads)
+{
+    v = Rcpp::NumericVector(x, x + n);
+    #pragma omp parallel for schedule(static) num_threads(nthreads) shared(x, v, n)
+    for (size_t_for i = 0; i < (decltype(i))n; i++)
+        if (isnan(v[i]))
+            v[i] = NAN;
+    return REAL(v);
+}
+
 double* set_R_nan_as_C_nan(double *x, size_t n, int nthreads)
 {
     #pragma omp parallel for schedule(static) num_threads(nthreads) shared(x, n)
@@ -184,12 +231,12 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     int      *  Xc_indptr_ptr       =  NULL;
     double*     sample_weights_ptr  =  NULL;
     double*     col_weights_ptr     =  NULL;
-    std::vector<double> Xcpp;
+    Rcpp::NumericVector Xcpp;
 
     if (X_num.size())
     {
         numeric_data_ptr = REAL(X_num);
-        if (Rcpp::as<std::string>(missing_action) != std::string("fail"))
+        if (Rcpp::as<std::string>(missing_action) != "fail")
             numeric_data_ptr = set_R_nan_as_C_nan(numeric_data_ptr, nrows * ncols_numeric, Xcpp, nthreads);
     }
 
@@ -204,7 +251,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
         Xc_ptr          =  REAL(Xc);
         Xc_ind_ptr      =  INTEGER(Xc_ind);
         Xc_indptr_ptr   =  INTEGER(Xc_indptr);
-        if (Rcpp::as<std::string>(missing_action) != std::string("fail"))
+        if (Rcpp::as<std::string>(missing_action) != "fail")
             Xc_ptr = set_R_nan_as_C_nan(Xc_ptr, Xc.size(), Xcpp, nthreads);
     }
 
@@ -225,43 +272,43 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     UseDepthImp     depth_imp_C       =  Higher;
     WeighImpRows    weigh_imp_rows_C  =  Inverse;
 
-    if (Rcpp::as<std::string>(coef_type) == std::string("uniform"))
+    if (Rcpp::as<std::string>(coef_type) == "uniform")
     {
         coef_type_C       =  Uniform;
     }
-    if (Rcpp::as<std::string>(cat_split_type) == std::string("single_categ"))
+    if (Rcpp::as<std::string>(cat_split_type) == "single_categ")
     {
         cat_split_type_C  =  SingleCateg;
     }
-    if (Rcpp::as<std::string>(new_cat_action) == std::string("smallest"))
+    if (Rcpp::as<std::string>(new_cat_action) == "smallest")
     {
         new_cat_action_C  =  Smallest;
     }
-    else if (Rcpp::as<std::string>(new_cat_action) == std::string("random"))
+    else if (Rcpp::as<std::string>(new_cat_action) == "random")
     {
         new_cat_action_C  =  Random;
     }
-    if (Rcpp::as<std::string>(missing_action) == std::string("impute"))
+    if (Rcpp::as<std::string>(missing_action) == "impute")
     {
         missing_action_C  =  Impute;
     }
-    else if (Rcpp::as<std::string>(missing_action) == std::string("fail"))
+    else if (Rcpp::as<std::string>(missing_action) == "fail")
     {
         missing_action_C  =  Fail;
     }
-    if (Rcpp::as<std::string>(depth_imp) == std::string("lower"))
+    if (Rcpp::as<std::string>(depth_imp) == "lower")
     {
         depth_imp_C       =  Lower;
     }
-    else if (Rcpp::as<std::string>(depth_imp) == std::string("same"))
+    else if (Rcpp::as<std::string>(depth_imp) == "same")
     {
         depth_imp_C       =  Same;
     }
-    if (Rcpp::as<std::string>(weigh_imp_rows) == std::string("prop"))
+    if (Rcpp::as<std::string>(weigh_imp_rows) == "prop")
     {
         weigh_imp_rows_C  =  Prop;
     }
-    else if (Rcpp::as<std::string>(weigh_imp_rows) == std::string("flat"))
+    else if (Rcpp::as<std::string>(weigh_imp_rows) == "flat")
     {
         weigh_imp_rows_C  =  Flat;
     }
@@ -290,6 +337,19 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
         depths      =  Rcpp::NumericVector(nrows);
         depths_ptr  =  REAL(depths);
     }
+
+    Rcpp::List outp = Rcpp::List::create(
+            Rcpp::_["depths"]    = depths,
+            Rcpp::_["tmat"]      = tmat,
+            Rcpp::_["dmat"]      = dmat,
+            Rcpp::_["model_ptr"] = R_NilValue,
+            Rcpp::_["serialized_obj"] = R_NilValue,
+            Rcpp::_["imputer_ptr"]    = R_NilValue,
+            Rcpp::_["imputer_ser"]    = R_NilValue,
+            Rcpp::_["imputed_num"]    = R_NilValue,
+            Rcpp::_["imputed_cat"]    = R_NilValue,
+            Rcpp::_["err"] = Rcpp::LogicalVector::create(1)
+    );
 
     std::unique_ptr<IsoForest>     model_ptr(nullptr);
     std::unique_ptr<ExtIsoForest>  ext_model_ptr(nullptr);
@@ -332,7 +392,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
 
     if (ret_val == EXIT_FAILURE)
     {
-        return Rcpp::List::create(Rcpp::_["err"] = Rcpp::LogicalVector::create(1));
+        return Rcpp::unwindProtect(safe_errlist, nullptr);
     }
 
     if (calc_dist && sq_dist)
@@ -357,19 +417,17 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
             ext_model_ptr.reset();
     }
 
-    Rcpp::List outp = Rcpp::List::create(
-                Rcpp::_["serialized_obj"] = serialized_obj,
-                Rcpp::_["depths"]    = depths,
-                Rcpp::_["tmat"]      = tmat,
-                Rcpp::_["dmat"]      = dmat
-        );
-
     if (!serialization_failed)
     {
-        if (ndim == 1)
-            outp["model_ptr"]   =  Rcpp::XPtr<IsoForest>(model_ptr.release(), true);
-        else
-            outp["model_ptr"]   =  Rcpp::XPtr<ExtIsoForest>(ext_model_ptr.release(), true);
+        outp["serialized_obj"] = serialized_obj;
+        if (ndim == 1) {
+            outp["model_ptr"]   =  Rcpp::unwindProtect(safe_XPtr<IsoForest>, model_ptr.get());
+            model_ptr.release();
+        }
+        else {
+            outp["model_ptr"]   =  Rcpp::unwindProtect(safe_XPtr<ExtIsoForest>, ext_model_ptr.get());
+            ext_model_ptr.release();
+        }
     } else
         outp["model_ptr"] = R_NilValue;
 
@@ -391,18 +449,19 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                 ext_model_ptr.reset();
             outp["imputer_ptr"]  =  R_NilValue;
             outp["model_ptr"]    =  R_NilValue;
-        } else
-            outp["imputer_ptr"] =  Rcpp::XPtr<Imputer>(imputer_ptr.release(), true);
+        } else {
+            outp["imputer_ptr"] =  Rcpp::unwindProtect(safe_XPtr<Imputer>, imputer_ptr.get());
+            imputer_ptr.release();
+        }
     }
 
     if (output_imputations && !serialization_failed)
     {
-        outp["imputed_num"] = Rcpp::unwindProtect(safe_copy_vec, (void*)&Xcpp);
+        outp["imputed_num"] = Xcpp;
         outp["imputed_cat"] = X_cat;
     }
 
-    outp["err"] = Rcpp::LogicalVector::create(0);
-
+    outp["err"] = Rcpp::unwindProtect(safe_FALSE, nullptr);
     return outp;
 }
 
@@ -435,12 +494,12 @@ Rcpp::List fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawV
     int      *  Xc_indptr_ptr       =  NULL;
     double*     sample_weights_ptr  =  NULL;
     double*     col_weights_ptr     =  NULL;
-    std::vector<double> Xcpp;
+    Rcpp::NumericVector Xcpp;
 
     if (X_num.size())
     {
         numeric_data_ptr = REAL(X_num);
-        if (Rcpp::as<std::string>(missing_action) != std::string("fail"))
+        if (Rcpp::as<std::string>(missing_action) != "fail")
             numeric_data_ptr = set_R_nan_as_C_nan(numeric_data_ptr, nrows * ncols_numeric, Xcpp, 1);
     }
 
@@ -455,7 +514,7 @@ Rcpp::List fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawV
         Xc_ptr         =  REAL(Xc);
         Xc_ind_ptr     =  INTEGER(Xc_ind);
         Xc_indptr_ptr  =  INTEGER(Xc_indptr);
-        if (Rcpp::as<std::string>(missing_action) != std::string("fail"))
+        if (Rcpp::as<std::string>(missing_action) != "fail")
             Xc_ptr = set_R_nan_as_C_nan(Xc_ptr, Xc.size(), Xcpp, 1);
     }
 
@@ -476,50 +535,50 @@ Rcpp::List fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawV
     UseDepthImp     depth_imp_C       =  Higher;
     WeighImpRows    weigh_imp_rows_C  =  Inverse;
 
-    if (Rcpp::as<std::string>(coef_type) == std::string("uniform"))
+    if (Rcpp::as<std::string>(coef_type) == "uniform")
     {
         coef_type_C       =  Uniform;
     }
-    if (Rcpp::as<std::string>(cat_split_type) == std::string("single_categ"))
+    if (Rcpp::as<std::string>(cat_split_type) == "single_categ")
     {
         cat_split_type_C  =  SingleCateg;
     }
-    if (Rcpp::as<std::string>(new_cat_action) == std::string("smallest"))
+    if (Rcpp::as<std::string>(new_cat_action) == "smallest")
     {
         new_cat_action_C  =  Smallest;
     }
-    else if (Rcpp::as<std::string>(new_cat_action) == std::string("random"))
+    else if (Rcpp::as<std::string>(new_cat_action) == "random")
     {
         new_cat_action_C  =  Random;
     }
-    if (Rcpp::as<std::string>(missing_action) == std::string("impute"))
+    if (Rcpp::as<std::string>(missing_action) == "impute")
     {
         missing_action_C  =  Impute;
     }
-    else if (Rcpp::as<std::string>(missing_action) == std::string("fail"))
+    else if (Rcpp::as<std::string>(missing_action) == "fail")
     {
         missing_action_C  =  Fail;
     }
-    if (Rcpp::as<std::string>(depth_imp) == std::string("lower"))
+    if (Rcpp::as<std::string>(depth_imp) == "lower")
     {
         depth_imp_C       =  Lower;
     }
-    else if (Rcpp::as<std::string>(depth_imp) == std::string("same"))
+    else if (Rcpp::as<std::string>(depth_imp) == "same")
     {
         depth_imp_C       =  Same;
     }
-    if (Rcpp::as<std::string>(weigh_imp_rows) == std::string("prop"))
+    if (Rcpp::as<std::string>(weigh_imp_rows) == "prop")
     {
         weigh_imp_rows_C  =  Prop;
     }
-    else if (Rcpp::as<std::string>(weigh_imp_rows) == std::string("flat"))
+    else if (Rcpp::as<std::string>(weigh_imp_rows) == "flat")
     {
         weigh_imp_rows_C  =  Flat;
     }
 
     IsoForest*     model_ptr      =  NULL;
     ExtIsoForest*  ext_model_ptr  =  NULL;
-    Imputer*       imputer_ptr    = NULL;
+    Imputer*       imputer_ptr    =  NULL;
     if (ndim == 1)
         model_ptr      =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
     else
@@ -656,7 +715,7 @@ void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector
     int      *  Xr_ind_ptr          =  NULL;
     int      *  Xr_indptr_ptr       =  NULL;
     int      *  tree_num_ptr        =  NULL;
-    std::vector<double> Xcpp;
+    Rcpp::NumericVector Xcpp;
 
     if (X_num.size())
     {
@@ -729,7 +788,7 @@ void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericMatrix dm
     double*     Xc_ptr              =  NULL;
     int      *  Xc_ind_ptr          =  NULL;
     int      *  Xc_indptr_ptr       =  NULL;
-    std::vector<double> Xcpp;
+    Rcpp::NumericVector Xcpp;
 
     if (X_num.size())
     {
@@ -838,10 +897,11 @@ Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
 // [[Rcpp::export(rng = false)]]
 SEXP drop_imputer(SEXP imputer_R_ptr)
 {
+    SEXP out = Rcpp::XPtr<Imputer>(nullptr, true);
     Imputer *imputer_ptr = static_cast<Imputer*>(R_ExternalPtrAddr(imputer_R_ptr));
     if (imputer_ptr)
         delete imputer_ptr;
-    return Rcpp::XPtr<Imputer>(nullptr, true);
+    return out;
 }
 
 // [[Rcpp::export(rng = false)]]
@@ -852,6 +912,13 @@ Rcpp::List subset_trees
     Rcpp::IntegerVector trees_take
 )
 {
+    Rcpp::List out = Rcpp::List::create(
+        Rcpp::_["model_ptr"] = R_NilValue,
+        Rcpp::_["serialized"] = R_NilValue,
+        Rcpp::_["imp_ptr"] = R_NilValue,
+        Rcpp::_["imp_ser"] = R_NilValue
+    );
+
     IsoForest*     model_ptr      =  NULL;
     ExtIsoForest*  ext_model_ptr  =  NULL;
     Imputer*       imputer_ptr    =  NULL;
@@ -884,12 +951,6 @@ Rcpp::List subset_trees
                  trees_take_.get(), trees_take.size());
     trees_take_.reset();
 
-    Rcpp::List out = Rcpp::List::create(
-        Rcpp::_["model_ptr"] = R_NilValue,
-        Rcpp::_["serialized"] = R_NilValue,
-        Rcpp::_["imp_ptr"] = R_NilValue,
-        Rcpp::_["imp_ser"] = R_NilValue
-    );
     if (!is_extended)
         out["serialized_obj"] = serialize_cpp_obj(new_model_ptr.get());
     else
@@ -897,12 +958,18 @@ Rcpp::List subset_trees
     if (has_imputer)
         out["imputer_ser"] = serialize_cpp_obj(new_imputer_ptr.get());
 
-    if (!is_extended)
-        out["model_ptr"] = Rcpp::XPtr<IsoForest>(new_model_ptr.release(), true);
-    else
-        out["model_ptr"] = Rcpp::XPtr<ExtIsoForest>(new_ext_model_ptr.release(), true);
-    if (has_imputer)
-        out["imp_ptr"] = Rcpp::XPtr<Imputer>(new_imputer_ptr.release(), true);
+    if (!is_extended) {
+        out["model_ptr"] = Rcpp::unwindProtect(safe_XPtr<IsoForest>, new_model_ptr.get());
+        new_model_ptr.release();
+    }
+    else {
+        out["model_ptr"] = Rcpp::unwindProtect(safe_XPtr<ExtIsoForest>, new_ext_model_ptr.get());
+        new_ext_model_ptr.release();
+    }
+    if (has_imputer) {
+        out["imp_ptr"] = Rcpp::unwindProtect(safe_XPtr<Imputer>, new_imputer_ptr.get());
+        new_imputer_ptr.release();
+    }
     return out;
 }
 
@@ -1179,6 +1246,11 @@ Rcpp::CharacterVector model_to_sql_with_select_from(SEXP model_R_ptr, bool is_ex
 // [[Rcpp::export(rng = false)]]
 Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, bool has_imputer)
 {
+    Rcpp::List out = Rcpp::List::create(
+        Rcpp::_["model_ptr"]    =  R_NilValue,
+        Rcpp::_["imputer_ptr"]  =  R_NilValue
+    );
+
     IsoForest*     model_ptr      =  NULL;
     ExtIsoForest*  ext_model_ptr  =  NULL;
     Imputer*       imputer_ptr    =  NULL;
@@ -1200,17 +1272,18 @@ Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, 
     if (imputer_ptr != NULL)
         *copy_imputer = *imputer_ptr;
 
-    Rcpp::List out = Rcpp::List::create(
-        Rcpp::_["model_ptr"]    =  R_NilValue,
-        Rcpp::_["imputer_ptr"]  =  R_NilValue
-    );
-
-    if (is_extended)
-        out["model_ptr"]    =  Rcpp::XPtr<ExtIsoForest>(copy_ext_model.release(), true);
-    else
-        out["model_ptr"]    =  Rcpp::XPtr<IsoForest>(copy_model.release(), true);
-    if (has_imputer)
-        out["imputer_ptr"]  =  Rcpp::XPtr<Imputer>(copy_imputer.release(), true);
+    if (is_extended) {
+        out["model_ptr"]    =  Rcpp::unwindProtect(safe_XPtr<ExtIsoForest>, copy_ext_model.get());
+        copy_ext_model.release();
+    }
+    else {
+        out["model_ptr"]    =  Rcpp::unwindProtect(safe_XPtr<IsoForest>, copy_model.get());
+        copy_model.release();
+    }
+    if (has_imputer) {
+        out["imputer_ptr"]  =  Rcpp::unwindProtect(safe_XPtr<Imputer>, copy_imputer.get());
+        copy_imputer.release();
+    }
     return out;
 }
 
@@ -1320,6 +1393,14 @@ void serialize_to_file
 // [[Rcpp::export]]
 Rcpp::List deserialize_from_file(Rcpp::CharacterVector fname)
 {
+    Rcpp::List out = Rcpp::List::create(
+        Rcpp::_["ptr"] = R_NilValue,
+        Rcpp::_["serialized"] = R_NilValue,
+        Rcpp::_["imp_ptr"] = R_NilValue,
+        Rcpp::_["imp_ser"] = R_NilValue,
+        Rcpp::_["metadata"] = R_NilValue
+    );
+
     FileOpener file_(fname[0], "rb");
     FILE *input_file = file_.get_handle();
 
@@ -1351,15 +1432,16 @@ Rcpp::List deserialize_from_file(Rcpp::CharacterVector fname)
     if (!size_metadata)
         Rcpp::stop("Input file does not contain metadata.\n");
 
+    out["metadata"] = Rcpp::unwindProtect(alloc_RawVec, (void*)&size_metadata);
+
     std::unique_ptr<IsoForest> model(new IsoForest());
     std::unique_ptr<ExtIsoForest> model_ext(new ExtIsoForest());
     std::unique_ptr<Imputer> imputer(new Imputer());
-    Rcpp::RawVector metadata(size_metadata);
 
     IsoForest *ptr_model = NULL;
     ExtIsoForest *ptr_model_ext = NULL;
     Imputer *ptr_imputer = NULL;
-    char *ptr_metadata = (char*)RAW(metadata);
+    char *ptr_metadata = (char*)RAW(out["metadata"]);
 
     if (has_IsoForest)
         ptr_model = model.get();
@@ -1376,14 +1458,6 @@ Rcpp::List deserialize_from_file(Rcpp::CharacterVector fname)
         ptr_metadata
     );
 
-    Rcpp::List out = Rcpp::List::create(
-        Rcpp::_["ptr"] = R_NilValue,
-        Rcpp::_["serialized"] = R_NilValue,
-        Rcpp::_["imp_ptr"] = R_NilValue,
-        Rcpp::_["imp_ser"] = R_NilValue,
-        Rcpp::_["metadata"] = metadata
-    );
-
     if (has_IsoForest)
         out["serialized"] = serialize_cpp_obj(model.get());
     else
@@ -1391,12 +1465,18 @@ Rcpp::List deserialize_from_file(Rcpp::CharacterVector fname)
     if (has_Imputer)
         out["imp_ser"] = serialize_cpp_obj(imputer.get());
 
-    if (has_IsoForest)
-        out["ptr"] = Rcpp::XPtr<IsoForest>(model.release(), true);
-    else
-        out["ptr"] = Rcpp::XPtr<ExtIsoForest>(model_ext.release(), true);
-    if (has_Imputer)
-        out["imp_ptr"] = Rcpp::XPtr<Imputer>(imputer.release(), true);
+    if (has_IsoForest) {
+        out["ptr"] = Rcpp::unwindProtect(safe_XPtr<IsoForest>, model.get());
+        model.release();
+    }
+    else {
+        out["ptr"] = Rcpp::unwindProtect(safe_XPtr<ExtIsoForest>, model_ext.get());
+        model_ext.release();
+    }
+    if (has_Imputer) {
+        out["imp_ptr"] = Rcpp::unwindProtect(safe_XPtr<Imputer>, imputer.get());
+        imputer.release();
+    }
 
     return out;
 }
@@ -1483,7 +1563,8 @@ Rcpp::IntegerMatrix csr_to_dense_int
 )
 {
     size_t nrows = Xr_indptr.size() - 1;
-    Rcpp::IntegerMatrix out_(nrows, ncols);
+    size_t matrix_dims[] = {nrows, (size_t)ncols};
+    Rcpp::IntegerMatrix out_ = Rcpp::unwindProtect(safe_int_matrix, (void*)matrix_dims);
     int *restrict out = INTEGER(out_);
     for (size_t row = 0; row < nrows; row++)
     {
@@ -1564,6 +1645,21 @@ Rcpp::List call_take_cols_by_index_csr
     bool as_dense
 )
 {
+    Rcpp::List out;
+    if (!as_dense) {
+        out = Rcpp::List::create(
+            Rcpp::_["Xr"] = R_NilValue,
+            Rcpp::_["Xr_ind"] = R_NilValue,
+            Rcpp::_["Xr_indptr"] = R_NilValue
+        );
+    }
+    else {
+        out = Rcpp::List::create(
+            Rcpp::_["X_cat"] = R_NilValue
+        );
+    }
+
+
     /* 'cols_take' should be sorted */
     int n_take = cols_take.size();
     int nrows = Xr_indptr.size() - 1;
@@ -1648,18 +1744,21 @@ Rcpp::List call_take_cols_by_index_csr
     }
 
     if (!as_dense)
-        return Rcpp::List::create(
-            Rcpp::_["Xr"] = Rcpp::NumericVector(out_Xr.begin(), out_Xr.end()),
-            Rcpp::_["Xr_ind"] = Rcpp::IntegerVector(out_Xr_ind.begin(), out_Xr_ind.end()),
-            Rcpp::_["Xr_indptr"] = Rcpp::IntegerVector(out_Xr_indptr.begin(), out_Xr_indptr.end())
-        );
+    {
+        out["Xr"] = Rcpp::unwindProtect(safe_copy_vec, (void*)&out_Xr);
+        out["Xr_ind"] = Rcpp::unwindProtect(safe_copy_intvec, (void*)&out_Xr_ind);
+        out["Xr_indptr"] = Rcpp::unwindProtect(safe_copy_intvec, (void*)&out_Xr_indptr);
+    }
+
     else
-        return Rcpp::List::create(
-            Rcpp::_["X_cat"] = csr_to_dense_int(out_Xr,
-                                                out_Xr_ind,
-                                                out_Xr_indptr,
-                                                n_take)
-        );
+    {
+        out["X_cat"] = csr_to_dense_int(out_Xr,
+                                        out_Xr_ind,
+                                        out_Xr_indptr,
+                                        n_take);
+    }
+
+    return out;
 }
 
 // [[Rcpp::export(rng = false)]]
@@ -1799,6 +1898,11 @@ Rcpp::List assign_csc_cols
     size_t nrows
 )
 {
+    Rcpp::List out = Rcpp::List::create(
+        Rcpp::_["Xc"] = R_NilValue,
+        Rcpp::_["Xc_ind"] = R_NilValue,
+        Rcpp::_["Xc_indptr"] = R_NilValue
+    );
     size_t ncols_tot = (size_t)cols_categ.size() + (size_t)cols_numeric.size();
     std::vector<double> out_Xc;
     std::vector<int> out_Xc_ind;
@@ -1861,11 +1965,10 @@ Rcpp::List assign_csc_cols
     }
 
 
-    return Rcpp::List::create(
-        Rcpp::_["Xc"] = Rcpp::NumericVector(out_Xc.begin(), out_Xc.end()),
-        Rcpp::_["Xc_ind"] = Rcpp::IntegerVector(out_Xc_ind.begin(), out_Xc_ind.end()),
-        Rcpp::_["Xc_indptr"] = Rcpp::IntegerVector(out_Xc_indptr.begin(), out_Xc_indptr.end())
-    );
+    out["Xc"] = Rcpp::unwindProtect(safe_copy_vec, (void*)&out_Xc);
+    out["Xc_ind"] = Rcpp::unwindProtect(safe_copy_intvec, (void*)&out_Xc_ind);
+    out["Xc_indptr"] = Rcpp::unwindProtect(safe_copy_intvec, (void*)&out_Xc_indptr);
+    return out;
 }
 
 /* These are helpers for dealing with large integers and R's copy-on-write semantics */
