@@ -88,14 +88,14 @@ class IsolationForest:
     ----
     Shorthands for parameter combinations that match some of the references:
 
-    'iForest' (reference [1]):
+    'iForest' (reference [1]_):
         ``ndim=1``, ``sample_size=256``, ``max_depth=8``, ``ntrees=100``, ``missing_action="fail"``.
 
-    'EIF' (reference [3]):
+    'EIF' (reference [3]_):
         ``ndim=2``, ``sample_size=256``, ``max_depth=8``, ``ntrees=100``, ``missing_action="fail"``,
         ``coefs="uniform"``, ``standardize_data=False`` (plus standardizing the data **before** passing it).
     
-    'SCiForest' (reference [4]):
+    'SCiForest' (reference [4]_):
         ``ndim=2``, ``sample_size=256``, ``max_depth=8``, ``ntrees=100``, ``missing_action="fail"``,
         ``coefs="normal"``, ``ntry=10``, ``prob_pick_avg_gain=1``, ``penalize_range=True``.
         Might provide much better results with ``max_depth=None`` despite the reference's recommendation.
@@ -131,8 +131,8 @@ class IsolationForest:
     ----------
     sample_size : str "auto", int, float(0,1), or None
         Sample size of the data sub-samples with which each binary tree will be built. If passing 'None', each
-        tree will be built using the full data. Recommended value in [1], [2], [3] is 256, while
-        the default value in the author's code in [5] is 'None' here.
+        tree will be built using the full data. Recommended value in [1]_, [2]_, [3]_ is 256, while
+        the default value in the author's code in [5]_ is 'None' here.
 
         If passing "auto", will use the full number of rows in the data, up to 10,000 (i.e.
         will take 'sample_size=min(nrows(X), 10000)') **when calling fit**, and the full amount
@@ -148,10 +148,10 @@ class IsolationForest:
         splits, in which case the distribution is likely to be centered around a much lower number),
         or that the distributions in the data are too skewed for random uniform splits.
     ntrees : int
-        Number of binary trees to build for the model. Recommended value in [1] is 100, while the default value in the
-        author's code in [5] is 10. In general, the number of trees required for good results
+        Number of binary trees to build for the model. Recommended value in [1]_ is 100, while the default value in the
+        author's code in [5]_ is 10. In general, the number of trees required for good results
         is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
-        categories, (d) `ndim` is high.
+        categories, (d) `ndim` is high, (e) ``prob_pick_pooled_gain`` is used.
 
         Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
         model needs more trees and/or bigger samples to reach convergence (unless using non-random
@@ -159,16 +159,16 @@ class IsolationForest:
         or that the distributions in the data are too skewed for random uniform splits.
     ndim : int
         Number of columns to combine to produce a split. If passing 1, will produce the single-variable model described
-        in [1] and [2], while if passing values greater than 1, will produce the extended model described in [3] and [4].
-        Recommended value in [4] is 2, while [3] recommends a low value such as 2 or 3. Models with values higher than 1
-        are referred hereafter as the extended model (as in [3]).
+        in [1]_ and [2]_, while if passing values greater than 1, will produce the extended model described in [3]_ and [4]_.
+        Recommended value in [4]_ is 2, while [3]_ recommends a low value such as 2 or 3. Models with values higher than 1
+        are referred hereafter as the extended model (as in [3]_).
 
         Note that, when using ``ndim>1`` plus ``standardize_data=True``, the variables are standardized at
-        each step as suggested in [4], which makes the models slightly different than in [3].
+        each step as suggested in [4]_, which makes the models slightly different than in [3]_.
     ntry : int
         In the extended model with non-random splits, how many random combinations to try for determining the best gain.
         Only used when deciding splits by gain (see documentation for parameters 'prob_pick_avg_gain' and 'prob_pick_pooled_gain').
-        Recommended value in [4] is 10. Ignored for single-variable model.
+        Recommended value in [4]_ is 10. Ignored for single-variable model.
     categ_cols : None or array-like
         Columns that hold categorical features, when the data is passed as an array or matrix.
         Categorical columns should contain only integer values with a continuous numeration starting at zero,
@@ -186,7 +186,7 @@ class IsolationForest:
         being that, if trying to detect outliers, an outlier will only be so if it turns out to be isolated with shorter average
         depth than usual, which corresponds to a balanced tree depth). When a terminal node has more than 1 observation, the
         remaining isolation depth for them is estimated assuming the data and splits are both uniformly random (separation depth
-        follows a similar process with expected value calculated as in [6]). Default setting for [1], [2], [3], [4] is "auto",
+        follows a similar process with expected value calculated as in [6]_). Default setting for [1]_, [2]_, [3]_, [4]_ is "auto",
         but it's recommended to pass higher values if using the model for purposes other than outlier detection.
 
         Note that models that use ``prob_pick_pooled_gain`` or ``prob_pick_avg_gain`` are likely to benefit from
@@ -204,7 +204,7 @@ class IsolationForest:
     prob_pick_avg_gain : float(0, 1)
         * For the single-variable model (``ndim=1``), this parameter indicates the probability
           of making each split by choosing a column and split point in that
-          same column as both the column and split point that gives the largest averaged gain (as proposed in [4]) across
+          same column as both the column and split point that gives the largest averaged gain (as proposed in [4]_) across
           all available columns and possible splits in each column. Note that this implies evaluating every single column
           in the sample data when this type of split happens, which will potentially make the model fitting much slower,
           but has no impact on prediction time. For categorical variables, will take the expected standard deviation that
@@ -220,9 +220,9 @@ class IsolationForest:
         
         When splits are
         not made according to any of 'prob_pick_avg_gain', 'prob_pick_pooled_gain', 'prob_split_avg_gain',
-        'prob_split_pooled_gain', both the column and the split point are decided at random. Default setting for [1], [2], [3] is
-        zero, and default for [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5],
-        but note that the code in [5] suffers from a mathematical error in the calculation of running standard deviations,
+        'prob_split_pooled_gain', both the column and the split point are decided at random. Default setting for [1]_, [2]_, [3]_ is
+        zero, and default for [4]_ is 1. This is the randomization parameter that can be passed to the author's original code in [5]_,
+        but note that the code in [5]_ suffers from a mathematical error in the calculation of running standard deviations,
         so the results from it might not match with this library's.
         
         Note that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable model, every single tree will have
@@ -236,10 +236,10 @@ class IsolationForest:
         * For the single-variable model (``ndim=1``), this parameter indicates the probability
           of making each split by choosing a column and split point in that
           same column as both the column and split point that gives the largest pooled gain (as used in decision tree
-          classifiers such as C4.5 in [7]) across all available columns and possible splits in each column. Note
+          classifiers such as C4.5 in [7]_) across all available columns and possible splits in each column. Note
           that this implies evaluating every single column in the sample data when this type of split happens, which
           will potentially make the model fitting much slower, but has no impact on prediction time. For categorical
-          variables, will use shannon entropy instead (like in [7]).
+          variables, will use shannon entropy instead (like in [7]_).
         
         * For the extended model, this parameter indicates the probability
           that the split point in the chosen linear combination of variables will be decided by this pooled gain
@@ -295,7 +295,7 @@ class IsolationForest:
         In the extended model, infinite values will be treated as missing.
         Passing "fail" will produce faster fitting and prediction times along with decreased
         model object sizes.
-        Models from [1], [2], [3], [4] correspond to "fail" here.
+        Models from [1]_, [2]_, [3]_, [4]_ correspond to "fail" here.
     new_categ_action : str, one of "weighted" (single-variable only), "impute" (extended only), "smallest", "random"
         What to do after splitting a categorical feature when new data that reaches that split has categories that
         the sub-sample from which the split was done did not have. Options are:
@@ -354,7 +354,7 @@ class IsolationForest:
         Whether to penalize (add -1 to the terminal depth) observations at prediction time that have a value
         of the chosen split variable (linear combination in extended model) that falls outside of a pre-determined
         reasonable range in the data being split (given by 2 * range in data and centered around the split point),
-        as proposed in [4] and implemented in the authors' original code in [5]. Not used in single-variable model
+        as proposed in [4]_ and implemented in the authors' original code in [5]_. Not used in single-variable model
         when splitting by categorical variables.
 
         It's recommended to turn this off for faster predictions on sparse CSC matrices.
@@ -365,10 +365,10 @@ class IsolationForest:
         (i.e. not centered around 0.5)
     standardize_data : bool
         Whether to standardize the features at each node before creating alinear combination of them as suggested
-        in [4]. This is ignored when using ``ndim=1``.
+        in [4]_. This is ignored when using ``ndim=1``.
     weigh_by_kurtosis : bool
         Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
-        for each tree as briefly proposed in [1]. Note that this is only done at the beginning of each tree
+        for each tree as briefly proposed in [1]_. Note that this is only done at the beginning of each tree
         sample, so if not using sub-samples, it's better to pass column weights calculated externally. For
         categorical columns, will calculate expected kurtosis if the column was converted to numerical by
         assigning to each category a random number ~ Unif(0, 1).
@@ -381,12 +381,12 @@ class IsolationForest:
         when viewed as a 1-d distribution, and can bring a large improvement in some datasets.
     coefs : str, one of "normal" or "uniform"
         For the extended model, whether to sample random coefficients according to a normal distribution ~ N(0, 1)
-        (as proposed in [4]) or according to a uniform distribution ~ Unif(-1, +1) as proposed in [3]. Ignored for the
+        (as proposed in [4]_) or according to a uniform distribution ~ Unif(-1, +1) as proposed in [3]_. Ignored for the
         single-variable model. Note that, for categorical variables, the coefficients will be sampled ~ N (0,1)
         regardless - in order for both types of variables to have transformations in similar ranges (which will tend
         to boost the importance of categorical variables), pass ``"uniform"`` here.
     assume_full_distr : bool
-        When calculating pairwise distances (see [8]), whether to assume that the fitted model represents
+        When calculating pairwise distances (see [8]_), whether to assume that the fitted model represents
         a full population distribution (will use a standardizing criterion assuming infinite sample,
         and the results of the similarity between two points at prediction time will not depend on the
         prescence of any third point that is similar to them, but will differ more compared to the pairwise

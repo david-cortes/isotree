@@ -80,7 +80,7 @@ or that the distributions in the data are too skewed for random uniform splits.}
 \item{ntrees}{Number of binary trees to build for the model. Recommended value in reference [1] is 100, while the
 default value in the author's code in reference [5] is 10. In general, the number of trees required for good results
 is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
-categories, (d) `ndim` is high.
+categories, (d) `ndim` is high, (e) `prob_pick_pooled_gain` is used.
 
 Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
 model needs more trees and/or bigger samples to reach convergence (unless using non-random
