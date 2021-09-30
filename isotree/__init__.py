@@ -1011,7 +1011,8 @@ class IsolationForest:
         square_mat : bool
             Whether to produce a full square matrix with the distances. If passing 'False', will output
             only the upper triangular part as a 1-d array in which entry (i,j) with 0 <= i < j < n is located at
-            position p(i,j) = (i * (n - (i+1)/2) + j - i - 1). Ignored when passing 'output_distance' = 'None'.
+            position :math:`p(i,j) = i (n - \frac{i+1}{2}) + j - i - 1`.
+            Ignored when passing 'output_distance' = 'None'.
         output_imputed : bool
             Whether to output the data with imputed missing values. Model object must have been initialized
             with 'build_imputer' = 'True'.
@@ -1706,12 +1707,20 @@ class IsolationForest:
             numbers, it's highly recommended to pass it in CSC format as it will be much faster
             when the number of trees or rows is large.
         output : str, one of "score", "avg_depth", "tree_num", "tree_depths"
-            Desired type of output. If passing "score", will output standardized outlier score.
-            If passing "avg_depth" will output average isolation depth without standardizing. If
-            passing "tree_num", will output the index of the terminal node under each tree in
-            the model. If passing "tree_depths" will output non-standardized per-tree isolation
-            depths (note that they will not include range penalties even if using
-            ``penalize_range=True``).
+            Desired type of output. Options are:
+
+            ``"score"``:
+                Will output standardized outlier scores.
+
+            ``"avg_depth"``:
+                Will output unstandardized average isolation depths.
+
+            ``"tree_num"``:
+                Will output the index of the terminal node under each tree in the model.
+
+            ``"tree_depths"``:
+                Will output non-standardized per-tree isolation depths (note that they will not
+                include range penalties from ``penalize_range=True``).
 
         Returns
         -------
@@ -1795,7 +1804,7 @@ class IsolationForest:
         square_mat : bool
             Whether to produce a full square matrix with the pairwise distances. If passing 'False', will output
             only the upper triangular part as a 1-d array in which entry (i,j) with 0 <= i < j < n is located at
-            position p(i,j) = (i * (n - (i+1)/2) + j - i - 1).
+            position :math:`p(i,j) = i (n - \frac{i+1}{2}) + j - i - 1`.
             Ignored when passing ``X_ref``.
         X_ref : array or array-like (n_ref, n_features)
             Second group of observations. If passing it, will calculate distances between each point in

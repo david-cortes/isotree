@@ -949,7 +949,7 @@ isolation.forest <- function(data,
 #'   will return a list containing both the average isolation depth and the terminal node numbers, under entries
 #'   `avg_depth` and `tree_num`, respectively.
 #'   \item `"tree_depths"` for the non-standardized isolation depth or expected isolation depth for each tree
-#'   (note that they will not include range penalties even if using `penalize_range=TRUE`).
+#'   (note that they will not include range penalties from `penalize_range=TRUE`).
 #'   \item `"impute"` for imputation of missing values in `newdata`.
 #' }
 #' @param square_mat When passing `type` = `"dist` or `"avg_sep"` with no `refdata`, whether to return a
