@@ -125,7 +125,8 @@ ISOTREE_EXPORTED void predict_iforest(real_t numeric_data[], int categ_data[],
                      real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                      size_t nrows, int nthreads, bool standardize,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                     double output_depths[],   sparse_ix tree_num[])
+                     double output_depths[],   sparse_ix tree_num[],
+                     double per_tree_depths[])
 {
     predict_iforest<real_t, sparse_ix>
                     (numeric_data, categ_data,
@@ -134,7 +135,8 @@ ISOTREE_EXPORTED void predict_iforest(real_t numeric_data[], int categ_data[],
                      Xr, Xr_ind, Xr_indptr,
                      nrows, nthreads, standardize,
                      model_outputs, model_outputs_ext,
-                     output_depths,   tree_num);
+                     output_depths,   tree_num,
+                     per_tree_depths);
 }
 ISOTREE_EXPORTED void calc_similarity(real_t numeric_data[], int categ_data[],
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],

@@ -334,6 +334,7 @@ int isotree_predict
     void *isotree_model,
     double *output_scores,
     int *output_tree_num,
+    double *per_tree_depths,
     uint8_t standardize_scores,
     size_t nrows,
     uint8_t is_col_major,
@@ -362,13 +363,13 @@ int isotree_predict
         if (!sparse_indptr) {
             model->predict(numeric_data, categ_data, (bool)is_col_major,
                            nrows, ld_numeric, ld_categ, (bool)standardize_scores,
-                           output_scores, output_tree_num);
+                           output_scores, output_tree_num, per_tree_depths);
         }
 
         else {
             model->predict(sparse_values, sparse_indices, sparse_indptr, (bool)is_csc,
                            categ_data, (bool)is_col_major, ld_categ, nrows, (bool)standardize_scores,
-                           output_scores, output_tree_num);
+                           output_scores, output_tree_num, per_tree_depths);
         }
 
         return IsoTreeSuccess;
@@ -707,6 +708,20 @@ int isotree_get_num_threads(const void *isotree_model)
     }
     IsolationForest *model = (IsolationForest*)isotree_model;
     return model->nthreads;
+}
+
+ISOTREE_EXPORTED
+size_t isotree_get_ntrees(const void *isotree_model)
+{
+    if (!isotree_model) {
+        cerr << "Passed NULL 'isotree_model' to 'isotree_get_ntrees'." << std::endl;
+        return SIZE_MAX;
+    }
+    IsolationForest *model = (IsolationForest*)isotree_model;
+    if (model->get_model().trees.size())
+        return model->get_model().trees.size();
+    else
+        return model->get_model_ext().hplanes.size();
 }
 
 

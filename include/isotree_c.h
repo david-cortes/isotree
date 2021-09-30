@@ -388,9 +388,13 @@ void delete_isotree_model(isotree_model_t isotree_model);
     order if there is any. Sparse data might alternatively be passed in
     CSR format (must be signaled through 'is_csc').
 
-    'output_scores' must always be passed, while 'output_tree_num' is
-    optional. Both of those should have length equal to the number of
-    rows in the data that is passed here.
+    'output_scores' must always be passed, while 'output_tree_num' and
+    'per_tree_depths' are optional. 'output_scores' is of dimension 'nrows',
+    while 'output_tree_num' and 'per_tree_depths' are of dimensions
+    'nrows*ntrees' (output format is column-major for 'output_tree_num', but
+    row-major for 'per_tree_depths'). Note that 'output_tree_num' and
+    'per_tree_depths' are not calculable when using 'ndim==1' plus either
+    'missing_action==Divide' or 'new_cat_action==Weighted'.
 
     IMPORTANT: 'output_scores' should be passed already initialized to
     zeros.
@@ -406,6 +410,7 @@ isotree_exit_code isotree_predict
     isotree_model_t isotree_model,
     double *output_scores,
     int *output_tree_num,
+    double *per_tree_depths,
     isotree_bool standardize_scores,
     size_t nrows,
     isotree_bool is_col_major,
@@ -461,6 +466,7 @@ isotree_exit_code isotree_impute
     int *csr_indptr
 );
 
+/*  Files should be opened in binary mode.  */
 ISOTREE_EXPORTED
 isotree_exit_code isotree_serialize_to_file(const isotree_model_t isotree_model, FILE *output);
 
@@ -487,13 +493,17 @@ isotree_model_t isotree_deserialize_from_raw(const char *serialized_model, int n
 
 /*  If passing a negative number, will set to:
       nthreads = max_threads + nthreads + 1
-    So passing -1 means using all threads, passing -2 all but 1 thread, and so on. */
+    So passing -1 means using all threads, passing -2 all but 1 thread, and so on.  */
 ISOTREE_EXPORTED
 isotree_exit_code isotree_set_num_threads(isotree_model_t isotree_model, int nthreads);
 
-/*  If an error occurs (e.g. passing a NULL pointer), will return -INT_MAX */
+/*  If an error occurs (e.g. passing a NULL pointer), will return -INT_MAX.  */
 ISOTREE_EXPORTED
 int isotree_get_num_threads(const isotree_model_t isotree_model);
+
+/*  If an error occurs (e.g. passing a NULL pointer), will return SIZE_MAX.  */
+ISOTREE_EXPORTED
+size_t isotree_get_ntrees(const isotree_model_t isotree_model);
 
 #ifdef __cplusplus
 }

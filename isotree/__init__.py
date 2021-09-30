@@ -1705,38 +1705,45 @@ class IsolationForest:
             If 'X' is sparse and one wants to obtain the outlier score or average depth or tree
             numbers, it's highly recommended to pass it in CSC format as it will be much faster
             when the number of trees or rows is large.
-        output : str, one of "score", "avg_depth", "tree_num"
+        output : str, one of "score", "avg_depth", "tree_num", "tree_depths"
             Desired type of output. If passing "score", will output standardized outlier score.
             If passing "avg_depth" will output average isolation depth without standardizing. If
             passing "tree_num", will output the index of the terminal node under each tree in
-            the model.
+            the model. If passing "tree_depths" will output non-standardized per-tree isolation
+            depths (note that they will not include range penalties even if using
+            ``penalize_range=True``).
 
         Returns
         -------
         score : array(n_samples,) or array(n_samples, n_trees)
             Requested output type for each row accoring to parameter 'output' (outlier scores,
-            average isolation depth, or terminal node indices).
+            average isolation depth, terminal node indices, or per-tree isolation depths).
         """
         assert self.is_fitted_
-        assert output in ["score", "avg_depth", "tree_num"]
+        assert output in ["score", "avg_depth", "tree_num", "tree_depths"]
         X_num, X_cat, nrows = self._process_data_new(X, prefer_row_major = True)
-        if output == "tree_num":
+        if (output in ["tree_num", "tree_depths"]) and (self.ndim == 1):
             if self.missing_action == "divide":
-                raise ValueError("Cannot output tree number when using 'missing_action' = 'divide'.")
+                raise ValueError("Cannot output tree numbers/depths when using 'missing_action' = 'divide'.")
             if (self._ncols_categ > 0) and (self.new_categ_action == "weighted"):
-                raise ValueError("Cannot output tree number when using 'new_categ_action' = 'weighted'.")
-            if nrows == 1:
+                raise ValueError("Cannot output tree numbers/depths when using 'new_categ_action' = 'weighted'.")
+            if (nrows == 1) and (output == "tree_num"):
                 warnings.warn("Predicting tree number is slow, not recommended to do for 1 row at a time.")
 
-        depths, tree_num = self._cpp_obj.predict(_get_num_dtype(X_num, None, None), _get_int_dtype(X_num),
-                                                 X_num, X_cat, self._is_extended_,
-                                                 ctypes.c_size_t(nrows).value,
-                                                 ctypes.c_int(self.nthreads).value,
-                                                 ctypes.c_bool(output == "score").value,
-                                                 ctypes.c_bool(output == "tree_num").value)
+        depths, tree_num, tree_depths = self._cpp_obj.predict(
+                                            _get_num_dtype(X_num, None, None), _get_int_dtype(X_num),
+                                            X_num, X_cat, self._is_extended_,
+                                            ctypes.c_size_t(nrows).value,
+                                            ctypes.c_int(self.nthreads).value,
+                                            ctypes.c_bool(output == "score").value,
+                                            ctypes.c_bool(output == "tree_num").value,
+                                            ctypes.c_bool(output == "tree_depths").value
+                                        )
 
         if output in ["score", "avg_depth"]:
             return depths
+        elif output == "tree_depths":
+            return tree_depths
         else:
             return tree_num
 

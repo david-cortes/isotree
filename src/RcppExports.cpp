@@ -154,13 +154,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // predict_iso
-void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector tree_num, bool is_extended, Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, Rcpp::NumericVector Xr, Rcpp::IntegerVector Xr_ind, Rcpp::IntegerVector Xr_indptr, size_t nrows, int nthreads, bool standardize);
-RcppExport SEXP _isotree_predict_iso(SEXP model_R_ptrSEXP, SEXP outpSEXP, SEXP tree_numSEXP, SEXP is_extendedSEXP, SEXP X_numSEXP, SEXP X_catSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP XrSEXP, SEXP Xr_indSEXP, SEXP Xr_indptrSEXP, SEXP nrowsSEXP, SEXP nthreadsSEXP, SEXP standardizeSEXP) {
+void predict_iso(SEXP model_R_ptr, bool is_extended, Rcpp::NumericVector outp, Rcpp::IntegerMatrix tree_num, Rcpp::NumericMatrix tree_depths, Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, Rcpp::NumericVector Xr, Rcpp::IntegerVector Xr_ind, Rcpp::IntegerVector Xr_indptr, size_t nrows, int nthreads, bool standardize);
+RcppExport SEXP _isotree_predict_iso(SEXP model_R_ptrSEXP, SEXP is_extendedSEXP, SEXP outpSEXP, SEXP tree_numSEXP, SEXP tree_depthsSEXP, SEXP X_numSEXP, SEXP X_catSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP XrSEXP, SEXP Xr_indSEXP, SEXP Xr_indptrSEXP, SEXP nrowsSEXP, SEXP nthreadsSEXP, SEXP standardizeSEXP) {
 BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type outp(outpSEXP);
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type tree_num(tree_numSEXP);
     Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type outp(outpSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerMatrix >::type tree_num(tree_numSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type tree_depths(tree_depthsSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type X_num(X_numSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type X_cat(X_catSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type Xc(XcSEXP);
@@ -172,7 +173,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< size_t >::type nrows(nrowsSEXP);
     Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
     Rcpp::traits::input_parameter< bool >::type standardize(standardizeSEXP);
-    predict_iso(model_R_ptr, outp, tree_num, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, Xr, Xr_ind, Xr_indptr, nrows, nthreads, standardize);
+    predict_iso(model_R_ptr, is_extended, outp, tree_num, tree_depths, X_num, X_cat, Xc, Xc_ind, Xc_indptr, Xr, Xr_ind, Xr_indptr, nrows, nthreads, standardize);
     return R_NilValue;
 END_RCPP
 }
@@ -593,7 +594,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_check_null_ptr_model", (DL_FUNC) &_isotree_check_null_ptr_model, 1},
     {"_isotree_fit_model", (DL_FUNC) &_isotree_fit_model, 46},
     {"_isotree_fit_tree", (DL_FUNC) &_isotree_fit_tree, 39},
-    {"_isotree_predict_iso", (DL_FUNC) &_isotree_predict_iso, 15},
+    {"_isotree_predict_iso", (DL_FUNC) &_isotree_predict_iso, 16},
     {"_isotree_dist_iso", (DL_FUNC) &_isotree_dist_iso, 16},
     {"_isotree_impute_iso", (DL_FUNC) &_isotree_impute_iso, 10},
     {"_isotree_drop_imputer", (DL_FUNC) &_isotree_drop_imputer, 1},

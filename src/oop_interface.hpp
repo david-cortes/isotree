@@ -202,7 +202,7 @@ public:
         zeros (here and in the other 'predict' functions).  */
     void predict(double numeric_data[], int categ_data[], bool is_col_major,
                  size_t nrows, size_t ld_numeric, size_t ld_categ, bool standardize,
-                 double output_depths[], int tree_num[]);
+                 double output_depths[], int tree_num[], double per_tree_depths[]);
 
     /*  Numeric data may also be provided in sparse format, which can be either
         CSC (column-major) or CSR (row-major). If the number of rows is large,
@@ -212,7 +212,7 @@ public:
         subject to numerical rounding error between runs.  */
     void predict(double X_sparse[], int X_ind[], int X_indptr[], bool is_csc,
                  int categ_data[], bool is_col_major, size_t ld_categ, size_t nrows, bool standardize,
-                 double output_depths[], int tree_num[]);
+                 double output_depths[], int tree_num[], double per_tree_depths[]);
 
     /*  Distances between observations will be returned either as a triangular matrix
         representing an upper diagonal (length is nrows*(nrows-1)/2), or as a full

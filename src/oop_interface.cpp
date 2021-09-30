@@ -209,13 +209,13 @@ std::vector<double> IsolationForest::predict(double X[], size_t nrows, bool stan
         nrows, this->nthreads, standardize,
         this->model.trees.size()? &this->model : nullptr,
         this->model_ext.hplanes.size()? &this->model_ext : nullptr,
-        out.data(), (int*)nullptr);
+        out.data(), (int*)nullptr, (double*)nullptr);
     return out;
 }
 
 void IsolationForest::predict(double numeric_data[], int categ_data[], bool is_col_major,
                               size_t nrows, size_t ld_numeric, size_t ld_categ, bool standardize,
-                              double output_depths[], int tree_num[])
+                              double output_depths[], int tree_num[], double per_tree_depths[])
 {
     this->check_is_fitted();
     this->check_nthreads();
@@ -227,12 +227,12 @@ void IsolationForest::predict(double numeric_data[], int categ_data[], bool is_c
         nrows, this->nthreads, standardize,
         this->model.trees.size()? &this->model : nullptr,
         this->model_ext.hplanes.size()? &this->model_ext : nullptr,
-        output_depths, tree_num);
+        output_depths, tree_num, per_tree_depths);
 }
 
 void IsolationForest::predict(double X_sparse[], int X_ind[], int X_indptr[], bool is_csc,
                               int categ_data[], bool is_col_major, size_t ld_categ, size_t nrows, bool standardize,
-                              double output_depths[], int tree_num[])
+                              double output_depths[], int tree_num[], double per_tree_depths[])
 {
     this->check_is_fitted();
     this->check_nthreads();
@@ -245,7 +245,7 @@ void IsolationForest::predict(double X_sparse[], int X_ind[], int X_indptr[], bo
         nrows, this->nthreads, standardize,
         this->model.trees.size()? &this->model : nullptr,
         this->model_ext.hplanes.size()? &this->model_ext : nullptr,
-        output_depths, tree_num);
+        output_depths, tree_num, per_tree_depths);
 }
 
 std::vector<double> IsolationForest::predict_distance(double X[], size_t nrows,

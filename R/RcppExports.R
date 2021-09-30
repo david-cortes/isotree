@@ -25,8 +25,8 @@ fit_tree <- function(model_R_ptr, serialized_obj, serialized_imputer, X_num, X_c
     .Call(`_isotree_fit_tree`, model_R_ptr, serialized_obj, serialized_imputer, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, max_depth, ncols_per_tree, limit_depth, penalize_range, standardize_data, weigh_by_kurt, prob_pick_by_gain_avg, prob_split_by_gain_avg, prob_pick_by_gain_pl, prob_split_by_gain_pl, min_gain, cat_split_type, new_cat_action, missing_action, build_imputer, min_imp_obs, imp_R_ptr, depth_imp, weigh_imp_rows, all_perm, random_seed)
 }
 
-predict_iso <- function(model_R_ptr, outp, tree_num, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, Xr, Xr_ind, Xr_indptr, nrows, nthreads, standardize) {
-    invisible(.Call(`_isotree_predict_iso`, model_R_ptr, outp, tree_num, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, Xr, Xr_ind, Xr_indptr, nrows, nthreads, standardize))
+predict_iso <- function(model_R_ptr, is_extended, outp, tree_num, tree_depths, X_num, X_cat, Xc, Xc_ind, Xc_indptr, Xr, Xr_ind, Xr_indptr, nrows, nthreads, standardize) {
+    invisible(.Call(`_isotree_predict_iso`, model_R_ptr, is_extended, outp, tree_num, tree_depths, X_num, X_cat, Xc, Xc_ind, Xc_indptr, Xr, Xr_ind, Xr_indptr, nrows, nthreads, standardize))
 }
 
 dist_iso <- function(model_R_ptr, tmat, dmat, rmat, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, assume_full_distr, standardize_dist, sq_dist, n_from) {

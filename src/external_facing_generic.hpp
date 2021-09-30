@@ -84,7 +84,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
                      real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                      size_t nrows, int nthreads, bool standardize,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                     double output_depths[],   sparse_ix tree_num[]);
+                     double output_depths[],   sparse_ix tree_num[],
+                     double per_tree_depths[]);
 ISOTREE_EXPORTED void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads);
 ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads);
 ISOTREE_EXPORTED

@@ -75,6 +75,7 @@ int main()
         model,
         outlier_scores,
         NULL,
+        NULL,
         true,
         nrow,
         true,

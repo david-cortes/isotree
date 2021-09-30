@@ -282,7 +282,8 @@ cdef extern from "model_joined.hpp":
                          real_t_ *Xr, sparse_ix_ *Xr_ind, sparse_ix_ *Xr_indptr,
                          size_t nrows, int nthreads, bool_t standardize,
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                         double *output_depths, sparse_ix_ *tree_num) nogil except +
+                         double *output_depths, sparse_ix_ *tree_num,
+                         double *per_tree_depths) nogil except +
 
     void get_num_nodes[sparse_ix_](IsoForest &model_outputs, sparse_ix_ *n_nodes, sparse_ix_ *n_terminal, int nthreads) except +
 
@@ -871,7 +872,8 @@ cdef class isoforest_cpp_obj:
                 np.ndarray[real_t, ndim=1] placeholder_real_t,
                 np.ndarray[sparse_ix, ndim=1] placeholder_sparse_ix,
                 X_num, X_cat, is_extended,
-                size_t nrows, int nthreads, bool_t standardize, bool_t output_tree_num):
+                size_t nrows, int nthreads, bool_t standardize,
+                bool_t output_tree_num, bool_t output_per_tree_depths):
 
         cdef real_t*     numeric_data_ptr  =  NULL
         cdef int*        categ_data_ptr    =  NULL
@@ -951,18 +953,25 @@ cdef class isoforest_cpp_obj:
             ncols_categ       =  X_cat.shape[1]
             is_col_major      =  np.isfortran(X_cat)
 
-        cdef np.ndarray[double, ndim = 1]    depths    =  np.zeros(nrows, dtype = ctypes.c_double)
-        cdef np.ndarray[sparse_ix, ndim = 2] tree_num  =  np.empty((0, 0), order = 'F', dtype = placeholder_sparse_ix.dtype)
+        cdef np.ndarray[double, ndim = 1]    depths       =  np.zeros(nrows, dtype = ctypes.c_double)
+        cdef np.ndarray[double, ndim = 2]    tree_depths  =  np.empty((0, 0), dtype = ctypes.c_double)
+        cdef np.ndarray[sparse_ix, ndim = 2] tree_num     =  np.empty((0, 0), order = 'F',
+                                                                      dtype = placeholder_sparse_ix.dtype)
         cdef double* depths_ptr       =  &depths[0]
+        cdef double* tree_depths_ptr  =  NULL
         cdef sparse_ix* tree_num_ptr  =  NULL
 
-        if output_tree_num:
+        if output_tree_num or output_per_tree_depths:
             if is_extended:
                 sz = self.ext_isoforest.hplanes.size()
             else:
                 sz = self.isoforest.trees.size()
-            tree_num      =  np.empty((nrows, sz), dtype = placeholder_sparse_ix.dtype, order = 'F')
-            tree_num_ptr  =  &tree_num[0, 0]
+            if output_tree_num:
+                tree_num         =  np.empty((nrows, sz), dtype = placeholder_sparse_ix.dtype, order = 'F')
+                tree_num_ptr     =  &tree_num[0, 0]
+            if output_per_tree_depths:
+                tree_depths      =  np.empty((nrows, sz), dtype = ctypes.c_double, order = 'C')
+                tree_depths_ptr  =  &tree_depths[0, 0]
 
         cdef IsoForest*     model_ptr      =  NULL
         cdef ExtIsoForest*  ext_model_ptr  =  NULL
@@ -978,9 +987,9 @@ cdef class isoforest_cpp_obj:
                             Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
                             nrows, nthreads, standardize,
                             model_ptr, ext_model_ptr,
-                            depths_ptr, tree_num_ptr)
+                            depths_ptr, tree_num_ptr, tree_depths_ptr)
 
-        return depths, tree_num
+        return depths, tree_num, tree_depths
 
 
     def dist(self,

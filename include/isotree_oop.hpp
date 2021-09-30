@@ -186,11 +186,16 @@ public:
         the object has number of threads set to more than 1.  */
     std::vector<double> predict(double X[], size_t nrows, bool standardize);
 
-    /*  Can additionally get the terminal tree numbers, or write to a non-owned
-        array, or obtain the non-standardize average isolation depth instead of
-        the standardized outlier score. Note that while tree numbers are optional,
-        the array for output depths must always be passed (the standardized score
-        will also be written there despite the name).
+    /*  Can optionally write to a non-owned array, or obtain the non-standardized
+        isolation depth instead of the standardized score (also on a per-tree basis
+        if desired), or get the terminal node numbers/indices for each tree. Note
+        that 'tree_num' and 'per_tree_depths' are optional (pass NULL if not desired),
+        while 'output_depths' should always be passed. Be aware that the outputs of
+        'tree_num' will be filled in column-major order ([nrows, ntrees]), while the
+        outputs of 'per_tree_depths' will be in row-major order.
+
+        Note: 'tree_num' and 'per_tree_depths' will not be calculable when using
+        'ndim==1' plus either 'missing_action==Divide' or 'new_cat_action==Weighted'.
        
         Here, the data might be passed as either column-major or row-major (getting
         predictions in row-major order will be faster). If the data is in row-major
@@ -202,7 +207,7 @@ public:
         zeros (here and in the other 'predict' functions).  */
     void predict(double numeric_data[], int categ_data[], bool is_col_major,
                  size_t nrows, size_t ld_numeric, size_t ld_categ, bool standardize,
-                 double output_depths[], int tree_num[]);
+                 double output_depths[], int tree_num[], double per_tree_depths[]);
 
     /*  Numeric data may also be provided in sparse format, which can be either
         CSC (column-major) or CSR (row-major). If the number of rows is large,
@@ -212,7 +217,7 @@ public:
         subject to numerical rounding error between runs.  */
     void predict(double X_sparse[], int X_ind[], int X_indptr[], bool is_csc,
                  int categ_data[], bool is_col_major, size_t ld_categ, size_t nrows, bool standardize,
-                 double output_depths[], int tree_num[]);
+                 double output_depths[], int tree_num[], double per_tree_depths[]);
 
     /*  Distances between observations will be returned either as a triangular matrix
         representing an upper diagonal (length is nrows*(nrows-1)/2), or as a full

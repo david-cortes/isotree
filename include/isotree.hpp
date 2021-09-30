@@ -753,15 +753,25 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       'model_outputs' and 'model_outputs_ext'.
 * - output_depths[nrows] (out)
 *       Pointer to array where the output average depths or outlier scores will be written into
-*       (the return type is control according to parameter 'standardize').
-*       Must already be initialized to zeros. Must also be passed and when the desired output
-*       is terminal node numbers.
+*       (the return type is controlled according to parameter 'standardize').
+*       Must already be initialized to zeros, and should always be passed when calling
+*       this function (it is not optional).
 * - tree_num[nrows * ntrees] (out)
 *       Pointer to array where the output terminal node numbers will be written into.
 *       Note that the mapping between tree node and terminal tree node is not stored in
 *       the model object for efficiency reasons, so this mapping will be determined on-the-fly
 *       when passing this parameter, and as such, there will be some overhead regardless of
-*       the actual number of rows. Pass NULL if only average depths or outlier scores are desired.
+*       the actual number of rows. Output will be in column-major order ([nrows, ntrees]).
+*       This will not be calculable when using 'ndim==1' alongside with either
+*       'missing_action==Divide' or 'new_categ_action=Weighted'.
+*       Pass NULL if this type of output is not needed.
+* - per_tree_depths[nrows * ntrees] (out)
+*       Pointer to array where to output per-tree depths or expected depths for each row.
+*       Note that these will not include range penalities ('penalize_range=true').
+*       Output will be in row-major order ([nrows, ntrees]).
+*       This will not be calculable when using 'ndim==1' alongside with either
+*       'missing_action==Divide' or 'new_categ_action=Weighted'.
+*       Pass NULL if this type of output is not needed.
 */
 ISOTREE_EXPORTED
 void predict_iforest(real_t numeric_data[], int categ_data[],
@@ -770,7 +780,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
                      real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                      size_t nrows, int nthreads, bool standardize,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                     double output_depths[],   sparse_ix tree_num[]);
+                     double output_depths[],   sparse_ix tree_num[],
+                     double per_tree_depths[]);
 
 
 

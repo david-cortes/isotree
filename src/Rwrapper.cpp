@@ -227,8 +227,8 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     int*        categ_data_ptr      =  NULL;
     int*        ncat_ptr            =  NULL;
     double*     Xc_ptr              =  NULL;
-    int      *  Xc_ind_ptr          =  NULL;
-    int      *  Xc_indptr_ptr       =  NULL;
+    int*        Xc_ind_ptr          =  NULL;
+    int*        Xc_indptr_ptr       =  NULL;
     double*     sample_weights_ptr  =  NULL;
     double*     col_weights_ptr     =  NULL;
     Rcpp::NumericVector Xcpp;
@@ -490,8 +490,8 @@ Rcpp::List fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawV
     int*        categ_data_ptr      =  NULL;
     int*        ncat_ptr            =  NULL;
     double*     Xc_ptr              =  NULL;
-    int      *  Xc_ind_ptr          =  NULL;
-    int      *  Xc_indptr_ptr       =  NULL;
+    int*        Xc_ind_ptr          =  NULL;
+    int*        Xc_indptr_ptr       =  NULL;
     double*     sample_weights_ptr  =  NULL;
     double*     col_weights_ptr     =  NULL;
     Rcpp::NumericVector Xcpp;
@@ -700,7 +700,8 @@ Rcpp::List fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawV
 }
 
 // [[Rcpp::export(rng = false)]]
-void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector tree_num, bool is_extended,
+void predict_iso(SEXP model_R_ptr, bool is_extended,
+                 Rcpp::NumericVector outp, Rcpp::IntegerMatrix tree_num, Rcpp::NumericMatrix tree_depths,
                  Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat,
                  Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
                  Rcpp::NumericVector Xr, Rcpp::IntegerVector Xr_ind, Rcpp::IntegerVector Xr_indptr,
@@ -709,12 +710,11 @@ void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
     double*     Xc_ptr              =  NULL;
-    int      *  Xc_ind_ptr          =  NULL;
-    int      *  Xc_indptr_ptr       =  NULL;
+    int*        Xc_ind_ptr          =  NULL;
+    int*        Xc_indptr_ptr       =  NULL;
     double*     Xr_ptr              =  NULL;
-    int      *  Xr_ind_ptr          =  NULL;
-    int      *  Xr_indptr_ptr       =  NULL;
-    int      *  tree_num_ptr        =  NULL;
+    int*        Xr_ind_ptr          =  NULL;
+    int*        Xr_indptr_ptr       =  NULL;
     Rcpp::NumericVector Xcpp;
 
     if (X_num.size())
@@ -741,12 +741,9 @@ void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector
         Xr_indptr_ptr  =  INTEGER(Xr_indptr);
     }
 
-    if (tree_num.size())
-    {
-        tree_num_ptr = INTEGER(tree_num);
-    }
-
-    double* depths_ptr =  REAL(outp);
+    double *depths_ptr       =  REAL(outp);
+    double *tree_depths_ptr  =  tree_depths.size()? REAL(tree_depths) : NULL;
+    int    *tree_num_ptr     =  tree_num.size()?    INTEGER(tree_num) : NULL;
 
     IsoForest*     model_ptr      =  NULL;
     ExtIsoForest*  ext_model_ptr  =  NULL;
@@ -772,7 +769,8 @@ void predict_iso(SEXP model_R_ptr, Rcpp::NumericVector outp, Rcpp::IntegerVector
                                  Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
                                  nrows, nthreads, standardize,
                                  model_ptr, ext_model_ptr,
-                                 depths_ptr, tree_num_ptr);
+                                 depths_ptr, tree_num_ptr,
+                                 tree_depths_ptr);
 }
 
 // [[Rcpp::export(rng = false)]]
@@ -786,8 +784,8 @@ void dist_iso(SEXP model_R_ptr, Rcpp::NumericVector tmat, Rcpp::NumericMatrix dm
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
     double*     Xc_ptr              =  NULL;
-    int      *  Xc_ind_ptr          =  NULL;
-    int      *  Xc_indptr_ptr       =  NULL;
+    int*        Xc_ind_ptr          =  NULL;
+    int*        Xc_indptr_ptr       =  NULL;
     Rcpp::NumericVector Xcpp;
 
     if (X_num.size())
@@ -849,8 +847,8 @@ Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
     double*     Xr_ptr              =  NULL;
-    int      *  Xr_ind_ptr          =  NULL;
-    int      *  Xr_indptr_ptr       =  NULL;
+    int*        Xr_ind_ptr          =  NULL;
+    int*        Xr_indptr_ptr       =  NULL;
 
     if (X_num.size())
     {

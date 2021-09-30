@@ -881,14 +881,27 @@ isolation.forest <- function(data,
     if (!output_score && !output_dist && !output_imputations) {
         return(this)
     } else {
+        if (inherits(data, c("data.frame", "matrix", "dgCMatrix", "dgRMatrix"))) {
+            rnames <- row.names(data)
+        } else {
+            rnames <- NULL
+        }
+
         outp <- list(model    =  this,
                      scores   =  NULL,
                      dist     =  NULL,
                      imputed  =  NULL)
-        if (output_score) outp$scores <- cpp_outputs$depths
+        if (output_score) {
+            outp$scores <- cpp_outputs$depths
+            if (NROW(rnames)) names(outp$scores) <- rnames
+        }
         if (output_dist) {
             if (square_dist) {
                 outp$dist  <-  cpp_outputs$dmat
+                if (NROW(rnames)) {
+                    row.names(outp$dist) <- rnames
+                    colnames(outp$dist)  <- rnames
+                }
             } else {
                 outp$dist  <-  cpp_outputs$tmat
                 attr_D <- attributes(outp$dist)
@@ -898,6 +911,8 @@ isolation.forest <- function(data,
                 attr_D$method  <-  "sep_dist"
                 attr_D$call    <-  match.call()
                 attr_D$class   <-  "dist"
+                if (NROW(rnames))
+                    attr_D$Labels <- as.character(rnames)
                 attributes(outp$dist) <- attr_D
             }
         }
@@ -933,6 +948,8 @@ isolation.forest <- function(data,
 #'   \item `"tree_num"` for the terminal node number for each tree - if choosing this option,
 #'   will return a list containing both the average isolation depth and the terminal node numbers, under entries
 #'   `avg_depth` and `tree_num`, respectively.
+#'   \item `"tree_depths"` for the non-standardized isolation depth or expected isolation depth for each tree
+#'   (note that they will not include range penalties even if using `penalize_range=TRUE`).
 #'   \item `"impute"` for imputation of missing values in `newdata`.
 #' }
 #' @param square_mat When passing `type` = `"dist` or `"avg_sep"` with no `refdata`, whether to return a
@@ -951,8 +968,9 @@ isolation.forest <- function(data,
 #' \item A numeric vector with one entry per row in `newdata` (for output types `"score"`, `"avg_depth"`).
 #' \item A list with entries `avg_depth` (numeric vector)
 #' and `tree_num` (integer matrix indicating the terminal node number under each tree for each
-#' observation, with trees as columns), for output type
-#' `"tree_num"`.
+#' observation, with trees as columns), for output type `"tree_num"`.
+#' \item A numeric matrix with rows matching to those in `newdata` and one column per tree in the
+#' model, for output type `"tree_depths"`.
 #' \item A numeric square matrix or `dist` object containing a vector with the upper triangular
 #' part of a square matrix
 #' (for output types `"dist"`, `"avg_sep"`, with no `refdata`).
@@ -1000,15 +1018,19 @@ isolation.forest <- function(data,
 predict.isolation_forest <- function(object, newdata, type="score", square_mat=FALSE, refdata=NULL, ...) {
     isotree.restore.handle(object)
     
-    allowed_type <- c("score", "avg_depth", "dist", "avg_sep", "tree_num", "impute")
+    allowed_type <- c("score", "avg_depth", "dist", "avg_sep", "tree_num", "tree_depths", "impute")
     check.str.option(type, "type", allowed_type)
     check.is.bool(square_mat)
     if (!NROW(newdata)) stop("'newdata' must be a data.frame, matrix, or sparse matrix.")
     if ((object$metadata$ncols_cat > 0 && is.null(object$metadata$categ_cols)) && NROW(intersect(class(newdata), get.types.spmat(TRUE, TRUE, TRUE)))) {
         stop("Cannot pass sparse inputs if the model was fit to categorical variables in a data.frame.")
     }
-    if ((type == "tree_num") && (object$metadata$ncols_cat > 0) && (object$params$new_categ_action == "weighted"))
-        stop("Cannot output tree number when using 'new_categ_action' = 'weighted'.")
+    if ((type %in% c("tree_num", "tree_depths")) && (object$params$ndim == 1L)) {
+        if ((object$metadata$ncols_cat > 0) && (object$params$new_categ_action == "weighted"))
+            stop("Cannot output tree numbers/depths when using 'new_categ_action' = 'weighted'.")
+        if (object$params$missing_action == "divide")
+            stop("Cannot output tree numbers/depths when using 'missing_action' = 'divide'.")
+    }
     if (inherits(newdata, "numeric") && is.null(dim(newdata))) {
         newdata <- matrix(newdata, nrow=1)
     }
@@ -1040,34 +1062,62 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
     dist_dmat    <-  matrix(numeric(), nrow=0, ncol=0)
     dist_rmat    <-  matrix(numeric(), nrow=0, ncol=0)
     tree_num     <-  get_null_int_mat()
+    tree_depths  <-  matrix(numeric(), nrow=0, ncol=0)
+
+    if (inherits(newdata, c("data.frame", "matrix", "dgCMatrix", "dgRMatrix"))) {
+        rnames <- row.names(newdata)
+    } else {
+        rnames <- NULL
+    }
     
     if (type %in% c("dist", "avg_sep")) {
         if (NROW(newdata) == 1L) stop("Need more than 1 data point for distance predictions.")
         if (is.null(refdata)) {
             dist_tmat <- get_empty_tmat(pdata$nrows)
-            if (square_mat) dist_dmat <- matrix(0, nrow=pdata$nrows, ncol=pdata$nrows)
+            if (square_mat) {
+                dist_dmat <- matrix(0, nrow=pdata$nrows, ncol=pdata$nrows)
+                if (NROW(rnames)) {
+                    row.names(dist_dmat) <- rnames
+                    colnames(dist_dmat)  <- rnames
+                }
+            }
         } else {
             dist_rmat <- matrix(0, nrow=pdata$nrows-nobs_group1, ncol=nobs_group1)
+            if (NROW(rnames)) {
+                colnames(dist_rmat)   <-  rnames[1:nobs_group1]
+                row.names(dist_rmat)  <-  rnames[seq(nobs_group1+1L, NROW(rnames))]
+            }
         }
     } else {
         score_array <- numeric(pdata$nrows)
-        if (type == "tree_num")
+        if (NROW(rnames)) names(score_array) <- rnames
+
+        if (type == "tree_num") {
             tree_num <- get_empty_int_mat(pdata$nrows, get_ntrees(object$cpp_obj$ptr, object$params$ndim > 1))
+            if (NROW(rnames)) row.names(tree_num) <- rnames
+        } else if (type == "tree_depths") {
+            tree_depths <- matrix(0., ncol=pdata$nrows, nrow=get_ntrees(object$cpp_obj$ptr, object$params$ndim > 1))
+            if (NROW(rnames)) colnames(tree_depths) <- rnames
+        }
     }
     
-    if (type %in% c("score", "avg_depth", "tree_num")) {
-        predict_iso(object$cpp_obj$ptr, score_array, tree_num, object$params$ndim > 1,
+    if (type %in% c("score", "avg_depth", "tree_num", "tree_depths")) {
+        predict_iso(object$cpp_obj$ptr, object$params$ndim > 1,
+                    score_array, tree_num, tree_depths,
                     pdata$X_num, pdata$X_cat,
                     pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
                     pdata$Xr, pdata$Xr_ind, pdata$Xr_indptr,
                     pdata$nrows, object$nthreads, type == "score")
-        if (type == "tree_num")
+        if (type == "tree_num") {
             return(list(avg_depth = score_array, tree_num = tree_num+1L))
-        else
+        } else if (type == "tree_depths") {
+            return(t(tree_depths))
+        } else {
             return(score_array)
-    } else if (type != "impute") {
+        }
+    } else if (type %in% c("dist", "avg_sep")) {
         dist_iso(object$cpp_obj$ptr, dist_tmat, dist_dmat, dist_rmat,
-                 object$params$ndim > 1,
+                 object$params$ndim > 1L,
                  pdata$X_num, pdata$X_cat,
                  pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
                  pdata$nrows, object$nthreads, object$params$assume_full_distr,
@@ -1084,10 +1134,12 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
             attr_D$method  <-  ifelse(type == "dist", "sep_dist", "avg_sep")
             attr_D$call    <-  match.call()
             attr_D$class   <-  "dist"
+            if (NROW(rnames))
+                attr_D$Labels <- as.character(rnames)
             attributes(dist_tmat) <- attr_D
             return(dist_tmat)
         }
-    } else {
+    } else if (type == "impute") {
         imp <- impute_iso(object$cpp_obj$ptr, object$cpp_obj$imp_ptr, object$params$ndim > 1,
                           pdata$X_num, pdata$X_cat,
                           pdata$Xr, pdata$Xr_ind, pdata$Xr_indptr,
@@ -1096,6 +1148,8 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
                                     imp$X_cat,
                                     newdata, object,
                                     pdata))
+    } else {
+        stop("Unexpected error. Please open an issue in GitHub explaining what you were doing.")
     }
 }
 

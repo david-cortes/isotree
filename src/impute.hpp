@@ -166,6 +166,7 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
                                    (double) 1,
                                    ix_arr[row],
                                    (sparse_ix*)NULL,
+                                   (double*)NULL,
                                    (size_t) 0);
                 }
 
@@ -209,6 +210,7 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
                                     &imputer.imputer_tree[&hplane - &(model_outputs_ext->hplanes[0])],
                                     &imp_memory[omp_get_thread_num()],
                                     (sparse_ix*)NULL,
+                                    (double*)NULL,
                                     ix_arr[row]);
                 }
 

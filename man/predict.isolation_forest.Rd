@@ -38,6 +38,8 @@ when the number of trees or rows is large.}
   \item `"tree_num"` for the terminal node number for each tree - if choosing this option,
   will return a list containing both the average isolation depth and the terminal node numbers, under entries
   `avg_depth` and `tree_num`, respectively.
+  \item `"tree_depths"` for the non-standardized isolation depth or expected isolation depth for each tree
+  (note that they will not include range penalties even if using `penalize_range=TRUE`).
   \item `"impute"` for imputation of missing values in `newdata`.
 }}
 
@@ -60,8 +62,9 @@ The requested prediction type, which can be: \itemize{
 \item A numeric vector with one entry per row in `newdata` (for output types `"score"`, `"avg_depth"`).
 \item A list with entries `avg_depth` (numeric vector)
 and `tree_num` (integer matrix indicating the terminal node number under each tree for each
-observation, with trees as columns), for output type
-`"tree_num"`.
+observation, with trees as columns), for output type `"tree_num"`.
+\item A numeric matrix with rows matching to those in `newdata` and one column per tree in the
+model, for output type `"tree_depths"`.
 \item A numeric square matrix or `dist` object containing a vector with the upper triangular
 part of a square matrix
 (for output types `"dist"`, `"avg_sep"`, with no `refdata`).
