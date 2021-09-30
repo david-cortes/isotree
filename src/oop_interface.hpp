@@ -80,46 +80,40 @@ ISOTREE_EXPORTED
 class IsolationForest
 {
 public:
-    /*  Note: if passing nthreads<0, will reset it to 'max_threads + nthreads + 1',
-        so passing -1 means using all available threads.  */
-    int nthreads = -1; /* <- May be manually changed at any time */
+    int nthreads = -1;
 
     uint64_t random_seed = 1;
 
-    /*  General tree construction parameters  */
     size_t ndim = 3;
     size_t ntry = 3;
-    CoefType coef_type = Normal; /* only for ndim>1 */
+    CoefType coef_type = Normal;
     bool   with_replacement = false;
     bool   weight_as_sample = true;
     size_t sample_size = 0;
     size_t ntrees = 500;
     size_t max_depth = 0;
     size_t ncols_per_tree = 0;
-    bool   limit_depth = true; /* if 'true', then 'max_depth' is ignored */
+    bool   limit_depth = true;
     bool   penalize_range = false;
-    bool   standardize_data = true; /* only for ndim==1 */
+    bool   standardize_data = true;
     bool   weigh_by_kurt = false;
     double prob_pick_by_gain_avg = 0.;
-    double prob_split_by_gain_avg = 0.; /* only for ndim==1 */
+    double prob_split_by_gain_avg = 0.;
     double prob_pick_by_gain_pl = 0.;
-    double prob_split_by_gain_pl = 0.;  /* only for ndim==1 */
+    double prob_split_by_gain_pl = 0.;
     double min_gain = 0.;
     MissingAction missing_action = Impute;
 
-    /*  For categorical variables  */
     CategSplit cat_split_type = SubSet;
     NewCategAction new_cat_action = Weighted;
     bool   coef_by_prop = false;
     bool   all_perm = false;
 
-    /*  For imputation methods (when using 'build_imputer=true' and calling 'impute')  */
     bool   build_imputer = false;
     size_t min_imp_obs = 3;
     UseDepthImp depth_imp = Higher;
     WeighImpRows weigh_imp_rows = Inverse;
 
-    /*  Internal objects which can be used with the non-OOP interface  */
     IsoForest model;
     ExtIsoForest model_ext;
     Imputer imputer;
@@ -128,16 +122,6 @@ public:
 
     ~IsolationForest() = default;
 
-    /*  Be aware that many combinations of parameters are invalid.
-        This function will not do any validation of the inputs it receives.
-
-        Calling 'fit' with a combination of invalid parameters *may* throw a
-        runtime exception, but it will not be able to detect all the possible
-        invalid parameter combinations and could potentially lead to silent
-        errors like statistically incorrect models or predictions that do not
-        make sense. See the documentation of the non-OOP header or of the R
-        and Python interfaces for more details about the parameters and the
-        valid and invalid combinations of parameters.  */
     IsolationForest
     (
         size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
@@ -154,69 +138,27 @@ public:
         uint64_t random_seed, int nthreads
     );
 
-    /*  'X' must be in column-major order (like Fortran).  */
     void fit(double X[], size_t nrows, size_t ncols);
 
-    /*  Model can also be fit to categorical data (must also be column-major).
-        Categorical data should be passed as integers starting at zero, with
-        negative values denoting missing, and must pass also the number of
-        categories to expect in each column.
-
-        Can also pass row and column weights (see the documentation for options
-        on how to interpret the row weights).  */
     void fit(double numeric_data[],   size_t ncols_numeric,  size_t nrows,
              int    categ_data[],     size_t ncols_categ,    int ncat[],
              double sample_weights[], double col_weights[]);
 
-    /*  Numeric data may also be supplied as a sparse matrix, in which case it
-        must be CSC format (colum-major). Categorical data is not supported in
-        sparse format.  */
     void fit(double Xc[], int Xc_ind[], int Xc_indptr[],
              size_t ncols_numeric,      size_t nrows,
              int    categ_data[],       size_t ncols_categ,   int ncat[],
              double sample_weights[],   double col_weights[]);
 
-    /*  'predict' will return a vector with the standardized outlier scores
-        (output length is the same as the number of rows in the data), in
-        which higher values mean more outlierness.
-
-        The data must again be in column-major format.
-
-        This function will run multi-threaded if there is more than one row and
-        the object has number of threads set to more than 1.  */
     std::vector<double> predict(double X[], size_t nrows, bool standardize);
 
-    /*  Can additionally get the terminal tree numbers, or write to a non-owned
-        array, or obtain the non-standardize average isolation depth instead of
-        the standardized outlier score. Note that while tree numbers are optional,
-        the array for output depths must always be passed (the standardized score
-        will also be written there despite the name).
-       
-        Here, the data might be passed as either column-major or row-major (getting
-        predictions in row-major order will be faster). If the data is in row-major
-        order, must also provide the leading dimension of the array (typically this
-        corresponds to the number of columns, but might be larger if using a subset
-        of a larger array).
-
-        IMPORTANT: 'output_depths' should be passed already initialized to
-        zeros (here and in the other 'predict' functions).  */
     void predict(double numeric_data[], int categ_data[], bool is_col_major,
                  size_t nrows, size_t ld_numeric, size_t ld_categ, bool standardize,
                  double output_depths[], int tree_num[], double per_tree_depths[]);
 
-    /*  Numeric data may also be provided in sparse format, which can be either
-        CSC (column-major) or CSR (row-major). If the number of rows is large,
-        predictions in CSC format will be faster than in CSR (assuming that
-        categorical data is either missing or column-major). Note that for CSC,
-        parallelization is done by trees instead of by rows, and outputs are
-        subject to numerical rounding error between runs.  */
     void predict(double X_sparse[], int X_ind[], int X_indptr[], bool is_csc,
                  int categ_data[], bool is_col_major, size_t ld_categ, size_t nrows, bool standardize,
                  double output_depths[], int tree_num[], double per_tree_depths[]);
 
-    /*  Distances between observations will be returned either as a triangular matrix
-        representing an upper diagonal (length is nrows*(nrows-1)/2), or as a full
-        square matrix (length is nrows^2).  */
     std::vector<double> predict_distance(double X[], size_t nrows,
                                          bool assume_full_distr, bool standardize_dist,
                                          bool triangular);
@@ -227,82 +169,41 @@ public:
                           bool triangular,
                           double dist_matrix[]);
 
-    /*  Sparse data is only supported in CSC format.  */
     void predict_distance(double Xc[], int Xc_ind[], int Xc_indptr[], int categ_data[],
                           size_t nrows, bool assume_full_distr, bool standardize_dist,
                           bool triangular,
                           double dist_matrix[]);
 
-    /*  This will impute missing values in-place. Data here must be in column-major order.   */
     void impute(double X[], size_t nrows);
 
-    /*  This variation will accept data in either row-major or column-major order.
-        The leading dimension must match with the number of columns for row major,
-        or with the number of rows for column-major (custom leading dimensions are
-        not supported).  */
     void impute(double numeric_data[], int categ_data[], bool is_col_major, size_t nrows);
 
-    /*  Numeric data may be passed in sparse CSR format. Note however that it will
-        impute the values that are NAN, not the values that are ommited from the
-        sparse format.  */
     void impute(double Xr[], int Xr_ind[], int Xr_indptr[],
                 int categ_data[], bool is_col_major, size_t nrows);
 
-    /*  Serialize (save) the model to a file. See 'isotree.hpp' for compatibility
-        details. Note that this does not save all the details of the object, but
-        rather only those that are necessary for prediction.
-
-        The file must be opened in binary write mode ('wb').
-
-        Note that models serialized through this interface are not importable in
-        the R and Python wrappers around this library.  */
     void serialize(FILE *out) const;
 
-    /*  The stream must be opened in binary mode.  */
     void serialize(std::ostream &out) const;
 
-    /*  The number of threads here does not mean 'how many threads to use while
-        deserializing', but rather, 'how many threads will be set for the prediction
-        functions of the resulting object'.
-
-        The input file must be opened in binary read more ('rb').
-
-        Note that not all the members of an 'IsolationForest' object are saved
-        when serializing, so if you access members such as 'prob_pick_by_gain_avg',
-        they will all be at their default values.
-
-        These functions can de-serialize models saved from the R and Python interfaces,
-        but models that are serialized from this C++ interface are not importable in
-        those R and Python versions.  */
     static IsolationForest deserialize(FILE *inp, int nthreads);
 
-    /*  The stream must be opened in binary mode.  */
     static IsolationForest deserialize(std::istream &inp, int nthreads);
 
-    /*  To serialize and deserialize in a more idiomatic way
-        ('stream << model' and 'stream >> model').
-        Note that 'ist >> model' will set 'nthreads=-1', which you might
-        want to modify afterwards. */
     friend std::ostream& operator<<(std::ostream &ost, const IsolationForest &model);
 
     friend std::istream& operator>>(std::istream &ist, IsolationForest &model);
 
-    /*  These functions allow getting the underlying objects to use with the more
-        featureful non-OOP interface.
-
-        Note that it is also possible to use the C-interface functions with this
-        object by passing a pointer to the 'IsolationForest' object instead.  */
     IsoForest& get_model();
 
     ExtIsoForest& get_model_ext();
 
     Imputer& get_imputer();
 
-    /*  This converts from a negative 'nthreads' to the actual number (provided it
-        was compiled with OpenMP support), and will set to 1 if the number is invalid.
-        If the library was compiled without multi-threading and it requests more than
-        one thread, will write a message to 'stderr'.  */
     void check_nthreads();
+
+    size_t get_ntrees() const;
+
+    bool check_can_predict_per_tree() const;
 
 private:
     bool is_fitted = false;

@@ -196,6 +196,7 @@ public:
 
         Note: 'tree_num' and 'per_tree_depths' will not be calculable when using
         'ndim==1' plus either 'missing_action==Divide' or 'new_cat_action==Weighted'.
+        These can be checked through 'check_can_predict_per_tree'.
        
         Here, the data might be passed as either column-major or row-major (getting
         predictions in row-major order will be faster). If the data is in row-major
@@ -308,6 +309,13 @@ public:
         If the library was compiled without multi-threading and it requests more than
         one thread, will write a message to 'stderr'.  */
     void check_nthreads();
+
+    /*  This will return the number of trees in the object. If it is not fitted, will
+        throw an error instead.  */
+    size_t get_ntrees() const;
+
+    /*  This checks whether 'predict' can output 'tree_num' and 'per_tree_depths'.  */
+    bool check_can_predict_per_tree() const;
 
 private:
     bool is_fitted = false;

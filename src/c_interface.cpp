@@ -717,11 +717,15 @@ size_t isotree_get_ntrees(const void *isotree_model)
         cerr << "Passed NULL 'isotree_model' to 'isotree_get_ntrees'." << std::endl;
         return SIZE_MAX;
     }
-    IsolationForest *model = (IsolationForest*)isotree_model;
-    if (model->get_model().trees.size())
-        return model->get_model().trees.size();
-    else
-        return model->get_model_ext().hplanes.size();
+    const IsolationForest *model = (const IsolationForest*)isotree_model;
+    try {
+        return model->get_ntrees();
+    }
+    catch (std::exception &e) {
+        cerr << e.what();
+        cerr.flush();
+        return SIZE_MAX;
+    }
 }
 
 

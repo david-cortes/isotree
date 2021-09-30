@@ -403,7 +403,8 @@ void delete_isotree_model(isotree_model_t isotree_model);
     (along with printing a message to 'stderr' if an error is encountered).
     Note that the only possible throwable error that can happen inside
     'isotree_predict' is an out-of-memory condition when passing
-    CSC data.  */
+    CSC data, or a safety check when passing 'output_tree_num' or
+    'per_tree_depths' in cases in which they are not fillable.  */
 ISOTREE_EXPORTED
 isotree_exit_code isotree_predict
 (

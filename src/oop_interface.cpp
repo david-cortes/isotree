@@ -219,6 +219,8 @@ void IsolationForest::predict(double numeric_data[], int categ_data[], bool is_c
 {
     this->check_is_fitted();
     this->check_nthreads();
+    if ((tree_num || per_tree_depths) && !this->check_can_predict_per_tree())
+        throw std::runtime_error("Cannot predict tree numbers/depths with this model.\n");
     predict_iforest(
         numeric_data, categ_data,
         is_col_major, ld_numeric, ld_categ,
@@ -236,6 +238,8 @@ void IsolationForest::predict(double X_sparse[], int X_ind[], int X_indptr[], bo
 {
     this->check_is_fitted();
     this->check_nthreads();
+    if ((tree_num || per_tree_depths) && !this->check_can_predict_per_tree())
+        throw std::runtime_error("Cannot predict tree numbers/depths with this model.\n");
     std::vector<double> out(nrows);
     predict_iforest(
         (double*)nullptr, categ_data,
@@ -441,6 +445,34 @@ void IsolationForest::check_nthreads()
         this->nthreads = 1;
     }
     #endif
+}
+
+size_t IsolationForest::get_ntrees() const
+{
+    if (this->model.trees.size())
+        return this->model.trees.size();
+    else if (this->model_ext.hplanes.size())
+        return this->model_ext.hplanes.size();
+    else
+        throw std::runtime_error("Model is not fitted or is corrupted.\n");
+}
+
+bool IsolationForest::check_can_predict_per_tree() const
+{
+    if (this->model.trees.size())
+    {
+        if (this->model.missing_action == Divide)
+            return false;
+        if (this->model.new_cat_action == Weighted)
+        {
+            for (const std::vector<IsoTree> &tree : this->model.trees)
+                for (const IsoTree &node : tree)
+                    if (node.col_type == Categorical)
+                        return false;
+        }
+    }
+
+    return true;
 }
 
 void IsolationForest::override_previous_fit()
