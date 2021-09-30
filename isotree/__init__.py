@@ -1011,7 +1011,8 @@ class IsolationForest:
         square_mat : bool
             Whether to produce a full square matrix with the distances. If passing 'False', will output
             only the upper triangular part as a 1-d array in which entry (i,j) with 0 <= i < j < n is located at
-            position :math:`p(i,j) = i (n - \frac{i+1}{2}) + j - i - 1`.
+            position
+                :math:`p(i,j) = i (n - \frac{i+1}{2}) + j - i - 1`
             Ignored when passing 'output_distance' = 'None'.
         output_imputed : bool
             Whether to output the data with imputed missing values. Model object must have been initialized
@@ -1804,7 +1805,8 @@ class IsolationForest:
         square_mat : bool
             Whether to produce a full square matrix with the pairwise distances. If passing 'False', will output
             only the upper triangular part as a 1-d array in which entry (i,j) with 0 <= i < j < n is located at
-            position :math:`p(i,j) = i (n - \frac{i+1}{2}) + j - i - 1`.
+            position
+                :math:`p(i,j) = i (n - \frac{i+1}{2}) + j - i - 1`
             Ignored when passing ``X_ref``.
         X_ref : array or array-like (n_ref, n_features)
             Second group of observations. If passing it, will calculate distances between each point in
