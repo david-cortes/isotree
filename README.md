@@ -28,6 +28,8 @@ Example timings for 100 trees and different sample sizes, CovType dataset - see 
 | isotree         | ext    |  0.00326     | 0.0123        | 0.168         |
 | eif             | orig   |  0.149       | 0.398         | 4.99          |
 | eif             | ext    |  0.16        | 0.428         | 5.06          |
+| h2o             | orig   |  9.33        | 11.21         | 14.23         |
+| h2o             | ext    |  1.06        | 2.07          | 17.31         |
 | scikit-learn    | orig   |  8.3         | 8.01          | 6.89          |
 | solitude        | orig   |  32.612      | 34.01         | 41.01         |
 
@@ -41,6 +43,7 @@ Example AUC as outlier detector in typical datasets (notebook to produce results
 | isotree      | 0.70         | 0.84            |
 | eif          | -            | 0.714           |
 | scikit-learn | 0.687        | 0.74            |
+| h2o          | 0.662        | 0.748           |
 
 * Antthyroid dataset:
 
@@ -49,6 +52,7 @@ Example AUC as outlier detector in typical datasets (notebook to produce results
 | isotree      | 0.80         | 0.982           |
 | eif          | -            | 0.808           |
 | scikit-learn | 0.836        | 0.836           |
+| h2o          | 0.80         | 0.80            |
 
 *(Disclaimer: these are rather small datasets and thus these AUC estimates have high variance)*
 

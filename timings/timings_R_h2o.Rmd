@@ -1,0 +1,139 @@
+---
+title: "timings_R_h2o"
+author: "David Cortes"
+date: "10/1/2021"
+output:
+  html_document:
+    toc: true
+    theme: united
+---
+
+# Timing Isolation Forest in H2O library
+
+This is an extension of the timings from different isolation forest implementations in R from [here](https://github.com/david-cortes/isotree/blob/master/timings/timings_R.Rmd), this time evaluating the H2O library (version 3.34.0.1 at the time of writing). For more details, see the link above and the [GitHub repository](https://www.github.com/david-cortes/isotree) where this came from.
+
+Note that this library always runs multi-threaded, thus there was no separate single-threaded comparison like for the other libraries.
+
+```{r, message=FALSE, results=FALSE, warning=FALSE, comment=FALSE}
+library(R.matlab) #https://github.com/HenrikBengtsson/R.matlab
+library(readsparse) #https://github.com/david-cortes/readsparse
+library(h2o) #https://docs.h2o.ai/h2o/latest-stable/h2o-docs/index.html
+library(microbenchmark) #https://github.com/joshuaulrich/microbenchmark/
+h2o.no_progress()
+h2o.init()
+```
+
+### Small dataset: Satellite (6435 rows, 36 columns)
+
+```{r}
+X = readMat("satellite.mat")$X
+X = as.h2o(X)
+cat(dim(X))
+```
+
+```{r}
+microbenchmark({
+	iso = h2o.isolationForest(X, names(X),
+							  ntrees=100L, max_depth=8L, sample_size=256L,
+							  seed=1L)
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = h2o.isolationForest(X, names(X),
+							  ntrees=100L, max_depth=10L, sample_size=1024L,
+							  seed=1L)
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = h2o.isolationForest(X, names(X),
+							  ntrees=100L, max_depth=13L, sample_size=6435L,
+							  seed=1L)
+}, times=7L)
+```
+
+
+```{r}
+microbenchmark({
+	iso = h2o.extendedIsolationForest(X, names(X), extension_level=1,
+									  ntrees=100L, sample_size=256L,
+									  seed=1L)
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = h2o.extendedIsolationForest(X, names(X), extension_level=1,
+									  ntrees=100L, sample_size=1024L,
+									  seed=1L)
+}, times=7L)
+```
+
+```{r}
+microbenchmark({
+	iso = h2o.extendedIsolationForest(X, names(X), extension_level=1,
+									  ntrees=100L, sample_size=6435L,
+									  seed=1L)
+}, times=7L)
+```
+
+
+### Mid-sized dataset: CovType (581,012 rows, 54 columns)
+
+```{r, message=FALSE, results=FALSE, warning=FALSE, comment=FALSE}
+gc()
+```
+```{r}
+X = readsparse::read.sparse("covtype.libsvm.binary")
+X = as.matrix(X$X)
+X = as.h2o(X)
+cat(dim(X))
+```
+
+```{r}
+microbenchmark({
+	iso = h2o.isolationForest(X, names(X),
+							  ntrees=100L, max_depth=8L, sample_size=256L,
+							  seed=1L)
+}, times=7L)
+```
+```{r}
+microbenchmark({
+	iso = h2o.isolationForest(X, names(X),
+							  ntrees=100L, max_depth=10L, sample_size=1024L,
+							  seed=1L)
+}, times=7L)
+```
+```{r}
+microbenchmark({
+	iso = h2o.isolationForest(X, names(X),
+							  ntrees=100L, max_depth=14L, sample_size=10000L,
+							  seed=1L)
+}, times=7L)
+```
+
+
+```{r}
+microbenchmark({
+	iso = h2o.extendedIsolationForest(X, names(X), extension_level=1,
+									  ntrees=100L, sample_size=256L,
+									  seed=1L)
+}, times=7L)
+```
+```{r}
+microbenchmark({
+	iso = h2o.extendedIsolationForest(X, names(X), extension_level=1,
+									  ntrees=100L, sample_size=1024L,
+									  seed=1L)
+}, times=7L)
+```
+```{r}
+microbenchmark({
+	iso = h2o.extendedIsolationForest(X, names(X), extension_level=1,
+									  ntrees=100L, sample_size=10000L,
+									  seed=1L)
+}, times=7L)
+```
