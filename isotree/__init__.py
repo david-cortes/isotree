@@ -650,6 +650,12 @@ class IsolationForest:
             if new_categ_action == "weighted":
                 raise ValueError("'new_categ_action' = 'weighted' not supported in extended model.")
 
+        if (weigh_by_kurtosis) and (ndim == 1) and (prob_pick_pooled_gain + prob_split_avg_gain) >= 1:
+            msg  = "'weigh_by_kurtosis' is incompatible with deterministic column selection"
+            msg += " ('prob_pick_pooled_gain' and ' prob_split_avg_gain'). Will be forced to 'False'."
+            warnings.warn(msg)
+            weigh_by_kurtosis = False
+
         if nthreads is None:
             nthreads = 1
         elif nthreads < 0:
@@ -875,9 +881,9 @@ class IsolationForest:
             sample_size = min(nrows, 10000)
             if (sample_weights is not None) and (self.weights_as_sample_prob):
                 raise ValueError("Sampling weights are only supported when using sub-samples for each tree.")
-        elif self.sample_size < 1:
+        elif self.sample_size <= 1:
             sample_size = int(np.ceil(self.sample_size * nrows))
-            if sample_size <= 1:
+            if sample_size < 2:
                 raise ValueError("Sampling proportion amounts to a single row or less.")
         else:
             sample_size = self.sample_size
@@ -1307,8 +1313,8 @@ class IsolationForest:
 
         if nrows == 0:
             raise ValueError("Input data has zero rows.")
-        elif nrows < 2:
-            raise ValueError("Input data must have at least 2 rows.")
+        elif nrows < 3:
+            raise ValueError("Input data must have at least 3 rows.")
         elif (self.sample_size is not None) and (self.sample_size != "auto"):
             if self.sample_size > nrows:
                 warnings.warn("Input data has fewer rows than sample_size, will forego sub-sampling.")

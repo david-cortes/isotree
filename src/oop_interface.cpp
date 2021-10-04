@@ -494,7 +494,7 @@ void IsolationForest::check_params()
     if (this->prob_split_by_gain_pl < 0) throw std::runtime_error("'prob_split_by_gain_pl' must be >= 0.\n");
 
     if (prob_pick_by_gain_avg + prob_pick_by_gain_pl + prob_split_by_gain_avg + prob_split_by_gain_pl
-        > 1 + std::numeric_limits<double>::epsilon())
+        > 1. + 2. * std::numeric_limits<double>::epsilon())
         throw std::runtime_error("Probabilities for gain-based splits sum to more than 1.\n");
 
     if (min_gain < 0)
@@ -506,6 +506,9 @@ void IsolationForest::check_params()
         if (this->missing_action == Divide)
             throw std::runtime_error("'missing_action' = 'Divide' not supported in extended model.\n");
     }
+
+    if (this->ndim == 1 && this->weigh_by_kurt && (this->prob_pick_by_gain_avg + this->prob_pick_by_gain_pl) >= 1)
+        throw std::runtime_error("'weigh_by_kurt' is incompatible with deterministic column choices.\n");
 
     if (this->coef_type != Uniform && this->coef_type != Normal)
         throw std::runtime_error("Invalid 'coef_type'.\n");

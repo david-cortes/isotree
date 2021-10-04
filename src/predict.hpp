@@ -197,7 +197,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
             prediction_data.Xc_indptr == NULL && prediction_data.Xr_indptr == NULL
             )
         {
-            #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, model_outputs, prediction_data, output_depths, tree_num, per_tree_depths)
+            #pragma omp parallel for if(nrows > 1) schedule(static) num_threads(nthreads) \
+                    shared(nrows, model_outputs, prediction_data, output_depths, tree_num, per_tree_depths)
             for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             {
                 for (size_t tree = 0; tree < model_outputs->trees.size(); tree++)
@@ -216,7 +217,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
 
         else
         {
-            #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, model_outputs, prediction_data, output_depths, tree_num, per_tree_depths)
+            #pragma omp parallel for if(nrows > 1) schedule(static) num_threads(nthreads) \
+                    shared(nrows, model_outputs, prediction_data, output_depths, tree_num, per_tree_depths)
             for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             {
                 for (size_t tree = 0; tree < model_outputs->trees.size(); tree++)
@@ -247,7 +249,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
             prediction_data.Xr_indptr == NULL
             )
         {
-            #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, model_outputs_ext, prediction_data, output_depths, tree_num, per_tree_depths)
+            #pragma omp parallel for if(nrows > 1) schedule(static) num_threads(nthreads) \
+                    shared(nrows, model_outputs_ext, prediction_data, output_depths, tree_num, per_tree_depths)
             for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             {
                 for (size_t tree = 0; tree < model_outputs_ext->hplanes.size(); tree++)
@@ -266,7 +269,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
 
         else
         {
-            #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, model_outputs_ext, prediction_data, output_depths, tree_num, per_tree_depths)
+            #pragma omp parallel for if(nrows > 1) schedule(static) num_threads(nthreads) \
+                    shared(nrows, model_outputs_ext, prediction_data, output_depths, tree_num, per_tree_depths)
             for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             {
                 for (size_t tree = 0; tree < model_outputs_ext->hplanes.size(); tree++)
@@ -301,7 +305,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
     }
 
     if (standardize)
-        #pragma omp parallel for schedule(static) num_threads(nthreads) shared(nrows, output_depths, depth_divisor)
+        #pragma omp parallel for if(nrows > 100) schedule(static) num_threads(nthreads) \
+                shared(nrows, output_depths, depth_divisor)
         for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             output_depths[row] = std::exp2( - output_depths[row] / depth_divisor );
     else

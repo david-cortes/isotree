@@ -134,7 +134,7 @@ Be aware that the snippet above includes option `-DUSE_MARCH_NATIVE=1`, which wi
 
 The package has an optional dependency on the [Robin-Map](https://github.com/Tessil/robin-map) library, which is added to this repository as a linked submodule. If this library is not found under `/src`, will use the compiler's own hashmaps, which are less optimal.
 
-* Ruby
+* Ruby:
 
 See [external repository with wrapper](https://github.com/ankane/isotree).
 

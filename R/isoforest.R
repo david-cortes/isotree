@@ -608,14 +608,24 @@ isolation.forest <- function(data,
                              sample_weights = NULL, column_weights = NULL,
                              random_seed = 1, nthreads = parallel::detectCores()) {
     ### validate inputs
+    if (NROW(data) < 3L)
+        stop("Input data has too few rows.")
     if (is.null(sample_size) || output_score || output_dist || output_imputations)
         sample_size <- NROW(data)
-    if (NROW(sample_size) != 1 || sample_size < 5) { stop("'sample_size' must be an integer >= 5.") }
-    if (NROW(ncols_per_tree) != 1) { stop("'ncols_per_tree' must be an integer or proportion.") }
-    if ((sample_size > 0) && (sample_size <= 1))
-        sample_size = as.integer(ceiling(sample_size * NROW(data)))
+    if (NROW(sample_size) != 1)
+        stop("'sample_size' must be a single integer or fraction.")
+    if (sample_size > 0 && sample_size <= 1)
+        sample_size <- as.integer(ceiling(sample_size * NROW(data)))
+    if (sample_size < 2)
+        stop("'sample_size' is too small (less than 2 rows).")
+    if (NROW(ncols_per_tree) != 1)
+        stop("'ncols_per_tree' must be an integer or proportion.")
     if ((ncols_per_tree > 0) && (ncols_per_tree <= 1))
         ncols_per_tree = as.integer(ceiling(ncols_per_tree * NCOL(data)))
+    if (sample_size > NROW(data)) {
+        warning("'sample_size' is larger than the number of rows in 'data', will be decreased.")
+        sample_size <- NROW(data)
+    }
 
     check.pos.int(ntrees,          "ntrees")
     check.pos.int(ndim,            "ndim")
@@ -694,12 +704,17 @@ isolation.forest <- function(data,
         if (new_categ_action == "weighted")
             stop("'new_categ_action' = 'weighted' not supported in extended model.")
     }
+
+    if (weigh_by_kurtosis && ndim == 1L && (prob_pick_pooled_gain + prob_split_pooled_gain) >= 1) {
+        warning(paste0("'weigh_by_kurtosis' is incompatible with deterministic column selection",
+                       " ('prob_pick_pooled_gain' and ' prob_split_avg_gain'). Will be forced to 'False'."))
+        weigh_by_kurtosis <- FALSE
+    }
     
     if (ndim > NCOL(data))
         stop("'ndim' must be less or equal than the number of columns in 'data'.")
     
     nthreads <- check.nthreads(nthreads)
-    if (sample_size > NROW(data)) stop("'sample_size' cannot be greater then the number of rows in 'data'.")
 
     categ_cols <- check.categ.cols(categ_cols)
 
