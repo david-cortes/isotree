@@ -108,6 +108,8 @@
 #' Recommended value in reference [4] is 2, while [3] recommends a low value such as 2 or 3. Models with values higher than 1
 #' are referred hereafter as the extended model (as in [3]).
 #' 
+#' If passing `NULL`, will assume it means using the full number of columns in the data.
+#' 
 #' Note that, when using `ndim>1` plus `standardize_data=TRUE`, the variables are standardized at each step
 #' as suggested in [4], which makes the models slightly different than in [3].
 #' @param ntry In the extended model with non-random splits, how many random combinations to try for determining the best gain.
@@ -142,7 +144,10 @@
 #' In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
 #' 
 #' If passing a number between zero and one, will assume it means taking a sample size that represents
-#' that proportion of the columns in the data.
+#' that proportion of the columns in the data. Note that, if passing exactly 1, will assume it means taking
+#' 100\% of the columns, not taking a single columns.
+#' 
+#' If passing `NULL`, will use the full number of columns in the data.
 #' @param prob_pick_avg_gain \itemize{
 #' \item For the single-variable model (`ndim=1`), this parameter indicates the probability
 #' of making each split by choosing a column and split point in that
@@ -610,21 +615,36 @@ isolation.forest <- function(data,
     ### validate inputs
     if (NROW(data) < 3L)
         stop("Input data has too few rows.")
-    if (is.null(sample_size) || output_score || output_dist || output_imputations)
+    if (is.null(sample_size) || output_score || output_dist || output_imputations) {
+        if (!is.null(sample_size) && sample_size != NROW(data))
+            warning("'sample_size' is set to the maximum when producing scores while fitting a model.")
         sample_size <- NROW(data)
+    }
     if (NROW(sample_size) != 1)
         stop("'sample_size' must be a single integer or fraction.")
-    if (sample_size > 0 && sample_size <= 1)
+    if (!is.na(sample_size) && sample_size > 0 && sample_size <= 1)
         sample_size <- as.integer(ceiling(sample_size * NROW(data)))
-    if (sample_size < 2)
+    if (!is.na(sample_size) && sample_size < 2)
         stop("'sample_size' is too small (less than 2 rows).")
+    if (is.null(ncols_per_tree))
+        ncols_per_tree <- NCOL(data)
     if (NROW(ncols_per_tree) != 1)
-        stop("'ncols_per_tree' must be an integer or proportion.")
-    if ((ncols_per_tree > 0) && (ncols_per_tree <= 1))
-        ncols_per_tree = as.integer(ceiling(ncols_per_tree * NCOL(data)))
-    if (sample_size > NROW(data)) {
+        stop("'ncols_per_tree' must be an integer or fraction.")
+    if (!is.na(ncols_per_tree) && (ncols_per_tree > 0) && (ncols_per_tree <= 1))
+        ncols_per_tree <- as.integer(ceiling(ncols_per_tree * NCOL(data)))
+    if (!is.na(sample_size) && sample_size > NROW(data)) {
         warning("'sample_size' is larger than the number of rows in 'data', will be decreased.")
         sample_size <- NROW(data)
+    }
+    if (!is.na(ncols_per_tree) && ncols_per_tree > NCOL(data)) {
+        warning("'ncols_per_tree' is larger than the number of columns in 'data', will be decreased.")
+        ncols_per_tree <- NCOL(data)
+    }
+    if (is.null(ndim))
+        ndim <- NCOL(data)
+    if (NROW(ndim) == 1L && !is.na(ndim) && ndim > NCOL(data)) {
+        warning("'ndim' is larger than the number of columns in 'data', will be decreased.")
+        ndim <- NCOL(data)
     }
 
     check.pos.int(ntrees,          "ntrees")
@@ -710,9 +730,6 @@ isolation.forest <- function(data,
                        " ('prob_pick_pooled_gain' and ' prob_split_avg_gain'). Will be forced to 'False'."))
         weigh_by_kurtosis <- FALSE
     }
-    
-    if (ndim > NCOL(data))
-        stop("'ndim' must be less or equal than the number of columns in 'data'.")
     
     nthreads <- check.nthreads(nthreads)
 

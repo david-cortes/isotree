@@ -55,25 +55,23 @@ class build_ext_subclass( build_ext ):
                 if (os.path.exists("src/robinmap/include/tsl")):
                     e.define_macros += [("_USE_ROBIN_MAP", None)]
 
-            # if is_clang:
-            #     for e in self.extensions:
-            #         e.extra_compile_args += ['-fopenmp=libomp']
-            #         e.extra_link_args += ['-fopenmp']
+                # e.extra_compile_args = ['-fopenmp', '-O3', '-march=native', '-std=c++11']
+                # e.extra_link_args    = ['-fopenmp']
 
-            # for e in self.extensions:
-            #     e.extra_compile_args = ['-fopenmp', '-O3', '-march=native', '-std=c++11']
-            #     e.extra_link_args    = ['-fopenmp']
+                # ## when testing with clang:
+                # e.extra_compile_args = ['-fopenmp=libiomp5', '-O3', '-march=native', '-std=c++11']
+                # e.extra_link_args    = ['-fopenmp']
 
-            #     ## when testing with clang:
-            #     e.extra_compile_args = ['-fopenmp=libiomp5', '-O3', '-march=native', '-std=c++11']
-            #     e.extra_link_args    = ['-fopenmp']
+                # e.extra_compile_args = ['-O2', '-march=native', '-std=c++11']
+                # e.extra_compile_args = ['-O0', '-march=native', '-std=c++11']
 
-            #     e.extra_compile_args = ['-O2', '-march=native', '-std=c++11']
-            #     e.extra_compile_args = ['-O0', '-march=native', '-std=c++11']
+                # ## for testing (run with `LD_PRELOAD=libasan.so python script.py`)
+                # e.extra_compile_args = ["-std=c++11", "-fsanitize=address", "-static-libasan", "-ggdb"]
+                # e.extra_link_args    = ["-fsanitize=address", "-static-libasan"]
 
-            #     ## for testing (run with `LD_PRELOAD=libasan.so python script.py`)
-            #     e.extra_compile_args = ["-std=c++11", "-fsanitize=address", "-static-libasan", "-ggdb"]
-            #     e.extra_link_args    = ["-fsanitize=address", "-static-libasan"]
+        # if is_clang:
+        #         e.extra_compile_args += ['-fopenmp=libomp']
+        #         e.extra_link_args += ['-fopenmp']
 
         build_ext.build_extensions(self)
 

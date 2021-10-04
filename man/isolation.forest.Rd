@@ -93,6 +93,8 @@ references [3] and [4].
 Recommended value in reference [4] is 2, while [3] recommends a low value such as 2 or 3. Models with values higher than 1
 are referred hereafter as the extended model (as in [3]).
 
+If passing `NULL`, will assume it means using the full number of columns in the data.
+
 Note that, when using `ndim>1` plus `standardize_data=TRUE`, the variables are standardized at each step
 as suggested in [4], which makes the models slightly different than in [3].}
 
@@ -131,7 +133,10 @@ somewhat similar to the 'mtry' parameter of random forests.
 In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
 
 If passing a number between zero and one, will assume it means taking a sample size that represents
-that proportion of the columns in the data.}
+that proportion of the columns in the data. Note that, if passing exactly 1, will assume it means taking
+100\% of the columns, not taking a single columns.
+
+If passing `NULL`, will use the full number of columns in the data.}
 
 \item{prob_pick_avg_gain}{\itemize{
 \item For the single-variable model (`ndim=1`), this parameter indicates the probability

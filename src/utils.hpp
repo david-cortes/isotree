@@ -739,9 +739,9 @@ void ColumnSampler::leave_m_cols(size_t m, RNG_engine &rnd_generator)
 
         else if ((long double)m >= (long double)(3./4.) * (long double)this->n_cols)
         {
-            for (this->curr_pos = this->n_cols; this->curr_pos > this->n_cols - m; this->curr_pos--)
+            for (this->curr_pos = this->n_cols-1; this->curr_pos > this->n_cols - m; this->curr_pos--)
             {
-                chosen = std::uniform_int_distribution<size_t>(0, this->curr_pos-1)(rnd_generator);
+                chosen = std::uniform_int_distribution<size_t>(0, this->curr_pos)(rnd_generator);
                 std::swap(this->col_indices[chosen], this->col_indices[this->curr_pos]);
             }
             this->curr_pos = m;

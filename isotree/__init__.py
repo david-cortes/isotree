@@ -192,15 +192,16 @@ class IsolationForest:
         Note that models that use ``prob_pick_pooled_gain`` or ``prob_pick_avg_gain`` are likely to benefit from
         deeper trees (larger ``max_depth``), but deeper trees can result in much slower model fitting and
         predictions.
-    ncols_per_tree : None, int, or float(0,1)
+    ncols_per_tree : None, int, or float(0,1]
         Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
         somewhat similar to the 'mtry' parameter of random forests.
         In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
 
         If passing a number between zero and one, will assume it means taking a sample size that represents
-        that proportion of the columns in the data.
+        that proportion of the columns in the data. If passing exactly 1, will assume it means taking
+        100% of the columns rather than taking 1 column.
 
-        If passing ``None`` (the default), will use the full number of available columns.
+        If passing ``None`` (the default) or zero, will use the full number of available columns.
     prob_pick_avg_gain : float(0, 1)
         * For the single-variable model (``ndim=1``), this parameter indicates the probability
           of making each split by choosing a column and split point in that
@@ -899,7 +900,7 @@ class IsolationForest:
 
         if self.ncols_per_tree is None:
             ncols_per_tree = 0
-        elif self.ncols_per_tree < 1:
+        elif self.ncols_per_tree <= 1:
             ncols_tot = 0
             if X_num is not None:
                 ncols_tot += X_num.shape[1]
@@ -1088,7 +1089,7 @@ class IsolationForest:
 
         if self.ncols_per_tree is None:
             ncols_per_tree = 0
-        elif self.ncols_per_tree < 1:
+        elif self.ncols_per_tree <= 1:
             ncols_tot = 0
             if X_num is not None:
                 ncols_tot += X_num.shape[1]
@@ -2039,7 +2040,7 @@ class IsolationForest:
 
         if self.ncols_per_tree is None:
             ncols_per_tree = 0
-        elif self.ncols_per_tree < 1:
+        elif self.ncols_per_tree <= 1:
             ncols_tot = 0
             if X_num is not None:
                 ncols_tot += X_num.shape[1]
