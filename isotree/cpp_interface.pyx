@@ -124,6 +124,7 @@ cdef extern from "model_joined.hpp":
         double           exp_avg_depth
         double           exp_avg_sep
         size_t           orig_sample_size
+        bool_t           has_range_penalty
 
     ctypedef struct IsoHPlane:
         vector[size_t]    col_num
@@ -151,6 +152,7 @@ cdef extern from "model_joined.hpp":
         double            exp_avg_depth
         double            exp_avg_sep
         size_t            orig_sample_size
+        bool_t            has_range_penalty
 
     ctypedef struct ImputeNode:
         vector[double]          num_sum

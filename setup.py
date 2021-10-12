@@ -59,7 +59,7 @@ class build_ext_subclass( build_ext ):
                 # e.extra_link_args    = ['-fopenmp']
 
                 # ## when testing with clang:
-                # e.extra_compile_args = ['-fopenmp=libiomp5', '-O3', '-march=native', '-std=c++11']
+                # e.extra_compile_args = ['-fopenmp=libiomp5', '-O3', '-march=native', '-std=c++17']
                 # e.extra_link_args    = ['-fopenmp']
 
                 # e.extra_compile_args = ['-O2', '-march=native', '-std=c++11']
@@ -186,7 +186,7 @@ class build_ext_subclass( build_ext ):
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.3.5',
+    version = '0.3.6',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',

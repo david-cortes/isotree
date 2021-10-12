@@ -1045,7 +1045,7 @@ void deserialize_node(ImputeNode &node, itype &in, std::vector<char> &buffer, co
 size_t get_size_model(const IsoForest &model)
 {
     size_t n_bytes = 0;
-    n_bytes += sizeof(uint8_t) * 3;
+    n_bytes += sizeof(uint8_t) * 4;
     n_bytes += sizeof(double) * 2;
     n_bytes += sizeof(size_t) * 2;
     for (const auto &tree : model.trees) {
@@ -1064,9 +1064,10 @@ void serialize_model(const IsoForest &model, otype &out)
     uint8_t data_en[] = {
         (uint8_t)model.new_cat_action,
         (uint8_t)model.cat_split_type,
-        (uint8_t)model.missing_action
+        (uint8_t)model.missing_action,
+        (uint8_t)model.has_range_penalty
     };
-    write_bytes<uint8_t>((void*)data_en, (size_t)3, out);
+    write_bytes<uint8_t>((void*)data_en, (size_t)4, out);
 
     double data_doubles[] = {
         model.exp_avg_depth,
@@ -1094,11 +1095,12 @@ void deserialize_model(IsoForest &model, itype &in)
 {
     if (interrupt_switch) return;
 
-    uint8_t data_en[3];
-    read_bytes<uint8_t>((void*)data_en, (size_t)3, in);
+    uint8_t data_en[4];
+    read_bytes<uint8_t>((void*)data_en, (size_t)4, in);
     model.new_cat_action = (NewCategAction)data_en[0];
     model.cat_split_type = (CategSplit)data_en[1];
     model.missing_action = (MissingAction)data_en[2];
+    model.has_range_penalty = (bool)data_en[3];
 
     double data_doubles[2];
     read_bytes<double>((void*)data_doubles, (size_t)2, in);
@@ -1122,15 +1124,29 @@ void deserialize_model(IsoForest &model, itype &in)
 }
 
 template <class itype, class saved_int_t, class saved_size_t>
-void deserialize_model(IsoForest &model, itype &in, std::vector<char> &buffer, const bool diff_endian)
+void deserialize_model(IsoForest &model, itype &in, std::vector<char> &buffer,
+                       const bool diff_endian, const bool lacks_range_penalty)
 {
     if (interrupt_switch) return;
 
-    uint8_t data_en[3];
-    read_bytes<uint8_t>((void*)data_en, (size_t)3, in);
-    model.new_cat_action = (NewCategAction)data_en[0];
-    model.cat_split_type = (CategSplit)data_en[1];
-    model.missing_action = (MissingAction)data_en[2];
+    if (lacks_range_penalty)
+    {
+        uint8_t data_en[3];
+        read_bytes<uint8_t>((void*)data_en, (size_t)3, in);
+        model.new_cat_action = (NewCategAction)data_en[0];
+        model.cat_split_type = (CategSplit)data_en[1];
+        model.missing_action = (MissingAction)data_en[2];
+    }
+
+    else
+    {
+        uint8_t data_en[4];
+        read_bytes<uint8_t>((void*)data_en, (size_t)4, in);
+        model.new_cat_action = (NewCategAction)data_en[0];
+        model.cat_split_type = (CategSplit)data_en[1];
+        model.missing_action = (MissingAction)data_en[2];
+        model.has_range_penalty = (bool)data_en[3];
+    }
 
     double data_doubles[2];
     read_bytes<double, double>((void*)data_doubles, (size_t)2, in, buffer, diff_endian);
@@ -1179,7 +1195,7 @@ size_t determine_serialized_size_additional_trees(const IsoForest &model, size_t
 size_t get_size_model(const ExtIsoForest &model)
 {
     size_t n_bytes = 0;
-    n_bytes += sizeof(uint8_t) * 3;
+    n_bytes += sizeof(uint8_t) * 4;
     n_bytes += sizeof(double) * 2;
     n_bytes += sizeof(size_t) * 2;
     for (const auto &tree : model.hplanes) {
@@ -1198,9 +1214,10 @@ void serialize_model(const ExtIsoForest &model, otype &out)
     uint8_t data_en[] = {
         (uint8_t)model.new_cat_action,
         (uint8_t)model.cat_split_type,
-        (uint8_t)model.missing_action
+        (uint8_t)model.missing_action,
+        (uint8_t)model.has_range_penalty
     };
-    write_bytes<uint8_t>((void*)data_en, (size_t)3, out);
+    write_bytes<uint8_t>((void*)data_en, (size_t)4, out);
 
     double data_doubles[] = {
         model.exp_avg_depth,
@@ -1229,11 +1246,12 @@ void deserialize_model(ExtIsoForest &model, itype &in)
 {
     if (interrupt_switch) return;
 
-    uint8_t data_en[3];
-    read_bytes<uint8_t>((void*)data_en, (size_t)3, in);
+    uint8_t data_en[4];
+    read_bytes<uint8_t>((void*)data_en, (size_t)4, in);
     model.new_cat_action = (NewCategAction)data_en[0];
     model.cat_split_type = (CategSplit)data_en[1];
     model.missing_action = (MissingAction)data_en[2];
+    model.has_range_penalty = (bool)data_en[3];
 
     double data_doubles[2];
     read_bytes<double>((void*)data_doubles, (size_t)2, in);
@@ -1258,15 +1276,29 @@ void deserialize_model(ExtIsoForest &model, itype &in)
 }
 
 template <class itype, class saved_int_t, class saved_size_t>
-void deserialize_model(ExtIsoForest &model, itype &in, std::vector<char> &buffer, const bool diff_endian)
+void deserialize_model(ExtIsoForest &model, itype &in, std::vector<char> &buffer,
+                       const bool diff_endian, const bool lacks_range_penalty)
 {
     if (interrupt_switch) return;
 
-    uint8_t data_en[3];
-    read_bytes<uint8_t>((void*)data_en, (size_t)3, in);
-    model.new_cat_action = (NewCategAction)data_en[0];
-    model.cat_split_type = (CategSplit)data_en[1];
-    model.missing_action = (MissingAction)data_en[2];
+    if (lacks_range_penalty)
+    {
+        uint8_t data_en[3];
+        read_bytes<uint8_t>((void*)data_en, (size_t)3, in);
+        model.new_cat_action = (NewCategAction)data_en[0];
+        model.cat_split_type = (CategSplit)data_en[1];
+        model.missing_action = (MissingAction)data_en[2];
+    }
+
+    else
+    {
+        uint8_t data_en[4];
+        read_bytes<uint8_t>((void*)data_en, (size_t)4, in);
+        model.new_cat_action = (NewCategAction)data_en[0];
+        model.cat_split_type = (CategSplit)data_en[1];
+        model.missing_action = (MissingAction)data_en[2];
+        model.has_range_penalty = (bool)data_en[3];
+    }
 
     double data_doubles[2];
     read_bytes<double, double>((void*)data_doubles, (size_t)2, in, buffer, diff_endian);
@@ -1397,7 +1429,8 @@ void deserialize_model(Imputer &model, itype &in)
 }
 
 template <class itype, class saved_int_t, class saved_size_t>
-void deserialize_model(Imputer &model, itype &in, std::vector<char> &buffer, const bool diff_endian)
+void deserialize_model(Imputer &model, itype &in, std::vector<char> &buffer,
+                       const bool diff_endian, const bool lacks_range_penalty)
 {
     if (interrupt_switch) return;
 
@@ -1524,11 +1557,13 @@ void check_setup_info
     PlatformSize &saved_int_t,
     PlatformSize &saved_size_t,
     PlatformEndianness &saved_endian,
-    bool &is_deserializable
+    bool &is_deserializable,
+    bool &lacks_range_penalty
 )
 {
     is_deserializable = false;
     has_incomplete_watermark = false;
+    lacks_range_penalty = false;
 
     unsigned char watermark_in[SIZE_WATERMARK];
     read_bytes<unsigned char>((void*)watermark_in, SIZE_WATERMARK, in);
@@ -1552,6 +1587,10 @@ void check_setup_info
     }
     else {
         has_same_endianness = true;
+    }
+
+    if (setup_info[1] == 0 && setup_info[2] == 3 && setup_info[3] == 0) {
+        lacks_range_penalty = true;
     }
 
     if (setup_info[4] == (uint8_t)IsAbnormalDouble)
@@ -1625,6 +1664,7 @@ void check_setup_info(itype &in)
     PlatformSize saved_size_t;
     PlatformEndianness saved_endian;
     bool is_deserializable = false;
+    bool lacks_range_penalty = false;
 
     check_setup_info(
         in,
@@ -1637,7 +1677,8 @@ void check_setup_info(itype &in)
         saved_int_t,
         saved_size_t,
         saved_endian,
-        is_deserializable
+        is_deserializable,
+        lacks_range_penalty
     );
 
     if (!has_watermark) {
@@ -1654,6 +1695,8 @@ void check_setup_info(itype &in)
         throw std::runtime_error("Error: input model was saved in a machine with different 'size_t' type.\n");
     if (!has_same_endianness)
         throw std::runtime_error("Error: input model was saved in a machine with different endianness.\n");
+    if (lacks_range_penalty)
+        throw std::runtime_error("Error: input model was produced with an incompatible earlier version, needs to be re-serialized.\n");
 }
 
 template <class itype>
@@ -1665,7 +1708,8 @@ void check_setup_info
     bool &has_same_endianness,
     PlatformSize &saved_int_t,
     PlatformSize &saved_size_t,
-    PlatformEndianness &saved_endian
+    PlatformEndianness &saved_endian,
+    bool &lacks_range_penalty
 )
 {
     bool has_watermark = false;
@@ -1684,7 +1728,8 @@ void check_setup_info
         saved_int_t,
         saved_size_t,
         saved_endian,
-        is_deserializable
+        is_deserializable,
+        lacks_range_penalty
     );
 
     if (!has_watermark) {
@@ -1775,6 +1820,7 @@ void deserialization_pipeline(Model &model, itype &in)
     PlatformSize saved_int_t;
     PlatformSize saved_size_t;
     PlatformEndianness saved_endian;
+    bool lacks_range_penalty;
 
     check_setup_info(
         in,
@@ -1783,7 +1829,8 @@ void deserialization_pipeline(Model &model, itype &in)
         has_same_endianness,
         saved_int_t,
         saved_size_t,
-        saved_endian
+        saved_endian,
+        lacks_range_penalty
     );
 
     uint8_t model_type = get_model_code(model);
@@ -1793,7 +1840,7 @@ void deserialization_pipeline(Model &model, itype &in)
         throw std::runtime_error("Object to de-serialize does not match with the supplied type.\n");
 
     size_t size_model;
-    if (has_same_int_size && has_same_size_t_size && has_same_endianness)
+    if (has_same_int_size && has_same_size_t_size && has_same_endianness && !lacks_range_penalty)
     {
         read_bytes<size_t>((void*)&size_model, (size_t)1, in);
         deserialize_model(model, in);
@@ -1807,37 +1854,37 @@ void deserialization_pipeline(Model &model, itype &in)
         if (saved_int_t == Is16Bit && saved_size_t == Is32Bit)
         {
             read_bytes<size_t, uint32_t>((void*)&size_model, (size_t)1, in, buffer, diff_endian);
-            deserialize_model<itype, int16_t, uint32_t>(model, in, buffer, diff_endian);
+            deserialize_model<itype, int16_t, uint32_t>(model, in, buffer, diff_endian, lacks_range_penalty);
         }
 
         else if (saved_int_t == Is32Bit && saved_size_t == Is32Bit)
         {
             read_bytes<size_t, uint32_t>((void*)&size_model, (size_t)1, in, buffer, diff_endian);
-            deserialize_model<itype, int32_t, uint32_t>(model, in, buffer, diff_endian);
+            deserialize_model<itype, int32_t, uint32_t>(model, in, buffer, diff_endian, lacks_range_penalty);
         }
 
         else if (saved_int_t == Is64Bit && saved_size_t == Is32Bit)
         {
             read_bytes<size_t, uint32_t>((void*)&size_model, (size_t)1, in, buffer, diff_endian);
-            deserialize_model<itype, int64_t, uint32_t>(model, in, buffer, diff_endian);
+            deserialize_model<itype, int64_t, uint32_t>(model, in, buffer, diff_endian, lacks_range_penalty);
         }
 
         else if (saved_int_t == Is16Bit && saved_size_t == Is64Bit)
         {
             read_bytes<size_t, uint64_t>((void*)&size_model, (size_t)1, in, buffer, diff_endian);
-            deserialize_model<itype, int16_t, uint64_t>(model, in, buffer, diff_endian);
+            deserialize_model<itype, int16_t, uint64_t>(model, in, buffer, diff_endian, lacks_range_penalty);
         }
 
         else if (saved_int_t == Is32Bit && saved_size_t == Is64Bit)
         {
             read_bytes<size_t, uint64_t>((void*)&size_model, (size_t)1, in, buffer, diff_endian);
-            deserialize_model<itype, int32_t, uint64_t>(model, in, buffer, diff_endian);
+            deserialize_model<itype, int32_t, uint64_t>(model, in, buffer, diff_endian, lacks_range_penalty);
         }
 
         else if (saved_int_t == Is64Bit && saved_size_t == Is64Bit)
         {
             read_bytes<size_t, uint64_t>((void*)&size_model, (size_t)1, in, buffer, diff_endian);
-            deserialize_model<itype, int64_t, uint64_t>(model, in, buffer, diff_endian);
+            deserialize_model<itype, int64_t, uint64_t>(model, in, buffer, diff_endian, lacks_range_penalty);
         }
 
         else
@@ -1847,6 +1894,12 @@ void deserialization_pipeline(Model &model, itype &in)
     }
 
     check_interrupt_switch(ss);
+
+    if (lacks_range_penalty)
+    {
+        add_range_penalty(model);
+        check_interrupt_switch(ss);
+    }
 
     /* Not currently used, but left in case the format changes */
     uint8_t ending_type;
@@ -1884,6 +1937,14 @@ void re_serialization_pipeline(const IsoForest &model, char *&out)
     try
     {
         out += sizeof(uint8_t) * 3;
+        if (model.has_range_penalty)
+        {
+            uint8_t has_range_penalty;
+            memcpy(&has_range_penalty, out, sizeof(uint8_t));
+            if (!has_range_penalty)
+                memcpy(out, &has_range_penalty, sizeof(uint8_t));
+        }
+        out += sizeof(uint8_t);
         out += sizeof(double) * 2;
         out += sizeof(size_t);
         
@@ -1946,6 +2007,14 @@ void re_serialization_pipeline(const ExtIsoForest &model, char *&out)
     try
     {
         out += sizeof(uint8_t) * 3;
+        if (model.has_range_penalty)
+        {
+            uint8_t has_range_penalty;
+            memcpy(&has_range_penalty, out, sizeof(uint8_t));
+            if (!has_range_penalty)
+                memcpy(out, &has_range_penalty, sizeof(uint8_t));
+        }
+        out += sizeof(uint8_t);
         out += sizeof(double) * 2;
         out += sizeof(size_t);
         char *pos_ntrees = out;
@@ -2418,7 +2487,8 @@ void inspect_serialized_object
     size_t &size_metadata,
     bool &has_same_int_size,
     bool &has_same_size_t_size,
-    bool &has_same_endianness
+    bool &has_same_endianness,
+    bool &lacks_range_penalty
 )
 {
     auto saved_position = set_return_position(serialized_bytes);
@@ -2448,7 +2518,8 @@ void inspect_serialized_object
         saved_int_t,
         saved_size_t,
         saved_endian,
-        is_compatible
+        is_compatible,
+        lacks_range_penalty
     );
 
     if (!is_isotree_model || !is_compatible)
@@ -2577,7 +2648,7 @@ void inspect_serialized_object
     size_t &size_metadata
 )
 {
-    bool ignored[3];
+    bool ignored[4];
     inspect_serialized_object(
         serialized_bytes,
         is_isotree_model,
@@ -2590,7 +2661,8 @@ void inspect_serialized_object
         size_metadata,
         ignored[0],
         ignored[1],
-        ignored[2]
+        ignored[2],
+        ignored[3]
     );
 }
 
@@ -2763,6 +2835,7 @@ bool check_can_undergo_incremental_serialization(const Model &model, const char 
     bool has_same_int_size;
     bool has_same_size_t_size;
     bool has_same_endianness;
+    bool lacks_range_penalty;
 
     inspect_serialized_object(
         serialized_bytes,
@@ -2776,11 +2849,13 @@ bool check_can_undergo_incremental_serialization(const Model &model, const char 
         size_metadata,
         has_same_int_size,
         has_same_size_t_size,
-        has_same_endianness
+        has_same_endianness,
+        lacks_range_penalty
     );
 
     if (!is_isotree_model || !is_compatible || has_combined_objects ||
-        !has_same_int_size || !has_same_size_t_size || !has_same_endianness)
+        !has_same_int_size || !has_same_size_t_size || !has_same_endianness ||
+        lacks_range_penalty)
         return false;
 
     if (std::is_same<Model, IsoForest>::value) {
@@ -2807,13 +2882,13 @@ bool check_can_undergo_incremental_serialization(const Model &model, const char 
     start += sizeof(size_t);
 
     if (std::is_same<Model, IsoForest>::value) {
-        start += sizeof(uint8_t) * 3;
+        start += sizeof(uint8_t) * 4;
         start += sizeof(double) * 2;
         start += sizeof(size_t);
     }
 
     else if (std::is_same<Model, ExtIsoForest>::value) {
-        start += sizeof(uint8_t) * 3;
+        start += sizeof(uint8_t) * 4;
         start += sizeof(double) * 2;
         start += sizeof(size_t);
     }
@@ -3323,10 +3398,11 @@ void deserialize_model
     const bool has_same_int_size,
     const bool has_same_size_t_size,
     const PlatformSize saved_int_t,
-    const PlatformSize saved_size_t
+    const PlatformSize saved_size_t,
+    const bool lacks_range_penalty
 )
 {
-    if (has_same_endianness && has_same_int_size && has_same_size_t_size)
+    if (has_same_endianness && has_same_int_size && has_same_size_t_size && !lacks_range_penalty)
     {
         deserialize_model(model, in);
         return;
@@ -3336,32 +3412,32 @@ void deserialize_model
 
     if (saved_int_t == Is16Bit && saved_size_t == Is32Bit)
     {
-        deserialize_model<itype, int16_t, uint32_t>(model, in, buffer, !has_same_endianness);
+        deserialize_model<itype, int16_t, uint32_t>(model, in, buffer, !has_same_endianness, lacks_range_penalty);
     }
 
     else if (saved_int_t == Is32Bit && saved_size_t == Is32Bit)
     {
-        deserialize_model<itype, int32_t, uint32_t>(model, in, buffer, !has_same_endianness);
+        deserialize_model<itype, int32_t, uint32_t>(model, in, buffer, !has_same_endianness, lacks_range_penalty);
     }
 
     else if (saved_int_t == Is64Bit && saved_size_t == Is32Bit)
     {
-        deserialize_model<itype, int64_t, uint32_t>(model, in, buffer, !has_same_endianness);
+        deserialize_model<itype, int64_t, uint32_t>(model, in, buffer, !has_same_endianness, lacks_range_penalty);
     }
 
     else if (saved_int_t == Is16Bit && saved_size_t == Is64Bit)
     {
-        deserialize_model<itype, int16_t, uint64_t>(model, in, buffer, !has_same_endianness);
+        deserialize_model<itype, int16_t, uint64_t>(model, in, buffer, !has_same_endianness, lacks_range_penalty);
     }
 
     else if (saved_int_t == Is32Bit && saved_size_t == Is64Bit)
     {
-        deserialize_model<itype, int32_t, uint64_t>(model, in, buffer, !has_same_endianness);
+        deserialize_model<itype, int32_t, uint64_t>(model, in, buffer, !has_same_endianness, lacks_range_penalty);
     }
 
     else if (saved_int_t == Is64Bit && saved_size_t == Is64Bit)
     {
-        deserialize_model<itype, int16_t, uint64_t>(model, in, buffer, !has_same_endianness);
+        deserialize_model<itype, int16_t, uint64_t>(model, in, buffer, !has_same_endianness, lacks_range_penalty);
     }
 
     else
@@ -3388,6 +3464,7 @@ void deserialize_combined
     PlatformSize saved_int_t;
     PlatformSize saved_size_t;
     PlatformEndianness saved_endian;
+    bool lacks_range_penalty;
 
     check_setup_info(
         in,
@@ -3396,7 +3473,8 @@ void deserialize_combined
         has_same_endianness,
         saved_int_t,
         saved_size_t,
-        saved_endian
+        saved_endian,
+        lacks_range_penalty
     );
 
     uint8_t model_in;
@@ -3412,56 +3490,56 @@ void deserialize_combined
     {
         case HasSingleVarModelNext:
         {
-            deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t);
+            deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty);
             break;
         }
         case HasExtModelNext:
         {
-            deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t);
+            deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty);
             break;
         }
         case HasSingleVarModelPlusImputerNext:
         {
-            deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t);
+            deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty);
             check_interrupt_switch(ss);
-            deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t);
+            deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty);
             break;
         }
         case HasExtModelPlusImputerNext:
         {
-            deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t);
+            deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty);
             check_interrupt_switch(ss);
-            deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t);
+            deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty);
             break;
         }
         case HasSingleVarModelPlusMetadataNext:
         {
-            deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t);
+            deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty);
             check_interrupt_switch(ss);
             read_bytes<char>((void*)optional_metadata, size_model[2], in);
             break;
         }
         case HasExtModelPlusMetadataNext:
         {
-            deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t);
+            deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty);
             check_interrupt_switch(ss);
             read_bytes<char>((void*)optional_metadata, size_model[2], in);
             break;
         }
         case HasSingleVarModelPlusImputerPlusMetadataNext:
         {
-            deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t);
+            deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty);
             check_interrupt_switch(ss);
-            deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t);
+            deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty);
             check_interrupt_switch(ss);
             read_bytes<char>((void*)optional_metadata, size_model[2], in);
             break;
         }
         case HasExtModelPlusImputerPlusMetadataNext:
         {
-            deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t);
+            deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty);
             check_interrupt_switch(ss);
-            deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t);
+            deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty);
             check_interrupt_switch(ss);
             read_bytes<char>((void*)optional_metadata, size_model[2], in);
             break;
@@ -3545,4 +3623,53 @@ void deserialize_combined
         imputer,
         optional_metadata
     );
+}
+
+bool check_model_has_range_penalty(const IsoForest &model)
+{
+    for (const auto &tree : model.trees)
+    {
+        for (const auto &node : tree)
+        {
+            if (node.score < 0 && node.col_type == Numeric)
+            {
+                if (node.range_low > -HUGE_VAL && node.range_high < HUGE_VAL)
+                    return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool check_model_has_range_penalty(const ExtIsoForest &model)
+{
+    for (const auto &tree : model.hplanes)
+    {
+        for (const auto &node : tree)
+        {
+            if (node.score < 0)
+            {
+                if (node.range_low > -HUGE_VAL && node.range_high < HUGE_VAL)
+                    return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+void add_range_penalty(IsoForest &model)
+{
+    model.has_range_penalty = check_model_has_range_penalty(model);
+}
+
+void add_range_penalty(ExtIsoForest &model)
+{
+    model.has_range_penalty = check_model_has_range_penalty(model);
+}
+
+void add_range_penalty(Imputer &model)
+{
+    
 }

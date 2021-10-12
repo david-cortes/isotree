@@ -46,9 +46,11 @@
 #ifndef ISOTREE_H
 #define ISOTREE_H
 
+/* This is only used for the serialiation format and might not reflect the
+   actual version of the library, do not use for anything else. */
 #define ISOTREE_VERSION_MAJOR 0
 #define ISOTREE_VERSION_MINOR 3
-#define ISOTREE_VERSION_PATCH 0
+#define ISOTREE_VERSION_PATCH 6
 
 /* For MinGW, needs to be defined before including any headers */
 #if (defined(_WIN32) || defined(_WIN64)) && (SIZE_MAX >= UINT64_MAX)
@@ -312,6 +314,7 @@ typedef struct IsoForest {
     double            exp_avg_depth;
     double            exp_avg_sep;
     size_t            orig_sample_size;
+    bool              has_range_penalty;
 
     IsoForest() = default;
 } IsoForest;
@@ -324,6 +327,7 @@ typedef struct ExtIsoForest {
     double            exp_avg_depth;
     double            exp_avg_sep;
     size_t            orig_sample_size;
+    bool              has_range_penalty;
 
     ExtIsoForest() = default;
 } ExtIsoForest;
@@ -1525,6 +1529,11 @@ void deserialize_combined
     Imputer *imputer,
     char *optional_metadata
 );
+bool check_model_has_range_penalty(const IsoForest &model);
+bool check_model_has_range_penalty(const ExtIsoForest &model);
+void add_range_penalty(IsoForest &model);
+void add_range_penalty(ExtIsoForest &model);
+void add_range_penalty(Imputer &model);
 
 /* sql.cpp */
 ISOTREE_EXPORTED

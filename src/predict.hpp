@@ -194,7 +194,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
         if (
             model_outputs->missing_action == Fail &&
             (model_outputs->new_cat_action != Weighted || prediction_data.categ_data == NULL) &&
-            prediction_data.Xc_indptr == NULL && prediction_data.Xr_indptr == NULL
+            prediction_data.Xc_indptr == NULL && prediction_data.Xr_indptr == NULL &&
+            !model_outputs->has_range_penalty
             )
         {
             #pragma omp parallel for if(nrows > 1) schedule(static) num_threads(nthreads) \
@@ -246,7 +247,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
             model_outputs_ext->missing_action == Fail &&
             prediction_data.categ_data == NULL &&
             prediction_data.Xc_indptr == NULL &&
-            prediction_data.Xr_indptr == NULL
+            prediction_data.Xr_indptr == NULL &&
+            !model_outputs_ext->has_range_penalty
             )
         {
             #pragma omp parallel for if(nrows > 1) schedule(static) num_threads(nthreads) \
@@ -360,7 +362,6 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                                     :
                                 (tree[curr_lev].col_num + row * prediction_data.ncols_numeric)
                             ];
-                    output_depth -= (xval < tree[curr_lev].range_low) || (xval > tree[curr_lev].range_high);
                     curr_lev = (xval <= tree[curr_lev].num_split)?
                                 tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                     break;
@@ -740,7 +741,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
 }
 
 /* this is a simpler version for situations in which there is
-   only numeric data in dense arrays and no missing values */
+   only numeric data in dense arrays, no missing values, no range penalty */
 template <class PredictionData, class sparse_ix>
 [[gnu::hot]]
 void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
@@ -784,8 +785,6 @@ void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
             }
         }
 
-        output_depth -= (hval < hplane[curr_lev].range_low) ||
-                        (hval > hplane[curr_lev].range_high);
         curr_lev      = (hval <= hplane[curr_lev].split_point)?
                          hplane[curr_lev].hplane_left : hplane[curr_lev].hplane_right;
     }
@@ -982,29 +981,12 @@ void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int
     nthreads = 1;
     #endif
     std::vector<WorkerForPredictCSC> worker_memory(nthreads);
-    bool has_range_penalty = true;
 
     bool threw_exception = false;
     std::exception_ptr ex = NULL;
 
     if (model_outputs != NULL)
     {
-        for (auto &tree : model_outputs->trees)
-        {
-            for (auto &node : tree)
-            {
-                if (node.score < 0 && node.col_type == Numeric)
-                {
-                    if (isinf(node.range_low) && isinf(node.range_high))
-                        has_range_penalty = false;
-                    goto got_range_penalty;
-                }
-            }
-
-            got_range_penalty:
-            {}
-        }
-
         #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
                 shared(worker_memory, model_outputs, prediction_data, tree_num, per_tree_depths, threw_exception)
         for (size_t_for tree = 0; tree < (decltype(tree))model_outputs->trees.size(); tree++)
@@ -1040,7 +1022,7 @@ void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int
                                         ((sparse_ix*)NULL) : (tree_num + tree*prediction_data.nrows),
                                    per_tree_depths,
                                    (size_t)0,
-                                   has_range_penalty);
+                                   model_outputs->has_range_penalty);
             }
 
             catch(...)
@@ -1059,22 +1041,6 @@ void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int
 
     else
     {
-        for (auto &tree : model_outputs_ext->hplanes)
-        {
-            for (auto &node : tree)
-            {
-                if (node.score < 0)
-                {
-                    if (isinf(node.range_low) && isinf(node.range_high))
-                        has_range_penalty = false;
-                    goto got_range_penalty2;
-                }
-            }
-
-            got_range_penalty2:
-            {}
-        }
-
         #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
                 shared(worker_memory, model_outputs_ext, prediction_data, tree_num, per_tree_depths, threw_exception)
         for (size_t_for tree = 0; tree < (decltype(tree))model_outputs_ext->hplanes.size(); tree++)
@@ -1104,7 +1070,7 @@ void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int
                                         ((sparse_ix*)NULL) : (tree_num + tree*prediction_data.nrows),
                                     per_tree_depths,
                                     (size_t)0,
-                                    has_range_penalty);
+                                    model_outputs_ext->has_range_penalty);
             }
 
             catch(...)

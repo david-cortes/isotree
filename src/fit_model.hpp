@@ -430,6 +430,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         model_outputs->exp_avg_depth  = expected_avg_depth(sample_size);
         model_outputs->exp_avg_sep = expected_separation_depth(model_params.sample_size);
         model_outputs->orig_sample_size = input_data.nrows;
+        model_outputs->has_range_penalty = penalize_range;
     }
 
     else
@@ -442,6 +443,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         model_outputs_ext->exp_avg_depth  = expected_avg_depth(sample_size);
         model_outputs_ext->exp_avg_sep = expected_separation_depth(model_params.sample_size);
         model_outputs_ext->orig_sample_size = input_data.nrows;
+        model_outputs_ext->has_range_penalty = penalize_range;
     }
 
     if (imputer != NULL)
@@ -843,10 +845,14 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                   impute_nodes,
                   last_tree);
 
-        if (model_outputs != NULL)
+        if (model_outputs != NULL) {
             model_outputs->trees.back().shrink_to_fit();
-        else
+            model_outputs->has_range_penalty = model_outputs->has_range_penalty || penalize_range;
+        }
+        else {
             model_outputs_ext->hplanes.back().shrink_to_fit();
+            model_outputs_ext->has_range_penalty = model_outputs_ext->has_range_penalty || penalize_range;
+        }
 
         if (imputer != NULL)
             imputer->imputer_tree.back().shrink_to_fit();

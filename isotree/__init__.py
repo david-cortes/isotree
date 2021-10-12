@@ -113,7 +113,9 @@ class IsolationForest:
     especially for the single-variable model. In smaller datasets, one might also want to experiment
     with ``weigh_by_kurtosis`` and perhaps lower ``ndim``. If using ``prob_pick_pooled_gain``, models
     are likely to benefit from deeper trees (controlled by ``max_depth``), but using large samples
-    and/or deeper trees can result in significantly slower model fitting and predictions.
+    and/or deeper trees can result in significantly slower model fitting and predictions - in such cases,
+    using ``min_gain`` (with a value like 0.25) with ``max_depth=None`` can offer a better speed/performance
+    trade-off than changing ``max_depth``.
 
     Note
     ----
@@ -174,7 +176,7 @@ class IsolationForest:
         Categorical columns should contain only integer values with a continuous numeration starting at zero,
         with negative values and NaN taken as missing,
         and the array or list passed here should correspond to the column numbers, with numeration starting
-        at zero.
+        at zero. The maximum categorical value should not exceed 'INT_MAX' (typically :math:`2^{31}-1`).
         This might be passed either at construction time or when calling ``fit`` or variations of ``fit``.
         
         This is ignored when the input is passed as a ``DataFrame`` as then it will consider columns as
@@ -192,6 +194,8 @@ class IsolationForest:
         Note that models that use ``prob_pick_pooled_gain`` or ``prob_pick_avg_gain`` are likely to benefit from
         deeper trees (larger ``max_depth``), but deeper trees can result in much slower model fitting and
         predictions.
+
+        If using pooled gain, one might want to substitute ``max_depth`` with ``min_gain``.
     ncols_per_tree : None, int, or float(0,1]
         Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
         somewhat similar to the 'mtry' parameter of random forests.
@@ -263,6 +267,8 @@ class IsolationForest:
         Be aware that ``penalize_range`` can also have a large impact when using ``prob_pick_pooled_gain``.
 
         Under this option, models are likely to produce better results when increasing ``max_depth``.
+        Alternatively, one can also control the depth through ``min_gain`` (for which one might want to
+        set ``max_depth=None``).
 
         Important detail: if using either ``prob_pick_avg_gain`` or ``prob_pick_pooled_gain``, the distribution of
         outlier scores is unlikely to be centered around 0.5.
@@ -278,6 +284,9 @@ class IsolationForest:
         Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
         are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
         splits at a node is below this  threshold, that node becomes a terminal node.
+
+        This can be used as a more sophisticated depth control when using pooled gain (note that ``max_depth``
+        still applies on top of this heuristic).
     missing_action : str, one of "divide" (single-variable only), "impute", "fail", "auto"
         How to handle missing data at both fitting and prediction time. Options are:
         
@@ -838,6 +847,9 @@ class IsolationForest:
             `Categorical`:
                 If their dtype is 'object', 'Categorical', or 'bool'.
             Other dtypes are not supported.
+
+            Note that, if passing NumPy arrays, they are used in column-major order (a.k.a. "Fortran arrays"),
+            and if they are not already in column-major format, will need to create a copy of the data.
         y : None
             Not used. Kept as argument for compatibility with SciKit-learn pipelining.
         sample_weights : None or array(n_samples,)
@@ -853,7 +865,7 @@ class IsolationForest:
             Categorical columns should contain only integer values with a continuous numeration starting at zero,
             with negative values and NaN taken as missing,
             and the array or list passed here should correspond to the column numbers, with numeration starting
-            at zero.
+            at zero. The maximum categorical value should not exceed 'INT_MAX' (typically :math:`2^{31}-1`).
             This might be passed either at construction time or when calling ``fit`` or variations of ``fit``.
             
             This is ignored when the input is passed as a ``DataFrame`` as then it will consider columns as
@@ -1028,7 +1040,7 @@ class IsolationForest:
             Categorical columns should contain only integer values with a continuous numeration starting at zero,
             with negative values and NaN taken as missing,
             and the array or list passed here should correspond to the column numbers, with numeration starting
-            at zero.
+            at zero. The maximum categorical value should not exceed 'INT_MAX' (typically :math:`2^{31}-1`).
             This might be passed either at construction time or when calling ``fit`` or variations of ``fit``.
             
             This is ignored when the input is passed as a ``DataFrame`` as then it will consider columns as
@@ -1713,6 +1725,10 @@ class IsolationForest:
             If 'X' is sparse and one wants to obtain the outlier score or average depth or tree
             numbers, it's highly recommended to pass it in CSC format as it will be much faster
             when the number of trees or rows is large.
+
+            While the 'X' used by ``fit`` always needs to be in column-major order, predictions
+            can be done on data that is in either row-major or column-major orders, with row-major
+            being faster for dense data.
         output : str, one of "score", "avg_depth", "tree_num", "tree_depths"
             Desired type of output. Options are:
 
@@ -1947,7 +1963,7 @@ class IsolationForest:
             Categorical columns should contain only integer values with a continuous numeration starting at zero,
             with negative values and NaN taken as missing,
             and the array or list passed here should correspond to the column numbers, with numeration starting
-            at zero.
+            at zero. The maximum categorical value should not exceed 'INT_MAX' (typically :math:`2^{31}-1`).
             This might be passed either at construction time or when calling ``fit`` or variations of ``fit``.
             
             This is ignored when the input is passed as a ``DataFrame`` as then it will consider columns as
@@ -2229,7 +2245,12 @@ class IsolationForest:
 
         * Systems with different bit endianness (e.g. x86 and PPC64 in non-le mode).
 
-        * Versions of this package from 0.3.0 onwards.
+        * Versions of this package from 0.3.0 onwards, **but only forwards compatible**
+          (e.g. a model saved with versions 0.3.0 to 0.3.5 can be loaded under version
+          0.3.6, but not the other way around, and attempting to do so will cause crashes
+          and memory curruptions without an informative error message). **This last point applies
+          also to models saved through pickle**. Note that loading a
+          model produced by an earlier version of the library might be slightly slower.
 
         But will not be compatible between:
 

@@ -614,10 +614,14 @@ IsolationForest IsolationForest::deserialize_template(itype &inp, int nthreads)
 
     IsolationForest out = IsolationForest(nthreads, ndim, ntrees, build_imputer);
 
-    if (model.trees.size())
+    if (model.trees.size()) {
         out.get_model() = std::move(model);
-    else
+        out.penalize_range = out.get_model().has_range_penalty;
+    }
+    else {
         out.get_model_ext() = std::move(model_ext);
+        out.penalize_range = out.get_model_ext().has_range_penalty;
+    }
     if (imputer.imputer_tree.size())
         out.get_imputer() = std::move(imputer);
 

@@ -45,7 +45,9 @@
 #' especially for the single-variable model. In smaller datasets, one might also want to experiment
 #' with `weigh_by_kurtosis` and perhaps lower `ndim`.If using `prob_pick_pooled_gain`, models
 #' are likely to benefit from deeper trees (controlled by `max_depth`), but using large samples
-#' and/or deeper trees can result in significantly slower model fitting and predictions.
+#' and/or deeper trees can result in significantly slower model fitting and predictions - in such cases,
+#' using `min_gain` (with a value like 0.25) with `max_depth=NULL` can offer a better speed/performance
+#' trade-off than changing `max_depth`.
 #' 
 #' @section Matching models from references:
 #' Shorthands for parameter combinations that match some of the references:\itemize{
@@ -118,9 +120,9 @@
 #' @param categ_cols Columns that hold categorical features (should be an integer vector),
 #' when the data is passed as a matrix.
 #' Categorical columns should contain only integer values with a continuous numeration starting at zero,
-#' with negative values and NaN taken as missing,
+#' with negative values and NA/NaN taken as missing,
 #' and the vector passed here should correspond to the column numbers, with numeration starting
-#' at one.
+#' at one. The maximum categorical value should not exceed `.Machine$integer.max` (typically \eqn{2^{31}-1}{2^31-1}).
 #' 
 #' This is ignored when the input is passed as a `data.frame` as then it will consider columns as
 #' categorical depending on their type/class (see the documentation for `data` for details).
@@ -139,6 +141,8 @@
 #' Note that models that use `prob_pick_pooled_gain` or `prob_pick_avg_gain` are likely to benefit from
 #' deeper trees (larger `max_depth`), but deeper trees can result in much slower model fitting and
 #' predictions.
+#' 
+#' If using pooled gain, one might want to substitute `max_depth` with `min_gain`.
 #' @param ncols_per_tree Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
 #' somewhat similar to the 'mtry' parameter of random forests.
 #' In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
@@ -206,6 +210,8 @@
 #' Be aware that `penalize_range` can also have a large impact when using `prob_pick_pooled_gain`.
 #' 
 #' Under this option, models are likely to produce better results when increasing `max_depth`.
+#' Alternatively, one can also control the depth through ``min_gain`` (for which one might want to
+#' set `max_depth=NULL`).
 #'
 #' Important detail: if using either `prob_pick_avg_gain` or `prob_pick_pooled_gain`, the distribution of
 #' outlier scores is unlikely to be centered around 0.5.
@@ -218,6 +224,9 @@
 #' @param min_gain Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
 #' are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
 #' splits at a node is below this  threshold, that node becomes a terminal node.
+#' 
+#' This can be used as a more sophisticated depth control when using pooled gain (note that `max_depth`
+#' still applies on top of this heuristic).
 #' @param missing_action How to handle missing data at both fitting and prediction time. Options are
 #' \itemize{
 #'   \item `"divide"` (for the single-variable model only, recommended), which will follow both branches and combine
@@ -1530,7 +1539,12 @@ isotree.append.trees <- function(model, other) {
 #' as long as the file was produced on a system that was 16-bit, 32-bit, or 64-bit,
 #' and as long as each saved value fits within the range of the machine's int type.
 #' \item Systems with different bit endianness (e.g. x86 and PPC64 in non-le mode).
-#' \item Versions of this package from 0.3.0 onwards.
+#' \item Versions of this package from 0.3.0 onwards, \bold{but only forwards compatible}
+#' (e.g. a model saved with versions 0.3.0 to 0.3.5 can be loaded under version
+#' 0.3.6, but not the other way around, and attempting to do so will cause crashes
+#' and memory curruptions without an informative error message). \bold{This last point applies
+#' also to models saved through save, saveRDS, qsave, and similar}. Note that loading a
+#' model produced by an earlier version of the library might be slightly slower.
 #' }
 #' 
 #' But will not be compatible between:\itemize{

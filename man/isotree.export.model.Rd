@@ -72,7 +72,12 @@ and as long as each saved value fits within the range of the machine's 'size_t' 
 as long as the file was produced on a system that was 16-bit, 32-bit, or 64-bit,
 and as long as each saved value fits within the range of the machine's int type.
 \item Systems with different bit endianness (e.g. x86 and PPC64 in non-le mode).
-\item Versions of this package from 0.3.0 onwards.
+\item Versions of this package from 0.3.0 onwards, \bold{but only forwards compatible}
+(e.g. a model saved with versions 0.3.0 to 0.3.5 can be loaded under version
+0.3.6, but not the other way around, and attempting to do so will cause crashes
+and memory curruptions without an informative error message). \bold{This last point applies
+also to models saved through save, saveRDS, qsave, and similar}. Note that loading a
+model produced by an earlier version of the library might be slightly slower.
 }
 
 But will not be compatible between:\itemize{

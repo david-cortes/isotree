@@ -148,6 +148,7 @@ typedef struct IsoForest {
     double            exp_avg_depth;
     double            exp_avg_sep;
     size_t            orig_sample_size;
+    bool              has_range_penalty;
     IsoForest() = default;
 } IsoForest;
 
@@ -159,6 +160,7 @@ typedef struct ExtIsoForest {
     double            exp_avg_depth;
     double            exp_avg_sep;
     size_t            orig_sample_size;
+    bool              has_range_penalty;
     ExtIsoForest() = default;
 } ExtIsoForest;
 
@@ -1189,6 +1191,10 @@ void inspect_serialized_object
 *       function 'fit_iforest'; or an already-allocated object (should be initialized through
 *       the default constructor) into which a serialized object of the same class will be
 *       de-serialized. In the latter case, the contents of this object will be overwritten.
+*       Note that this will only be able to load models generated with isotree version 0.3.0
+*       and later, and that these serialized models are forwards compatible but not backwards
+*       compatible (that is, a model saved with 0.3.0 can be loaded with 0.3.6, but not the other
+*       way around).
 * - output (out)
 *       A writable object or stream in which to save/persist/serialize the
 *       model or imputer object. In the functions that do not take this as a parameter,
