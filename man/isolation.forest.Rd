@@ -56,7 +56,8 @@ from package `SparseM` (class `matrix.csc`).
 If passing a `data.frame`, will assume that columns are:
 \itemize{
   \item Numerical, if they are of types `numeric`, `integer`, `Date`, `POSIXct`.
-  \item Categorical, if they are of type `character`, `factor`, `bool`.
+  \item Categorical, if they are of type `character`, `factor`, `bool`. Note that,
+  if factors are ordered, the order will be ignored here.
 }
 Other input and column types are not supported.}
 

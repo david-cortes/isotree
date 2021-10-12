@@ -842,10 +842,12 @@ class IsolationForest:
         X : array or array-like (n_samples, n_features)
             Data to which to fit the model. Can pass a NumPy array, Pandas DataFrame, or SciPy sparse CSC matrix.
             If passing a DataFrame, will assume that columns are:
-            `Numeric`:
-                If their dtype is a subtype of NumPy's 'number' or 'datetime64'.
-            `Categorical`:
-                If their dtype is 'object', 'Categorical', or 'bool'.
+            
+             - Numeric, if their dtype is a subtype of NumPy's 'number' or 'datetime64'.
+            
+             - Categorical, if their dtype is 'object', 'Categorical', or 'bool'. Note that,
+               if `Categorical` dtypes are ordered, the order will be ignored here.
+            
             Other dtypes are not supported.
 
             Note that, if passing NumPy arrays, they are used in column-major order (a.k.a. "Fortran arrays"),
@@ -1009,10 +1011,12 @@ class IsolationForest:
         X : array or array-like (n_samples, n_features)
             Data to which to fit the model. Can pass a NumPy array, Pandas DataFrame, or SciPy sparse CSC matrix.
             If passing a DataFrame, will assume that columns are:
-            `Numeric`:
-                If their dtype is a subtype of NumPy's 'number' or 'datetime64'.
-            `Categorical`:
-                If their dtype is 'object', 'Categorical', or 'bool'.
+            
+             - Numeric, if their dtype is a subtype of NumPy's 'number' or 'datetime64'.
+            
+             - Categorical, if their dtype is 'object', 'Categorical', or 'bool'. Note that,
+               if `Categorical` dtypes are ordered, the order will be ignored here.
+            
             Other dtypes are not supported.
         column_weights : None or array(n_features,)
             Sampling weights for each column in 'X'. Ignored when picking columns by deterministic criterion.
@@ -1947,8 +1951,7 @@ class IsolationForest:
         Parameters
         ----------
         X : array or array-like (n_samples, n_features)
-            Data to which to fit the model and whose missing values need to be imputed. Can pass a NumPy array, Pandas DataFrame,
-            or SciPy sparse CSC matrix.
+            Data to which to fit the model and whose missing values need to be imputed. Can pass a NumPy array, Pandas DataFrame, or SciPy sparse CSC matrix (see the documentation of ``fit`` for more details).
 
             If the model was fit to a DataFrame with categorical columns, must also be a DataFrame.
         y : None
@@ -1992,8 +1995,13 @@ class IsolationForest:
         ----------
         X : array or array-like (n_samples, n_features)
             Data to which to fit the new tree. Can pass a NumPy array, Pandas DataFrame, or SciPy sparse CSC matrix.
-            If passing a DataFrame, will assume that columns are categorical if their dtype is 'object', 'Categorical', or 'bool',
-            and will assume they are numerical if their dtype is a subtype of NumPy's 'number' or 'datetime64'.
+            If passing a DataFrame, will assume that columns are:
+            
+             - Numeric, if their dtype is a subtype of NumPy's 'number' or 'datetime64'.
+            
+             - Categorical, if their dtype is 'object', 'Categorical', or 'bool'. Note that,
+               if `Categorical` dtypes are ordered, the order will be ignored here.
+            
             Other dtypes are not supported.
         sample_weights : None or array(n_samples,)
             Sample observation weights for each row of 'X', with higher weights indicating
