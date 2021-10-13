@@ -41,7 +41,7 @@ isolation.forest(
   square_dist = FALSE,
   sample_weights = NULL,
   column_weights = NULL,
-  random_seed = 1,
+  seed = 1,
   nthreads = parallel::detectCores()
 )
 }
@@ -103,12 +103,15 @@ as suggested in [4], which makes the models slightly different than in [3].}
 Only used when deciding splits by gain (see documentation for parameters `prob_pick_avg_gain` and `prob_pick_pooled_gain`).
 Recommended value in reference [4] is 10. Ignored for single-variable model.}
 
-\item{categ_cols}{Columns that hold categorical features (should be an integer vector),
-when the data is passed as a matrix.
-Categorical columns should contain only integer values with a continuous numeration starting at zero,
-with negative values and NA/NaN taken as missing,
-and the vector passed here should correspond to the column numbers, with numeration starting
-at one. The maximum categorical value should not exceed `.Machine$integer.max` (typically \eqn{2^{31}-1}{2^31-1}).
+\item{categ_cols}{Columns that hold categorical features,
+when the data is passed as a matrix (either dense or sparse).
+Can be passed as an integer vector (numeration starting at 1)
+denoting the indices of the columns that are categorical, or as a character vector denoting the
+names of the columns that are categorical, assuming that `data` has column names.
+
+Categorical columns should contain only integer values with a continuous numeration starting at \bold{zero}
+(not at one as is typical in R packages), and with negative values and NA/NaN taken as missing.
+The maximum categorical value should not exceed `.Machine$integer.max` (typically \eqn{2^{31}-1}{2^31-1}).
 
 This is ignored when the input is passed as a `data.frame` as then it will consider columns as
 categorical depending on their type/class (see the documentation for `data` for details).}
@@ -247,6 +250,12 @@ the sub-sample from which the split was done did not have. Options are
   \item `"random"`, which will assing a branch (coefficient in the extended model) at random for
   each category beforehand, even if no observations had that category when fitting the model.
   Note that this can produce biased results when deciding splits by a gain criterion.
+  
+  Important: under this option, if the model is fitted to a `data.frame`, when calling `predict`
+  on new data which contains new factor levels (unseen in the data to which the model was fitted),
+  they will be added to the model's state on-the-fly. This means that, if calling `predict` on data
+  which has new categories, there might be inconsistencies in the results if predictions are done in
+  parallel or if passing the same data in batches or with different row orders.
 }
 Ignored when passing `categ_split_type` = `"single_categ"`.}
 
@@ -393,7 +402,7 @@ not be repeated, otherwise the column weights passed here will not end up matchi
 to `data`, will assume the column order is the same as in there, regardless of whether the entries passed to
 `column_weights` are named or not.}
 
-\item{random_seed}{Seed that will be used for random number generation.}
+\item{seed}{Seed that will be used for random number generation.}
 
 \item{nthreads}{Number of parallel threads to use. If passing a negative number, will use
 the maximum number of available threads in the system. Note that, the more threads,

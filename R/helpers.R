@@ -45,12 +45,18 @@ check.nthreads <- function(nthreads) {
     return(as.integer(nthreads))
 }
 
-check.categ.cols <- function(categ_cols) {
+check.categ.cols <- function(categ_cols, data) {
     if (is.null(categ_cols) || !NROW(categ_cols))
         return(NULL)
-    categ_cols <- as.integer(categ_cols)
-    if (anyNA(categ_cols))
-        stop("'categ_cols' cannot contain missing values.")
+    categ_cols_i <- as.integer(categ_cols)
+    if (anyNA(categ_cols_i) && NROW(colnames(data))) {
+        idx <- match(categ_cols, colnames(data))
+        if (anyNA(idx))
+            stop("'categ_cols' contains invalid columns.")
+        categ_cols <- idx
+    } else {
+        categ_cols <- categ_cols_i
+    }
     if (any(categ_cols < 1))
         stop("'categ_cols' contains invalid column indices.")
     if (any(duplicated(categ_cols)))
@@ -178,7 +184,7 @@ process.data <- function(data, sample_weights = NULL, column_weights = NULL, rec
         outp$X_cat       <-  X_cat
         outp$categ_cols  <-  categ_cols
         outp$categ_max   <-  categ_max
-        outp$ncat        <-  categ_max + 1L
+        outp$ncat        <-  pmax(categ_max + 1L, integer(length(categ_max)))
         outp$cols_num    <-  cols_num
         outp$ncols_num   <-  ncol(data)
         outp$ncols_cat   <-  ncols_cat
@@ -271,7 +277,8 @@ process.data <- function(data, sample_weights = NULL, column_weights = NULL, rec
     stop("Unexpected error.")
 }
 
-process.data.new <- function(data, metadata, allow_csr = FALSE, allow_csc = TRUE, enforce_shape = FALSE) {
+process.data.new <- function(data, metadata, allow_csr = FALSE, allow_csc = TRUE,
+                             enforce_shape = FALSE, mix_new_categ_and_missing = FALSE) {
     if (!NROW(data)) stop("'data' contains zero rows.")
     if (inherits(data, "sparseVector") && !inherits(data, "dsparseVector"))
         stop("Sparse vectors only allowed as 'dsparseVector' class.")
@@ -309,7 +316,8 @@ process.data.new <- function(data, metadata, allow_csr = FALSE, allow_csc = TRUE
         Xc_indptr  =  integer(),
         Xr         =  numeric(),
         Xr_ind     =  integer(),
-        Xr_indptr  =  integer()
+        Xr_indptr  =  integer(),
+        cat_levs   =  list()
     )
 
     avoid_sparse_sort <- FALSE
@@ -460,7 +468,6 @@ process.data.new <- function(data, metadata, allow_csr = FALSE, allow_csc = TRUE
             data  <- data[metadata$cols_num]
         }
 
-        X_cat[sweep(X_cat, 2, metadata$categ_max, ">")] <- -1L
         if (!inherits(X_cat, "matrix"))
             X_cat <- as.matrix(X_cat)
         X_cat <- as.integer(X_cat)
@@ -474,7 +481,7 @@ process.data.new <- function(data, metadata, allow_csr = FALSE, allow_csc = TRUE
     if (inherits(data, "data.frame") &&
         (NROW(metadata$categ_cols) ||
         (!NROW(metadata$cols_num) && !NROW(metadata$cols_cat)))
-        ) {
+    ) {
         data <- as.data.frame(lapply(data, cast.df.col.to.num))
         data <- as.matrix(data)
     }
@@ -503,8 +510,18 @@ process.data.new <- function(data, metadata, allow_csr = FALSE, allow_csc = TRUE
             
             if (metadata$ncols_cat > 0L) {
                 outp$X_cat <- data[, metadata$cols_cat, drop = FALSE]
-                outp$X_cat <- as.data.frame(mapply(function(cl, levs) factor(cl, levs),
-                                                   outp$X_cat, metadata$cat_levs,
+                if (mix_new_categ_and_missing) {
+                    new_cat_levels <- metadata$cat_levs
+                } else {
+                    outp$X_cat     <- lapply(outp$X_cat, factor)
+                    new_cat_levels <- lapply(outp$X_cat, levels)
+                    new_cat_levels <- mapply(function(old_levs, new_levs) c(old_levs, setdiff(new_levs, old_levs)),
+                                             metadata$cat_levs, new_cat_levels,
+                                             SIMPLIFY = FALSE, USE.NAMES = TRUE)
+                    outp$cat_levs  <- new_cat_levels
+                }
+                outp$X_cat <- as.data.frame(mapply(factor,
+                                                   outp$X_cat, new_cat_levels,
                                                    SIMPLIFY = FALSE, USE.NAMES = FALSE))
                 outp$X_cat <- as.data.frame(lapply(outp$X_cat, function(x) ifelse(is.na(x), -1L, as.integer(x) - 1L)))
                 outp$X_cat <- unname(as.integer(as.matrix(outp$X_cat)))
@@ -812,7 +829,7 @@ take.metadata <- function(metadata) {
             build_imputer = metadata$model_info$build_imputer, min_imp_obs = metadata$params$min_imp_obs,
             depth_imp = metadata$params$depth_imp, weigh_imp_rows = metadata$params$weigh_imp_rows
         ),
-        metadata  = list(
+        metadata  = as.environment(list(
             ncols_num  =  metadata$data_info$ncols_numeric,
             ncols_cat  =  metadata$data_info$ncols_categ,
             cols_num   =  unlist(metadata$data_info$cols_numeric),
@@ -820,7 +837,7 @@ take.metadata <- function(metadata) {
             cat_levs   =  metadata$data_info$cat_levels,
             categ_cols =  metadata$data_info$categ_cols,
             categ_max  =  metadata$data_info$categ_max
-        ),
+        )),
         random_seed  =  metadata$params$random_seed,
         nthreads     =  metadata$model_info$nthreads,
         cpp_obj      =  as.environment(list(

@@ -26,7 +26,8 @@ The same `model` object now modified, as invisible.
 }
 \description{
 Adds a single tree fit to the full (non-subsampled) data passed here. Must
-have the same columns as previously-fitted data.
+have the same columns as previously-fitted data. Categorical columns, if any,
+may have new categories.
 }
 \details{
 For safety purposes, the model object can be deep copied (including the underlying C++ object)

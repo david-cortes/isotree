@@ -324,6 +324,14 @@ class IsolationForest:
             Will assing a branch (coefficient in the extended model) at random for each category beforehand, even if no observations
             had that category when fitting the model. Note that this can produce biased results when deciding
             splits by a gain criterion.
+
+            Important: under this option, if the model is fitted to a ``DataFrame``, when calling ``predict``
+            on new data which contains new categories (unseen in the data to which the model was fitted),
+            they will be added to the model's state on-the-fly. This means that, if calling ``predict`` on data
+            which has new categories, there might be inconsistencies in the results if predictions are done in
+            parallel or if passing the same data in batches or with different row orders. It also means that
+            the ``predict`` function will not be thread-safe (e.g. cannot be used alongside ``joblib`` with a
+            backend that uses shared memory).
         ``"auto"``:
             Will select "weighted" for the single-variable model and "impute" for the extended model.
         Ignored when passing 'categ_split_type' = 'single_categ'.
@@ -1357,7 +1365,7 @@ class IsolationForest:
                     self._cat_max_lev = []
                 if not isinstance(self._cat_max_lev, np.ndarray):
                     self._cat_max_lev = np.array(self._cat_max_lev)
-                ncat = self._cat_max_lev + 1
+                ncat = (self._cat_max_lev + 1).clip(0)
                 if ncat.dtype != ctypes.c_int:
                     ncat = ncat.astype(ctypes.c_int)
         else:
@@ -1409,7 +1417,8 @@ class IsolationForest:
 
         return X_num, X_cat, ncat, sample_weights, column_weights, nrows
 
-    def _process_data_new(self, X, allow_csr = True, allow_csc = True, prefer_row_major = False):
+    def _process_data_new(self, X, allow_csr = True, allow_csc = True, prefer_row_major = False,
+                          keep_new_cat_levels = False):
         if X.__class__.__name__ == "DataFrame":
             if ((self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]) > 0) and (self.categ_cols is None):
                 if self.categ_cols is None:
@@ -1438,10 +1447,32 @@ class IsolationForest:
                 if self._ncols_categ > 0:
                     if self.categ_cols is None:
                         X_cat = X[self.cols_categ_].copy()
-                        for cl in range(self._ncols_categ):
-                            X_cat[self.cols_categ_[cl]] = pd.Categorical(X_cat[self.cols_categ_[cl]], self._cat_mapping[cl]).codes
+
+                        if (not keep_new_cat_levels) and \
+                        (
+                            (self.new_categ_action == "impute" and self.missing_action == "impute") or
+                            (self.new_categ_action == "weighted" and self.missing_action == "divide")
+                        ):
+                            for cl in range(self._ncols_categ):
+                                X_cat[self.cols_categ_[cl]] = pd.Categorical(X_cat[self.cols_categ_[cl]],
+                                                                             self._cat_mapping[cl]).codes
+                        else:
+                            new_cat_mapping = deepcopy(self._cat_mapping)
+                            swap_mapping = False
+                            for cl in range(self._ncols_categ):
+                                X_cat[self.cols_categ_[cl]] = pd.Categorical(X_cat[self.cols_categ_[cl]])
+                                new_levs = np.setdiff1d(X_cat[self.cols_categ_[cl]].cat.categories, self._cat_mapping[cl])
+                                if new_levs.shape[0]:
+                                    swap_mapping = True
+                                    new_cat_mapping[cl] = np.r_[new_cat_mapping[cl], new_levs]
+                                X_cat[self.cols_categ_[cl]] = pd.Categorical(X_cat[self.cols_categ_[cl]],
+                                                                             new_cat_mapping[cl]).codes
+
+                            if (keep_new_cat_levels or self.new_categ_action == "random") and swap_mapping:
+                                self._cat_mapping = new_cat_mapping
                     else:
                         X_cat = X.iloc[:, self.categ_cols]
+                    
                     X_cat = X_cat.to_numpy()
                     if X_cat.dtype != ctypes.c_int:
                         X_cat = X_cat.astype(ctypes.c_int)
@@ -1769,7 +1800,7 @@ class IsolationForest:
         """
         assert self.is_fitted_
         assert output in ["score", "avg_depth", "tree_num", "tree_depths"]
-        X_num, X_cat, nrows = self._process_data_new(X, prefer_row_major = True)
+        X_num, X_cat, nrows = self._process_data_new(X, prefer_row_major = True, keep_new_cat_levels = False)
         if (output in ["tree_num", "tree_depths"]) and (self.ndim == 1):
             if self.missing_action == "divide":
                 raise ValueError("Cannot output tree numbers/depths when using 'missing_action' = 'divide'.")
@@ -1873,7 +1904,7 @@ class IsolationForest:
             else:
                 X = np.vstack([X, X_ref])
 
-        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False, prefer_row_major = False)
+        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False, prefer_row_major = False, keep_new_cat_levels = False)
         if nrows == 1:
             raise ValueError("Cannot calculate pairwise distances for only 1 row.")
 
@@ -1930,7 +1961,7 @@ class IsolationForest:
         if self.missing_action == "fail":
             raise ValueError("Cannot impute missing values when using 'missing_action' = 'fail'.")
 
-        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = True, allow_csc = False, prefer_row_major = True)
+        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = True, allow_csc = False, prefer_row_major = True, keep_new_cat_levels = False)
         if X.__class__.__name__ != "DataFrame":
             if X_num is not None:
                 if X_num.shape[1] == self._ncols_numeric:
@@ -1997,6 +2028,12 @@ class IsolationForest:
         Adds a single tree fit to the full (non-subsampled) data passed here. Must
         have the same columns as previously-fitted data.
 
+        Note
+        ----
+        This function is not thread-safe - that is, it will produce problems if one tries to call
+        this function on the same model object in parallel through e.g. ``joblib`` with a shared-memory
+        backend (which is not the default).
+
         Parameters
         ----------
         X : array or array-like (n_samples, n_features)
@@ -2007,6 +2044,7 @@ class IsolationForest:
             
              - Categorical, if their dtype is 'object', 'Categorical', or 'bool'. Note that,
                if `Categorical` dtypes are ordered, the order will be ignored here.
+               Categorical columns, if any, may have new categories.
             
             Other dtypes are not supported.
         sample_weights : None or array(n_samples,)
@@ -2038,7 +2076,7 @@ class IsolationForest:
                 self.ntrees = trees_restore
             return self
         
-        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False, prefer_row_major = False)
+        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False, prefer_row_major = False, keep_new_cat_levels = True)
         if sample_weights is not None:
             sample_weights = np.array(sample_weights).reshape(-1)
             if (X_num is not None) and (X_num.dtype != sample_weights.dtype):
@@ -2059,6 +2097,8 @@ class IsolationForest:
         ncat = None
         if self._ncols_categ > 0:
             ncat = np.array([arr.shape[0] for arr in self._cat_mapping]).astype(ctypes.c_int)
+        if (ncat is None) and (X_cat is not None) and (X_cat.shape[1]):
+            ncat = X_cat.max(axis=0).clip(0)
         if self.max_depth == "auto":
             max_depth = 0
             limit_depth = True
@@ -2100,6 +2140,7 @@ class IsolationForest:
                                ctypes.c_size_t(ncols_per_tree).value,
                                ctypes.c_bool(limit_depth).value,
                                ctypes.c_bool(self.penalize_range).value,
+                               ctypes.c_bool(self.standardize_data),
                                ctypes.c_bool(self.weigh_by_kurtosis).value,
                                ctypes.c_double(self.prob_pick_avg_gain).value,
                                ctypes.c_double(self.prob_split_avg_gain).value,
@@ -2158,6 +2199,12 @@ class IsolationForest:
         This function will not perform any checks on the inputs, and passing two incompatible
         models (e.g. fit to different numbers of columns) will result in wrong results and
         potentially crashing the Python process when using it.
+
+        Note
+        ----
+        This function is not thread-safe - that is, it will produce problems if one tries to call
+        this function on the same model object in parallel through e.g. ``joblib`` with a shared-memory
+        backend (which is not the default).
 
         Parameters
         ----------

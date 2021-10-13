@@ -796,6 +796,8 @@ cdef class isoforest_cpp_obj:
                     Xc_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
                     Xc_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
         if X_cat is not None:
+            if ncat.dtype != ctypes.c_int:
+                ncat = ncat.astype(ctypes.c_int)
             categ_data_ptr     =  get_ptr_int_mat(X_cat)
             ncat_ptr           =  get_ptr_int_vec(ncat)
         if sample_weights is not None:

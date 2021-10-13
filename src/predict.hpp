@@ -942,9 +942,22 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
                                 case SubSet:
                                 {
                                     if (cval >= (int)hplane[curr_lev].cat_coef[ncols_categ].size())
-                                        hval += hplane[curr_lev].fill_new[ncols_categ];
+                                    {
+                                        if (model_outputs.new_cat_action == Random) {
+                                            cval = cval % (int)hplane[curr_lev].cat_coef[ncols_categ].size();
+                                            hval += hplane[curr_lev].cat_coef[ncols_categ][cval];
+                                        }
+
+                                        else {
+                                            hval += hplane[curr_lev].fill_new[ncols_categ];
+                                        }
+                                    }
+                                    
                                     else
+                                    {
                                         hval += hplane[curr_lev].cat_coef[ncols_categ][cval];
+                                    }
+                                    
                                     break;
                                 }
                             }

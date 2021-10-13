@@ -118,12 +118,15 @@
 #' @param ntry In the extended model with non-random splits, how many random combinations to try for determining the best gain.
 #' Only used when deciding splits by gain (see documentation for parameters `prob_pick_avg_gain` and `prob_pick_pooled_gain`).
 #' Recommended value in reference [4] is 10. Ignored for single-variable model.
-#' @param categ_cols Columns that hold categorical features (should be an integer vector),
-#' when the data is passed as a matrix.
-#' Categorical columns should contain only integer values with a continuous numeration starting at zero,
-#' with negative values and NA/NaN taken as missing,
-#' and the vector passed here should correspond to the column numbers, with numeration starting
-#' at one. The maximum categorical value should not exceed `.Machine$integer.max` (typically \eqn{2^{31}-1}{2^31-1}).
+#' @param categ_cols Columns that hold categorical features,
+#' when the data is passed as a matrix (either dense or sparse).
+#' Can be passed as an integer vector (numeration starting at 1)
+#' denoting the indices of the columns that are categorical, or as a character vector denoting the
+#' names of the columns that are categorical, assuming that `data` has column names.
+#' 
+#' Categorical columns should contain only integer values with a continuous numeration starting at \bold{zero}
+#' (not at one as is typical in R packages), and with negative values and NA/NaN taken as missing.
+#' The maximum categorical value should not exceed `.Machine$integer.max` (typically \eqn{2^{31}-1}{2^31-1}).
 #' 
 #' This is ignored when the input is passed as a `data.frame` as then it will consider columns as
 #' categorical depending on their type/class (see the documentation for `data` for details).
@@ -253,6 +256,12 @@
 #'   \item `"random"`, which will assing a branch (coefficient in the extended model) at random for
 #'   each category beforehand, even if no observations had that category when fitting the model.
 #'   Note that this can produce biased results when deciding splits by a gain criterion.
+#'   
+#'   Important: under this option, if the model is fitted to a `data.frame`, when calling `predict`
+#'   on new data which contains new factor levels (unseen in the data to which the model was fitted),
+#'   they will be added to the model's state on-the-fly. This means that, if calling `predict` on data
+#'   which has new categories, there might be inconsistencies in the results if predictions are done in
+#'   parallel or if passing the same data in batches or with different row orders.
 #' }
 #' Ignored when passing `categ_split_type` = `"single_categ"`.
 #' @param categ_split_type Whether to split categorical features by assigning sub-sets of them to each branch (by passing `"subset"` there),
@@ -377,7 +386,7 @@
 #' not be repeated, otherwise the column weights passed here will not end up matching. If passing a `data.frame`
 #' to `data`, will assume the column order is the same as in there, regardless of whether the entries passed to
 #' `column_weights` are named or not.
-#' @param random_seed Seed that will be used for random number generation.
+#' @param seed Seed that will be used for random number generation.
 #' @param nthreads Number of parallel threads to use. If passing a negative number, will use
 #' the maximum number of available threads in the system. Note that, the more threads,
 #' the more memory will be allocated, even if the thread does not end up being used.
@@ -622,7 +631,7 @@ isolation.forest <- function(data,
                              depth_imp = "higher", weigh_imp_rows = "inverse",
                              output_score = FALSE, output_dist = FALSE, square_dist = FALSE,
                              sample_weights = NULL, column_weights = NULL,
-                             random_seed = 1, nthreads = parallel::detectCores()) {
+                             seed = 1, nthreads = parallel::detectCores()) {
     ### validate inputs
     if (NROW(data) < 3L)
         stop("Input data has too few rows.")
@@ -662,7 +671,7 @@ isolation.forest <- function(data,
     check.pos.int(ndim,            "ndim")
     check.pos.int(ntry,            "ntry")
     check.pos.int(min_imp_obs,     "min_imp_obs")
-    check.pos.int(random_seed,     "random_seed")
+    check.pos.int(seed,            "seed")
     check.pos.int(ncols_per_tree,  "ncols_per_tree")
     
     allowed_missing_action    <-  c("divide",       "impute",   "fail")
@@ -744,7 +753,7 @@ isolation.forest <- function(data,
     
     nthreads <- check.nthreads(nthreads)
 
-    categ_cols <- check.categ.cols(categ_cols)
+    categ_cols <- check.categ.cols(categ_cols, data)
 
     if (is.data.frame(data)) {
         subst_sample_weights <- head(as.character(substitute(sample_weights)), 1L)
@@ -818,7 +827,7 @@ isolation.forest <- function(data,
     ntry            <-  as.integer(ntry)
     max_depth       <-  as.integer(max_depth)
     min_imp_obs     <-  as.integer(min_imp_obs)
-    random_seed     <-  as.integer(random_seed)
+    seed            <-  as.integer(seed)
     nthreads        <-  as.integer(nthreads)
     ncols_per_tree  <-  as.integer(ncols_per_tree)
     
@@ -880,7 +889,7 @@ isolation.forest <- function(data,
                              missing_action, all_perm,
                              build_imputer, output_imputations, min_imp_obs,
                              depth_imp, weigh_imp_rows,
-                             random_seed, nthreads)
+                             seed, nthreads)
     
     if (cpp_outputs$err)
         stop("Procedure was interrupted.")
@@ -915,7 +924,7 @@ isolation.forest <- function(data,
             build_imputer = build_imputer, min_imp_obs = min_imp_obs,
             depth_imp = depth_imp, weigh_imp_rows = weigh_imp_rows
         ),
-        metadata  = list(
+        metadata  = as.environment(list(
             ncols_num  =  pdata$ncols_num,
             ncols_cat  =  pdata$ncols_cat,
             cols_num   =  pdata$cols_num,
@@ -923,8 +932,8 @@ isolation.forest <- function(data,
             cat_levs   =  pdata$cat_levs,
             categ_cols =  pdata$categ_cols,
             categ_max  =  pdata$categ_max
-            ),
-        random_seed  =  random_seed,
+            )),
+        random_seed  =  seed,
         nthreads     =  nthreads,
         cpp_obj      =  as.environment(list(
             ptr         =  cpp_outputs$model_ptr,
@@ -1104,7 +1113,18 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
     
     pdata <- process.data.new(newdata, object$metadata,
                               !(type %in% c("dist", "avg_sep")),
-                              type != "impute", type == "impute")
+                              type != "impute", type == "impute",
+                              ((object$params$new_categ_action  == "impute" &&
+                                object$params$missing_action == "impute")
+                                ||
+                               (object$params$new_categ_action == "weighted" &&
+                                object$params$missing_action == "divide")))
+
+    if (object$params$new_categ_action == "random" && NROW(pdata$X_cat) &&
+        NROW(object$metadata$cat_levs) && NROW(pdata$cat_levs)
+    ) {
+        object$metadata$cat_levs <- pdata$cat_levs
+    }
 
     square_mat   <-  as.logical(square_mat)
     score_array  <-  numeric()
@@ -1250,7 +1270,8 @@ summary.isolation_forest <- function(object, ...) {
 
 #' @title Add additional (single) tree to isolation forest model
 #' @description Adds a single tree fit to the full (non-subsampled) data passed here. Must
-#' have the same columns as previously-fitted data.
+#' have the same columns as previously-fitted data. Categorical columns, if any,
+#' may have new categories.
 #' @param model An Isolation Forest object as returned by \link{isolation.forest}, to which an additional tree will be added.
 #' 
 #' This object will be modified in-place.
@@ -1295,12 +1316,22 @@ isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights 
         stop(sprintf("'column_weights' has different dimension than number of columns in data (%d vs. %d).",
                      NCOL(data), NROW(column_weights)))
     
+    pdata <- process.data.new(data, model$metadata, FALSE)
+
+    if (NROW(pdata$X_cat) && NROW(model$metadata$cat_levs) && NROW(pdata$cat_levs)) {
+        model$metadata$cat_levs <- pdata$cat_levs
+    }
+
     if (model$metadata$ncols_cat)
         ncat  <-  sapply(model$metadata$cat_levs, NROW)
     else
         ncat  <-  integer()
-    
-    pdata <- process.data.new(data, model$metadata, FALSE)
+
+    if (NROW(pdata$X_cat) && !NROW(ncat)) {
+        ncat <- apply(matrix(pdata$X_cat, nrow=pdata$nrows), 2, max)
+        ncat <- pmax(ncat, integer(length(ncat)))
+        ncat <- as.integer(ncat)
+    }
 
     serialized <- model$cpp_obj$serialized
     if (!NROW(serialized))
@@ -1884,6 +1915,17 @@ isotree.deep.copy <- function(model) {
             imp_ser     =  model$cpp_obj$imputer_ser
         )
     )
+    new_model$metadata <- as.environment(
+        list(
+            ncols_num  =  model$metadata$ncols_num,
+            ncols_cat  =  model$metadata$ncols_cat,
+            cols_num   =  model$metadata$cols_num,
+            cols_cat   =  model$metadata$cols_cat,
+            cat_levs   =  model$metadata$cat_levs,
+            categ_cols =  model$metadata$categ_cols,
+            categ_max  =  model$metadata$categ_max
+        )
+    )
     new_model$params$ntrees <- deepcopy_int(model$params$ntrees)
     return(new_model)
 }
@@ -1940,5 +1982,16 @@ isotree.subset.trees <- function(model, trees_take) {
         imp_ptr     =  new_cpp_obj$imp_ptr,
         imp_ser     =  new_cpp_obj$imputer_ser
     ))
+    new_model$metadata <- as.environment(
+        list(
+            ncols_num  =  model$metadata$ncols_num,
+            ncols_cat  =  model$metadata$ncols_cat,
+            cols_num   =  model$metadata$cols_num,
+            cols_cat   =  model$metadata$cols_cat,
+            cat_levs   =  model$metadata$cat_levs,
+            categ_cols =  model$metadata$categ_cols,
+            categ_max  =  model$metadata$categ_max
+        )
+    )
     return(new_model)
 }
