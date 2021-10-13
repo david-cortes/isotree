@@ -1362,15 +1362,34 @@ void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, signed
                          bool move_new_to_left, size_t &st_NA, size_t &end_NA, size_t &split_ix)
 {
     size_t temp;
+    int cval;
 
     /* if NAs are not to be bothered with, just need to do a single pass */
     if (missing_action == Fail && new_cat_action != Weighted)
     {
+        /* in this case, will need to fill 'split_ix', otherwise need to fill 'st_NA' and 'end_NA' */
         if (new_cat_action == Smallest && move_new_to_left)
         {
             for (size_t row = st; row <= end; row++)
             {
-                if (split_categ[ x[ix_arr[row]] ] == 1 || x[ix_arr[row]] >= ncat)
+                cval = x[ix_arr[row]];
+                if (cval >= ncat || split_categ[cval] == 1 || split_categ[cval] == (-1))
+                {
+                    temp        = ix_arr[st];
+                    ix_arr[st]  = ix_arr[row];
+                    ix_arr[row] = temp;
+                    st++;
+                }
+            }
+        }
+
+        else if (new_cat_action == Random)
+        {
+            for (size_t row = st; row <= end; row++)
+            {
+                cval = x[ix_arr[row]];
+                cval = (cval >= ncat)? (cval % ncat) : cval;
+                if (split_categ[cval] == 1)
                 {
                     temp        = ix_arr[st];
                     ix_arr[st]  = ix_arr[row];
@@ -1384,7 +1403,8 @@ void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, signed
         {
             for (size_t row = st; row <= end; row++)
             {
-                if (split_categ[ x[ix_arr[row]] ] == 1)
+                cval = x[ix_arr[row]];
+                if (cval < ncat && split_categ[cval] == 1)
                 {
                     temp        = ix_arr[st];
                     ix_arr[st]  = ix_arr[row];
@@ -1397,26 +1417,19 @@ void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, signed
         split_ix = st;
     }
 
-    /* otherwise, first put to the left all l.e. and not NA, then all NAs to the end of the left */
-    else
+    /* if there are new categories, and their direction was decided at random,
+       can just reuse what was randomly decided for previous columns by taking
+       a remainder w.r.t. the number of previous columns. Note however that this
+       will not be an unbiased decision if the model used a gain criterion. */
+    else if (new_cat_action == Random)
     {
-        for (size_t row = st; row <= end; row++)
-        {
-            if (x[ix_arr[row]] >= 0 && split_categ[ x[ix_arr[row]] ] == 1)
-            {
-                temp        = ix_arr[st];
-                ix_arr[st]  = ix_arr[row];
-                ix_arr[row] = temp;
-                st++;
-            }
-        }
-        st_NA = st;
-
-        if (new_cat_action == Weighted)
+        if (missing_action == Impute && !move_new_to_left)
         {
             for (size_t row = st; row <= end; row++)
             {
-                if (x[ix_arr[row]] < 0 || split_categ[ x[ix_arr[row]] ] == (-1))
+                cval = x[ix_arr[row]];
+                cval = (cval >= ncat)? (cval % ncat) : cval;
+                if (cval < 0 || split_categ[cval] == 1)
                 {
                     temp        = ix_arr[st];
                     ix_arr[st]  = ix_arr[row];
@@ -1427,6 +1440,123 @@ void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, signed
         }
 
         else
+        {
+            for (size_t row = st; row <= end; row++)
+            {
+                cval = x[ix_arr[row]];
+                cval = (cval >= ncat)? (cval % ncat) : cval;
+                if (cval >= 0 && split_categ[cval] == 1)
+                {
+                    temp        = ix_arr[st];
+                    ix_arr[st]  = ix_arr[row];
+                    ix_arr[row] = temp;
+                    st++;
+                }
+            }
+        }
+        st_NA = st;
+
+        if (!(missing_action == Impute && !move_new_to_left))
+        {
+            for (size_t row = st; row <= end; row++)
+            {
+                if (x[ix_arr[row]] < 0)
+                {
+                    temp        = ix_arr[st];
+                    ix_arr[st]  = ix_arr[row];
+                    ix_arr[row] = temp;
+                    st++;
+                }
+            }
+        }
+        end_NA = st;
+    }
+
+    /* otherwise, first put to the left all l.e. and not NA, then all NAs to the end of the left */
+    else
+    {
+        /* Note: if having 'new_cat_action'='Smallest' and 'missing_action'='Impute', missing values
+           and new categories will necessarily go into different branches, thus it's possible to do
+           all the movements in one pass if certain conditions match. */
+
+        if (new_cat_action == Smallest && move_new_to_left)
+        {
+            for (size_t row = st; row <= end; row++)
+            {
+                cval = x[ix_arr[row]];
+                if (cval >= 0 && (cval >= ncat || split_categ[cval] == 1 || split_categ[cval] == (-1)))
+                {
+                    temp        = ix_arr[st];
+                    ix_arr[st]  = ix_arr[row];
+                    ix_arr[row] = temp;
+                    st++;
+                }
+            }
+        }
+
+        else if (missing_action == Impute && !move_new_to_left)
+        {
+            for (size_t row = st; row <= end; row++)
+            {
+                cval = x[ix_arr[row]];
+                if (cval < ncat && (cval < 0 || split_categ[cval] == 1))
+                {
+                    temp        = ix_arr[st];
+                    ix_arr[st]  = ix_arr[row];
+                    ix_arr[row] = temp;
+                    st++;
+                }
+            }
+        }
+
+        else
+        {
+            for (size_t row = st; row <= end; row++)
+            {
+                cval = x[ix_arr[row]];
+                if (cval >= 0 && cval < ncat && split_categ[cval] == 1)
+                {
+                    temp        = ix_arr[st];
+                    ix_arr[st]  = ix_arr[row];
+                    ix_arr[row] = temp;
+                    st++;
+                }
+            }
+        }
+
+        st_NA = st;
+
+        if (new_cat_action == Weighted && missing_action == Divide)
+        {
+            for (size_t row = st; row <= end; row++)
+            {
+                cval = x[ix_arr[row]];
+                if (cval < 0 || cval >= ncat || split_categ[cval] == (-1))
+                {
+                    temp        = ix_arr[st];
+                    ix_arr[st]  = ix_arr[row];
+                    ix_arr[row] = temp;
+                    st++;
+                }
+            }
+        }
+
+        else if (new_cat_action == Weighted)
+        {
+            for (size_t row = st; row <= end; row++)
+            {
+                cval = x[ix_arr[row]];
+                if (cval >= 0 && (cval >= ncat || split_categ[cval] == (-1)))
+                {
+                    temp        = ix_arr[st];
+                    ix_arr[st]  = ix_arr[row];
+                    ix_arr[row] = temp;
+                    st++;
+                }
+            }
+        }
+
+        else if (missing_action == Divide)
         {
             for (size_t row = st; row <= end; row++)
             {

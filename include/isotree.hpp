@@ -547,8 +547,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Cannot be changed from
 *       what was originally passed to 'fit_iforest'.
 * - ncat
-*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Cannot be changed from
-*       what was originally passed to 'fit_iforest'.
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). May contain new categories,
+*       but should keep the same encodings that were used for previous categories.
 * - Xc[nnz]
 *       Pointer to numeric data in sparse numeric matrix in CSC format (column-compressed).
 *       Pass NULL if there are no sparse numeric columns.

@@ -322,7 +322,8 @@ class IsolationForest:
             common category.
         ``"random"``:
             Will assing a branch (coefficient in the extended model) at random for each category beforehand, even if no observations
-            had that category when fitting the model.
+            had that category when fitting the model. Note that this can produce biased results when deciding
+            splits by a gain criterion.
         ``"auto"``:
             Will select "weighted" for the single-variable model and "impute" for the extended model.
         Ignored when passing 'categ_split_type' = 'single_categ'.
@@ -833,6 +834,13 @@ class IsolationForest:
     def _get_imputer_obj(self):
         return self._cpp_obj.get_imputer()
 
+    def _check_can_use_imputer(self, X_cat):
+        if (self.build_imputer) and (self.ndim == 1) and (X_cat is not None) and (X_cat.shape[1]):
+            if self.new_categ_action == "weighted":
+                raise ValueError("Cannot build imputer with 'ndim=1' + 'new_categ_action=weighted'.")
+            if self.missing_action == "divide":
+                raise ValueError("Cannot build imputer with 'ndim=1' + 'missing_action=divide'.")
+
     def fit(self, X, y = None, sample_weights = None, column_weights = None, categ_cols = None):
         """
         Fit isolation forest model to data
@@ -889,6 +897,8 @@ class IsolationForest:
             raise ValueError("Cannot pass column weights when weighting columns by kurtosis.")
         self._reset_obj()
         X_num, X_cat, ncat, sample_weights, column_weights, nrows = self._process_data(X, sample_weights, column_weights)
+
+        self._check_can_use_imputer(X_cat)
 
         if self.sample_size is None:
             sample_size = nrows
@@ -1087,6 +1097,8 @@ class IsolationForest:
 
         self._reset_obj()
         X_num, X_cat, ncat, sample_weights, column_weights, nrows = self._process_data(X, None, column_weights)
+
+        self._check_can_use_imputer(X_cat)
 
         if (output_imputed) and (issparse(X_num)):
             msg  = "Imputing missing values from CSC matrix on-the-fly can be very slow, "
@@ -1846,12 +1858,6 @@ class IsolationForest:
             parameter 'output'. Shape and size depends on parameter ``square_mat``, or ``X_ref`` if passed.
         """
         assert self.is_fitted_
-        if not self._is_extended_:
-            if (self._ncols_categ) and (self.new_categ_action == "weighted") and (self.missing_action != "divide"):
-                msg  = "Cannot predict distances when using "
-                msg += "'new_categ_action' = 'weighted' "
-                msg += "if 'missing_action' != 'divide'."
-                raise ValueError(msg)
         assert output in ["dist", "avg_sep"]
 
         if X_ref is None:

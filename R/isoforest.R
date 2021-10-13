@@ -252,6 +252,7 @@
 #'   of the least common category.
 #'   \item `"random"`, which will assing a branch (coefficient in the extended model) at random for
 #'   each category beforehand, even if no observations had that category when fitting the model.
+#'   Note that this can produce biased results when deciding splits by a gain criterion.
 #' }
 #' Ignored when passing `categ_split_type` = `"single_categ"`.
 #' @param categ_split_type Whether to split categorical features by assigning sub-sets of them to each branch (by passing `"subset"` there),
@@ -838,6 +839,20 @@ isolation.forest <- function(data,
     
     ### split column types
     pdata <- process.data(data, sample_weights, column_weights, recode_categ, categ_cols)
+
+    ### extra check for invalid combinations with categorical data
+    if (ndim == 1L && build_imputer &&
+        (new_categ_action == "weighted" || missing_action == "divide") &&
+        NROW(pdata$X_cat)
+    ) {
+        if (new_categ_action == "weighted") {
+            stop("Cannot build imputer with 'ndim=1' + 'new_categ_action=weighted'.")
+        } else if (missing_action == "divide") {
+            stop("Cannot build imputer with 'ndim=1' + 'missing_action=divide'.")
+        } else {
+            stop("Internal error.")
+        }
+    }
     
     ### extra check for potential integer overflow
     if (all_perm && (ndim == 1) &&
@@ -1077,13 +1092,6 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
         newdata <- matrix(newdata, nrow=1)
     }
     
-    if (type %in% c("dist", "avg_sep")) {
-        if (object$metadata$ncols_cat > 0 && object$params$new_categ_action == "weighted" && object$params$missing_action != "divide") {
-            stop(paste0("Cannot predict distances when using ",
-                        "'new_categ_action' = 'weighted' ",
-                        "if 'missing_action' != 'divide'."))
-        }
-    }
     if (type %in% "impute" && (is.null(object$params$build_imputer) || !(object$params$build_imputer)))
         stop("Cannot impute missing values with model that was built with 'build_imputer' =  'FALSE'.")
     

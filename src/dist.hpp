@@ -421,6 +421,8 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
 
     /* continue splitting recursively */
     size_t orig_end = workspace.end;
+    if (model_outputs.new_cat_action == Weighted)
+        goto missing_action_divide;
     switch(model_outputs.missing_action)
     {
         case Impute:
@@ -456,6 +458,7 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
 
         case Divide: /* new_cat_action = 'Weighted' will also fall here */
         {
+            missing_action_divide:
           /* TODO: maybe here it shouldn't copy the whole ix_arr,
              but then it'd need to re-generate it from outside too */
             std::vector<double> weights_arr;
@@ -830,7 +833,9 @@ void initialize_worker_for_sim(WorkerForSimilarity  &workspace,
           workspace.rmat.resize((prediction_data.nrows - n_from) * n_from, 0);
     }
 
-    if (model_outputs != NULL && (model_outputs->missing_action == Divide || model_outputs->new_cat_action == Weighted))
+    if (model_outputs != NULL &&
+        (model_outputs->missing_action == Divide ||
+         (model_outputs->new_cat_action == Weighted && prediction_data.categ_data != NULL)))
     {
         if (!workspace.weights_arr.size())
             workspace.weights_arr.resize(prediction_data.nrows, 1);

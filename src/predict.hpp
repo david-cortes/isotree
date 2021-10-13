@@ -401,6 +401,8 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                                 {
                                     case Random:
                                     {
+                                        cval = (cval >= tree[curr_lev].cat_split.size())?
+                                                (cval % (int)tree[curr_lev].cat_split.size()) : cval;
                                         curr_lev = (tree[curr_lev].cat_split[cval])?
                                                     tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                                         break;
@@ -676,6 +678,8 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                                     {
                                         case Random:
                                         {
+                                            cval = (cval >= tree[curr_lev].cat_split.size())?
+                                                    (cval % (int)tree[curr_lev].cat_split.size()) : cval;
                                             curr_lev = (tree[curr_lev].cat_split[cval])?
                                                         tree[curr_lev].tree_left : tree[curr_lev].tree_right;
                                             break;
@@ -1003,8 +1007,11 @@ void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int
                               ptr_worker->ix_arr.end(),
                               (size_t)0);
 
-                    if (model_outputs->missing_action == Divide)
+                    if (model_outputs->missing_action == Divide ||
+                        (model_outputs->new_cat_action == Weighted && prediction_data.categ_data != NULL)
+                    ) {
                         ptr_worker->weights_arr.resize(prediction_data.nrows);
+                    }
                 }
 
                 ptr_worker->st  = 0;
@@ -1201,6 +1208,8 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
     }
 
     /* continue splitting recursively */
+    if (model_outputs.new_cat_action == Weighted)
+        goto missing_action_divide;
     switch(model_outputs.missing_action)
     {
         case Impute:
@@ -1260,6 +1269,7 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
 
         case Divide:
         {
+            missing_action_divide:
             /* TODO: maybe here it shouldn't copy the whole ix_arr,
                but then it'd need to re-generate it from outside too */
             std::vector<double> weights_arr;

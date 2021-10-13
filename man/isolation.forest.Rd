@@ -246,6 +246,7 @@ the sub-sample from which the split was done did not have. Options are
   of the least common category.
   \item `"random"`, which will assing a branch (coefficient in the extended model) at random for
   each category beforehand, even if no observations had that category when fitting the model.
+  Note that this can produce biased results when deciding splits by a gain criterion.
 }
 Ignored when passing `categ_split_type` = `"single_categ"`.}
 
