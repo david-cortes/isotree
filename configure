@@ -2643,12 +2643,12 @@ double *__restrict x;
   ;
   return 0;
 }
-    SUPPORTS_RESTRICT="-DSUPPORTS_RESTRICT=1"
-    SUPPORTS_RESTRICT=""
-
 _ACEOF
 if ac_fn_cxx_try_compile "$LINENO"
 then :
+  SUPPORTS_RESTRICT="-DSUPPORTS_RESTRICT=1"
+else $as_nop
+  SUPPORTS_RESTRICT=""
 
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
