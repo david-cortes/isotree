@@ -140,6 +140,10 @@ void set_isotree_parameters
     uint8_t*   weigh_imp_rows
 )
 {
+    if (!isotree_parameters) {
+        cerr << "Passed NULL pointer to 'set_isotree_parameters'." << std::endl;
+        return;
+    }
     IsoTree_Params *params = (IsoTree_Params*)isotree_parameters;
     if (nthreads) params->nthreads = *nthreads;
     if (random_seed) params->random_seed = *random_seed;
@@ -207,36 +211,40 @@ void get_isotree_parameters
     uint8_t*   weigh_imp_rows
 )
 {
+    if (!isotree_parameters) {
+        cerr << "Passed NULL pointer to 'get_isotree_parameters'." << std::endl;
+        return;
+    }
     const IsoTree_Params *params = (IsoTree_Params*)isotree_parameters;
-    *nthreads = params->nthreads;
-    *random_seed = params->random_seed;
-    *ndim = params->ndim;
-    *ntry = params->ntry;
-    *coef_type = params->coef_type;
-    *with_replacement = params->with_replacement;
-    *weight_as_sample = params->weight_as_sample;
-    *sample_size = params->sample_size;
-    *ntrees = params->ntrees;
-    *max_depth = params->max_depth;
-    *ncols_per_tree = params->ncols_per_tree;
-    *limit_depth = params->limit_depth;
-    *penalize_range = params->penalize_range;
-    *standardize_data = params->standardize_data;
-    *weigh_by_kurt = params->weigh_by_kurt;
-    *prob_pick_by_gain_avg = params->prob_pick_by_gain_avg;
-    *prob_split_by_gain_avg = params->prob_split_by_gain_avg;
-    *prob_pick_by_gain_pl = params->prob_pick_by_gain_pl;
-    *prob_split_by_gain_pl = params->prob_split_by_gain_pl;
-    *min_gain = params->min_gain;
-    *missing_action = params->missing_action;
-    *cat_split_type = params->cat_split_type;
-    *new_cat_action = params->new_cat_action;
-    *coef_by_prop = params->coef_by_prop;
-    *all_perm = params->all_perm;
-    *build_imputer = params->build_imputer;
-    *min_imp_obs = params->min_imp_obs;
-    *depth_imp = params->depth_imp;
-    *weigh_imp_rows = params->weigh_imp_rows;
+    if (nthreads) *nthreads = params->nthreads;
+    if (random_seed) *random_seed = params->random_seed;
+    if (ndim) *ndim = params->ndim;
+    if (ntry) *ntry = params->ntry;
+    if (coef_type) *coef_type = params->coef_type;
+    if (with_replacement) *with_replacement = params->with_replacement;
+    if (weight_as_sample) *weight_as_sample = params->weight_as_sample;
+    if (sample_size) *sample_size = params->sample_size;
+    if (ntrees) *ntrees = params->ntrees;
+    if (max_depth) *max_depth = params->max_depth;
+    if (ncols_per_tree) *ncols_per_tree = params->ncols_per_tree;
+    if (limit_depth) *limit_depth = params->limit_depth;
+    if (penalize_range) *penalize_range = params->penalize_range;
+    if (standardize_data) *standardize_data = params->standardize_data;
+    if (weigh_by_kurt) *weigh_by_kurt = params->weigh_by_kurt;
+    if (prob_pick_by_gain_avg) *prob_pick_by_gain_avg = params->prob_pick_by_gain_avg;
+    if (prob_split_by_gain_avg) *prob_split_by_gain_avg = params->prob_split_by_gain_avg;
+    if (prob_pick_by_gain_pl) *prob_pick_by_gain_pl = params->prob_pick_by_gain_pl;
+    if (prob_split_by_gain_pl) *prob_split_by_gain_pl = params->prob_split_by_gain_pl;
+    if (min_gain) *min_gain = params->min_gain;
+    if (missing_action) *missing_action = params->missing_action;
+    if (cat_split_type) *cat_split_type = params->cat_split_type;
+    if (new_cat_action) *new_cat_action = params->new_cat_action;
+    if (coef_by_prop) *coef_by_prop = params->coef_by_prop;
+    if (all_perm) *all_perm = params->all_perm;
+    if (build_imputer) *build_imputer = params->build_imputer;
+    if (min_imp_obs) *min_imp_obs = params->min_imp_obs;
+    if (depth_imp) *depth_imp = params->depth_imp;
+    if (weigh_imp_rows) *weigh_imp_rows = params->weigh_imp_rows;
 }
 
 

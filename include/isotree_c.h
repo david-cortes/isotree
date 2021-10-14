@@ -287,8 +287,8 @@ void set_isotree_parameters
     WeighImpRows_t*  weigh_imp_rows
 );
 
-/*  This function will overwrite the values in all of the pointers, outputting
-    the current values in the C++ opaque struct. */
+/*  This function will overwrite the values in all of the non-NULL pointers,
+    outputting the current values in the C++ opaque struct. */
 ISOTREE_EXPORTED
 void get_isotree_parameters
 (
