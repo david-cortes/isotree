@@ -656,7 +656,7 @@ class IsolationForest:
             raise ValueError("Cannot impute missing values when passing 'missing_action' = 'fail'.")
 
         if ndim == 1:
-            if new_categ_action == "impute":
+            if (categ_split_type != "single_categ") and (new_categ_action == "impute"):
                 raise ValueError("'new_categ_action' = 'impute' not supported in single-variable model.")
         else:
             if (prob_split_avg_gain > 0) or (prob_split_pooled_gain > 0):
@@ -666,7 +666,7 @@ class IsolationForest:
                 raise ValueError(msg)
             if missing_action == "divide":
                 raise ValueError("'missing_action' = 'divide' not supported in extended model.")
-            if new_categ_action == "weighted":
+            if (categ_split_type != "single_categ") and (new_categ_action == "weighted"):
                 raise ValueError("'new_categ_action' = 'weighted' not supported in extended model.")
 
         if (weigh_by_kurtosis) and (ndim == 1) and (prob_pick_pooled_gain + prob_split_avg_gain) >= 1:
@@ -844,7 +844,7 @@ class IsolationForest:
 
     def _check_can_use_imputer(self, X_cat):
         if (self.build_imputer) and (self.ndim == 1) and (X_cat is not None) and (X_cat.shape[1]):
-            if self.new_categ_action == "weighted":
+            if (self.categ_split_type != "single_categ") and (self.new_categ_action == "weighted"):
                 raise ValueError("Cannot build imputer with 'ndim=1' + 'new_categ_action=weighted'.")
             if self.missing_action == "divide":
                 raise ValueError("Cannot build imputer with 'ndim=1' + 'missing_action=divide'.")
@@ -1450,8 +1450,11 @@ class IsolationForest:
 
                         if (not keep_new_cat_levels) and \
                         (
-                            (self.new_categ_action == "impute" and self.missing_action == "impute") or
-                            (self.new_categ_action == "weighted" and self.missing_action == "divide")
+                            (self.new_categ_action == "impute" and self.missing_action == "impute")
+                                or
+                            (self.new_categ_action == "weighted" and
+                             self.categ_split_type != "single_categ"
+                             and self.missing_action == "divide")
                         ):
                             for cl in range(self._ncols_categ):
                                 X_cat[self.cols_categ_[cl]] = pd.Categorical(X_cat[self.cols_categ_[cl]],
@@ -1804,7 +1807,7 @@ class IsolationForest:
         if (output in ["tree_num", "tree_depths"]) and (self.ndim == 1):
             if self.missing_action == "divide":
                 raise ValueError("Cannot output tree numbers/depths when using 'missing_action' = 'divide'.")
-            if (self._ncols_categ > 0) and (self.new_categ_action == "weighted"):
+            if (self._ncols_categ > 0) and (self.new_categ_action == "weighted") and (self.categ_split_type != "single_categ"):
                 raise ValueError("Cannot output tree numbers/depths when using 'new_categ_action' = 'weighted'.")
             if (nrows == 1) and (output == "tree_num"):
                 warnings.warn("Predicting tree number is slow, not recommended to do for 1 row at a time.")

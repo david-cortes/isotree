@@ -731,7 +731,7 @@ isolation.forest <- function(data,
     }
     
     if (ndim == 1) {
-        if (new_categ_action == "impute")
+        if (categ_split_type != "single_categ" && new_categ_action == "impute")
             stop("'new_categ_action' = 'impute' not supported in single-variable model.")
     } else {
         if ((prob_split_avg_gain + prob_split_pooled_gain) > 0) {
@@ -741,7 +741,7 @@ isolation.forest <- function(data,
         }
         if (missing_action == "divide")
             stop("'missing_action' = 'divide' not supported in extended model.")
-        if (new_categ_action == "weighted")
+        if (categ_split_type != "single_categ" && new_categ_action == "weighted")
             stop("'new_categ_action' = 'weighted' not supported in extended model.")
     }
 
@@ -851,15 +851,12 @@ isolation.forest <- function(data,
 
     ### extra check for invalid combinations with categorical data
     if (ndim == 1L && build_imputer &&
-        (new_categ_action == "weighted" || missing_action == "divide") &&
-        NROW(pdata$X_cat)
+        ((new_categ_action == "weighted" && NROW(pdata$X_cat)) || missing_action == "divide")
     ) {
-        if (new_categ_action == "weighted") {
+        if (categ_split_type != "single_categ" && new_categ_action == "weighted") {
             stop("Cannot build imputer with 'ndim=1' + 'new_categ_action=weighted'.")
         } else if (missing_action == "divide") {
             stop("Cannot build imputer with 'ndim=1' + 'missing_action=divide'.")
-        } else {
-            stop("Internal error.")
         }
     }
     
@@ -1092,8 +1089,12 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
         stop("Cannot pass sparse inputs if the model was fit to categorical variables in a data.frame.")
     }
     if ((type %in% c("tree_num", "tree_depths")) && (object$params$ndim == 1L)) {
-        if ((object$metadata$ncols_cat > 0) && (object$params$new_categ_action == "weighted"))
+        if ((object$metadata$ncols_cat > 0) &&
+            (object$params$categ_split_type != "single_categ") &&
+            (object$params$new_categ_action == "weighted")
+        ) {
             stop("Cannot output tree numbers/depths when using 'new_categ_action' = 'weighted'.")
+        }
         if (object$params$missing_action == "divide")
             stop("Cannot output tree numbers/depths when using 'missing_action' = 'divide'.")
     }
@@ -1102,7 +1103,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
     }
     
     if (type %in% "impute" && (is.null(object$params$build_imputer) || !(object$params$build_imputer)))
-        stop("Cannot impute missing values with model that was built with 'build_imputer' =  'FALSE'.")
+        stop("Cannot impute missing values with model that was built with 'build_imputer=FALSE'.")
     
     if (is.null(refdata) || !(type %in% c("dist", "avg_sep"))) {
         nobs_group1 <- 0L
@@ -1118,6 +1119,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
                                 object$params$missing_action == "impute")
                                 ||
                                (object$params$new_categ_action == "weighted" &&
+                                object$params$categ_split_type != "single_categ" &&
                                 object$params$missing_action == "divide")))
 
     if (object$params$new_categ_action == "random" && NROW(pdata$X_cat) &&

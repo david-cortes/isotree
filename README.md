@@ -160,7 +160,7 @@ X = np.random.normal(size = (n, m))
 X = np.r_[X, np.array([3, 3]).reshape((1, m))]
 
 ### Fit a small isolation forest model
-iso = IsolationForest(ntrees = 10, ndim = 2, nthreads = 1)
+iso = IsolationForest(ntrees = 10, nthreads = 1)
 iso.fit(X)
 
 ### Check which row has the highest outlier score

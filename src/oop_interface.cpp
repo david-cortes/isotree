@@ -463,7 +463,7 @@ bool IsolationForest::check_can_predict_per_tree() const
     {
         if (this->model.missing_action == Divide)
             return false;
-        if (this->model.new_cat_action == Weighted)
+        if (this->model.new_cat_action == Weighted && this->cat_split_type != SingleCateg)
         {
             for (const std::vector<IsoTree> &tree : this->model.trees)
                 for (const IsoTree &node : tree)
