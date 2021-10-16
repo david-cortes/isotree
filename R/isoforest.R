@@ -1077,6 +1077,7 @@ isolation.forest <- function(data,
 #' When imputing missing values, the input may contain new columns (i.e. not present when the model was fitted),
 #' which will be output as-is.
 #' @seealso \link{isolation.forest} \link{isotree.restore.handle}
+#' @export predict.isolation_forest
 #' @export
 predict.isolation_forest <- function(object, newdata, type="score", square_mat=FALSE, refdata=NULL, ...) {
     isotree.restore.handle(object)
@@ -1235,6 +1236,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
 #' so the first run will be slower, while subsequent runs will be faster as the C++ object will already be in-memory.
 #' @return The same model that was passed as input.
 #' @seealso \link{isolation.forest}
+#' @export print.isolation_forest
 #' @export
 print.isolation_forest <- function(x, ...) {
     isotree.restore.handle(x)
@@ -1275,6 +1277,7 @@ print.isolation_forest <- function(x, ...) {
 #' so the first run will be slower, while subsequent runs will be faster as the C++ object will already be in-memory.
 #' @return No return value.
 #' @seealso \link{isolation.forest}
+#' @export summary.isolation_forest
 #' @export
 summary.isolation_forest <- function(object, ...) {
     print.isolation_forest(object)
