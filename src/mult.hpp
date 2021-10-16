@@ -650,8 +650,11 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
 
         double *restrict res_write = res - st;
         double offset = x_mean * coef;
-        for (size_t row = st; row <= end; row++)
-            res_write[row] -= offset;
+        if (offset)
+        {
+            for (size_t row = st; row <= end; row++)
+                res_write[row] -= offset;
+        }
 
         return;
     }
@@ -671,8 +674,11 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
 
     double *restrict res_write = res - st;
     double offset = x_mean * coef;
-    for (size_t row = st; row <= end; row++)
-        res_write[row] -= offset;
+    if (offset)
+    {
+        for (size_t row = st; row <= end; row++)
+            res_write[row] -= offset;
+    }
 
     size_t ind_end_col = Xc_ind[end_col];
     size_t nmatches = 0;

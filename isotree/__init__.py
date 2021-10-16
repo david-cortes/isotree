@@ -1746,6 +1746,11 @@ class IsolationForest:
         based on whether it takes more or fewer splits than average to isolate observations. In the
         standardized outlier score metric, values closer to 1 indicate more outlierness, while values
         closer to 0.5 indicate average outlierness, and close to 0 more averageness (harder to isolate).
+
+        Note
+        ----
+        Depending on the model parameters, it might be possible to convert the models to 'treelite' format
+        for faster predictions or for easier model serving. See method ``to_treelite`` for details.
         
         Note
         ----
