@@ -1252,6 +1252,16 @@ print.isolation_forest <- function(x, ...) {
     cat(sprintf("Consisting of %d trees\n", x$params$ntrees))
     if (x$metadata$ncols_num  > 0)  cat(sprintf("Numeric columns: %d\n",     x$metadata$ncols_num))
     if (x$metadata$ncols_cat  > 0)  cat(sprintf("Categorical columns: %d\n", x$metadata$ncols_cat))
+    if (NROW(x$cpp_obj$serialized)) {
+        bytes <- length(x$cpp_obj$serialized) + NROW(x$cpp_obj$imp_ser)
+        if (bytes > 1024^3) {
+            cat(sprintf("Size: %.2f GiB\n", bytes/1024^3))
+        } else if (bytes > 1024^2) {
+            cat(sprintf("Size: %.2f MiB\n", bytes/1024^2))
+        } else {
+            cat(sprintf("Size: %.2f KiB\n", bytes/1024))
+        }
+    }
     return(invisible(x))
 }
 
