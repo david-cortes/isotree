@@ -5,13 +5,23 @@
 
 Isolation-based Outlier Detection
 =================================
-See project webpage for more details:
+
+This is the documentation page for the `isotree` Python package. See project webpage for more details:
 
 `<https://www.github.com/david-cortes/isotree>`_
 
-For an example notebook showcasing the package usage, see this link:
+For the R version, see the CRAN webpage:
 
-`<https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb>`_
+`<https://cran.r-project.org/web/packages/isotree/index.html>`_
+
+
+Quick example notebooks
+=======================
+
+* `General library usage <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb>`_.
+* `As missing value imputer <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb>`_.
+* `Converting to treelite <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/treelite_example.ipynb>`_.
+
 
 Methods
 =======
@@ -36,18 +46,15 @@ Methods
 * `to_treelite <#isotree.IsolationForest.to_treelite>`_
 * `transform <#isotree.IsolationForest.transform>`_
 
+
 IsolationForest
 ===============
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
 .. automodule:: isotree
-    :members:
-    :undoc-members:
-    :show-inheritance:
-    :inherited-members:
+   :members:
+   :undoc-members:
+   :show-inheritance:
+   :inherited-members:
 
 
 Indices and tables
