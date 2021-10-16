@@ -33,6 +33,7 @@ Methods
 * `predict_distance <#isotree.IsolationForest.predict_distance>`_
 * `set_params <#isotree.IsolationForest.set_params>`_
 * `subset_trees <#isotree.IsolationForest.subset_trees>`_
+* `to_treelite <#isotree.IsolationForest.to_treelite>`_
 * `transform <#isotree.IsolationForest.transform>`_
 
 IsolationForest

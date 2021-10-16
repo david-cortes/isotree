@@ -1592,7 +1592,7 @@ class IsolationForest:
                     X_num = X
                 
                 else:
-                    if X.__class__.__name__ != "ndarray":
+                    if not isinstance(X, np.ndarray):
                         if prefer_row_major:
                             X = np.array(X)
                         else:
@@ -1626,6 +1626,15 @@ class IsolationForest:
 
         if (X_num is not None) and (isspmatrix_csc(X_num)) and (X_cat is not None) and (not _is_col_major(X_cat)):
             X_cat = np.asfortranarray(X_cat)
+        if (nrows > 1) and (X_cat is not None) and (X_num is not None) and (not isspmatrix_csc(X_num)):
+            if prefer_row_major:
+                if _is_row_major(X_num) != _is_row_major(X_cat):
+                    X_num = np.ascontiguousarray(X_num)
+                    X_cat = np.ascontiguousarray(X_cat)
+            else:
+                if _is_col_major(X_num) != _is_col_major(X_cat):
+                    X_num = np.asfortranarray(X_num)
+                    X_cat = np.asfortranarray(X_cat)
 
         return X_num, X_cat, nrows
 
@@ -2555,6 +2564,113 @@ class IsolationForest:
         if single_tree:
             return out[0]
         return out
+
+    def to_treelite(self):
+        """
+        Convert model to 'treelite' format
+
+        Converts an IsolationForest model to a 'treelite' object, which can be compiled into a small
+        standalone runtime library for smaller models and usually faster predictions:
+
+            https://treelite.readthedocs.io/en/latest/index.html
+
+
+        A couple notes about this conversion:
+
+            - It is only possible to convert to 'treelite' when using ``ndim=1`` (which is not the default).
+            - The 'treelite' and 'treelite_runtime' libraries must be installed for this to work.
+            - The options for handling missing values in 'treelite' are more limited.
+              This function will always produce models that force ``missing_action="impute"``, regardless
+              of how the IsolationForest model itself handles them.
+            - The options for handling unseen categories in categorical variables are also more
+              limited in 'treelite'. It's not possible to convert models that use ``new_categ_action="weighted"``,
+              and categories that were not present within the training data will be treated as missing, which
+              might produce different results.
+            - Some features such as range penalizations will not be kept in the 'treelite' model.
+            - While this library uses C 'double' precision (typically 'float64') for model objects and prediction
+              outputs, 'treelite' (a) uses 'float32' precision, (b) converts floating point numbers to a decimal
+              representation and back to floating point; which combined can result in some precision loss
+              which leads to producing slightly different predictions from the ``predict`` function in this
+              package.
+            - The output returned from a compiled 'treelite' model when calling ``predict`` will be the
+              average isolation depth, as it does not (yet?) support the standardized outlier score from
+              isolation forests.
+            - If the model was fit to a DataFrame having a mixture of numerical and categorical columns, the
+              resulting 'treelite' object will be built assuming all the numerical columns come before the
+              categorical columns, regardless of which order they originally had in the data that was passed to
+              'fit'. In such cases, it is possible to check the order of the columns under attributes
+              ``self.cols_numeric_`` and ``self.cols_categ_``.
+            - Categorical columns in 'treelite' are passed as integer values. if the model was fit to a DataFrame
+              with categorical columns, the encoding that is used can be found under ``self._cat_mapping``.
+            - The 'treelite' object returned by this function will not yet have been compiled. It's necessary to
+              call ``compile`` and ``export_lib`` afterwards in order to be able to use it.
+
+        Returns
+        -------
+        model : obj
+            A 'treelite' model object.
+        """
+        assert self.ndim == 1
+        assert self.is_fitted_
+
+        if (self._ncols_categ and
+            self.categ_split_type != "single_categ" and
+            self.new_categ_action not in ["smallest", "random"]
+        ):
+            raise ValueError("Cannot convert to 'treelite' with the current parameters for categorical columns.")
+
+        import treelite
+        if self.missing_action != "impute":
+            warnings.warn("'treelite' conversion will switch 'missing_action' to 'impute'.")
+        if self.penalize_range:
+            warnings.warn("'penalize_range' is ignored (assumed 'False') for 'treelite' conversion.")
+
+        num_node_info = np.empty(6, dtype=ctypes.c_double)
+        n_nodes = self.get_num_nodes()[0]
+
+        if self.categ_cols is None:
+            mapping_num_cols = np.arange(self._ncols_numeric)
+            mapping_cat_cols = np.arange(self._ncols_numeric, self._ncols_numeric + self._ncols_categ)
+        else:
+            mapping_num_cols = np.setdiff1d(np.arange(self._ncols_numeric + self._ncols_categ),
+                                            self.categ_cols, assume_unique=True)
+            mapping_cat_cols = np.array(self.categ_cols).reshape(-1).astype(int)
+
+        builder = treelite.ModelBuilder(
+            num_feature = self._ncols_numeric + self._ncols_categ,
+            average_tree_output = True
+        )
+        for tree_ix in range(self._ntrees):
+            tree = treelite.ModelBuilder.Tree()
+            for node_ix in range(n_nodes[tree_ix]):
+                cat_left = self._cpp_obj.get_node(tree_ix, node_ix, num_node_info)
+                
+                if num_node_info[0] == 1:
+                    tree[node_ix].set_leaf_node(num_node_info[1])
+                
+                elif num_node_info[0] == 0:
+                    tree[node_ix].set_numerical_test_node(
+                        feature_id = mapping_num_cols[int(num_node_info[1])],
+                        opname = "<=",
+                        threshold = num_node_info[2],
+                        default_left = bool(num_node_info[3]),
+                        left_child_key = int(num_node_info[4]),
+                        right_child_key = int(num_node_info[5])
+                    )
+
+                else:
+                    tree[node_ix].set_categorical_test_node(
+                        feature_id = mapping_cat_cols[int(num_node_info[1])],
+                        left_categories = cat_left,
+                        default_left = bool(num_node_info[3]),
+                        left_child_key = int(num_node_info[4]),
+                        right_child_key = int(num_node_info[5])
+                    )
+
+            tree[0].set_root()
+            builder.append(tree)
+        model = builder.commit()
+        return model
 
     def drop_imputer(self):
         """

@@ -500,6 +500,20 @@ def _reconstruct_csr_with_categ(
         nrows, ncols, cols_numeric.shape[0], cols_categ.shape[0]
     )
 
+def get_list_left_categories(vector[signed char] &cat_split):
+    cdef size_t ix
+    cdef size_t n_left = 0
+    for ix in range(cat_split.size()):
+        n_left += cat_split[ix] == 1
+    cdef np.ndarray[int, ndim=1] categs_ = np.empty(n_left, dtype=ctypes.c_int)
+    cdef int *categs = &categs_[0]
+    cdef size_t n_used = 0
+    cdef int iix
+    for iix in range(cat_split.size()):
+        if cat_split[iix] == 1:
+            categs[n_used] = iix
+            n_used += 1
+    return list(cat_split)
 
 cdef class isoforest_cpp_obj:
     cdef IsoForest     isoforest
@@ -1304,3 +1318,29 @@ cdef class isoforest_cpp_obj:
                      imputer,    &new_obj.imputer,
                      &trees_take[0], trees_take.shape[0])
         return new_obj
+
+    def get_node(self, size_t tree, size_t node, double[:] out):
+        if self.isoforest.trees[tree][node].score < 0:
+
+            out[1] = <double>self.isoforest.trees[tree][node].col_num
+            out[3] = <double>(self.isoforest.trees[tree][node].pct_tree_left >= .5)
+            out[4] = <double>self.isoforest.trees[tree][node].tree_left
+            out[5] = <double>self.isoforest.trees[tree][node].tree_right
+
+            if self.isoforest.trees[tree][node].col_type == Numeric:
+                out[0] = 0
+                out[2] = self.isoforest.trees[tree][node].num_split
+            else:
+                out[0] = -1
+                if self.isoforest.cat_split_type == SingleCateg:
+                    return [self.isoforest.trees[tree][node].chosen_cat]
+                else:
+                    if self.isoforest.trees[tree][node].cat_split.size():
+                        return get_list_left_categories(self.isoforest.trees[tree][node].cat_split)
+                    else:
+                        return [0]
+        else:
+            out[0] = 1
+            out[1] = self.isoforest.trees[tree][node].score
+
+        return None
