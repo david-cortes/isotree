@@ -401,7 +401,7 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                                 {
                                     case Random:
                                     {
-                                        cval = (cval >= tree[curr_lev].cat_split.size())?
+                                        cval = (cval >= (int)tree[curr_lev].cat_split.size())?
                                                 (cval % (int)tree[curr_lev].cat_split.size()) : cval;
                                         curr_lev = (tree[curr_lev].cat_split[cval])?
                                                     tree[curr_lev].tree_left : tree[curr_lev].tree_right;
@@ -583,7 +583,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                                 prediction_data.is_col_major?
                                 (row +  tree[curr_lev].col_num * prediction_data.nrows)
                                     :
-                                (tree[curr_lev].col_num * row * prediction_data.ncols_categ)
+                                (tree[curr_lev].col_num + row * prediction_data.ncols_categ)
                             ];
                     if (cval < 0)
                     {
@@ -678,7 +678,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                                     {
                                         case Random:
                                         {
-                                            cval = (cval >= tree[curr_lev].cat_split.size())?
+                                            cval = (cval >= (int)tree[curr_lev].cat_split.size())?
                                                     (cval % (int)tree[curr_lev].cat_split.size()) : cval;
                                             curr_lev = (tree[curr_lev].cat_split[cval])?
                                                         tree[curr_lev].tree_left : tree[curr_lev].tree_right;
