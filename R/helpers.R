@@ -95,6 +95,15 @@ cast.df.col.to.num <- function(cl) {
     return(as.numeric(cl))
 }
 
+encode.factor <- function(cl, levs) {
+    if (NROW(cl) >= 100 && is.factor(cl)) {
+        if (length(levels(cl)) == length(levs) && all(levels(cl) == levs)) {
+            return(cl)
+        }
+    }
+    return(factor(cl, levs))
+}
+
 process.data <- function(data, sample_weights = NULL, column_weights = NULL, recode_categ = TRUE, categ_cols = NULL) {
     data  <-  cast.df.alike(data)
     dmatrix_types     <-  get.types.dmat()
@@ -258,7 +267,7 @@ process.data <- function(data, sample_weights = NULL, column_weights = NULL, rec
                 outp$X_cat  <-  as.data.frame(lapply(data[, is_cat, drop = FALSE], factor))
             } else {
                 outp$X_cat  <-  as.data.frame(lapply(data[, is_cat, drop = FALSE],
-                                                     function(x) if("factor" %in% class(x)) x else factor(x)))
+                                                     function(x) if (is.factor(x)) x else factor(x)))
             }
             outp$cat_levs   <-  lapply(outp$X_cat, levels)
             outp$ncat       <-  sapply(outp$cat_levs, NROW)
@@ -520,7 +529,7 @@ process.data.new <- function(data, metadata, allow_csr = FALSE, allow_csc = TRUE
                                              SIMPLIFY = FALSE, USE.NAMES = TRUE)
                     outp$cat_levs  <- new_cat_levels
                 }
-                outp$X_cat <- as.data.frame(mapply(factor,
+                outp$X_cat <- as.data.frame(mapply(encode.factor,
                                                    outp$X_cat, new_cat_levels,
                                                    SIMPLIFY = FALSE, USE.NAMES = FALSE))
                 outp$X_cat <- as.data.frame(lapply(outp$X_cat, function(x) ifelse(is.na(x), -1L, as.integer(x) - 1L)))

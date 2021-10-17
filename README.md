@@ -45,7 +45,7 @@ Example AUC as outlier detector in typical datasets (notebook to produce results
 | scikit-learn | 0.687        | 0.74            |
 | h2o          | 0.662        | 0.748           |
 
-* Antthyroid dataset:
+* Annthyroid dataset:
 
 | Library      | AUC defaults | AUC grid search |
 | :---:        | :---:        | :---:           |

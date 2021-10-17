@@ -59,6 +59,17 @@ def _copy_if_subview(X_num, prefer_row_major=False):
                 X_num = np.asfortranarray(X_num)
     return X_num
 
+def _all_equal(x, y):
+    if x.shape[0] != y.shape[0]:
+        return False
+    return np.all(x == y)
+
+def _encode_categorical(cl, categories):
+    if (cl.shape[0] >= 100) and (cl.dtype.name == "category"):
+        if _all_equal(cl.cat.categories, categories):
+            return cl.cat.codes
+    return pd.Categorical(cl, categories).codes
+
 class IsolationForest:
     """
     Isolation Forest model
@@ -493,7 +504,7 @@ class IsolationForest:
                  prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
                  categ_split_type = "subset", all_perm = False,
-                 coef_by_prop = False, recode_categ = True,
+                 coef_by_prop = False, recode_categ = False,
                  weights_as_sample_prob = True, sample_with_replacement = False,
                  penalize_range = False, standardize_data = True, weigh_by_kurtosis = False,
                  coefs = "normal", assume_full_distr = True,
@@ -1212,7 +1223,7 @@ class IsolationForest:
                 X_num = X_num.astype(ctypes.c_double)
             if not _is_col_major(X_num):
                 X_num = np.asfortranarray(X_num)
-            X_cat = X.select_dtypes(include = [pd.CategoricalDtype, "object", "bool"]).copy()
+            X_cat = X.select_dtypes(include = [pd.CategoricalDtype, "object", "bool"])
             if (X_num.shape[1] + X_cat.shape[1]) == 0:
                 raise ValueError("Input data has no columns of numeric or categorical type.")
             elif (X_num.shape[1] + X_cat.shape[1]) < X.shape[1]:
@@ -1248,9 +1259,10 @@ class IsolationForest:
                         has_ordered = True
                     if (not self.recode_categ) and (X_cat[X_cat.columns[cl]].dtype.name == "category"):
                         self._cat_mapping[cl] = np.array(X_cat[X_cat.columns[cl]].cat.categories)
-                        X_cat[X_cat.columns[cl]] = X_cat[X_cat.columns[cl]].cat.codes
+                        X_cat = X_cat.assign(**{X_cat.columns[cl] : X_cat[X_cat.columns[cl]].cat.codes})
                     else:
-                        X_cat[X_cat.columns[cl]], self._cat_mapping[cl] = pd.factorize(X_cat[X_cat.columns[cl]])
+                        cl, self._cat_mapping[cl] = pd.factorize(X_cat[X_cat.columns[cl]])
+                        X_cat = X_cat.assign(**{X_cat.columns[cl] : cl})
                     if (self.all_perm
                         and (self.ndim == 1)
                         and (self.prob_pick_pooled_gain or self.prob_split_pooled_gain)
@@ -1446,7 +1458,7 @@ class IsolationForest:
 
                 if self._ncols_categ > 0:
                     if self.categ_cols is None:
-                        X_cat = X[self.cols_categ_].copy()
+                        X_cat = X[self.cols_categ_]
 
                         if (not keep_new_cat_levels) and \
                         (
@@ -1457,22 +1469,23 @@ class IsolationForest:
                              and self.missing_action == "divide")
                         ):
                             for cl in range(self._ncols_categ):
-                                X_cat[self.cols_categ_[cl]] = pd.Categorical(X_cat[self.cols_categ_[cl]],
-                                                                             self._cat_mapping[cl]).codes
+                                X_cat = X_cat.assign(**{
+                                    self.cols_categ_[cl] : _encode_categorical(X_cat[self.cols_categ_[cl]],
+                                                                               self._cat_mapping[cl])
+                                })
                         else:
-                            new_cat_mapping = deepcopy(self._cat_mapping)
-                            swap_mapping = False
                             for cl in range(self._ncols_categ):
-                                X_cat[self.cols_categ_[cl]] = pd.Categorical(X_cat[self.cols_categ_[cl]])
+                                X_cat = X_cat.assign(**{
+                                    self.cols_categ_[cl] : pd.Categorical(X_cat[self.cols_categ_[cl]])
+                                })
                                 new_levs = np.setdiff1d(X_cat[self.cols_categ_[cl]].cat.categories, self._cat_mapping[cl])
                                 if new_levs.shape[0]:
-                                    swap_mapping = True
-                                    new_cat_mapping[cl] = np.r_[new_cat_mapping[cl], new_levs]
-                                X_cat[self.cols_categ_[cl]] = pd.Categorical(X_cat[self.cols_categ_[cl]],
-                                                                             new_cat_mapping[cl]).codes
+                                    self._cat_mapping[cl] = np.r_[self._cat_mapping[cl], new_levs]
+                                X_cat = X_cat.assign(**{
+                                    self.cols_categ_[cl] : _encode_categorical(X_cat[self.cols_categ_[cl]],
+                                                                               self._cat_mapping[cl])
+                                })
 
-                            if (keep_new_cat_levels or self.new_categ_action == "random") and swap_mapping:
-                                self._cat_mapping = new_cat_mapping
                     else:
                         X_cat = X.iloc[:, self.categ_cols]
                     
@@ -2206,8 +2219,8 @@ class IsolationForest:
         not necessarily same object classes (e.g. can mix ``np.array`` and ``scipy.sparse.csc_matrix``).
 
         If the data has categorical variables, the models should have been built with parameter
-        ``recode_categ=False`` in the class constructor (which is **not** the
-        default), and the categorical columns passed as type ``pd.Categorical`` with the same encoding -
+        ``recode_categ=False`` in the class constructor,
+        and the categorical columns passed as type ``pd.Categorical`` with the same encoding -
         otherwise different models might be using different encodings for each categorical column,
         which will not be preserved as only the trees will be appended without any associated metadata.
 

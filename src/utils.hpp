@@ -661,6 +661,18 @@ void weighted_shuffle(size_t *restrict outp, size_t n, real_t *restrict weights,
     }
 }
 
+double sample_random_uniform(double xmin, double xmax, RNG_engine &rng)
+{
+    double out;
+    std::uniform_real_distribution<double> runif(xmin, xmax);
+    for (int attempt = 0; attempt < 100; attempt++)
+    {
+        out = runif(rng);
+        if (out < xmax) return out;
+    }
+    return xmin;
+}
+
 /*  This one samples with replacement. When using weights, the algorithm is the
     same as for the row sampler, but keeping the weights after taking each iteration. */
 /*  TODO: this column sampler could use coroutines from C++20 once compilers implement them. */

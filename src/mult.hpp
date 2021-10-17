@@ -520,7 +520,7 @@ void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict re
             fill_val = buffer_arr[mid_ceil];
 
         fill_val = (fill_val - x_mean) * coef;
-        if (cnt_NA)
+        if (cnt_NA && fill_val)
         {
             for (size_t row = 0; row < cnt_NA; row++)
                 res_write[buffer_NAs[row]] += fill_val;
@@ -615,7 +615,7 @@ void add_linear_comb_weighted(size_t ix_arr[], size_t st, size_t end, double *re
         }
 
         fill_val = (fill_val - x_mean) * coef;
-        if (cnt_NA)
+        if (cnt_NA && fill_val)
         {
             for (size_t row = 0; row < cnt_NA; row++)
                 res_write[buffer_NAs[row]] += fill_val;
@@ -964,7 +964,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, double *res
                     }
 
                     fill_val = (cnt_this > (cnt - cnt_NA - cnt_this))? single_cat_coef : 0;
-                    if (cnt_NA)
+                    if (cnt_NA && fill_val)
                     {
                         for (size_t row = st; row <= end; row++)
                             if (x[ix_arr[row]] < 0)
@@ -1081,7 +1081,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, double *res
                     if (new_cat_action != Smallest)
                         fill_new = fill_val;
 
-                    if (buffer_cnt[ncat] > 0) /* NAs */
+                    if (buffer_cnt[ncat] > 0 && fill_val) /* NAs */
                         for (size_t row = st; row <= end; row++)
                             if (x[ix_arr[row]] < 0)
                                 res_write[row] += fill_val;
@@ -1157,7 +1157,7 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, do
                     }
 
                     fill_val = (cnt_this > cnt_other)? single_cat_coef : 0;
-                    if (has_NA)
+                    if (has_NA && fill_val)
                     {
                         for (size_t row = st; row <= end; row++)
                             if (x[ix_arr[row]] < 0)
@@ -1275,7 +1275,7 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, do
                     if (new_cat_action != Smallest)
                         fill_new = fill_val;
 
-                    if (buffer_cnt[ncat] > 0) /* NAs */
+                    if (buffer_cnt[ncat] > 0 && fill_val) /* NAs */
                         for (size_t row = st; row <= end; row++)
                             if (x[ix_arr[row]] < 0)
                                 res_write[row] += fill_val;

@@ -23,7 +23,7 @@ isolation.forest(
   categ_split_type = "subset",
   all_perm = FALSE,
   coef_by_prop = FALSE,
-  recode_categ = TRUE,
+  recode_categ = FALSE,
   weights_as_sample_prob = TRUE,
   sample_with_replacement = FALSE,
   penalize_range = FALSE,

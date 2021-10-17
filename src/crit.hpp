@@ -669,8 +669,16 @@ double categ_gain(number cnt_left, number cnt_right,
     Maybe it should instead use sums of centered squares: sigma = sqrt((x-mean(x))^2/n)
     The sums of centered squares method is also likely to be more precise. */
 
+template <class real_t>
+double midpoint(real_t x, real_t y)
+{
+    real_t m = x + (y-x)/(real_t)2;
+    if ((double)m == (double)y)
+        return x;
+    else
+        return m;
+}
 
-#define avg_between(a, b) ((a) + ((b)-(a))/2.)
 #define sd_gain(sd, sd_left, sd_right) (1. - ((sd_left) + (sd_right)) / (2. * (sd)))
 #define pooled_gain(sd, cnt, sd_left, sd_right, cnt_left, cnt_right) \
     (1. - (1./(sd))*(  ( ((real_t)(cnt_left))/(cnt) )*(sd_left) + ( ((real_t)(cnt_right)/(cnt)) )*(sd_right)  ))
@@ -682,6 +690,7 @@ double find_split_rel_gain_t(real_t_ *restrict x, size_t n, double &split_point)
 {
     real_t this_gain;
     real_t best_gain = -HUGE_VAL;
+    real_t x1 = 0, x2 = 0;
     real_t sum_left = 0, sum_right = 0, sum_tot = 0;
     for (size_t row = 0; row < n; row++)
         sum_tot += x[row];
@@ -697,9 +706,11 @@ double find_split_rel_gain_t(real_t_ *restrict x, size_t n, double &split_point)
         if (this_gain > best_gain)
         {
             best_gain = this_gain;
-            split_point = avg_between(x[row], x[row+1]);
+            x1 = x[row]; x2 = x[row+1];
         }
     }
+    split_point = midpoint(x1, x2);
+    
     if (best_gain <= -HUGE_VAL)
         return best_gain;
     else
@@ -720,6 +731,7 @@ double find_split_rel_gain_t(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[]
 {
     real_t this_gain;
     real_t best_gain = -HUGE_VAL;
+    split_ix = 0; /* <- avoid out-of-bounds at the end */
     real_t sum_left = 0, sum_right = 0, sum_tot = 0;
     for (size_t row = st; row <= end; row++)
         sum_tot += x[ix_arr[row]] - xmean;
@@ -735,10 +747,11 @@ double find_split_rel_gain_t(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[]
         if (this_gain > best_gain)
         {
             best_gain = this_gain;
-            split_point = avg_between(x[ix_arr[row]], x[ix_arr[row+1]]);
             split_ix = row;
         }
     }
+    split_point = midpoint(x[ix_arr[split_ix]], x[ix_arr[split_ix+1]]);
+
     if (best_gain <= -HUGE_VAL)
         return best_gain;
     else
@@ -855,6 +868,7 @@ double find_split_std_gain_t(real_t_ *restrict x, size_t n, double *restrict sd_
     real_t best_gain = -HUGE_VAL;
     real_t this_sd, this_gain;
     real_t n_ = (real_t)n;
+    size_t best_ix = 0;
     for (size_t row = 0; row < n-1; row++)
     {
         running_mean   += (x[row] - running_mean) / (real_t)(row+1);
@@ -871,9 +885,11 @@ double find_split_std_gain_t(real_t_ *restrict x, size_t n, double *restrict sd_
         if (this_gain > best_gain && this_gain > min_gain)
         {
             best_gain = this_gain;
-            split_point = avg_between(x[row], x[row+1]);
+            best_ix = row;
         }
     }
+    split_point = midpoint(x[best_ix], x[best_ix+1]);
+
     return best_gain;
 }
 
@@ -901,6 +917,7 @@ double find_split_std_gain_weighted(real_t *restrict x, size_t n, double *restri
     double this_sd, this_gain;
     double w_this;
     long double currw = 0;
+    size_t best_ix = 0;
 
     for (size_t row = 0; row < n-1; row++)
     {
@@ -920,9 +937,11 @@ double find_split_std_gain_weighted(real_t *restrict x, size_t n, double *restri
         if (this_gain > best_gain && this_gain > min_gain)
         {
             best_gain = this_gain;
-            split_point = avg_between(x[sorted_ix[row]], x[sorted_ix[row+1]]);
+            best_ix = row;
         }
     }
+    split_point = midpoint(x[sorted_ix[best_ix]], x[sorted_ix[best_ix+1]]);
+
     return best_gain;
 }
 
@@ -937,6 +956,7 @@ double find_split_std_gain_t(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[]
     real_t best_gain = -HUGE_VAL;
     real_t n = (real_t)(end - st + 1);
     real_t this_sd, this_gain;
+    split_ix = st;
     for (size_t row = st; row < end; row++)
     {
         running_mean   += ((x[ix_arr[row]] - xmean) - running_mean) / (real_t)(row-st+1);
@@ -953,10 +973,11 @@ double find_split_std_gain_t(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[]
         if (this_gain > best_gain && this_gain > min_gain)
         {
             best_gain = this_gain;
-            split_point = avg_between(x[ix_arr[row]], x[ix_arr[row+1]]);
             split_ix = row;
         }
     }
+    split_point = midpoint(x[ix_arr[split_ix]], x[ix_arr[split_ix+1]]);
+
     return best_gain;
 }
 
@@ -983,6 +1004,8 @@ double find_split_std_gain_weighted(real_t *restrict x, real_t xmean, size_t ix_
     long double currw = 0;
     double this_sd, this_gain;
     double w_this;
+    split_ix = st;
+
     for (size_t row = st; row < end; row++)
     {
         w_this = w[ix_arr[row]];
@@ -1001,10 +1024,11 @@ double find_split_std_gain_weighted(real_t *restrict x, real_t xmean, size_t ix_
         if (this_gain > best_gain && this_gain > min_gain)
         {
             best_gain = this_gain;
-            split_point = avg_between(x[ix_arr[row]], x[ix_arr[row+1]]);
             split_ix = row;
         }
     }
+    split_point = midpoint(x[ix_arr[split_ix]], x[ix_arr[split_ix+1]]);
+
     return best_gain;
 }
 
@@ -1022,7 +1046,7 @@ double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
     if (n == 2)
     {
         if (x[0] == x[1]) return -HUGE_VAL;
-        split_point = avg_between(x[0], x[1]);
+        split_point = midpoint(x[0], x[1]);
         gain        = 1.;
         if (gain > min_gain)
             return gain;
@@ -1056,7 +1080,7 @@ double eval_guided_crit_weighted(double *restrict x, size_t n, GainCriterion cri
     if (n == 2)
     {
         if (x[0] == x[1]) return -HUGE_VAL;
-        split_point = avg_between(x[0], x[1]);
+        split_point = midpoint(x[0], x[1]);
         gain        = 1.;
         if (gain > min_gain)
             return gain;
@@ -1094,7 +1118,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, real_t_ 
     {
         if (x[ix_arr[st]] == x[ix_arr[end]])
             return -HUGE_VAL;
-        split_point = avg_between(x[ix_arr[st]], x[ix_arr[end]]);
+        split_point = midpoint(x[ix_arr[st]], x[ix_arr[end]]);
         split_ix    = st;
         gain        = 1.;
         if (gain > min_gain)
@@ -1143,7 +1167,7 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
     {
         if (x[ix_arr[st]] == x[ix_arr[end]])
             return -HUGE_VAL;
-        split_point = avg_between(x[ix_arr[st]], x[ix_arr[end]]);
+        split_point = midpoint(x[ix_arr[st]], x[ix_arr[end]]);
         split_ix    = st;
         gain        = 1.;
         if (gain > min_gain)

@@ -930,6 +930,7 @@ void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_rep
                         size_t log2_n, size_t btree_offset, std::vector<bool> &is_repeated);
 template <class real_t=double>
 void weighted_shuffle(size_t *restrict outp, size_t n, real_t *restrict weights, double *restrict buffer_arr, RNG_engine &rnd_generator);
+double sample_random_uniform(double xmin, double xmax, RNG_engine &rng);
 size_t divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, double split_point);
 template <class real_t=double>
 void divide_subset_split(size_t ix_arr[], real_t x[], size_t st, size_t end, double split_point,

@@ -354,9 +354,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         if (workspace.xmin == workspace.xmax)
             goto terminal_statistics; /* in theory, could try again too, this could just be an unlucky case */
         
-        hplanes.back().split_point =
-            std::uniform_real_distribution<double>(workspace.xmin, workspace.xmax)
-                                                  (workspace.rnd_generator);
+        hplanes.back().split_point = sample_random_uniform(workspace.xmin, workspace.xmax, workspace.rnd_generator);
 
         /* determine acceptable range */
         if (model_params.penalize_range)

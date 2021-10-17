@@ -347,9 +347,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             {
                 case NoCrit:
                 {
-                    trees.back().num_split = std::uniform_real_distribution<double>
-                                                (workspace.xmin, workspace.xmax)
-                                                (workspace.rnd_generator);
+                    trees.back().num_split = sample_random_uniform(workspace.xmin, workspace.xmax, workspace.rnd_generator);
                     break;
                 }
 

@@ -27,8 +27,8 @@ that is, same number of columns, same order of the columns, and same column type
 not necessarily same object classes (e.g. can mix `base::matrix` and `Matrix::dgCMatrix`).
 
 If the data has categorical variables, the models should have been built with parameter
-`recode_categ=FALSE` in the call to \link{isolation.forest} (which is \bold{not} the
-default), and the categorical columns passed as type `factor` with the same `levels` -
+`recode_categ=FALSE` in the call to \link{isolation.forest},
+and the categorical columns passed as type `factor` with the same `levels` -
 otherwise different models might be using different encodings for each categorical column,
 which will not be preserved as only the trees will be appended without any associated metadata.
 

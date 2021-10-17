@@ -623,7 +623,7 @@ isolation.forest <- function(data,
                              min_gain = 0, missing_action = ifelse(ndim > 1, "impute", "divide"),
                              new_categ_action = ifelse(ndim > 1, "impute", "weighted"),
                              categ_split_type = "subset", all_perm = FALSE,
-                             coef_by_prop = FALSE, recode_categ = TRUE,
+                             coef_by_prop = FALSE, recode_categ = FALSE,
                              weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
                              penalize_range = FALSE, standardize_data = TRUE, weigh_by_kurtosis = FALSE,
                              coefs = "normal", assume_full_distr = TRUE,
@@ -1463,8 +1463,8 @@ isotree.get.num.nodes <- function(model)  {
 #' not necessarily same object classes (e.g. can mix `base::matrix` and `Matrix::dgCMatrix`).
 #' 
 #' If the data has categorical variables, the models should have been built with parameter
-#' `recode_categ=FALSE` in the call to \link{isolation.forest} (which is \bold{not} the
-#' default), and the categorical columns passed as type `factor` with the same `levels` -
+#' `recode_categ=FALSE` in the call to \link{isolation.forest},
+#' and the categorical columns passed as type `factor` with the same `levels` -
 #' otherwise different models might be using different encodings for each categorical column,
 #' which will not be preserved as only the trees will be appended without any associated metadata.
 #' 
