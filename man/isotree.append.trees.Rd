@@ -10,7 +10,7 @@ isotree.append.trees(model, other)
 \item{model}{An Isolation Forest model (as returned by function \link{isolation.forest})
 to which trees from `other` (another Isolation Forest model) will be appended into.
 
-Will be modified in-place, and on exit will contain the resulting merged model.}
+\bold{Will be modified in-place}, and on exit will contain the resulting merged model.}
 
 \item{other}{Another Isolation Forest model, from which trees will be appended into
 `model`. It will not be modified during the call to this function.}
@@ -39,6 +39,9 @@ potentially crashing the R process when using the resulting object.
 Also be aware that the first input will be modified in-place.
 }
 \details{
+Be aware that, if an out-of-memory error occurs, the resulting object might be rendered unusable
+(might crash when calling certain functions).
+
 For safety purposes, the model object can be deep copied (including the underlying C++ object)
 through function \link{isotree.deep.copy} before undergoing an in-place modification like this.
 }

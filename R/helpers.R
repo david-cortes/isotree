@@ -71,6 +71,15 @@ check.is.1d <- function(var, name) {
     }
 }
 
+set.list.elt <- function(lst, el_name, val) {
+    if (el_name %in% names(lst)) {
+        ix <- which(names(lst) == el_name) - 1L
+        modify_R_list_inplace(lst, ix, val)
+    } else {
+        addto_R_list_inplace(lst, el_name, val)
+    }
+}
+
 cast.df.alike <- function(df) {
     if (inherits(df, c("data.table", "tibble")))
         df <- as.data.frame(df)
@@ -838,7 +847,7 @@ take.metadata <- function(metadata) {
             build_imputer = metadata$model_info$build_imputer, min_imp_obs = metadata$params$min_imp_obs,
             depth_imp = metadata$params$depth_imp, weigh_imp_rows = metadata$params$weigh_imp_rows
         ),
-        metadata  = as.environment(list(
+        metadata  = list(
             ncols_num  =  metadata$data_info$ncols_numeric,
             ncols_cat  =  metadata$data_info$ncols_categ,
             cols_num   =  unlist(metadata$data_info$cols_numeric),
@@ -846,15 +855,15 @@ take.metadata <- function(metadata) {
             cat_levs   =  metadata$data_info$cat_levels,
             categ_cols =  metadata$data_info$categ_cols,
             categ_max  =  metadata$data_info$categ_max
-        )),
+        ),
         random_seed  =  metadata$params$random_seed,
         nthreads     =  metadata$model_info$nthreads,
-        cpp_obj      =  as.environment(list(
+        cpp_obj      =  list(
             ptr         =  NULL,
             serialized  =  NULL,
             imp_ptr     =  NULL,
             imp_ser     =  NULL
-        ))
+        )
     )
 
     if (!NROW(this$metadata$standardize_data))

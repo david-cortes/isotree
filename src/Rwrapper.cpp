@@ -466,25 +466,28 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
 }
 
 // [[Rcpp::export(rng = false)]]
-Rcpp::List fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector serialized_imputer,
-                    Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat,
-                    Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
-                    Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights,
-                    size_t nrows, size_t ncols_numeric, size_t ncols_categ,
-                    size_t ndim, size_t ntry, Rcpp::CharacterVector coef_type, bool coef_by_prop,
-                    size_t max_depth, size_t ncols_per_tree, bool limit_depth, bool penalize_range,
-                    bool standardize_data, bool weigh_by_kurt,
-                    double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
-                    double prob_pick_by_gain_pl,  double prob_split_by_gain_pl, double min_gain,
-                    Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action,
-                    Rcpp::CharacterVector missing_action, bool build_imputer, size_t min_imp_obs, SEXP imp_R_ptr,
-                    Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows,
-                    bool all_perm, uint64_t random_seed)
+void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector serialized_imputer,
+              Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat,
+              Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
+              Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights,
+              size_t nrows, size_t ncols_numeric, size_t ncols_categ,
+              size_t ndim, size_t ntry, Rcpp::CharacterVector coef_type, bool coef_by_prop,
+              size_t max_depth, size_t ncols_per_tree, bool limit_depth, bool penalize_range,
+              bool standardize_data, bool weigh_by_kurt,
+              double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
+              double prob_pick_by_gain_pl,  double prob_split_by_gain_pl, double min_gain,
+              Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action,
+              Rcpp::CharacterVector missing_action, bool build_imputer, size_t min_imp_obs, SEXP imp_R_ptr,
+              Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows,
+              bool all_perm, uint64_t random_seed,
+              Rcpp::List &model_cpp_obj_update, Rcpp::List &model_params_update)
 {
     Rcpp::List out = Rcpp::List::create(
         Rcpp::_["serialized"] = R_NilValue,
         Rcpp::_["imp_ser"] = R_NilValue
     );
+
+    Rcpp::IntegerVector ntrees_plus1 = Rcpp::IntegerVector::create(Rf_asInteger(model_params_update["ntrees"]) + 1);
 
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
@@ -696,7 +699,10 @@ Rcpp::List fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawV
         throw;
     }
 
-    return out;
+    model_cpp_obj_update["serialized"] = out["serialized"];
+    if (build_imputer)
+        model_cpp_obj_update["imp_ser"] = out["imp_ser"];
+    model_params_update["ntrees"] = ntrees_plus1;
 }
 
 // [[Rcpp::export(rng = false)]]
@@ -1033,16 +1039,20 @@ Rcpp::List get_n_nodes(SEXP model_R_ptr, bool is_extended, int nthreads)
 }
 
 // [[Rcpp::export(rng = false)]]
-Rcpp::List append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
-                                   SEXP imp_R_ptr, SEXP oimp_R_ptr,
-                                   bool is_extended,
-                                   Rcpp::RawVector serialized_obj,
-                                   Rcpp::RawVector serialized_imputer)
+void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
+                             SEXP imp_R_ptr, SEXP oimp_R_ptr,
+                             bool is_extended,
+                             Rcpp::RawVector serialized_obj,
+                             Rcpp::RawVector serialized_imputer,
+                             Rcpp::List &model_cpp_obj_update,
+                             Rcpp::List &model_params_update)
 {
     Rcpp::List out = Rcpp::List::create(
         Rcpp::_["serialized"] = R_NilValue,
         Rcpp::_["imp_ser"] = R_NilValue
     );
+
+    Rcpp::IntegerVector ntrees_new = Rcpp::IntegerVector::create(Rf_asInteger(model_params_update["ntrees"]));
 
     IsoForest* model_ptr = NULL;
     IsoForest* other_ptr = NULL;
@@ -1166,7 +1176,11 @@ Rcpp::List append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
         throw;
     }
 
-    return out;
+    model_cpp_obj_update["serialized"] = out["serialized"];
+    if (imputer_ptr)
+        model_cpp_obj_update["imp_ser"] = out["imp_ser"];
+    *(INTEGER(ntrees_new)) = is_extended? ext_model_ptr->hplanes.size() : model_ptr->trees.size();
+    model_params_update["ntrees"] = ntrees_new;
 }
 
 SEXP alloc_List(void *data)
@@ -2006,25 +2020,23 @@ int get_ntrees(SEXP model_R_ptr, bool is_extended)
 }
 
 // [[Rcpp::export(rng = false)]]
-void increment_by1(SEXP int_var)
-{
-    int *val = INTEGER(int_var);
-    *val = *val + 1;
-}
-
-// [[Rcpp::export(rng = false)]]
-void inplace_add(SEXP add_to, SEXP add_this)
-{
-    int *val = INTEGER(add_to);
-    int *summand = INTEGER(add_this);
-    *val = *val + *summand;
-}
-
-// [[Rcpp::export(rng = false)]]
 SEXP deepcopy_int(SEXP x)
 {
     return Rf_ScalarInteger(Rf_asInteger(x));
 }
+
+// [[Rcpp::export(rng = false)]]
+void modify_R_list_inplace(Rcpp::List &lst, int ix, SEXP el)
+{
+    lst[ix] = el;
+}
+
+// [[Rcpp::export(rng = false)]]
+void addto_R_list_inplace(Rcpp::List &lst, Rcpp::String nm, SEXP el)
+{
+    lst[nm] = el;
+}
+
 
 // [[Rcpp::export(rng = false)]]
 bool R_has_openmp()

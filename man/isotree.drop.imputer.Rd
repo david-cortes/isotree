@@ -10,8 +10,8 @@ isotree.drop.imputer(model)
 \item{model}{An `isolation_forest` model object.}
 }
 \value{
-The same `model` object, but now with the imputer removed. Note that `model` is modified in-place
-in any event.
+The same `model` object, but now with the imputer removed. \bold{Note that `model` is modified in-place
+in any event}.
 }
 \description{
 Drop Imputer Sub-Object from Isolation Forest Model Object

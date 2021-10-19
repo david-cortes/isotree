@@ -822,7 +822,7 @@ isolation.forest <- function(data,
     }
     
     sample_size     <-  as.integer(sample_size)
-    ntrees          <-  as.integer(ntrees)
+    ntrees          <-  deepcopy_int(as.integer(ntrees))
     ndim            <-  as.integer(ndim)
     ntry            <-  as.integer(ntry)
     max_depth       <-  as.integer(max_depth)
@@ -921,7 +921,7 @@ isolation.forest <- function(data,
             build_imputer = build_imputer, min_imp_obs = min_imp_obs,
             depth_imp = depth_imp, weigh_imp_rows = weigh_imp_rows
         ),
-        metadata  = as.environment(list(
+        metadata  = list(
             ncols_num  =  pdata$ncols_num,
             ncols_cat  =  pdata$ncols_cat,
             cols_num   =  pdata$cols_num,
@@ -929,15 +929,15 @@ isolation.forest <- function(data,
             cat_levs   =  pdata$cat_levs,
             categ_cols =  pdata$categ_cols,
             categ_max  =  pdata$categ_max
-            )),
+        ),
         random_seed  =  seed,
         nthreads     =  nthreads,
-        cpp_obj      =  as.environment(list(
+        cpp_obj      =  list(
             ptr         =  cpp_outputs$model_ptr,
             serialized  =  cpp_outputs$serialized_obj,
             imp_ptr     =  cpp_outputs$imputer_ptr,
             imp_ser     =  cpp_outputs$imputer_ser
-        ))
+        )
     )
     
     class(this) <- "isolation_forest"
@@ -1289,7 +1289,7 @@ summary.isolation_forest <- function(object, ...) {
 #' may have new categories.
 #' @param model An Isolation Forest object as returned by \link{isolation.forest}, to which an additional tree will be added.
 #' 
-#' This object will be modified in-place.
+#' \bold{This object will be modified in-place}.
 #' @param data A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC format)
 #' to which to fit the new tree.
 #' @param sample_weights Sample observation weights for each row of 'X', with higher weights indicating
@@ -1298,7 +1298,10 @@ summary.isolation_forest <- function(object, ...) {
 #' @param column_weights Sampling weights for each column in `data`. Ignored when picking columns by deterministic criterion.
 #' If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
 #' @return The same `model` object now modified, as invisible.
-#' @details For safety purposes, the model object can be deep copied (including the underlying C++ object)
+#' @details Be aware that, if an out-of-memory error occurs, the resulting object might be rendered unusable
+#' (might crash when calling certain functions).
+#' 
+#' For safety purposes, the model object can be deep copied (including the underlying C++ object)
 #' through function \link{isotree.deep.copy} before undergoing an in-place modification like this.
 #' @seealso \link{isolation.forest} \link{isotree.restore.handle}
 #' @export
@@ -1357,29 +1360,27 @@ isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights 
         serialized <- model$cpp_obj$serialized
     if (NROW(model$cpp_obj$imp_ser))
         imp_ser    <- model$cpp_obj$imp_ser
+
+    fit_tree(model$cpp_obj$ptr, serialized, imp_ser,
+             pdata$X_num, pdata$X_cat, unname(ncat),
+             pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
+             sample_weights, column_weights,
+             pdata$nrows, model$metadata$ncols_num, model$metadata$ncols_cat,
+             model$params$ndim, model$params$ntry,
+             model$params$coefs, model$params$coef_by_prop,
+             model$params$max_depth, model$params$ncols_per_tree,
+             FALSE, model$params$penalize_range, model$params$standardize_data,
+             model$params$weigh_by_kurtosis,
+             model$params$prob_pick_avg_gain, model$params$prob_split_avg_gain,
+             model$params$prob_pick_pooled_gain,  model$params$prob_split_pooled_,
+             model$params$min_gain,
+             model$params$categ_split_type, model$params$new_categ_action,
+             model$params$missing_action, model$params$build_imputer,
+             model$params$min_imp_obs, model$cpp_obj$imp_ptr,
+             model$params$depth_imp, model$params$weigh_imp_rows,
+             model$params$all_perm, model$random_seed + (model$params$ntrees-1L),
+             model$cpp_obj, model$params)
     
-    cpp_outputs <- fit_tree(model$cpp_obj$ptr, serialized, imp_ser,
-                            pdata$X_num, pdata$X_cat, unname(ncat),
-                            pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
-                            sample_weights, column_weights,
-                            pdata$nrows, model$metadata$ncols_num, model$metadata$ncols_cat,
-                            model$params$ndim, model$params$ntry,
-                            model$params$coefs, model$params$coef_by_prop,
-                            model$params$max_depth, model$params$ncols_per_tree,
-                            FALSE, model$params$penalize_range, model$params$standardize_data,
-                            model$params$weigh_by_kurtosis,
-                            model$params$prob_pick_avg_gain, model$params$prob_split_avg_gain,
-                            model$params$prob_pick_pooled_gain,  model$params$prob_split_pooled_,
-                            model$params$min_gain,
-                            model$params$categ_split_type, model$params$new_categ_action,
-                            model$params$missing_action, model$params$build_imputer,
-                            model$params$min_imp_obs, model$cpp_obj$imp_ptr,
-                            model$params$depth_imp, model$params$weigh_imp_rows,
-                            model$params$all_perm, model$random_seed + (model$params$ntrees-1L))
-    
-    model$cpp_obj$serialized  <-  cpp_outputs$serialized
-    model$cpp_obj$imp_ser     <-  cpp_outputs$imp_ser
-    increment_by1(model$params$ntrees)
     return(invisible(model))
 }
 
@@ -1431,13 +1432,13 @@ isotree.restore.handle <- function(model)  {
     
     if (check_null_ptr_model(model$cpp_obj$ptr)) {
         if (model$params$ndim == 1)
-            model$cpp_obj$ptr <- deserialize_IsoForest(model$cpp_obj$serialized)
+            set.list.elt(model$cpp_obj, "ptr", deserialize_IsoForest(model$cpp_obj$serialized))
         else
-            model$cpp_obj$ptr <- deserialize_ExtIsoForest(model$cpp_obj$serialized)
-        
-        if (model$params$build_imputer) {
-            model$cpp_obj$imp_ptr <- deserialize_Imputer(model$cpp_obj$imp_ser)
-        }
+            set.list.elt(model$cpp_obj, "ptr", deserialize_ExtIsoForest(model$cpp_obj$serialized))
+    }
+
+    if (model$params$build_imputer && check_null_ptr_model(model$cpp_obj$imp_ptr)) {
+        set.list.elt(model$cpp_obj, "imp_ptr", deserialize_Imputer(model$cpp_obj$imp_ser))
     }
     
     return(invisible(model))
@@ -1476,11 +1477,14 @@ isotree.get.num.nodes <- function(model)  {
 #' @param model An Isolation Forest model (as returned by function \link{isolation.forest})
 #' to which trees from `other` (another Isolation Forest model) will be appended into.
 #' 
-#' Will be modified in-place, and on exit will contain the resulting merged model.
+#' \bold{Will be modified in-place}, and on exit will contain the resulting merged model.
 #' @param other Another Isolation Forest model, from which trees will be appended into
 #' `model`. It will not be modified during the call to this function.
 #' @return The same input `model` object, now with the new trees appended, returned as invisible.
-#' @details For safety purposes, the model object can be deep copied (including the underlying C++ object)
+#' @details Be aware that, if an out-of-memory error occurs, the resulting object might be rendered unusable
+#' (might crash when calling certain functions).
+#' 
+#' For safety purposes, the model object can be deep copied (including the underlying C++ object)
 #' through function \link{isotree.deep.copy} before undergoing an in-place modification like this.
 #' @examples 
 #' library(isotree)
@@ -1534,13 +1538,11 @@ isotree.append.trees <- function(model, other) {
     if (NROW(model$cpp_obj$imp_ser))
         imp_ser    <- model$cpp_obj$imp_ser
 
-    cpp_outputs <- append_trees_from_other(model$cpp_obj$ptr,      other$cpp_obj$ptr,
-                                           model$cpp_obj$imp_ptr,  other$cpp_obj$imp_ptr,
-                                           model$params$ndim > 1,
-                                           serialized, imp_ser)
-    model$cpp_obj$serialized  <-  cpp_outputs$serialized
-    model$cpp_obj$imp_ser     <-  cpp_outputs$imp_ser
-    inplace_add(model$params$ntrees, other$params$ntrees)
+    append_trees_from_other(model$cpp_obj$ptr,      other$cpp_obj$ptr,
+                            model$cpp_obj$imp_ptr,  other$cpp_obj$imp_ptr,
+                            model$params$ndim > 1,
+                            serialized, imp_ser,
+                            model$cpp_obj, model$params)
     return(invisible(model))
 }
 
@@ -1922,24 +1924,20 @@ isotree.deep.copy <- function(model) {
     new_pointers <- copy_cpp_objects(model$cpp_obj$ptr, model$params$ndim > 1,
                                      model$cpp_obj$imputer_ptr, !is.null(model$cpp_obj$imputer_ptr))
     new_model <- model
-    new_model$cpp_obj <- as.environment(
-        list(
-            ptr         =  new_pointers$model_ptr,
-            serialized  =  model$cpp_obj$serialized,
-            imp_ptr     =  new_pointers$imputer_ptr,
-            imp_ser     =  model$cpp_obj$imputer_ser
-        )
+    new_model$cpp_obj <- list(
+        ptr         =  new_pointers$model_ptr,
+        serialized  =  model$cpp_obj$serialized,
+        imp_ptr     =  new_pointers$imputer_ptr,
+        imp_ser     =  model$cpp_obj$imputer_ser
     )
-    new_model$metadata <- as.environment(
-        list(
-            ncols_num  =  model$metadata$ncols_num,
-            ncols_cat  =  model$metadata$ncols_cat,
-            cols_num   =  model$metadata$cols_num,
-            cols_cat   =  model$metadata$cols_cat,
-            cat_levs   =  model$metadata$cat_levs,
-            categ_cols =  model$metadata$categ_cols,
-            categ_max  =  model$metadata$categ_max
-        )
+    new_model$metadata <- list(
+        ncols_num  =  model$metadata$ncols_num,
+        ncols_cat  =  model$metadata$ncols_cat,
+        cols_num   =  model$metadata$cols_num,
+        cols_cat   =  model$metadata$cols_cat,
+        cat_levs   =  model$metadata$cat_levs,
+        categ_cols =  model$metadata$categ_cols,
+        categ_max  =  model$metadata$categ_max
     )
     new_model$params$ntrees <- deepcopy_int(model$params$ntrees)
     return(new_model)
@@ -1950,16 +1948,16 @@ isotree.deep.copy <- function(model) {
 #' capabilities. The imputer, if constructed, is likely to be a very heavy object which might
 #' not be needed for all purposes.
 #' @param model An `isolation_forest` model object.
-#' @return The same `model` object, but now with the imputer removed. Note that `model` is modified in-place
-#' in any event.
+#' @return The same `model` object, but now with the imputer removed. \bold{Note that `model` is modified in-place
+#' in any event}.
 #' @export
 isotree.drop.imputer <- function(model) {
     if (!inherits(model, "isolation_forest"))
         stop("This function is only available for isolation forest objects as returned from 'isolation.forest'.")
-    inplace_set_to_zero(model$params$build_imputer)
+    set.list.elt(model$params, "build_imputer", FALSE)
+    on.exit(set.list.elt(model$cpp_obj, "imputer_ser", NULL))
     if (!is.null(model$cpp_obj$imp_ptr))
-        model$cpp_obj$imp_ptr <- drop_imputer(model$cpp_obj$imp_ptr)
-    model$cpp_obj$imputer_ser <- NULL
+        set.list.elt(model$cpp_obj, "imp_ptr", drop_imputer(model$cpp_obj$imp_ptr))
     return(model)
 }
 
@@ -1991,22 +1989,20 @@ isotree.subset.trees <- function(model, trees_take) {
     new_model$cpp_obj <- NULL
     new_model$params$ntrees <- ntrees_new
     new_model$params$build_imputer <- as.logical(NROW(new_cpp_obj$imputer_ser))
-    new_model$cpp_obj <- as.environment(list(
+    new_model$cpp_obj <- list(
         ptr         =  new_cpp_obj$model_ptr,
         serialized  =  new_cpp_obj$serialized_obj,
         imp_ptr     =  new_cpp_obj$imp_ptr,
         imp_ser     =  new_cpp_obj$imputer_ser
-    ))
-    new_model$metadata <- as.environment(
-        list(
-            ncols_num  =  model$metadata$ncols_num,
-            ncols_cat  =  model$metadata$ncols_cat,
-            cols_num   =  model$metadata$cols_num,
-            cols_cat   =  model$metadata$cols_cat,
-            cat_levs   =  model$metadata$cat_levs,
-            categ_cols =  model$metadata$categ_cols,
-            categ_max  =  model$metadata$categ_max
-        )
+    )
+    new_model$metadata <- list(
+        ncols_num  =  model$metadata$ncols_num,
+        ncols_cat  =  model$metadata$ncols_cat,
+        cols_num   =  model$metadata$cols_num,
+        cols_cat   =  model$metadata$cols_cat,
+        cat_levs   =  model$metadata$cat_levs,
+        categ_cols =  model$metadata$categ_cols,
+        categ_max  =  model$metadata$categ_max
     )
     return(new_model)
 }

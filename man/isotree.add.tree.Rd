@@ -9,7 +9,7 @@ isotree.add.tree(model, data, sample_weights = NULL, column_weights = NULL)
 \arguments{
 \item{model}{An Isolation Forest object as returned by \link{isolation.forest}, to which an additional tree will be added.
 
-This object will be modified in-place.}
+\bold{This object will be modified in-place}.}
 
 \item{data}{A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`, CSC format)
 to which to fit the new tree.}
@@ -30,6 +30,9 @@ have the same columns as previously-fitted data. Categorical columns, if any,
 may have new categories.
 }
 \details{
+Be aware that, if an out-of-memory error occurs, the resulting object might be rendered unusable
+(might crash when calling certain functions).
+
 For safety purposes, the model object can be deep copied (including the underlying C++ object)
 through function \link{isotree.deep.copy} before undergoing an in-place modification like this.
 }
