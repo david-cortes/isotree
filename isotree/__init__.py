@@ -1764,6 +1764,18 @@ class IsolationForest:
         ----
         Depending on the model parameters, it might be possible to convert the models to 'treelite' format
         for faster predictions or for easier model serving. See method ``to_treelite`` for details.
+
+        Note
+        ----
+        If the model was built with 'nthreads>1', this prediction function will
+        use OpenMP for parallelization. In a linux setup, one usually has GNU's "gomp" as OpenMP as backend, which
+        will hang when used in a forked process - for example, if one tries to call this prediction function from
+        'flask'+'gunicorn', which uses process forking for parallelization, it will cause the whole application to freeze;
+        and if using kubernetes on top of a different backend such as 'falcon', might cause it to run slower than
+        needed or to hang too. A potential fix in these cases is to set the number of threads to 1 in the object
+        (e.g. 'model.nthreads = 1'), or to use a different version of this library compiled without OpenMP
+        (requires manually altering the 'setup.py' file), or to use a non-GNU OpenMP backend. This should not
+        be an issue when using this library normally in e.g. a jupyter notebook.
         
         Note
         ----

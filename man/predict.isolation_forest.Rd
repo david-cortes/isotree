@@ -76,6 +76,16 @@ part of a square matrix
 Predict method for Isolation Forest
 }
 \details{
+\bold{IMPORTANT:} if the model was built with `nthreads>1`, this prediction function will
+use OpenMP for parallelization. In a linux setup, one usually has GNU's "gomp" as OpenMP as backend, which
+will hang when used in a forked process - for example, if one tries to call this prediction function from
+`RestRserve`, which uses process forking for parallelization, it will cause the whole application to freeze;
+and if using kubernetes on top of a different backend such as plumber, might cause it to run slower than
+needed or to hang too. A potential fix in these cases is to set the number of threads to 1 in the object
+(e.g. `model$nthreads <- 1L`), or to use a different version of this library compiled without OpenMP
+(requires manually altering the `Makevars` file), or to use a non-GNU OpenMP backend. This should not
+be an issue when using this library normally in e.g. an RStudio session.
+
 The standardized outlier score is calculated according to the original paper's formula:
 \eqn{  2^{ - \frac{\bar{d}}{c(n)}  }  }{2^(-avg(depth)/c(nobs))}, where
 \eqn{\bar{d}}{avg(depth)} is the average depth under each tree at which an observation
