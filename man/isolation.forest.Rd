@@ -493,6 +493,19 @@ Might provide much better results with `max_depth=NULL` despite the reference's 
 }
 }
 
+\section{Model serving considerations}{
+
+If the model is built with `nthreads>1`, the prediction function \link{predict.isolation_forest} will
+use OpenMP for parallelization. In a linux setup, one usually has GNU's "gomp" as OpenMP as backend, which
+will hang when used in a forked process - for example, if one tries to call this prediction function from
+`RestRserve`, which uses process forking for parallelization, it will cause the whole application to freeze;
+and if using kubernetes on top of a different backend such as plumber, might cause it to run slower than
+needed or to hang too. A potential fix in these cases is to set the number of threads to 1 in the object
+(e.g. `model$nthreads <- 1L`), or to use a different version of this library compiled without OpenMP
+(requires manually altering the `Makevars` file), or to use a non-GNU OpenMP backend. This should not
+be an issue when using this library normally in e.g. an RStudio session.
+}
+
 \examples{
 ### Example 1: detect an obvious outlier
 ### (Random data from a standard normal distribution)

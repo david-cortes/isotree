@@ -140,6 +140,11 @@ class IsolationForest:
     Using fewer trees, smaller sample sizes, and shallower trees can help to reduce model
     sizes if that becomes a problem.
 
+    Note
+    ----
+    See the documentation of ``predict`` for some considerations when serving models generated through
+    this library.
+
     Parameters
     ----------
     sample_size : str "auto", int, float(0,1), or None
@@ -2313,7 +2318,7 @@ class IsolationForest:
 
         Note
         ----
-        While in earlier versions of this library this functionality use to be faster than
+        While in earlier versions of this library this functionality used to be faster than
         ``pickle``, starting with version 0.3.0, this function and ``pickle`` should have
         similar timings and it's recommended to use ``pickle`` for serializing objects
         across Python processes.
@@ -2412,19 +2417,22 @@ class IsolationForest:
         
         It's recommended to generate a '.metadata' file (passing ``add_metada_file=True``) and
         to visually inspect said file in any case.
-        
-        While the model objects can be serialized through ``pickle``, using the
-        package's own functions might result in a faster and more memory-efficient
-        alternative.
 
         See the documentation for ``export_model`` for details about compatibility
         of the generated files across different machines and versions.
 
         Note
         ----
-        This is a static class method - i.e. should be called like this:
+        This is a static class method - that is, it should be called like this:
             ``iso = IsolationForest.import_model(...)``
         (i.e. no parentheses after `IsolationForest`)
+
+        Note
+        ----
+        While in earlier versions of this library this functionality used to be faster than
+        ``pickle``, starting with version 0.3.0, this function and ``pickle`` should have
+        similar timings and it's recommended to use ``pickle`` for serializing objects
+        across Python processes.
         
         Parameters
         ----------
@@ -2614,8 +2622,9 @@ class IsolationForest:
               of how the IsolationForest model itself handles them.
             - The options for handling unseen categories in categorical variables are also more
               limited in 'treelite'. It's not possible to convert models that use ``new_categ_action="weighted"``,
-              and categories that were not present within the training data will be treated as missing, which
-              might produce different results.
+              and categories that were not present within the training data (which are not meant to be passed to
+              'treelite') will always be sent to the right side of the split, which might produce different
+              results from ``predict``.
             - Some features such as range penalizations will not be kept in the 'treelite' model.
             - While this library uses C 'double' precision (typically 'float64') for model objects and prediction
               outputs, 'treelite' (a) uses 'float32' precision, (b) converts floating point numbers to a decimal
@@ -2649,11 +2658,12 @@ class IsolationForest:
         ):
             raise ValueError("Cannot convert to 'treelite' with the current parameters for categorical columns.")
 
-        import treelite
         if self.missing_action != "impute":
             warnings.warn("'treelite' conversion will switch 'missing_action' to 'impute'.")
         if self.penalize_range:
             warnings.warn("'penalize_range' is ignored (assumed 'False') for 'treelite' conversion.")
+
+        import treelite
 
         num_node_info = np.empty(6, dtype=ctypes.c_double)
         n_nodes = self.get_num_nodes()[0]
