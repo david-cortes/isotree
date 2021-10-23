@@ -2079,7 +2079,7 @@ class IsolationForest:
         ----
         This function is not thread-safe - that is, it will produce problems if one tries to call
         this function on the same model object in parallel through e.g. ``joblib`` with a shared-memory
-        backend (which is not the default).
+        backend (which is not the default for joblib).
 
         Parameters
         ----------
@@ -2251,7 +2251,7 @@ class IsolationForest:
         ----
         This function is not thread-safe - that is, it will produce problems if one tries to call
         this function on the same model object in parallel through e.g. ``joblib`` with a shared-memory
-        backend (which is not the default).
+        backend (which is not the default for joblib).
 
         Parameters
         ----------

@@ -20,9 +20,7 @@
 CSC/dgCMatrix supported for distance and outlierness, CSR/dgRMatrix supported for outlierness and imputations)
 for which to predict outlierness, distance, or imputations of missing values.
 
-Note that, if using sparse matrices from package `Matrix`, converting to `dgRMatrix` (when required) might require using
-`as(m, "RsparseMatrix")` instead of `dgRMatrix` directly.
-Nevertheless, if `newdata` is sparse and one wants to obtain the outlier score or average depth or tree
+If `newdata` is sparse and one wants to obtain the outlier score or average depth or tree
 numbers, it's highly recommended to pass it in CSC (`dgCMatrix`) format as it will be much faster
 when the number of trees or rows is large.}
 
@@ -44,7 +42,8 @@ when the number of trees or rows is large.}
 }}
 
 \item{square_mat}{When passing `type` = `"dist` or `"avg_sep"` with no `refdata`, whether to return a
-just the upper-triangular part (returned as a `dist` object and compatible with functions such as `hclust`),
+full square matrix (returned as a numeric `matrix` object) or
+just its upper-triangular part (returned as a `dist` object and compatible with functions such as `hclust`),
 in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 p(i, j) = ((i - 1) * (n - i/2) + j - i).
 Ignored when not predicting distance/separation or when passing `refdata`.}
@@ -124,6 +123,16 @@ needed or to hang too. A potential fix in these cases is to set the number of th
 (e.g. `model$nthreads <- 1L`), or to use a different version of this library compiled without OpenMP
 (requires manually altering the `Makevars` file), or to use a non-GNU OpenMP backend. This should not
 be an issue when using this library normally in e.g. an RStudio session.
+
+In order to make model objects serializable (i.e. usable with `save`, `saveRDS`, and similar), these model
+objects keep serialized raw bytes from which their underlying heap-allocated C++ object (which does not
+survive serializations) can be reconstructed. For model serving, one would usually want to drop these
+serialized bytes after having loaded a model through `readRDS` or similar (note that reconstructing the
+C++ object will first require calling \link{isotree.restore.handle}, which is done automatically when
+calling `predict` and similar), as they can increase memory usage by a large amount. These redundant raw bytes
+can be dropped as follows: `model$cpp_obj$serialized <- NULL` (and an additional
+`model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE`). After that, one might want to force garbage
+collection through `gc()`.
 }
 
 \seealso{

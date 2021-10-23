@@ -504,6 +504,16 @@ needed or to hang too. A potential fix in these cases is to set the number of th
 (e.g. `model$nthreads <- 1L`), or to use a different version of this library compiled without OpenMP
 (requires manually altering the `Makevars` file), or to use a non-GNU OpenMP backend. This should not
 be an issue when using this library normally in e.g. an RStudio session.
+
+In order to make model objects serializable (i.e. usable with `save`, `saveRDS`, and similar), these model
+objects keep serialized raw bytes from which their underlying heap-allocated C++ object (which does not
+survive serializations) can be reconstructed. For model serving, one would usually want to drop these
+serialized bytes after having loaded a model through `readRDS` or similar (note that reconstructing the
+C++ object will first require calling \link{isotree.restore.handle}, which is done automatically when
+calling `predict` and similar), as they can increase memory usage by a large amount. These redundant raw bytes
+can be dropped as follows: `model$cpp_obj$serialized <- NULL` (and an additional
+`model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE`). After that, one might want to force garbage
+collection through `gc()`.
 }
 
 \examples{

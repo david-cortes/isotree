@@ -68,6 +68,16 @@
 #' (e.g. `model$nthreads <- 1L`), or to use a different version of this library compiled without OpenMP
 #' (requires manually altering the `Makevars` file), or to use a non-GNU OpenMP backend. This should not
 #' be an issue when using this library normally in e.g. an RStudio session.
+#' 
+#' In order to make model objects serializable (i.e. usable with `save`, `saveRDS`, and similar), these model
+#' objects keep serialized raw bytes from which their underlying heap-allocated C++ object (which does not
+#' survive serializations) can be reconstructed. For model serving, one would usually want to drop these
+#' serialized bytes after having loaded a model through `readRDS` or similar (note that reconstructing the
+#' C++ object will first require calling \link{isotree.restore.handle}, which is done automatically when
+#' calling `predict` and similar), as they can increase memory usage by a large amount. These redundant raw bytes
+#' can be dropped as follows: `model$cpp_obj$serialized <- NULL` (and an additional
+#' `model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE`). After that, one might want to force garbage
+#' collection through `gc()`.
 #' @details If requesting outlier scores or depths or separation/distance while fitting the
 #' model and using multiple threads, there can be small differences in the predicted
 #' scores/depth/separation/distance between runs due to roundoff error.
@@ -1004,9 +1014,7 @@ isolation.forest <- function(data,
 #' CSC/dgCMatrix supported for distance and outlierness, CSR/dgRMatrix supported for outlierness and imputations)
 #' for which to predict outlierness, distance, or imputations of missing values.
 #' 
-#' Note that, if using sparse matrices from package `Matrix`, converting to `dgRMatrix` (when required) might require using
-#' `as(m, "RsparseMatrix")` instead of `dgRMatrix` directly.
-#' Nevertheless, if `newdata` is sparse and one wants to obtain the outlier score or average depth or tree
+#' If `newdata` is sparse and one wants to obtain the outlier score or average depth or tree
 #' numbers, it's highly recommended to pass it in CSC (`dgCMatrix`) format as it will be much faster
 #' when the number of trees or rows is large.
 #' @param type Type of prediction to output. Options are:
@@ -1026,8 +1034,8 @@ isolation.forest <- function(data,
 #'   \item `"impute"` for imputation of missing values in `newdata`.
 #' }
 #' @param square_mat When passing `type` = `"dist` or `"avg_sep"` with no `refdata`, whether to return a
-# full square matrix (returned as a numeric `matrix` object) or
-#' just the upper-triangular part (returned as a `dist` object and compatible with functions such as `hclust`),
+#' full square matrix (returned as a numeric `matrix` object) or
+#' just its upper-triangular part (returned as a `dist` object and compatible with functions such as `hclust`),
 #' in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 #' p(i, j) = ((i - 1) * (n - i/2) + j - i).
 #' Ignored when not predicting distance/separation or when passing `refdata`.
@@ -1060,6 +1068,16 @@ isolation.forest <- function(data,
 #' (e.g. `model$nthreads <- 1L`), or to use a different version of this library compiled without OpenMP
 #' (requires manually altering the `Makevars` file), or to use a non-GNU OpenMP backend. This should not
 #' be an issue when using this library normally in e.g. an RStudio session.
+#' 
+#' In order to make model objects serializable (i.e. usable with `save`, `saveRDS`, and similar), these model
+#' objects keep serialized raw bytes from which their underlying heap-allocated C++ object (which does not
+#' survive serializations) can be reconstructed. For model serving, one would usually want to drop these
+#' serialized bytes after having loaded a model through `readRDS` or similar (note that reconstructing the
+#' C++ object will first require calling \link{isotree.restore.handle}, which is done automatically when
+#' calling `predict` and similar), as they can increase memory usage by a large amount. These redundant raw bytes
+#' can be dropped as follows: `model$cpp_obj$serialized <- NULL` (and an additional
+#' `model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE`). After that, one might want to force garbage
+#' collection through `gc()`.
 #' @details The standardized outlier score is calculated according to the original paper's formula:
 #' \eqn{  2^{ - \frac{\bar{d}}{c(n)}  }  }{2^(-avg(depth)/c(nobs))}, where
 #' \eqn{\bar{d}}{avg(depth)} is the average depth under each tree at which an observation
@@ -1451,6 +1469,9 @@ isotree.restore.handle <- function(model)  {
         stop("'model' must be an isolation forest model object as output by function 'isolation.forest'.")
     
     if (check_null_ptr_model(model$cpp_obj$ptr)) {
+        if (!NROW(model$cpp_obj$serialized))
+            stop("'model' is missing serialized raw bytes. Cannot restore handle.")
+
         if (model$params$ndim == 1)
             set.list.elt(model$cpp_obj, "ptr", deserialize_IsoForest(model$cpp_obj$serialized))
         else
@@ -1458,6 +1479,9 @@ isotree.restore.handle <- function(model)  {
     }
 
     if (model$params$build_imputer && check_null_ptr_model(model$cpp_obj$imp_ptr)) {
+        if (!NROW(model$cpp_obj$imp_ser))
+            stop("'model' is missing serialized raw bytes. Cannot restore handle.")
+
         set.list.elt(model$cpp_obj, "imp_ptr", deserialize_Imputer(model$cpp_obj$imp_ser))
     }
     

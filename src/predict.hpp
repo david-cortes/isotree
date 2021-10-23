@@ -48,6 +48,14 @@
    serialized raw bytes instead, as it will likely be faster due to better
    cache utilizations and those objects use less memory. */
 
+/* TODO: these trees are all created in a depth-first fashion, which will
+   not be cache-friendly when predictions are sent to a right-side branch. In
+   order to make predictions faster, could re-arrange the trees after-the-fact
+   so that they contain batches of consecutive nodes (parent and children and
+   grandchildren) up to some depth - that way these prediction functions would
+   run faster. After that, could also do a manual tree leaves unroll within each
+   batch with stack-assigned variables for an even faster prediction function. */
+
 
 /* Predict outlier score, average depth, or terminal node numbers
 * 
