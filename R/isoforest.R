@@ -1164,7 +1164,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
     if (object$params$new_categ_action == "random" && NROW(pdata$X_cat) &&
         NROW(object$metadata$cat_levs) && NROW(pdata$cat_levs)
     ) {
-        object$metadata$cat_levs <- pdata$cat_levs
+        set.list.elt(object$metadata, "cat_levs", pdata$cat_levs)
     }
 
     square_mat   <-  as.logical(square_mat)
@@ -1375,7 +1375,7 @@ isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights 
     pdata <- process.data.new(data, model$metadata, FALSE)
 
     if (NROW(pdata$X_cat) && NROW(model$metadata$cat_levs) && NROW(pdata$cat_levs)) {
-        model$metadata$cat_levs <- pdata$cat_levs
+        set.list.elt(model$metadata, "cat_levs", pdata$cat_levs)
     }
 
     if (model$metadata$ncols_cat)
