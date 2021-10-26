@@ -562,7 +562,7 @@ double expected_sd_cat_single(number counts[], double p[], size_t n, size_t pos[
     for (size_t cat = 0; cat < n; cat++)
         p[pos[cat]] = (long double)counts[pos[cat]] / cnt_div;
 
-    double cum_var;
+    long double cum_var;
     if (cat_exclude != 1)
         cum_var = -square(p[pos[0]]) / 3.0 - p[pos[0]] * p[pos[1]] / 2.0 + p[pos[0]] / 3.0  - square(p[pos[1]]) / 3.0 + p[pos[1]] / 3.0;
     else
@@ -673,10 +673,10 @@ template <class real_t>
 double midpoint(real_t x, real_t y)
 {
     real_t m = x + (y-x)/(real_t)2;
-    if ((double)m == (double)y)
-        return x;
-    else
+    if ((double)m < (double)y)
         return m;
+    else
+        return x;
 }
 
 #define sd_gain(sd, sd_left, sd_right) (1. - ((sd_left) + (sd_right)) / (2. * (sd)))
