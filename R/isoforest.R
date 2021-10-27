@@ -1336,7 +1336,11 @@ summary.isolation_forest <- function(object, ...) {
 #' @param column_weights Sampling weights for each column in `data`. Ignored when picking columns by deterministic criterion.
 #' If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
 #' @return The same `model` object now modified, as invisible.
-#' @details Be aware that, if an out-of-memory error occurs, the resulting object might be rendered unusable
+#' @details If constructing trees with different sample sizes, the outlier scores will not be centered around
+#' 0.5 and might have a very skewed distribution. The standardizing constant for the scores will be
+#' taken according to the sample size passed in the model construction argument.
+#' 
+#' Be aware that, if an out-of-memory error occurs, the resulting object might be rendered unusable
 #' (might crash when calling certain functions).
 #' 
 #' For safety purposes, the model object can be deep copied (including the underlying C++ object)

@@ -30,6 +30,10 @@ have the same columns as previously-fitted data. Categorical columns, if any,
 may have new categories.
 }
 \details{
+If constructing trees with different sample sizes, the outlier scores will not be centered around
+0.5 and might have a very skewed distribution. The standardizing constant for the scores will be
+taken according to the sample size passed in the model construction argument.
+
 Be aware that, if an out-of-memory error occurs, the resulting object might be rendered unusable
 (might crash when calling certain functions).
 

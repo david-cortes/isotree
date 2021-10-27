@@ -2080,6 +2080,13 @@ class IsolationForest:
 
         Note
         ----
+        If constructing trees with different sample sizes, the outlier scores will not be centered around
+        0.5 and might have a very skewed distribution. The standardizing constant for the scores will be
+        taken according to the sample size passed in the construction argument (if that is ``None`` or
+        ``"auto"``, will then set it as the sample size of the first tree).
+
+        Note
+        ----
         This function is not thread-safe - that is, it will produce problems if one tries to call
         this function on the same model object in parallel through e.g. ``joblib`` with a shared-memory
         backend (which is not the default for joblib).
