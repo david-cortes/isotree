@@ -79,7 +79,7 @@ class IsolationForest:
     the observation, the more likely it is that a random uniform split on some feature would put outliers alone
     in one branch, and the fewer splits it will take to isolate an outlier observation like this. The concept
     is extended to splitting hyperplanes in the extended model (i.e. splitting by more than one column at a time), and to
-    guided (not entirely random) splits in the SCiForest model that aim at isolating outliers faster and
+    guided (not entirely random) splits in the SCiForest and FCF models that aim at isolating outliers faster and/or
     finding clustered outliers.
 
     This version adds heuristics to handle missing data and categorical variables. Can be used to aproximate pairwise
@@ -111,13 +111,17 @@ class IsolationForest:
         ``coefs="normal"``, ``ntry=10``, ``prob_pick_avg_gain=1``, ``penalize_range=True``.
         Might provide much better results with ``max_depth=None`` despite the reference's recommendation.
 
+    'FCF' (reference [11]_):
+        ``ndim=2``, ``sample_size=256``, ``max_depth=None``, ``ntrees=200``, ``missing_action="fail"``,
+        ``coefs="normal"``, ``ntry=1``, ``prob_pick_pooled_gain=1``.
+        Might provide similar results with ``ndim=1``. For the FCF model aimed at imputing missing values,
+        might give better results with ``ntry=10`` or higher and much larger sample sizes.
+
     Note
     ----
     The model offers many tunable parameters. The most likely candidate to tune is
     ``prob_pick_pooled_gain``, for which higher values tend to
-    result in a better ability to flag outliers in the training data at the expense of hindered
-    performance when making predictions (calling method ``predict``) on new data (including out-of-bag
-    samples for each tree) and poorer
+    result in a better ability to flag outliers in multimodal datasets, at the expense of poorer
     generalizability to inputs with values outside the variables' ranges to which the model was fit
     (see plots generated from the examples in GitHub notebook for a better idea of the difference). The next candidate to tune is
     ``sample_size`` - the default is to use all rows, but in some datasets introducing sub-sampling can help,
@@ -268,11 +272,8 @@ class IsolationForest:
 
         Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
         groups when they are smaller. Recommended to pass higher values when used for imputation of missing values.
-        When used for outlier detection, higher values of this parameter result in models that are able to better flag
-        outliers in the training data of each tree, but generalize poorly to outliers in new data (including
-        out-of-bag samples for each tree) and to values of variables
-        outside of the ranges from the training data. Passing small 'sample_size' and high values of this parameter will
-        tend to flag too many outliers.
+        When used for outlier detection, datasets with multimodal distributions usually see better performance
+        under this type of splits.
         
         Note that, since this makes the trees more even and thus it takes more steps to produce isolated nodes,
         the resulting object will be heavier. When splits are not made according to any of 'prob_pick_avg_gain',
@@ -502,6 +503,8 @@ class IsolationForest:
     .. [9] Cortes, David. "Imputing missing values with unsupervised random trees."
            arXiv preprint arXiv:1911.06646 (2019).
     .. [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
+    .. [11] Cortes, David. "Revisiting randomized choices in isolation forests."
+            arXiv preprint arXiv:2110.13402 (2021).
     """
     def __init__(self, sample_size = "auto", ntrees = 500, ndim = 3, ntry = 3,
                  categ_cols = None, max_depth = "auto", ncols_per_tree = None,

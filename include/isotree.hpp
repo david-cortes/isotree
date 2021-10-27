@@ -20,6 +20,7 @@
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
 *     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+*     [10] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -274,6 +275,10 @@ typedef struct Imputer {
 *       Models that use 'prob_pick_by_gain_pl' or 'prob_pick_by_gain_avg' are likely to benefit from
 *       deeper trees (larger 'max_depth'), but deeper trees can result in much slower model fitting and
 *       predictions.
+*       Note that models that use 'prob_pick_pooled_gain' or 'prob_pick_avg_gain' are likely to benefit from
+*       deeper trees (larger 'max_depth'), but deeper trees can result in much slower model fitting and
+*       predictions.
+*       If using pooled gain, one might want to substitute 'max_depth' with 'min_gain'.
 * - ncols_per_tree
 *       Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
 *       similar to the 'mtry' parameter of random forests.
@@ -345,6 +350,7 @@ typedef struct Imputer {
 *       Default setting for [1], [2], [3] is zero, and default for [4] is 1. This is the randomization parameter that can
 *       be passed to the author's original code in [5]. Note that, if passing value 1 (100%) with no sub-sampling and using the
 *       single-variable model, every single tree will have the exact same splits.
+*       Under this option, models are likely to produce better results when increasing 'max_depth'.
 *       Important detail: if using either 'prob_pick_avg_gain' or 'prob_pick_pooled_gain', the distribution of
 *       outlier scores is unlikely to be centered around 0.5.
 * - prob_split_by_gain_avg
@@ -361,11 +367,9 @@ typedef struct Imputer {
 *       that the split point in the chosen linear combination of variables will be decided by this pooled gain
 *       criterion. Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
 *       groups when they are smaller. Recommended to pass higher values when used for imputation of missing values.
-*       When used for outlier detection, higher values of this parameter result in models that are able to better flag
-*       outliers in the training data, but generalize poorly to outliers in new data (including out-of-bag samples
-*       for each tree) and to values of variables outside of the ranges from the training data. Passing small 
-*       'sample_size' and high values of this parameter will tend to flag too many outliers. When splits are not
-*       made according to any of 'prob_pick_by_gain_avg', 'prob_pick_by_gain_pl', 'prob_split_by_gain_avg', 'prob_split_by_gain_pl',
+*       When used for outlier detection, datasets with multimodal distributions usually see better performance
+*       under this type of splits. When splits are not made according to any of 'prob_pick_by_gain_avg', 
+*       'prob_pick_by_gain_pl', 'prob_split_by_gain_avg', 'prob_split_by_gain_pl',
 *       both the column and the split point are decided at random. Note that, if passing value 1 (100%) with no 
 *       sub-sampling and using the single-variable model, every single tree will have the exact same splits.
 *       Be aware that 'penalize_range' can also have a large impact when using 'prob_pick_pooled_gain'.
@@ -379,6 +383,8 @@ typedef struct Imputer {
 *       Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
 *       are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
 *       splits at a node is below this  threshold, that node becomes a terminal node.
+*       This can be used as a more sophisticated depth control when using pooled gain (note that 'max_depth'
+*       still applies on top of this heuristic).
 * - missing_action
 *       How to handle missing data at both fitting and prediction time. Options are a) "Divide" (for the single-variable
 *       model only, recommended), which will follow both branches and combine the result with the weight given by the fraction of

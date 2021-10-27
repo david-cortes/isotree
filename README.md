@@ -3,6 +3,7 @@
 Fast and multi-threaded implementation of Extended Isolation Forest, Fair-Cut Forest, SCiForest (a.k.a. Split-Criterion iForest), and regular Isolation Forest, for outlier/anomaly detection, plus additions for imputation of missing values, distance/similarity calculation between observations, and handling of categorical data. Written in C++ with interfaces for Python and R. An additional wrapper for Ruby can be found [here](https://github.com/ankane/isotree).
 
 The new concepts in this software are described in:
+* [Revisiting randomized choices in isolation forests](https://arxiv.org/abs/2110.13402)
 * [Distance approximation using Isolation Forests](https://arxiv.org/abs/1910.12362)
 * [Imputing missing values with unsupervised random trees](https://arxiv.org/abs/1911.06646)
 
@@ -55,6 +56,10 @@ Example AUC as outlier detector in typical datasets (notebook to produce results
 | h2o          | 0.80         | 0.80            |
 
 *(Disclaimer: these are rather small datasets and thus these AUC estimates have high variance)*
+
+# Non-random splits
+
+While the original idea behind isolation forests consisted in deciding splits uniformly at random, it's possible to get better performance at detecting outliers in some datasets (particularly those with multimodal distributions) by determining splits according to an information gain criterion instead. The idea is described in ["Revisiting randomized choices in isolation forests"](https://arxiv.org/abs/2110.13402) along with some comparisons of different split guiding criteria.
 
 # Distance / similarity calculations
 
@@ -242,3 +247,4 @@ The package does not currenly have any functionality for visualizing trees. Pull
 * Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
 * Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 * Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+* Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
