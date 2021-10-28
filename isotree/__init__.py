@@ -2613,7 +2613,7 @@ class IsolationForest:
             return out[0]
         return out
 
-    def to_treelite(self):
+    def to_treelite(self, use_float32 = False):
         """
         Convert model to 'treelite' format
 
@@ -2636,10 +2636,10 @@ class IsolationForest:
               'treelite') will always be sent to the right side of the split, which might produce different
               results from ``predict``.
             - Some features such as range penalizations will not be kept in the 'treelite' model.
-            - While this library uses C 'double' precision (typically 'float64') for model objects and prediction
-              outputs, 'treelite' (a) uses 'float32' precision, (b) converts floating point numbers to a decimal
-              representation and back to floating point; which combined can result in some precision loss
-              which leads to producing slightly different predictions from the ``predict`` function in this
+            - While this library always uses C 'double' precision (typically 'float64') for model objects and
+              prediction outputs, 'treelite' (a) can use 'float32' precision, (b) converts floating point numbers
+              to a decimal representation and back to floating point; which combined can result in some precision
+              loss which leads to producing slightly different predictions from the ``predict`` function in this
               package.
             - The output returned from a compiled 'treelite' model when calling ``predict`` will be the
               average isolation depth, as it does not (yet?) support the standardized outlier score from
@@ -2653,6 +2653,13 @@ class IsolationForest:
               with categorical columns, the encoding that is used can be found under ``self._cat_mapping``.
             - The 'treelite' object returned by this function will not yet have been compiled. It's necessary to
               call ``compile`` and ``export_lib`` afterwards in order to be able to use it.
+
+        Parameters
+        ----------
+        use_float32 : bool
+            Whether to use 'float32' type for the model. This is typically faster but has less precision
+            than the typical 'float64' (outside of this conversion, models from this library always use
+            'float64').
 
         Returns
         -------
@@ -2675,6 +2682,8 @@ class IsolationForest:
 
         import treelite
 
+        float_dtype = 'float32' if bool(use_float32) else 'float64'
+
         num_node_info = np.empty(6, dtype=ctypes.c_double)
         n_nodes = self.get_num_nodes()[0]
 
@@ -2688,21 +2697,24 @@ class IsolationForest:
 
         builder = treelite.ModelBuilder(
             num_feature = self._ncols_numeric + self._ncols_categ,
-            average_tree_output = True
+            average_tree_output = True,
+            threshold_type = float_dtype,
+            leaf_output_type = float_dtype
         )
         for tree_ix in range(self._ntrees):
-            tree = treelite.ModelBuilder.Tree()
+            tree = treelite.ModelBuilder.Tree(threshold_type = float_dtype, leaf_output_type = float_dtype)
             for node_ix in range(n_nodes[tree_ix]):
                 cat_left = self._cpp_obj.get_node(tree_ix, node_ix, num_node_info)
                 
                 if num_node_info[0] == 1:
-                    tree[node_ix].set_leaf_node(num_node_info[1])
+                    tree[node_ix].set_leaf_node(num_node_info[1], leaf_value_type = float_dtype)
                 
                 elif num_node_info[0] == 0:
                     tree[node_ix].set_numerical_test_node(
                         feature_id = mapping_num_cols[int(num_node_info[1])],
                         opname = "<=",
                         threshold = num_node_info[2],
+                        threshold_type = float_dtype,
                         default_left = bool(num_node_info[3]),
                         left_child_key = int(num_node_info[4]),
                         right_child_key = int(num_node_info[5])
