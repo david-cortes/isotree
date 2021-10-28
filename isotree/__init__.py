@@ -114,12 +114,14 @@ class IsolationForest:
     'FCF' (reference [11]_):
         ``ndim=2``, ``sample_size=256``, ``max_depth=None``, ``ntrees=200``, ``missing_action="fail"``,
         ``coefs="normal"``, ``ntry=1``, ``prob_pick_pooled_gain=1``.
-        Might provide similar results with ``ndim=1``. For the FCF model aimed at imputing missing values,
+        Might provide similar results with ``ndim=1`` and ``prob_split_pooled_gain``.
+        For the FCF model aimed at imputing missing values,
         might give better results with ``ntry=10`` or higher and much larger sample sizes.
 
     Note
     ----
-    The model offers many tunable parameters. The most likely candidate to tune is
+    The model offers many tunable parameters (see reference [11]_ for a comparison).
+    The most likely candidate to tune is
     ``prob_pick_pooled_gain``, for which higher values tend to
     result in a better ability to flag outliers in multimodal datasets, at the expense of poorer
     generalizability to inputs with values outside the variables' ranges to which the model was fit
