@@ -1742,18 +1742,20 @@ void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end,
 
 /* for regular numeric columns */
 template <class real_t>
-void get_range(size_t ix_arr[], real_t x[], size_t st, size_t end,
+void get_range(size_t ix_arr[], real_t *restrict x, size_t st, size_t end,
                MissingAction missing_action, double &xmin, double &xmax, bool &unsplittable)
 {
-    xmin =  HUGE_VAL;
-    xmax = -HUGE_VAL;
+    double xmin_ =  HUGE_VAL;
+    double xmax_ = -HUGE_VAL;
+    double xval;
 
     if (missing_action == Fail)
     {
         for (size_t row = st; row <= end; row++)
         {
-            xmin = (x[ix_arr[row]] < xmin)? x[ix_arr[row]] : xmin;
-            xmax = (x[ix_arr[row]] > xmax)? x[ix_arr[row]] : xmax;
+            xval = x[ix_arr[row]];
+            xmin_ = (xval < xmin_)? xval : xmin_;
+            xmax_ = (xval > xmax_)? xval : xmax_;
         }
     }
 
@@ -1762,10 +1764,13 @@ void get_range(size_t ix_arr[], real_t x[], size_t st, size_t end,
     {
         for (size_t row = st; row <= end; row++)
         {
-            xmin = std::fmin(xmin, x[ix_arr[row]]);
-            xmax = std::fmax(xmax, x[ix_arr[row]]);
+            xval = x[ix_arr[row]];
+            xmin_ = std::fmin(xmin_, xval);
+            xmax_ = std::fmax(xmax_, xval);
         }
     }
+
+    xmin = xmin_; xmax = xmax_;
 
     unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
 }
@@ -1773,12 +1778,12 @@ void get_range(size_t ix_arr[], real_t x[], size_t st, size_t end,
 /* for sparse inputs */
 template <class real_t, class sparse_ix>
 void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-               real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-               MissingAction missing_action, double &xmin, double &xmax, bool &unsplittable)
+               real_t *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+               MissingAction missing_action, double &xmin_, double &xmax_, bool &unsplittable)
 {
     /* ix_arr must already be sorted beforehand */
-    xmin =  HUGE_VAL;
-    xmax = -HUGE_VAL;
+    double xmin =  HUGE_VAL;
+    double xmax = -HUGE_VAL;
 
     size_t st_col  = Xc_indptr[col_num];
     size_t end_col = Xc_indptr[col_num + 1];
@@ -1792,6 +1797,7 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
         )
     {
         unsplittable = true;
+        xmin_ = xmin; xmax_ = xmax;
         return;
     }
 
@@ -1863,6 +1869,7 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
         xmin = std::fmin(xmin, 0);
         xmax = std::fmax(xmax, 0);
     }
+    xmin_ = xmin; xmax_ = xmax;
     unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
 
 }

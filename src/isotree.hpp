@@ -953,12 +953,12 @@ void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end,
                          MissingAction missing_action, NewCategAction new_cat_action,
                          bool move_new_to_left, size_t &st_NA, size_t &end_NA, size_t &split_ix);
 template <class real_t=double>
-void get_range(size_t ix_arr[], real_t x[], size_t st, size_t end,
+void get_range(size_t ix_arr[], real_t *restrict x, size_t st, size_t end,
                MissingAction missing_action, double &xmin, double &xmax, bool &unsplittable);
 template <class real_t, class sparse_ix>
 void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-               real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-               MissingAction missing_action, double &xmin, double &xmax, bool &unsplittable);
+               real_t *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+               MissingAction missing_action, double &xmin_, double &xmax_, bool &unsplittable);
 void get_categs(size_t ix_arr[], int x[], size_t st, size_t end, int ncat,
                 MissingAction missing_action, signed char categs[], size_t &npresent, bool &unsplittable);
 #if !defined(_WIN32) && !defined(_WIN64)

@@ -1,6 +1,6 @@
 # IsoTree
 
-Fast and multi-threaded implementation of Extended Isolation Forest, Fair-Cut Forest, SCiForest (a.k.a. Split-Criterion iForest), and regular Isolation Forest, for outlier/anomaly detection, plus additions for imputation of missing values, distance/similarity calculation between observations, and handling of categorical data. Written in C++ with interfaces for Python and R. An additional wrapper for Ruby can be found [here](https://github.com/ankane/isotree).
+Fast and multi-threaded implementation of Isolation Forest (a.k.a. iForest) and variations of it such as Extended Isolation Forest (EIF), Split-Criterion iForest (SCiForest), Fair-Cut Forest, and other customizable variants, aimed at outlier/anomaly detection plus additions for imputation of missing values, distance/similarity calculation between observations, and handling of categorical data. Written in C++ with interfaces for Python, R, and C. An additional wrapper for Ruby can be found [here](https://github.com/ankane/isotree).
 
 The new concepts in this software are described in:
 * [Revisiting randomized choices in isolation forests](https://arxiv.org/abs/2110.13402)
