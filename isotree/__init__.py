@@ -114,7 +114,7 @@ class IsolationForest:
     'FCF' (reference [11]_):
         ``ndim=2``, ``sample_size=256``, ``max_depth=None``, ``ntrees=200``, ``missing_action="fail"``,
         ``coefs="normal"``, ``ntry=1``, ``prob_pick_pooled_gain=1``.
-        Might provide similar results with ``ndim=1`` and ``prob_split_pooled_gain``.
+        Might provide similar or better results with ``ndim=1``.
         For the FCF model aimed at imputing missing values,
         might give better results with ``ntry=10`` or higher and much larger sample sizes.
 
@@ -1788,9 +1788,9 @@ class IsolationForest:
 
         Note
         ----
-        If using non-random splits (parameters ``prob_pick_avg_gain``, ``prob_pick_pooled_gain``,
-        ``prob_split_avg_gain``, ``prob_split_pooled_gain``) and/or range penalizations
-        (which are on by default), the distribution of scores might not be centered around 0.5.
+        If using non-random splits (parameters ``prob_pick_avg_gain``, ``prob_pick_pooled_gain``)
+        and/or range penalizations (which are off by default), the distribution of scores might
+        not be centered around 0.5.
 
         Note
         ----

@@ -58,7 +58,7 @@
 #' Might provide much better results with `max_depth=NULL` despite the reference's recommendation.
 #' \item 'FCF' (reference [11]): `ndim=2`, `sample_size=256`, `max_depth=NULL`, `ntrees=200`,
 #' `missing_action="fail"`, `coefs="normal"`, `ntry=1`, `prob_pick_pooled_gain=1`.
-#' Might provide similar results with `ndim=1` and `prob_split_pooled_gain`.
+#' Might provide similar or better results with `ndim=1`.
 #' For the FCF model aimed at imputing missing values,
 #' might give better results with `ntry=10` or higher and much larger sample sizes.
 #' }
@@ -1079,7 +1079,7 @@ isolation.forest <- function(data,
 #' for calculation of harmonic numbers.
 #' 
 #' The distribution of outlier scores should be centered around 0.5, unless using non-random splits (parameters
-#' `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_split_avg_gain`, `prob_split_pooled_gain`)
+#' `prob_pick_avg_gain`, `prob_pick_pooled_gain`)
 #' and/or range penalizations, or having distributions which are too skewed.
 #' 
 #' The more threads that are set for the model, the higher the memory requirement will be as each

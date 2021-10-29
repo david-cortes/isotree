@@ -85,7 +85,7 @@ of \eqn{c(n)}{c(nobs)} however differs from the paper as this package uses more 
 for calculation of harmonic numbers.
 
 The distribution of outlier scores should be centered around 0.5, unless using non-random splits (parameters
-`prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_split_avg_gain`, `prob_split_pooled_gain`)
+`prob_pick_avg_gain`, `prob_pick_pooled_gain`)
 and/or range penalizations, or having distributions which are too skewed.
 
 The more threads that are set for the model, the higher the memory requirement will be as each
