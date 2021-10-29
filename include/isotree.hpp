@@ -20,7 +20,8 @@
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
 *     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
-*     [10] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
+*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -238,9 +239,11 @@ typedef struct Imputer {
 *       the single-variable model. Note that the model object pointer passed must also
 *       agree with the value passed to 'ndim'.
 * - ntry
-*       In the split-criterion extended model, how many random hyperplanes to evaluate in
-*       order to decide which one is best to take. Ignored for the single-variable case
-*       and for random splits.
+*       When using 'prob_pick_pooled_gain' and/or 'prob_pick_avg_gain', how many variables (with 'ndim=1')
+*       or linear combinations (with 'ndim>1') to try for determining the best one according to gain.
+*       Recommended value in reference [4] is 10 (with 'prob_pick_avg_gain', for outlier detection), while the
+*       recommended value in reference [11] is 1 (with 'prob_pick_pooled_gain', for outlier detection), and the
+*       recommended value in reference [9] is 10 to 20 (with 'prob_pick_pooled_gain', for missing value imputations).
 * - coef_type
 *       For the extended model, whether to sample random coefficients according to a normal distribution ~ N(0, 1)
 *       (as proposed in [4]) or according to a uniform distribution ~ Unif(-1, +1) as proposed in [3]. Ignored for the
@@ -253,7 +256,8 @@ typedef struct Imputer {
 *       through parameter 'weight_as_sample'.
 *       Pass NULL if the rows all have uniform weights.
 * - with_replacement
-*       Whether to produce sub-samples with replacement or not.
+*       Whether to sample rows with replacement or not (not recommended). Note that distance calculations,
+*       if desired, don't work well with duplicate rows.
 * - weight_as_sample
 *       If passing 'sample_weights', whether to consider those weights as row sampling weights (i.e. the higher
 *       the weights, the more likely the observation will end up included in each tree sub-sample), or as distribution
@@ -298,7 +302,7 @@ typedef struct Imputer {
 *       reasonable range in the data being split (given by 2 * range in data and centered around the split point),
 *       as proposed in [4] and implemented in the authors' original code in [5]. Not used in single-variable model
 *       when splitting by categorical variables. Note that this can make a very large difference in the results
-*       when using `prob_pick_pooled_gain`.
+*       when using 'prob_pick_pooled_gain'.
 * - standardize_data
 *       Whether to standardize the features at each node before creating a linear combination of them as suggested
 *       in [4]. This is ignored when using 'ndim=1'.
@@ -334,51 +338,57 @@ typedef struct Imputer {
 *       sample, so if not using sub-samples, it's better to pass column weights calculated externally. For
 *       categorical columns, will calculate expected kurtosis if the column was converted to numerical by
 *       assigning to each category a random number ~ Unif(0, 1).
+* - prob_pick_by_gain_pl
+*       This parameter indicates the probability of choosing the threshold on which to split a variable
+*       (with 'ndim=1') or a linear combination of variables (when using 'ndim>1') as the threshold
+*       that maximizes a pooled standard deviation gain criterion (see references [9] and [11]) on the
+*       same variable or linear combination, similarly to regression trees such as CART.
+*       If using 'ntry>1', will try several variables or linear combinations thereof and choose the one
+*       in which the largest standardized gain can be achieved.
+*       For categorical variables with 'ndim=1', will use shannon entropy instead (like in [7]).
+*       Compared to a simple averaged gain, this tends to result in more evenly-divided splits and more clustered
+*       groups when they are smaller. Recommended to pass higher values when used for imputation of missing values.
+*       When used for outlier detection, datasets with multimodal distributions usually see better performance
+*       under this type of splits.
+*       Note that, since this makes the trees more even and thus it takes more steps to produce isolated nodes,
+*       the resulting object will be heavier. When splits are not made according to any of 'prob_pick_avg_gain'
+*       or 'prob_pick_pooled_gain', both the column and the split point are decided at random. Note that, if
+*       passing value 1 (100%) with no sub-sampling and using the single-variable model,
+*       every single tree will have the exact same splits.
+*       Be aware that 'penalize_range' can also have a large impact when using 'prob_pick_pooled_gain'.
+*       Be aware also that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable
+*       model, every single tree will have the exact same splits.
+*       Under this option, models are likely to produce better results when increasing 'max_depth'.
+*       Alternatively, one can also control the depth through 'min_gain' (for which one might want to
+*       set 'max_depth=0').
+*       Important detail: if using either 'prob_pick_avg_gain' or 'prob_pick_pooled_gain', the distribution of
+*       outlier scores is unlikely to be centered around 0.5.
 * - prob_pick_by_gain_avg
-*       Probability of making each split in the single-variable model by choosing a column and split point in that
-*       same column as both the column and split point that gives the largest averaged gain (as proposed in [4]) across
-*       all available columns and possible splits in each column. Note that this implies evaluating every single column
-*       in the sample data when this type of split happens, which will potentially make the model fitting much slower,
-*       but has no impact on prediction time. For categorical variables, will take the expected standard deviation that
-*       would be gotten if the column were converted to numerical by assigning to each category a random number ~ Unif(0, 1)
-*       and calculate gain with those assumed standard deviations. For the extended model, this parameter indicates the probability that the
-*       split point in the chosen linear combination of variables will be decided by this averaged gain criterion. Compared to
-*       a pooled average, this tends to result in more cases in which a single observation or very few of them are put into
-*       one branch.  Recommended to use sub-samples (parameter `sample_size`) when passing this parameter. When splits are
-*       not made according to any of 'prob_pick_by_gain_avg', 'prob_pick_by_gain_pl', 'prob_split_by_gain_avg', 'prob_split_by_gain_pl',
-*       both the column and the split point are decided at random.
-*       Default setting for [1], [2], [3] is zero, and default for [4] is 1. This is the randomization parameter that can
-*       be passed to the author's original code in [5]. Note that, if passing value 1 (100%) with no sub-sampling and using the
-*       single-variable model, every single tree will have the exact same splits.
+*       This parameter indicates the probability of choosing the threshold on which to split a variable
+*       (with 'ndim=1') or a linear combination of variables (when using 'ndim>1') as the threshold
+*       that maximizes an averaged standard deviation gain criterion (see references [4] and [11]) on the
+*       same variable or linear combination.
+*       If using 'ntry>1', will try several variables or linear combinations thereof and choose the one
+*       in which the largest standardized gain can be achieved.
+*       For categorical variables with 'ndim=1', will take the expected standard deviation that would be
+*       gotten if the column were converted to numerical by assigning to each category a random
+*       number ~ Unif(0, 1) and calculate gain with those assumed standard deviations.
+*       Compared to a pooled gain, this tends to result in more cases in which a single observation or very
+*       few of them are put into one branch. Typically, datasets with outliers defined by extreme values in
+*       some column more or less independently of the rest, usually see better performance under this type
+*       of split. Recommended to use sub-samples (parameter 'sample_size') when
+*       passing this parameter. Note that, since this will create isolated nodes faster, the resulting object
+*       will be lighter (use less memory).
+*       When splits are not made according to any of 'prob_pick_avg_gain' or 'prob_pick_pooled_gain',
+*       both the column and the split point are decided at random. Default setting for [1], [2], [3] is
+*       zero, and default for [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5],
+*       but note that the code in [5] suffers from a mathematical error in the calculation of running standard deviations,
+*       so the results from it might not match with this library's.
+*       Be aware that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable model, every single tree will have
+*       the exact same splits.
 *       Under this option, models are likely to produce better results when increasing 'max_depth'.
 *       Important detail: if using either 'prob_pick_avg_gain' or 'prob_pick_pooled_gain', the distribution of
 *       outlier scores is unlikely to be centered around 0.5.
-* - prob_split_by_gain_avg
-*       Probability of making each split by selecting a column at random and determining the split point as
-*       that which gives the highest averaged gain. Not supported for the extended model as the splits are on
-*       linear combinations of variables. See the documentation for parameter 'prob_pick_by_gain_avg' for more details.
-* - prob_pick_by_gain_pl
-*       Probability of making each split in the single-variable model by choosing a column and split point in that
-*       same column as both the column and split point that gives the largest pooled gain (as used in decision tree
-*       classifiers such as C4.5 in [7]) across all available columns and possible splits in each column. Note
-*       that this implies evaluating every single column in the sample data when this type of split happens, which
-*       will potentially make the model fitting much slower, but has no impact on prediction time. For categorical
-*       variables, will use shannon entropy instead (like in [7]). For the extended model, this parameter indicates the probability
-*       that the split point in the chosen linear combination of variables will be decided by this pooled gain
-*       criterion. Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
-*       groups when they are smaller. Recommended to pass higher values when used for imputation of missing values.
-*       When used for outlier detection, datasets with multimodal distributions usually see better performance
-*       under this type of splits. When splits are not made according to any of 'prob_pick_by_gain_avg', 
-*       'prob_pick_by_gain_pl', 'prob_split_by_gain_avg', 'prob_split_by_gain_pl',
-*       both the column and the split point are decided at random. Note that, if passing value 1 (100%) with no 
-*       sub-sampling and using the single-variable model, every single tree will have the exact same splits.
-*       Be aware that 'penalize_range' can also have a large impact when using 'prob_pick_pooled_gain'.
-*       Important detail: if using either 'prob_pick_avg_gain' or 'prob_pick_pooled_gain', the distribution of
-*       outlier scores is unlikely to be centered around 0.5.
-* - prob_split_by_gain_pl
-*       Probability of making each split by selecting a column at random and determining the split point as
-*       that which gives the highest pooled gain. Not supported for the extended model as the splits are on
-*       linear combinations of variables. See the documentation for parameter 'prob_pick_by_gain_pl' for more details.
 * - min_gain
 *       Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
 *       are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
@@ -503,8 +513,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 bool   standardize_dist, double tmat[],
                 real_t output_depths[], bool standardize_depth,
                 double col_weights[], bool weigh_by_kurt,
-                double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
-                double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
+                double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
                 double min_gain, MissingAction missing_action,
                 CategSplit cat_split_type, NewCategAction new_cat_action,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
@@ -607,16 +616,10 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - weigh_by_kurt
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
-* - prob_pick_by_gain_avg
-*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
-*       what was originally passed to 'fit_iforest'.
-* - prob_split_by_gain_avg
-*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
-*       what was originally passed to 'fit_iforest'.
 * - prob_pick_by_gain_pl
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
-* - prob_split_by_gain_pl
+* - prob_pick_by_gain_avg
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
 * - min_gain
@@ -663,8 +666,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              size_t max_depth,     size_t ncols_per_tree,
              bool   limit_depth,   bool penalize_range, bool standardize_data,
              real_t col_weights[], bool weigh_by_kurt,
-             double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
-             double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
+             double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
              double min_gain, MissingAction missing_action,
              CategSplit cat_split_type, NewCategAction new_cat_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,

@@ -20,7 +20,8 @@
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
 *     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
-*     [10] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
+*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -56,8 +57,7 @@ IsolationForest::IsolationForest
     size_t sample_size, size_t ntrees,
     size_t max_depth, size_t ncols_per_tree, bool   limit_depth,
     bool penalize_range, bool standardize_data, bool weigh_by_kurt,
-    double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
-    double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
+    double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
     double min_gain, MissingAction missing_action,
     CategSplit cat_split_type, NewCategAction new_cat_action,
     bool   all_perm, bool build_imputer, size_t min_imp_obs,
@@ -79,10 +79,8 @@ IsolationForest::IsolationForest
         penalize_range(penalize_range),
         standardize_data(standardize_data),
         weigh_by_kurt(weigh_by_kurt),
-        prob_pick_by_gain_avg(prob_pick_by_gain_avg),
-        prob_split_by_gain_avg(prob_split_by_gain_avg),
         prob_pick_by_gain_pl(prob_pick_by_gain_pl),
-        prob_split_by_gain_pl(prob_split_by_gain_pl),
+        prob_pick_by_gain_avg(prob_pick_by_gain_avg),
         min_gain(min_gain),
         missing_action(missing_action),
         cat_split_type(cat_split_type),
@@ -115,8 +113,8 @@ void IsolationForest::fit(double X[], size_t nrows, size_t ncols)
         false, (double*)nullptr,
         (double*)nullptr, true,
         (double*)nullptr, this->weigh_by_kurt,
-        this->prob_pick_by_gain_avg, this->prob_split_by_gain_avg,
-        this->prob_pick_by_gain_pl,  this->prob_split_by_gain_pl,
+        this->prob_pick_by_gain_pl,
+        this->prob_pick_by_gain_avg,
         this->min_gain, this->missing_action,
         this->cat_split_type, this->new_cat_action,
         this->all_perm, &this->imputer, this->min_imp_obs,
@@ -149,8 +147,8 @@ void IsolationForest::fit(double numeric_data[],   size_t ncols_numeric,  size_t
         false, (double*)nullptr,
         (double*)nullptr, true,
         col_weights, this->weigh_by_kurt,
-        this->prob_pick_by_gain_avg, this->prob_split_by_gain_avg,
-        this->prob_pick_by_gain_pl,  this->prob_split_by_gain_pl,
+        this->prob_pick_by_gain_pl,
+        this->prob_pick_by_gain_avg,
         this->min_gain, this->missing_action,
         this->cat_split_type, this->new_cat_action,
         this->all_perm, &this->imputer, this->min_imp_obs,
@@ -184,8 +182,8 @@ void IsolationForest::fit(double Xc[], int Xc_ind[], int Xc_indptr[],
         false, (double*)nullptr,
         (double*)nullptr, true,
         col_weights, this->weigh_by_kurt,
-        this->prob_pick_by_gain_avg, this->prob_split_by_gain_avg,
-        this->prob_pick_by_gain_pl,  this->prob_split_by_gain_pl,
+        this->prob_pick_by_gain_pl,
+        this->prob_pick_by_gain_avg,
         this->min_gain, this->missing_action,
         this->cat_split_type, this->new_cat_action,
         this->all_perm, &this->imputer, this->min_imp_obs,
@@ -491,10 +489,8 @@ void IsolationForest::check_params()
 
     if (this->prob_pick_by_gain_avg < 0) throw std::runtime_error("'prob_pick_by_gain_avg' must be >= 0.\n");
     if (this->prob_pick_by_gain_pl < 0) throw std::runtime_error("'prob_pick_by_gain_pl' must be >= 0.\n");
-    if (this->prob_split_by_gain_avg < 0) throw std::runtime_error("'prob_split_by_gain_avg' must be >= 0.\n");
-    if (this->prob_split_by_gain_pl < 0) throw std::runtime_error("'prob_split_by_gain_pl' must be >= 0.\n");
 
-    if (prob_pick_by_gain_avg + prob_pick_by_gain_pl + prob_split_by_gain_avg + prob_split_by_gain_pl
+    if (prob_pick_by_gain_avg + prob_pick_by_gain_pl
         > 1. + 2. * std::numeric_limits<double>::epsilon())
         throw std::runtime_error("Probabilities for gain-based splits sum to more than 1.\n");
 
@@ -502,8 +498,6 @@ void IsolationForest::check_params()
         throw std::runtime_error("'min_gain' cannot be negative.\n");
 
     if (this->ndim != 1) {
-        if (this->prob_split_by_gain_avg + this-> prob_split_by_gain_pl > 0)
-            throw std::runtime_error("'prob_split_by_gain_avg' and 'prob_split_by_gain_pl' not meaningful for extended model.\n");
         if (this->missing_action == Divide)
             throw std::runtime_error("'missing_action' = 'Divide' not supported in extended model.\n");
     }

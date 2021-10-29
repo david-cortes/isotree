@@ -20,7 +20,8 @@
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
 *     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
-*     [10] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
+*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -132,7 +133,7 @@ typedef struct isotree_parameters {
 
     /*  General tree construction parameters  */
     size_t ndim; /* default=3 */
-    size_t ntry; /* default=3 */
+    size_t ntry; /* default=1 */
     CoefType coef_type; /* only for ndim>1, default=Normal */
     bool   with_replacement; /* default=false */
     bool   weight_as_sample; /* default=true */
@@ -144,10 +145,8 @@ typedef struct isotree_parameters {
     bool   penalize_range; /* default=false */
     bool   standardize_data; /* default=true */
     bool   weigh_by_kurt; /* default=false */
-    double prob_pick_by_gain_avg; /* default=0 */
-    double prob_split_by_gain_avg; /* only for ndim==1, default=0 */
     double prob_pick_by_gain_pl; /* default=0 */
-    double prob_split_by_gain_pl;  /* only for ndim==1, default=0 */
+    double prob_pick_by_gain_avg; /* default=0 */
     double min_gain; /* default=0 */
     MissingAction missing_action; /* default=Impute */
 
@@ -225,8 +224,8 @@ typedef void* isotree_model_t; /* <- it's a pointer to a C++ 'IsolationForest' o
 static inline isotree_parameters get_default_isotree_parameters()
 {
     return (isotree_parameters) {
-        -1, 1, 3, 3, Normal, false, true, 0, 500, 0, 0, true, false,
-        true, false, 0., 0., 0., 0., 0., Impute, SubSet, Weighted,
+        -1, 1, 3, 1, Normal, false, true, 0, 500, 0, 0, true, false,
+        true, false, 0., 0., 0., Impute, SubSet, Weighted,
         false, false, false, 3, Higher, Inverse
     };
 }
@@ -272,10 +271,8 @@ void set_isotree_parameters
     isotree_bool*   penalize_range,
     isotree_bool*   standardize_data,
     isotree_bool*   weigh_by_kurt,
-    double*    prob_pick_by_gain_avg,
-    double*    prob_split_by_gain_avg,
     double*    prob_pick_by_gain_pl,
-    double*    prob_split_by_gain_pl,
+    double*    prob_pick_by_gain_avg,
     double*    min_gain,
     MissingAction_t*   missing_action,
     CategSplit_t*      cat_split_type,
@@ -309,10 +306,8 @@ void get_isotree_parameters
     isotree_bool*   penalize_range,
     isotree_bool*   standardize_data,
     isotree_bool*   weigh_by_kurt,
-    double*    prob_pick_by_gain_avg,
-    double*    prob_split_by_gain_avg,
     double*    prob_pick_by_gain_pl,
-    double*    prob_split_by_gain_pl,
+    double*    prob_pick_by_gain_avg,
     double*    min_gain,
     MissingAction_t*   missing_action,
     CategSplit_t*      cat_split_type,
@@ -347,8 +342,7 @@ static inline isotree_parameters_t allocate_isotree_parameters(isotree_parameter
         &parameters.ndim, &parameters.ntry, &coef_type, &with_replacement,
         &weight_as_sample, &parameters.sample_size, &parameters.ntrees, &parameters.max_depth,
         &parameters.ncols_per_tree, &limit_depth, &penalize_range, &standardize_data, &weigh_by_kurt,
-        &parameters.prob_pick_by_gain_avg, &parameters.prob_split_by_gain_avg,
-        &parameters.prob_pick_by_gain_pl, &parameters.prob_split_by_gain_pl,
+        &parameters.prob_pick_by_gain_pl, &parameters.prob_pick_by_gain_avg,
         &parameters.min_gain, &missing_action, &cat_split_type, &new_cat_action, &coef_by_prop,
         &all_perm, &build_imputer, &parameters.min_imp_obs, &depth_imp, &weigh_imp_rows
     );

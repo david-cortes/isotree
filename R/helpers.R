@@ -800,8 +800,6 @@ export.metadata <- function(model) {
         ncols_per_tree = model$params$ncols_per_tree,
         prob_pick_avg_gain = model$params$prob_pick_avg_gain,
         prob_pick_pooled_gain = model$params$prob_pick_pooled_gain,
-        prob_split_avg_gain = model$params$prob_split_avg_gain,
-        prob_split_pooled_gain = model$params$prob_split_pooled_gain,
         min_gain = model$params$min_gain,
         missing_action = model$params$missing_action,  ## is in c++
         new_categ_action = model$params$new_categ_action,  ## is in c++
@@ -832,8 +830,6 @@ take.metadata <- function(metadata) {
             ncols_per_tree = metadata$params$ncols_per_tree,
             prob_pick_avg_gain = metadata$params$prob_pick_avg_gain,
             prob_pick_pooled_gain = metadata$params$prob_pick_pooled_gain,
-            prob_split_avg_gain = metadata$params$prob_split_avg_gain,
-            prob_split_pooled_gain = metadata$params$prob_split_pooled_gain,
             min_gain = metadata$params$min_gain, missing_action = metadata$params$missing_action,
             new_categ_action = metadata$params$new_categ_action,
             categ_split_type = metadata$params$categ_split_type,
@@ -874,6 +870,20 @@ take.metadata <- function(metadata) {
     if (!NROW(this$metadata$categ_cols)) {
         this$metadata$categ_cols <- NULL
         this$metadata$categ_max  <- NULL
+    }
+
+    if ("prob_split_avg_gain" %in% names(metadata$params)) {
+        msg <- "'prob_split_avg_gain' has been deprecated in favor of 'prob_pick_avg_gain' + 'ntry'."
+        if (this$params$ndim == 1L) {
+            msg <- paste0(msg, " Be sure to change these parameters if adding trees to this model.")
+        }
+    }
+
+    if ("prob_split_pooled_gain" %in% names(metadata$params)) {
+        msg <- "'prob_split_pooled_gain' has been deprecated in favor of 'prob_pick_pooled_gain' + 'ntry'."
+        if (this$params$ndim == 1L) {
+            msg <- paste0(msg, " Be sure to change these parameters if adding trees to this model.")
+        }
     }
     
     class(this) <- "isolation_forest"

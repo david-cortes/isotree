@@ -20,7 +20,8 @@
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
 *     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
-*     [10] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
+*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -104,6 +105,15 @@ void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams
     }
 }
 
+/* for use in regular model with ntry>1 */
+template <class InputData, class WorkerMemory>
+void get_split_range_v2(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params)
+{
+    get_split_range(workspace, input_data, model_params);
+    if (workspace.col_type == Categorical)
+        workspace.col_chosen += input_data.ncols_numeric;
+}
+
 template <class InputData, class WorkerMemory>
 int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size_t col_num)
 {
@@ -139,6 +149,16 @@ void set_col_as_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_i
                       InputData &input_data, size_t col_num, ColType col_type)
 {
     col_num += ((col_type == Numeric)? 0 : input_data.ncols_numeric);
+    if (col_is_taken.size())
+        col_is_taken[col_num] = true;
+    else
+        col_is_taken_s.insert(col_num);
+}
+
+template <class InputData>
+void set_col_as_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s,
+                      InputData &input_data, size_t col_num)
+{
     if (col_is_taken.size())
         col_is_taken[col_num] = true;
     else

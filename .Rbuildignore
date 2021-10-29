@@ -28,7 +28,7 @@
 ^src/python_helpers\.hpp$
 ^src/isotree_exportable\.hpp$
 ^src/external_facing_generic\.hpp$
-^src/instantiate_model\.cpp
+^src/instantiate_template_headers\.cpp
 ^src/c_interface\.cpp
 ^src/oop_interface\.cpp
 ^src/oop_interface\.hpp

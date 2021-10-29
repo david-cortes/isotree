@@ -20,7 +20,8 @@
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
 *     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
-*     [10] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
+*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -55,8 +56,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 bool   standardize_dist, double tmat[],
                 real_t output_depths[], bool standardize_depth,
                 double col_weights[], bool weigh_by_kurt,
-                double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
-                double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
+                double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
                 double min_gain, MissingAction missing_action,
                 CategSplit cat_split_type, NewCategAction new_cat_action,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
@@ -71,8 +71,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              real_t sample_weights[], size_t nrows, size_t max_depth,
              bool   limit_depth,   bool penalize_range, bool standardize_data,
              real_t col_weights[], bool weigh_by_kurt,
-             double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
-             double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
+             double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
              double min_gain, MissingAction missing_action,
              CategSplit cat_split_type, NewCategAction new_cat_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,

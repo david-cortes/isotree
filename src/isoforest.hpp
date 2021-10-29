@@ -20,7 +20,8 @@
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
 *     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
-*     [10] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
+*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -88,7 +89,8 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
     /* pick column to split according to criteria */
     workspace.prob_split_type = workspace.rbin(workspace.rnd_generator);
 
-    /* case1: guided, pick column and point with best gain */
+
+    /* case1: guided, pick column and/or point with best gain */
     if (
             workspace.prob_split_type
                 < (
@@ -97,194 +99,27 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                   )
         )
     {
-        workspace.determine_split = false;
-
-        /* case 1.1: column is decided by averaged gain */
+        /* case 1.1: column and/or threshold is/are decided by averaged gain */
         if (workspace.prob_split_type < model_params.prob_pick_by_gain_avg)
             workspace.criterion = Averaged;
 
-        /* case 1.2: column is decided by pooled gain */
+        /* case 1.2: column and/or threshold is/are decided by pooled gain */
         else
             workspace.criterion = Pooled;
 
-        /* evaluate gain for all columns */
-        trees.back().score = -HUGE_VAL; /* this is used to track the best gain */
-        workspace.col_sampler.prepare_full_pass();
-        while (workspace.col_sampler.sample_col(workspace.col_chosen))
-        {
-            if (interrupt_switch) return;
-
-            if (workspace.col_chosen < input_data.ncols_numeric)
-            {
-                if (input_data.Xc_indptr == NULL)
-                {
-                    if (!workspace.changed_weights)
-                        workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                               input_data.numeric_data + workspace.col_chosen * input_data.nrows,
-                                                               workspace.buffer_dbl.data(), false,
-                                                               workspace.split_ix, workspace.this_split_point,
-                                                               workspace.xmin, workspace.xmax,
-                                                               workspace.criterion, model_params.min_gain,
-                                                               model_params.missing_action);
-                    else if (workspace.weights_arr.size())
-                        workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                                        input_data.numeric_data + workspace.col_chosen * input_data.nrows,
-                                                                        workspace.buffer_dbl.data(), false,
-                                                                        workspace.split_ix, workspace.this_split_point,
-                                                                        workspace.xmin, workspace.xmax,
-                                                                        workspace.criterion, model_params.min_gain,
-                                                                        model_params.missing_action,
-                                                                        workspace.weights_arr);
-                    else
-                        workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                                        input_data.numeric_data + workspace.col_chosen * input_data.nrows,
-                                                                        workspace.buffer_dbl.data(), false,
-                                                                        workspace.split_ix, workspace.this_split_point,
-                                                                        workspace.xmin, workspace.xmax,
-                                                                        workspace.criterion, model_params.min_gain,
-                                                                        model_params.missing_action,
-                                                                        workspace.weights_map);
-                }
-
-                else
-                {
-                    if (!workspace.changed_weights)
-                        workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                               workspace.col_chosen, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                                               workspace.buffer_dbl.data(), workspace.buffer_szt.data(), false,
-                                                               workspace.this_split_point, workspace.xmin, workspace.xmax,
-                                                               workspace.criterion, model_params.min_gain, model_params.missing_action);
-                    else if (workspace.weights_arr.size())
-                        workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                                        workspace.col_chosen, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                                                        workspace.buffer_dbl.data(), workspace.buffer_szt.data(), false,
-                                                                        workspace.this_split_point, workspace.xmin, workspace.xmax,
-                                                                        workspace.criterion, model_params.min_gain, model_params.missing_action,
-                                                                        workspace.weights_arr);
-                    else
-                        workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                                        workspace.col_chosen, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                                                        workspace.buffer_dbl.data(), workspace.buffer_szt.data(), false,
-                                                                        workspace.this_split_point, workspace.xmin, workspace.xmax,
-                                                                        workspace.criterion, model_params.min_gain, model_params.missing_action,
-                                                                        workspace.weights_map);
-                }
-            }
-
-            else
-            {
-                if (!workspace.changed_weights)
-                    workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                           input_data.categ_data + (workspace.col_chosen - input_data.ncols_numeric) * input_data.nrows,
-                                                           input_data.ncat[workspace.col_chosen - input_data.ncols_numeric],
-                                                           workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
-                                                           workspace.buffer_dbl.data(), workspace.this_categ, workspace.this_split_categ.data(),
-                                                           workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
-                                                           model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
-                else if (workspace.weights_arr.size())
-                    workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                                    input_data.categ_data + (workspace.col_chosen - input_data.ncols_numeric) * input_data.nrows,
-                                                                    input_data.ncat[workspace.col_chosen - input_data.ncols_numeric],
-                                                                    workspace.buffer_szt.data(),
-                                                                    workspace.buffer_dbl.data(), workspace.this_categ, workspace.this_split_categ.data(),
-                                                                    workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
-                                                                    model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
-                                                                    workspace.weights_arr);
-                else
-                    workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                                    input_data.categ_data + (workspace.col_chosen - input_data.ncols_numeric) * input_data.nrows,
-                                                                    input_data.ncat[workspace.col_chosen - input_data.ncols_numeric],
-                                                                    workspace.buffer_szt.data(),
-                                                                    workspace.buffer_dbl.data(), workspace.this_categ, workspace.this_split_categ.data(),
-                                                                    workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
-                                                                    model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
-                                                                    workspace.weights_map);
-            }
-
-            if (workspace.this_gain <= -HUGE_VAL || isnan(workspace.this_gain))
-            {
-                workspace.col_sampler.drop_col(workspace.col_chosen);
-            }
-
-            else if (workspace.this_gain > trees.back().score)
-            {
-                if (workspace.col_chosen < input_data.ncols_numeric)
-                {
-                    trees.back().score     = workspace.this_gain;
-                    trees.back().col_num   = workspace.col_chosen;
-                    trees.back().col_type  = Numeric;
-                    trees.back().num_split = workspace.this_split_point;
-                    if (model_params.penalize_range)
-                    {
-                        trees.back().range_low  = workspace.xmin - workspace.xmax + trees.back().num_split;
-                        trees.back().range_high = workspace.xmax - workspace.xmin + trees.back().num_split;
-                    }
-                }
-
-                else
-                {
-                    trees.back().score    = workspace.this_gain;
-                    trees.back().col_num  = workspace.col_chosen - input_data.ncols_numeric;
-                    trees.back().col_type = Categorical;
-                    switch(model_params.cat_split_type)
-                    {
-                        case SingleCateg:
-                        {
-                            trees.back().chosen_cat = workspace.this_categ;
-                            break;
-                        }
-
-                        case SubSet:
-                        {
-                            trees.back().cat_split.assign(workspace.this_split_categ.begin(),
-                                                          workspace.this_split_categ.begin()
-                                                            + input_data.ncat[workspace.col_chosen - input_data.ncols_numeric]);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (trees.back().score <= 0.)
-            goto terminal_statistics;
-        else
-            trees.back().score = 0.;
+        workspace.determine_split = model_params.ntry <= 1;
     }
 
-    /* case2: column is chosen at random */
+    /* case2: column and split point is decided at random */
     else
     {
+        workspace.criterion = NoCrit;
         workspace.determine_split = true;
+    }
 
-        /* case 2.1: split point is chosen according to gain (averaged) */
-        if (
-            workspace.prob_split_type
-                < (
-                    model_params.prob_pick_by_gain_avg +
-                    model_params.prob_pick_by_gain_pl  +
-                    model_params.prob_split_by_gain_avg
-                  )
-            )
-            workspace.criterion = Averaged;
-
-        /* case 2.2: split point is chosen according to gain (pooled) */
-        else if (
-                    workspace.prob_split_type
-                        < (
-                            model_params.prob_pick_by_gain_avg +
-                            model_params.prob_pick_by_gain_pl  +
-                            model_params.prob_split_by_gain_avg  +
-                            model_params.prob_split_by_gain_pl
-                          )
-            )
-            workspace.criterion = Pooled;
-
-        /* case 2.3: split point is chosen randomly (like in the original paper) */
-        else
-            workspace.criterion = NoCrit;
-
-
+    /* when column is chosen at random */
+    if (workspace.determine_split)
+    {
         if (!workspace.col_sampler.has_weights())
         {
             while (workspace.col_sampler.sample_col(trees.back().col_num, workspace.rnd_generator))
@@ -338,6 +173,211 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
     }
 
 
+    /* when choosing both column and threshold */
+    else
+    {
+        if (model_params.ntry >= workspace.col_sampler.get_remaining_cols())
+            workspace.col_sampler.prepare_full_pass();
+        else if (workspace.try_all)
+            workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
+
+        std::vector<bool> col_is_taken;
+        hashed_set<size_t> col_is_taken_s;
+        if (model_params.ntry < workspace.col_sampler.get_remaining_cols())
+        {
+            if (input_data.ncols_tot < 1e5 ||
+                ((long double)model_params.ntry / (long double)workspace.col_sampler.get_remaining_cols()) > .25
+                )
+            {
+                col_is_taken.resize(input_data.ncols_tot, false);
+            }
+            else {
+                col_is_taken_s.reserve(model_params.ntry);
+            }
+        }
+
+        size_t threshold_shuffle = (workspace.col_sampler.get_remaining_cols() + 1) / 2;
+        workspace.ntried = 0; /* <- used to determine when to shuffle the remainder */
+        workspace.ntaken = 0; /* <- used to count how many columns have been evaluated */
+        trees.back().score = -HUGE_VAL; /* this is used to track the best gain */
+
+        while (
+                workspace.try_all?
+                workspace.col_sampler.sample_col(workspace.col_chosen)
+                    :
+                workspace.col_sampler.sample_col(workspace.col_chosen, workspace.rnd_generator)
+            )
+        {
+            if (interrupt_switch) return;
+            
+            workspace.ntried++;
+            if (!workspace.try_all && workspace.ntried >= threshold_shuffle)
+            {
+                workspace.try_all = true;
+                workspace.col_sampler.shuffle_remainder(workspace.rnd_generator);
+            }
+
+            if ((col_is_taken.size() || col_is_taken_s.size()) && !workspace.try_all)
+            {
+                if (is_col_taken(col_is_taken, col_is_taken_s, workspace.col_chosen))
+                    continue;
+                set_col_as_taken(col_is_taken, col_is_taken_s, input_data, workspace.col_chosen);
+            }
+
+            get_split_range_v2(workspace, input_data, model_params);
+            if (workspace.unsplittable)
+            {
+                workspace.col_sampler.drop_col(workspace.col_chosen);
+                continue;
+            }
+
+            else
+            {
+                if (workspace.col_chosen < input_data.ncols_numeric)
+                {
+                    if (input_data.Xc_indptr == NULL)
+                    {
+                        if (!workspace.changed_weights)
+                            workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                   input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                                                   workspace.buffer_dbl.data(), false,
+                                                                   workspace.split_ix, workspace.this_split_point,
+                                                                   workspace.xmin, workspace.xmax,
+                                                                   workspace.criterion, model_params.min_gain,
+                                                                   model_params.missing_action);
+                        else if (workspace.weights_arr.size())
+                            workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                            input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                                                            workspace.buffer_dbl.data(), false,
+                                                                            workspace.split_ix, workspace.this_split_point,
+                                                                            workspace.xmin, workspace.xmax,
+                                                                            workspace.criterion, model_params.min_gain,
+                                                                            model_params.missing_action,
+                                                                            workspace.weights_arr);
+                        else
+                            workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                            input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                                                            workspace.buffer_dbl.data(), false,
+                                                                            workspace.split_ix, workspace.this_split_point,
+                                                                            workspace.xmin, workspace.xmax,
+                                                                            workspace.criterion, model_params.min_gain,
+                                                                            model_params.missing_action,
+                                                                            workspace.weights_map);
+                    }
+
+                    else
+                    {
+                        if (!workspace.changed_weights)
+                            workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                   workspace.col_chosen, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                                   workspace.buffer_dbl.data(), workspace.buffer_szt.data(), false,
+                                                                   workspace.this_split_point, workspace.xmin, workspace.xmax,
+                                                                   workspace.criterion, model_params.min_gain, model_params.missing_action);
+                        else if (workspace.weights_arr.size())
+                            workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                            workspace.col_chosen, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                                            workspace.buffer_dbl.data(), workspace.buffer_szt.data(), false,
+                                                                            workspace.this_split_point, workspace.xmin, workspace.xmax,
+                                                                            workspace.criterion, model_params.min_gain, model_params.missing_action,
+                                                                            workspace.weights_arr);
+                        else
+                            workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                            workspace.col_chosen, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                                            workspace.buffer_dbl.data(), workspace.buffer_szt.data(), false,
+                                                                            workspace.this_split_point, workspace.xmin, workspace.xmax,
+                                                                            workspace.criterion, model_params.min_gain, model_params.missing_action,
+                                                                            workspace.weights_map);
+                    }
+                }
+
+                else
+                {
+                    if (!workspace.changed_weights)
+                        workspace.this_gain = eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                               input_data.categ_data + (workspace.col_chosen - input_data.ncols_numeric) * input_data.nrows,
+                                                               input_data.ncat[workspace.col_chosen - input_data.ncols_numeric],
+                                                               workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
+                                                               workspace.buffer_dbl.data(), workspace.this_categ, workspace.this_split_categ.data(),
+                                                               workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                               model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
+                    else if (workspace.weights_arr.size())
+                        workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                        input_data.categ_data + (workspace.col_chosen - input_data.ncols_numeric) * input_data.nrows,
+                                                                        input_data.ncat[workspace.col_chosen - input_data.ncols_numeric],
+                                                                        workspace.buffer_szt.data(),
+                                                                        workspace.buffer_dbl.data(), workspace.this_categ, workspace.this_split_categ.data(),
+                                                                        workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                                        model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
+                                                                        workspace.weights_arr);
+                    else
+                        workspace.this_gain = eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                        input_data.categ_data + (workspace.col_chosen - input_data.ncols_numeric) * input_data.nrows,
+                                                                        input_data.ncat[workspace.col_chosen - input_data.ncols_numeric],
+                                                                        workspace.buffer_szt.data(),
+                                                                        workspace.buffer_dbl.data(), workspace.this_categ, workspace.this_split_categ.data(),
+                                                                        workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                                        model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
+                                                                        workspace.weights_map);
+                }
+
+                if (isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
+                    continue;
+
+
+                if (workspace.this_gain > trees.back().score)
+                {
+                    if (workspace.col_chosen < input_data.ncols_numeric)
+                    {
+                        trees.back().score     = workspace.this_gain;
+                        trees.back().col_num   = workspace.col_chosen;
+                        trees.back().col_type  = Numeric;
+                        trees.back().num_split = workspace.this_split_point;
+                        if (model_params.penalize_range)
+                        {
+                            trees.back().range_low  = workspace.xmin - workspace.xmax + trees.back().num_split;
+                            trees.back().range_high = workspace.xmax - workspace.xmin + trees.back().num_split;
+                        }
+                    }
+
+                    else
+                    {
+                        trees.back().score    = workspace.this_gain;
+                        trees.back().col_num  = workspace.col_chosen - input_data.ncols_numeric;
+                        trees.back().col_type = Categorical;
+                        switch(model_params.cat_split_type)
+                        {
+                            case SingleCateg:
+                            {
+                                trees.back().chosen_cat = workspace.this_categ;
+                                break;
+                            }
+
+                            case SubSet:
+                            {
+                                trees.back().cat_split.assign(workspace.this_split_categ.begin(),
+                                                              workspace.this_split_categ.begin()
+                                                                + input_data.ncat[workspace.col_chosen - input_data.ncols_numeric]);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (++workspace.ntaken >= model_params.ntry)
+                    break;
+            }
+        }
+
+        if (!workspace.ntaken)
+            goto terminal_statistics;
+
+        if (trees.back().score <= 0.)
+            goto terminal_statistics;
+        else
+            trees.back().score = 0.;
+    }
+
+
     /* for numeric, choose a random point, or pick the best point as determined earlier */
     produce_split:
     if (trees.back().col_type == Numeric)
@@ -357,31 +397,38 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                     if (input_data.Xc_indptr == NULL)
                     {
                         if (!workspace.changed_weights)
-                            eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                             input_data.numeric_data + trees.back().col_num * input_data.nrows,
-                                             workspace.buffer_dbl.data(), true,
-                                             workspace.split_ix, trees.back().num_split,
-                                             workspace.xmin, workspace.xmax,
-                                             workspace.criterion, model_params.min_gain,
-                                             model_params.missing_action);
+                            workspace.this_gain =
+                                eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                 input_data.numeric_data + trees.back().col_num * input_data.nrows,
+                                                 workspace.buffer_dbl.data(), true,
+                                                 workspace.split_ix, trees.back().num_split,
+                                                 workspace.xmin, workspace.xmax,
+                                                 workspace.criterion, model_params.min_gain,
+                                                 model_params.missing_action);
                         else if (workspace.weights_arr.size())
-                            eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                      input_data.numeric_data + trees.back().col_num * input_data.nrows,
-                                                      workspace.buffer_dbl.data(), true,
-                                                      workspace.split_ix, trees.back().num_split,
-                                                      workspace.xmin, workspace.xmax,
-                                                      workspace.criterion, model_params.min_gain,
-                                                      model_params.missing_action,
-                                                      workspace.weights_arr);
+                            workspace.this_gain =
+                                eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                          input_data.numeric_data + trees.back().col_num * input_data.nrows,
+                                                          workspace.buffer_dbl.data(), true,
+                                                          workspace.split_ix, trees.back().num_split,
+                                                          workspace.xmin, workspace.xmax,
+                                                          workspace.criterion, model_params.min_gain,
+                                                          model_params.missing_action,
+                                                          workspace.weights_arr);
                         else
-                            eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                      input_data.numeric_data + trees.back().col_num * input_data.nrows,
-                                                      workspace.buffer_dbl.data(), true,
-                                                      workspace.split_ix, trees.back().num_split,
-                                                      workspace.xmin, workspace.xmax,
-                                                      workspace.criterion, model_params.min_gain,
-                                                      model_params.missing_action,
-                                                      workspace.weights_map);
+                            workspace.this_gain =
+                                eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                          input_data.numeric_data + trees.back().col_num * input_data.nrows,
+                                                          workspace.buffer_dbl.data(), true,
+                                                          workspace.split_ix, trees.back().num_split,
+                                                          workspace.xmin, workspace.xmax,
+                                                          workspace.criterion, model_params.min_gain,
+                                                          model_params.missing_action,
+                                                          workspace.weights_map);
+
+                        if (isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
+                            goto terminal_statistics;
+
                         if (model_params.missing_action == Fail) /* data is already split */
                         {
                             workspace.split_ix++;
@@ -397,29 +444,36 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                     else
                     {
                         if (!workspace.changed_weights)
-                            eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                             trees.back().col_num, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                             workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
-                                             trees.back().num_split, workspace.xmin, workspace.xmax,
-                                             workspace.criterion, model_params.min_gain,
-                                             model_params.missing_action);
+                            workspace.this_gain =
+                                eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                 trees.back().col_num, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                 workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
+                                                 trees.back().num_split, workspace.xmin, workspace.xmax,
+                                                 workspace.criterion, model_params.min_gain,
+                                                 model_params.missing_action);
                         else if (workspace.weights_arr.size())
-                            eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                      trees.back().col_num, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                                      workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
-                                                      trees.back().num_split, workspace.xmin, workspace.xmax,
-                                                      workspace.criterion, model_params.min_gain,
-                                                      model_params.missing_action,
-                                                      workspace.weights_arr);
+                            workspace.this_gain =
+                                eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                          trees.back().col_num, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                          workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
+                                                          trees.back().num_split, workspace.xmin, workspace.xmax,
+                                                          workspace.criterion, model_params.min_gain,
+                                                          model_params.missing_action,
+                                                          workspace.weights_arr);
                         else
-                            eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                      trees.back().col_num, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                                                      workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
-                                                      trees.back().num_split, workspace.xmin, workspace.xmax,
-                                                      workspace.criterion, model_params.min_gain,
-                                                      model_params.missing_action,
-                                                      workspace.weights_map);
+                            workspace.this_gain =
+                                eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                          trees.back().col_num, input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                                          workspace.buffer_dbl.data(), workspace.buffer_szt.data(), true,
+                                                          trees.back().num_split, workspace.xmin, workspace.xmax,
+                                                          workspace.criterion, model_params.min_gain,
+                                                          model_params.missing_action,
+                                                          workspace.weights_map);
                     }
+
+                    if (isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
+                        goto terminal_statistics;
+
                     break;
                 }
             }
@@ -433,6 +487,10 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
         if (model_params.missing_action == Fail && isnan(trees.back().num_split))
             throw std::runtime_error("Data has missing values. Try using a different value for 'missing_action'.\n");
+
+        /* TODO: make this work, can end up messing with the start and end indices somehow */
+        // if (input_data.Xc_indptr == NULL && model_params.missing_action == Fail && workspace.ntaken == 1)
+        //     goto follow_branches;
         
         if (input_data.Xc_indptr == NULL)
             divide_subset_split(workspace.ix_arr.data(), input_data.numeric_data + input_data.nrows * trees.back().col_num,
@@ -482,28 +540,35 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                             default:
                             {
                                 if (!workspace.changed_weights)
-                                    eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                     input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
-                                                     workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
-                                                     workspace.buffer_dbl.data(), trees.back().chosen_cat, workspace.this_split_categ.data(),
-                                                     workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
-                                                     model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
+                                    workspace.this_gain =
+                                        eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                         input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
+                                                         workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
+                                                         workspace.buffer_dbl.data(), trees.back().chosen_cat, workspace.this_split_categ.data(),
+                                                         workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                         model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
                                 else if (workspace.weights_arr.size())
-                                    eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                              input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
-                                                              workspace.buffer_szt.data(),
-                                                              workspace.buffer_dbl.data(), trees.back().chosen_cat, workspace.this_split_categ.data(),
-                                                              workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
-                                                              model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
-                                                              workspace.weights_arr);
+                                    workspace.this_gain =
+                                        eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                  input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
+                                                                  workspace.buffer_szt.data(),
+                                                                  workspace.buffer_dbl.data(), trees.back().chosen_cat, workspace.this_split_categ.data(),
+                                                                  workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                                  model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
+                                                                  workspace.weights_arr);
                                 else
-                                    eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                              input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
-                                                              workspace.buffer_szt.data(),
-                                                              workspace.buffer_dbl.data(), trees.back().chosen_cat, workspace.this_split_categ.data(),
-                                                              workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
-                                                              model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
-                                                              workspace.weights_map);
+                                    workspace.this_gain =
+                                        eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                  input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
+                                                                  workspace.buffer_szt.data(),
+                                                                  workspace.buffer_dbl.data(), trees.back().chosen_cat, workspace.this_split_categ.data(),
+                                                                  workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                                  model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
+                                                                  workspace.weights_map);
+                                
+                                if (isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
+                                    goto terminal_statistics;
+
                                 break;
                             }
                         }
@@ -551,28 +616,34 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                             {
                                 trees.back().cat_split.resize(input_data.ncat[trees.back().col_num]);
                                 if (!workspace.changed_weights)
-                                    eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                     input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
-                                                     workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
-                                                     workspace.buffer_dbl.data(), trees.back().chosen_cat, trees.back().cat_split.data(),
-                                                     workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
-                                                     model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
+                                    workspace.this_gain =
+                                        eval_guided_crit(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                         input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
+                                                         workspace.buffer_szt.data(), workspace.buffer_szt.data() + input_data.max_categ,
+                                                         workspace.buffer_dbl.data(), trees.back().chosen_cat, trees.back().cat_split.data(),
+                                                         workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                         model_params.all_perm, model_params.missing_action, model_params.cat_split_type);
                                 else if (workspace.weights_arr.size())
-                                    eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                              input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
-                                                              workspace.buffer_szt.data(),
-                                                              workspace.buffer_dbl.data(), trees.back().chosen_cat, trees.back().cat_split.data(),
-                                                              workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
-                                                              model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
-                                                              workspace.weights_arr);
+                                    workspace.this_gain =
+                                        eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                  input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
+                                                                  workspace.buffer_szt.data(),
+                                                                  workspace.buffer_dbl.data(), trees.back().chosen_cat, trees.back().cat_split.data(),
+                                                                  workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                                  model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
+                                                                  workspace.weights_arr);
                                 else
-                                    eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                              input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
-                                                              workspace.buffer_szt.data(),
-                                                              workspace.buffer_dbl.data(), trees.back().chosen_cat, trees.back().cat_split.data(),
-                                                              workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
-                                                              model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
-                                                              workspace.weights_map);
+                                    workspace.this_gain =
+                                        eval_guided_crit_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                                  input_data.categ_data + trees.back().col_num * input_data.nrows, input_data.ncat[trees.back().col_num],
+                                                                  workspace.buffer_szt.data(),
+                                                                  workspace.buffer_dbl.data(), trees.back().chosen_cat, trees.back().cat_split.data(),
+                                                                  workspace.buffer_chr.data(), workspace.criterion, model_params.min_gain,
+                                                                  model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
+                                                                  workspace.weights_map);
+
+                                if (isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
+                                    goto terminal_statistics;
                                 break;
                             }
                         }

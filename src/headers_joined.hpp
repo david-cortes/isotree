@@ -44,65 +44,15 @@
 *     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-
-#ifdef _FOR_PYTHON
-
 #include "isotree.hpp"
 
-template <class T>
-T deepcopy_obj(T obj)
-{
-    T res = obj;
-    return res;
-}
-
-IsoForest get_IsoForest()
-{
-    return IsoForest();
-}
-
-ExtIsoForest get_ExtIsoForest()
-{
-    return ExtIsoForest();
-}
-
-Imputer get_Imputer()
-{
-    return Imputer();
-}
-
-/* Reason behind these functions: Cython (as of v0.29) will not auto-deallocate
-   structs which are part of a cdef'd class, which produces a memory leak
-   but can be force-destructed. Unfortunately, Cython itself doesn't even
-   allow calling destructors for structs, so it has to be done externally.
-   These functions should otherwise have no reason to be.
-
-   This is supposed to be already fixed in newer Cython versions:
-   https://github.com/cython/cython/issues/3226
-   But is not yet available in the relase versions at the time of writing */
-
-void dealloc_IsoForest(IsoForest &model_outputs)
-{
-    model_outputs.~IsoForest();
-}
-
-void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext)
-{
-    model_outputs_ext.~ExtIsoForest();
-}
-
-void dealloc_Imputer(Imputer &imputer)
-{
-    imputer.~Imputer();
-}
-
-bool get_has_openmp(void)
-{
-    #ifdef _OPENMP
-    return true;
-    #else
-    return false;
-    #endif
-}
-
-#endif
+#include "crit.hpp"
+#include "dist.hpp"
+#include "extended.hpp"
+#include "fit_model.hpp"
+#include "helpers_iforest.hpp"
+#include "impute.hpp"
+#include "isoforest.hpp"
+#include "mult.hpp"
+#include "predict.hpp"
+#include "utils.hpp"

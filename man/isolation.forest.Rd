@@ -9,14 +9,12 @@ isolation.forest(
   sample_size = min(NROW(data), 10000L),
   ntrees = 500,
   ndim = min(3, NCOL(data)),
-  ntry = 3,
+  ntry = 1,
   categ_cols = NULL,
   max_depth = ceiling(log2(sample_size)),
   ncols_per_tree = NCOL(data),
-  prob_pick_avg_gain = 0,
   prob_pick_pooled_gain = 0,
-  prob_split_avg_gain = 0,
-  prob_split_pooled_gain = 0,
+  prob_pick_avg_gain = 0,
   min_gain = 0,
   missing_action = ifelse(ndim > 1, "impute", "divide"),
   new_categ_action = ifelse(ndim > 1, "impute", "weighted"),
@@ -92,16 +90,19 @@ or that the distributions in the data are too skewed for random uniform splits.}
 in references [1] and [2], while if passing values greater than 1, will produce the extended model described in
 references [3] and [4].
 Recommended value in reference [4] is 2, while [3] recommends a low value such as 2 or 3. Models with values higher than 1
-are referred hereafter as the extended model (as in [3]).
+are referred hereafter as the extended model (as in reference [3]).
 
 If passing `NULL`, will assume it means using the full number of columns in the data.
 
 Note that, when using `ndim>1` plus `standardize_data=TRUE`, the variables are standardized at each step
 as suggested in [4], which makes the models slightly different than in [3].}
 
-\item{ntry}{In the extended model with non-random splits, how many random combinations to try for determining the best gain.
-Only used when deciding splits by gain (see documentation for parameters `prob_pick_avg_gain` and `prob_pick_pooled_gain`).
-Recommended value in reference [4] is 10. Ignored for single-variable model.}
+\item{ntry}{When using `prob_pick_pooled_gain` and/or `prob_pick_avg_gain`, how many variables (with `ndim=1`)
+or linear combinations (with `ndim>1`) to try for determining the best one according to gain.
+
+Recommended value in reference [4] is 10 (with `prob_pick_avg_gain`, for outlier detection), while the
+recommended value in reference [11] is 1 (with `prob_pick_pooled_gain`, for outlier detection), and the
+recommended value in reference [9] is 10 to 20 (with `prob_pick_pooled_gain`, for missing value imputations).}
 
 \item{categ_cols}{Columns that hold categorical features,
 when the data is passed as a matrix (either dense or sparse).
@@ -144,75 +145,70 @@ that proportion of the columns in the data. Note that, if passing exactly 1, wil
 
 If passing `NULL`, will use the full number of columns in the data.}
 
-\item{prob_pick_avg_gain}{\itemize{
-\item For the single-variable model (`ndim=1`), this parameter indicates the probability
-of making each split by choosing a column and split point in that
-same column as both the column and split point that gives the largest averaged gain (as proposed in [4]) across
-all available columns and possible splits in each column. Note that this implies evaluating every single column
-in the sample data when this type of split happens, which will potentially make the model fitting much slower,
-but has no impact on prediction time. For categorical variables, will take the expected standard deviation that
-would be gotten if the column were converted to numerical by assigning to each category a random number `~ Unif(0, 1)`
-and calculate gain with those assumed standard deviations.
-\item For the extended model, this parameter indicates the probability that the
-split point in the chosen linear combination of variables will be decided by this averaged gain criterion.
-}
-Compared to a pooled average, this tends to result in more cases in which a single observation or very few of them
-are put into one branch. Recommended to use sub-samples (parameter `sample_size`) when passing this parameter.
-Note that, since this will create isolated nodes faster, the resulting object will be lighter (use less memory).
-When splits are not made according to any of `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_split_avg_gain`,
-`prob_split_pooled_gain`, both the column and the split point are decided at random. Default setting for 
-references [1], [2], [3] is zero, and default for reference [4] is 1. This is the randomization parameter
-that can be passed to the author's original code in [5],
-but note that the code in [5] suffers from a mathematical error in the calculation of running standard deviations,
-so the results from it might not match with this library's.
+\item{prob_pick_pooled_gain}{his parameter indicates the probability of choosing the threshold on which to split a variable
+(with `ndim=1`) or a linear combination of variables (when using `ndim>1`) as the threshold
+that maximizes a pooled standard deviation gain criterion (see references [9] and [11]) on the
+same variable or linear combination, similarly to regression trees such as CART.
 
-Note that, if passing a value of 1 (100\%) with no sub-sampling and using the
-single-variable model, every single tree will have the exact same splits.
+If using `ntry>1`, will try several variables or linear combinations thereof and choose the one
+in which the largest standardized gain can be achieved.
 
-Under this option, models are likely to produce better results when increasing ``max_depth``.
+For categorical variables with `ndim=1`, will use shannon entropy instead (like in [7]).
 
-Important detail: if using either `prob_pick_avg_gain` or `prob_pick_pooled_gain`, the distribution of
-outlier scores is unlikely to be centered around 0.5.}
-
-\item{prob_pick_pooled_gain}{\itemize{
-\item For the single-variable model (`ndim=1`), this parameter indicates the probability
-of making each split by choosing a column and split point in that
-same column as both the column and split point that gives the largest pooled gain (as used in decision tree
-classifiers such as C4.5 in [7]) across all available columns and possible splits in each column. Note
-that this implies evaluating every single column in the sample data when this type of split happens, which
-will potentially make the model fitting much slower, but has no impact on prediction time. For categorical
-variables, will use shannon entropy instead (like in [7]).
-\item For the extended model, this parameter indicates the probability
-that the split point in the chosen linear combination of variables will be decided by this pooled gain
-criterion.
-}
-Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
+Compared to a simple averaged gain, this tends to result in more evenly-divided splits and more clustered
 groups when they are smaller. Recommended to pass higher values when used for imputation of missing values.
 When used for outlier detection, datasets with multimodal distributions usually see better performance
 under this type of splits.
 
 Note that, since this makes the trees more even and thus it takes more steps to produce isolated nodes,
-the resulting object will be heavier (use more memory). When splits are not made according to any of `prob_pick_avg_gain`,
-`prob_pick_pooled_gain`, `prob_split_avg_gain`, `prob_split_pooled_gain`, both the column and the split point
-are decided at random. Note that, if passing value = 1 (100\%) with no sub-sampling and using the single-variable model,
+the resulting object will be heavier. When splits are not made according to any of `prob_pick_avg_gain`
+or `prob_pick_pooled_gain`, both the column and the split point are decided at random. Note that, if
+passing value 1 (100\%) with no sub-sampling and using the single-variable model,
 every single tree will have the exact same splits.
 
 Be aware that `penalize_range` can also have a large impact when using `prob_pick_pooled_gain`.
 
+Be aware also that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable
+model, every single tree will have the exact same splits.
+
 Under this option, models are likely to produce better results when increasing `max_depth`.
-Alternatively, one can also control the depth through ``min_gain`` (for which one might want to
+Alternatively, one can also control the depth through `min_gain` (for which one might want to
 set `max_depth=NULL`).
 
 Important detail: if using either `prob_pick_avg_gain` or `prob_pick_pooled_gain`, the distribution of
 outlier scores is unlikely to be centered around 0.5.}
 
-\item{prob_split_avg_gain}{Probability of making each split by selecting a column at random and determining the split point as
-that which gives the highest averaged gain. Not supported for the extended model as the splits are on
-linear combinations of variables. See the documentation for parameter `prob_pick_avg_gain` for more details.}
+\item{prob_pick_avg_gain}{This parameter indicates the probability of choosing the threshold on which to split a variable
+(with `ndim=1`) or a linear combination of variables (when using `ndim>1`) as the threshold
+that maximizes an averaged standard deviation gain criterion (see references [4] and [11]) on the
+same variable or linear combination.
 
-\item{prob_split_pooled_gain}{Probability of making each split by selecting a column at random and determining the split point as
-that which gives the highest pooled gain. Not supported for the extended model as the splits are on
-linear combinations of variables. See the documentation for parameter `prob_pick_pooled_gain` for more details.}
+If using `ntry>1`, will try several variables or linear combinations thereof and choose the one
+in which the largest standardized gain can be achieved.
+
+For categorical variables with `ndim=1`, will take the expected standard deviation that would be
+gotten if the column were converted to numerical by assigning to each category a random
+number `~ Unif(0, 1)` and calculate gain with those assumed standard deviations.
+
+Compared to a pooled gain, this tends to result in more cases in which a single observation or very
+few of them are put into one branch. Recommended to use sub-samples (parameter `sample_size`) when
+passing this parameter. Note that, since this will create isolated nodes faster, the resulting object
+will be lighter (use less memory).
+
+When splits are
+not made according to any of `prob_pick_avg_gain` or `prob_pick_pooled_gain`,
+both the column and the split point are decided at random. Default setting for [1], [2], [3] is
+zero, and default for [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5],
+but note that the code in [5] suffers from a mathematical error in the calculation of running standard deviations,
+so the results from it might not match with this library's.
+
+Be aware that, if passing a value of 1 (100\%) with no sub-sampling and using the single-variable model, every single tree will have
+the exact same splits.
+
+Under this option, models are likely to produce better results when increasing `max_depth`.
+
+Important detail: if using either `prob_pick_avg_gain` or `prob_pick_pooled_gain`, the distribution of
+outlier scores is unlikely to be centered around 0.5.}
 
 \item{min_gain}{Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
 are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated

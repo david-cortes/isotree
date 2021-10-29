@@ -27,7 +27,7 @@ prune image
 prune include
 prune safe
 prune autom4te.cache
-exclude src/instantiate_model.cpp
+exclude src/instantiate_template_headers.cpp
 exclude src/external_facing_generic.hpp
 exclude src/isotree_exportable.hpp
 exclude src/oop_interface.cpp

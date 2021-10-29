@@ -190,9 +190,12 @@ class IsolationForest:
         Note that, when using ``ndim>1`` plus ``standardize_data=True``, the variables are standardized at
         each step as suggested in [4]_, which makes the models slightly different than in [3]_.
     ntry : int
-        In the extended model with non-random splits, how many random combinations to try for determining the best gain.
-        Only used when deciding splits by gain (see documentation for parameters 'prob_pick_avg_gain' and 'prob_pick_pooled_gain').
-        Recommended value in [4]_ is 10. Ignored for single-variable model.
+        When using ``prob_pick_pooled_gain`` and/or ``prob_pick_avg_gain``, how many variables (with ``ndim=1``)
+        or linear combinations (with ``ndim>1``) to try for determining the best one according to gain.
+        
+        Recommended value in reference [4]_ is 10 (with ``prob_pick_avg_gain``, for outlier detection), while the
+        recommended value in reference [11]_ is 1 (with ``prob_pick_pooled_gain``, for outlier detection), and the
+        recommended value in reference [9]_ is 10 to 20 (with ``prob_pick_pooled_gain``, for missing value imputations).
     categ_cols : None or array-like
         Columns that hold categorical features, when the data is passed as an array or matrix.
         Categorical columns should contain only integer values with a continuous numeration starting at zero,
@@ -228,62 +231,32 @@ class IsolationForest:
         100% of the columns rather than taking 1 column.
 
         If passing ``None`` (the default) or zero, will use the full number of available columns.
-    prob_pick_avg_gain : float(0, 1)
-        * For the single-variable model (``ndim=1``), this parameter indicates the probability
-          of making each split by choosing a column and split point in that
-          same column as both the column and split point that gives the largest averaged gain (as proposed in [4]_) across
-          all available columns and possible splits in each column. Note that this implies evaluating every single column
-          in the sample data when this type of split happens, which will potentially make the model fitting much slower,
-          but has no impact on prediction time. For categorical variables, will take the expected standard deviation that
-          would be gotten if the column were converted to numerical by assigning to each category a random number ~ Unif(0, 1)
-          and calculate gain with those assumed standard deviations.
-        
-        * For the extended model, this parameter indicates the probability that the
-          split point in the chosen linear combination of variables will be decided by this averaged gain criterion.
-
-        Compared to a pooled average, this tends to result in more cases in which a single observation or very few of them
-        are put into one branch. Recommended to use sub-samples (parameter 'sample_size') when passing this parameter.
-        Note that, since this will create isolated nodes faster, the resulting object will be lighter (use less memory).
-        
-        When splits are
-        not made according to any of 'prob_pick_avg_gain', 'prob_pick_pooled_gain', 'prob_split_avg_gain',
-        'prob_split_pooled_gain', both the column and the split point are decided at random. Default setting for [1]_, [2]_, [3]_ is
-        zero, and default for [4]_ is 1. This is the randomization parameter that can be passed to the author's original code in [5]_,
-        but note that the code in [5]_ suffers from a mathematical error in the calculation of running standard deviations,
-        so the results from it might not match with this library's.
-        
-        Note that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable model, every single tree will have
-        the exact same splits.
-
-        Under this option, models are likely to produce better results when increasing ``max_depth``.
-
-        Important detail: if using either ``prob_pick_avg_gain`` or ``prob_pick_pooled_gain``, the distribution of
-        outlier scores is unlikely to be centered around 0.5.
     prob_pick_pooled_gain : float(0, 1)
-        * For the single-variable model (``ndim=1``), this parameter indicates the probability
-          of making each split by choosing a column and split point in that
-          same column as both the column and split point that gives the largest pooled gain (as used in decision tree
-          classifiers such as C4.5 in [7]_) across all available columns and possible splits in each column. Note
-          that this implies evaluating every single column in the sample data when this type of split happens, which
-          will potentially make the model fitting much slower, but has no impact on prediction time. For categorical
-          variables, will use shannon entropy instead (like in [7]_).
-        
-        * For the extended model, this parameter indicates the probability
-          that the split point in the chosen linear combination of variables will be decided by this pooled gain
-          criterion.
+        This parameter indicates the probability of choosing the threshold on which to split a variable
+        (with ``ndim=1``) or a linear combination of variables (when using ``ndim>1``) as the threshold
+        that maximizes a pooled standard deviation gain criterion (see references [9]_ and [11]_) on the
+        same variable or linear combination, similarly to regression trees such as CART.
 
-        Compared to a simple average, this tends to result in more evenly-divided splits and more clustered
+        If using ``ntry>1``, will try several variables or linear combinations thereof and choose the one
+        in which the largest standardized gain can be achieved.
+
+        For categorical variables with ``ndim=1``, will use shannon entropy instead (like in [7]_).
+
+        Compared to a simple averaged gain, this tends to result in more evenly-divided splits and more clustered
         groups when they are smaller. Recommended to pass higher values when used for imputation of missing values.
         When used for outlier detection, datasets with multimodal distributions usually see better performance
         under this type of splits.
         
         Note that, since this makes the trees more even and thus it takes more steps to produce isolated nodes,
-        the resulting object will be heavier. When splits are not made according to any of 'prob_pick_avg_gain',
-        'prob_pick_pooled_gain', 'prob_split_avg_gain', 'prob_split_pooled_gain', both the column and the split point
-        are decided at random. Note that, if passing value 1 (100%) with no sub-sampling and using the single-variable model,
+        the resulting object will be heavier. When splits are not made according to any of ``prob_pick_avg_gain``
+        or ``prob_pick_pooled_gain``, both the column and the split point are decided at random. Note that, if
+        passing value 1 (100%) with no sub-sampling and using the single-variable model,
         every single tree will have the exact same splits.
 
         Be aware that ``penalize_range`` can also have a large impact when using ``prob_pick_pooled_gain``.
+
+        Be aware also that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable
+        model, every single tree will have the exact same splits.
 
         Under this option, models are likely to produce better results when increasing ``max_depth``.
         Alternatively, one can also control the depth through ``min_gain`` (for which one might want to
@@ -291,14 +264,40 @@ class IsolationForest:
 
         Important detail: if using either ``prob_pick_avg_gain`` or ``prob_pick_pooled_gain``, the distribution of
         outlier scores is unlikely to be centered around 0.5.
-    prob_split_avg_gain : float(0, 1)
-        Probability of making each split by selecting a column at random and determining the split point as
-        that which gives the highest averaged gain. Not supported for the extended model as the splits are on
-        linear combinations of variables. See the documentation for parameter 'prob_pick_avg_gain' for more details.
-    prob_split_pooled_gain : float(0, 1)
-        Probability of making each split by selecting a column at random and determining the split point as
-        that which gives the highest pooled gain. Not supported for the extended model as the splits are on
-        linear combinations of variables. See the documentation for parameter 'prob_pick_pooled_gain' for more details.
+    prob_pick_avg_gain : float(0, 1)
+        This parameter indicates the probability of choosing the threshold on which to split a variable
+        (with ``ndim=1``) or a linear combination of variables (when using ``ndim>1``) as the threshold
+        that maximizes an averaged standard deviation gain criterion (see references [4]_ and [11]_) on the
+        same variable or linear combination.
+
+        If using ``ntry>1``, will try several variables or linear combinations thereof and choose the one
+        in which the largest standardized gain can be achieved.
+
+        For categorical variables with ``ndim=1``, will take the expected standard deviation that would be
+        gotten if the column were converted to numerical by assigning to each category a random
+        number ~ Unif(0, 1) and calculate gain with those assumed standard deviations.
+
+        Compared to a pooled gain, this tends to result in more cases in which a single observation or very
+        few of them are put into one branch. Typically, datasets with outliers defined by extreme values in
+        some column more or less independently of the rest, usually see better performance under this type
+        of split. Recommended to use sub-samples (parameter ``sample_size``) when
+        passing this parameter. Note that, since this will create isolated nodes faster, the resulting object
+        will be lighter (use less memory).
+        
+        When splits are
+        not made according to any of ``prob_pick_avg_gain`` or ``prob_pick_pooled_gain``,
+        both the column and the split point are decided at random. Default setting for [1]_, [2]_, [3]_ is
+        zero, and default for [4]_ is 1. This is the randomization parameter that can be passed to the author's original code in [5]_,
+        but note that the code in [5]_ suffers from a mathematical error in the calculation of running standard deviations,
+        so the results from it might not match with this library's.
+        
+        Be aware that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable model, every single tree will have
+        the exact same splits.
+
+        Under this option, models are likely to produce better results when increasing ``max_depth``.
+
+        Important detail: if using either ``prob_pick_avg_gain`` or ``prob_pick_pooled_gain``, the distribution of
+        outlier scores is unlikely to be centered around 0.5.
     min_gain : float > 0
         Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
         are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
@@ -508,10 +507,9 @@ class IsolationForest:
     .. [11] Cortes, David. "Revisiting randomized choices in isolation forests."
             arXiv preprint arXiv:2110.13402 (2021).
     """
-    def __init__(self, sample_size = "auto", ntrees = 500, ndim = 3, ntry = 3,
+    def __init__(self, sample_size = "auto", ntrees = 500, ndim = 3, ntry = 1,
                  categ_cols = None, max_depth = "auto", ncols_per_tree = None,
-                 prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
-                 prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
+                 prob_pick_pooled_gain = 0.0, prob_pick_avg_gain = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
                  categ_split_type = "subset", all_perm = False,
                  coef_by_prop = False, recode_categ = False,
@@ -532,8 +530,6 @@ class IsolationForest:
         self.ncols_per_tree = ncols_per_tree
         self.prob_pick_avg_gain = prob_pick_avg_gain
         self.prob_pick_pooled_gain = prob_pick_pooled_gain
-        self.prob_split_avg_gain = prob_split_avg_gain
-        self.prob_split_pooled_gain = prob_split_pooled_gain
         self.min_gain = min_gain
         self.missing_action = missing_action
         self.new_categ_action = new_categ_action
@@ -574,7 +570,6 @@ class IsolationForest:
                  categ_cols = self.categ_cols,
                  max_depth = self.max_depth, ncols_per_tree = self.ncols_per_tree,
                  prob_pick_avg_gain = self.prob_pick_avg_gain, prob_pick_pooled_gain = self.prob_pick_pooled_gain,
-                 prob_split_avg_gain = self.prob_split_avg_gain, prob_split_pooled_gain = self.prob_split_pooled_gain,
                  min_gain = self.min_gain, missing_action = self.missing_action, new_categ_action = self.new_categ_action,
                  categ_split_type = self.categ_split_type, all_perm = self.all_perm,
                  coef_by_prop = self.coef_by_prop, recode_categ = self.recode_categ,
@@ -588,10 +583,9 @@ class IsolationForest:
                  random_seed = self.random_seed if (self.random_state is None) else self.random_state,
                  nthreads = self.nthreads if (self.n_jobs is None) else self.n_jobs)
 
-    def _initialize_full(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 3,
+    def _initialize_full(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 1,
                  categ_cols = None, max_depth = "auto", ncols_per_tree = None,
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
-                 prob_split_avg_gain = 0.0, prob_split_pooled_gain = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
                  categ_split_type = "subset", all_perm = False,
                  coef_by_prop = False, recode_categ = True,
@@ -642,16 +636,12 @@ class IsolationForest:
 
         assert prob_pick_avg_gain     >= 0
         assert prob_pick_pooled_gain  >= 0
-        assert prob_split_avg_gain    >= 0
-        assert prob_split_pooled_gain >= 0
         assert min_gain               >= 0
-        s = prob_pick_avg_gain + prob_pick_pooled_gain + prob_split_avg_gain + prob_split_pooled_gain
+        s = prob_pick_avg_gain + prob_pick_pooled_gain
         if s > 1:
             warnings.warn("Split type probabilities sum to more than 1, will standardize them")
             prob_pick_avg_gain     /= s
             prob_pick_pooled_gain  /= s
-            prob_split_avg_gain    /= s
-            prob_split_pooled_gain /= s
 
         if (ndim == 1) and ((sample_size is None) or (sample_size == "auto")) and ((prob_pick_avg_gain >= 1) or (prob_pick_pooled_gain >= 1)) and (not sample_with_replacement):
             msg  = "Passed parameters for deterministic single-variable splits"
@@ -680,21 +670,10 @@ class IsolationForest:
             if (categ_split_type != "single_categ") and (new_categ_action == "impute"):
                 raise ValueError("'new_categ_action' = 'impute' not supported in single-variable model.")
         else:
-            if (prob_split_avg_gain > 0) or (prob_split_pooled_gain > 0):
-                msg  = "Non-zero values for 'prob_split_avg_gain' "
-                msg += "and 'prob_split_pooled_gain' not meaningful in "
-                msg += "extended model."
-                raise ValueError(msg)
             if missing_action == "divide":
                 raise ValueError("'missing_action' = 'divide' not supported in extended model.")
             if (categ_split_type != "single_categ") and (new_categ_action == "weighted"):
                 raise ValueError("'new_categ_action' = 'weighted' not supported in extended model.")
-
-        if (weigh_by_kurtosis) and (ndim == 1) and (prob_pick_pooled_gain + prob_split_avg_gain) >= 1:
-            msg  = "'weigh_by_kurtosis' is incompatible with deterministic column selection"
-            msg += " ('prob_pick_pooled_gain' and ' prob_split_avg_gain'). Will be forced to 'False'."
-            warnings.warn(msg)
-            weigh_by_kurtosis = False
 
         if nthreads is None:
             nthreads = 1
@@ -724,8 +703,6 @@ class IsolationForest:
         self.ncols_per_tree          =  ncols_per_tree
         self.prob_pick_avg_gain      =  prob_pick_avg_gain
         self.prob_pick_pooled_gain   =  prob_pick_pooled_gain
-        self.prob_split_avg_gain     =  prob_split_avg_gain
-        self.prob_split_pooled_gain  =  prob_split_pooled_gain
         self.min_gain                =  min_gain
         self.missing_action          =  missing_action
         self.new_categ_action        =  new_categ_action
@@ -840,8 +817,7 @@ class IsolationForest:
         if self._is_extended_:
             msg += "Extended "
         msg += "Isolation Forest model"
-        if (self.prob_pick_avg_gain + self.prob_pick_pooled_gain) > 0 or \
-            (self.ndim == 1 and (self.prob_split_avg_gain + self.prob_split_pooled_gain) > 0):
+        if (self.prob_pick_avg_gain + self.prob_pick_pooled_gain) > 0:
             msg += " (using guided splits)"
         msg += "\n"
         if self.ndim > 1:
@@ -963,6 +939,11 @@ class IsolationForest:
         else:
             ncols_per_tree = self.ncols_per_tree
 
+        if (self.prob_pick_pooled_gain or self.prob_pick_avg_gain) and self.ndim == 1:
+            ncols_tot = (X_num.shape[1] if X_num is not None else 0) + (X_cat.shape[1] if X_cat is not None else 0)
+            if self.ntry > ncols_tot:
+                warnings.warn("Passed 'ntry' larger than number of columns, will decrease it.")
+
         if isinstance(self.random_state, np.random.RandomState):
             seed = self.random_state.randint(np.iinfo(np.int32).max)
         else:
@@ -993,10 +974,8 @@ class IsolationForest:
                                 ctypes.c_bool(False).value,
                                 ctypes.c_bool(False).value,
                                 ctypes.c_bool(self.weigh_by_kurtosis).value,
-                                ctypes.c_double(self.prob_pick_avg_gain).value,
-                                ctypes.c_double(self.prob_split_avg_gain).value,
                                 ctypes.c_double(self.prob_pick_pooled_gain).value,
-                                ctypes.c_double(self.prob_split_pooled_gain).value,
+                                ctypes.c_double(self.prob_pick_avg_gain).value,
                                 ctypes.c_double(self.min_gain).value,
                                 self.missing_action,
                                 self.categ_split_type,
@@ -1156,6 +1135,11 @@ class IsolationForest:
         else:
             ncols_per_tree = self.ncols_per_tree
 
+        if (self.prob_pick_pooled_gain or self.prob_pick_avg_gain) and self.ndim == 1:
+            ncols_tot = (X_num.shape[1] if X_num is not None else 0) + (X_cat.shape[1] if X_cat is not None else 0)
+            if self.ntry > ncols_tot:
+                warnings.warn("Passed 'ntry' larger than number of columns, will decrease it.")
+
         if isinstance(self.random_state, np.random.RandomState):
             seed = self.random_state.randint(np.iinfo(np.int32).max)
         else:
@@ -1186,10 +1170,8 @@ class IsolationForest:
                                                                    ctypes.c_bool(output_outlierness is not None).value,
                                                                    ctypes.c_bool(output_outlierness == "score").value,
                                                                    ctypes.c_bool(self.weigh_by_kurtosis).value,
-                                                                   ctypes.c_double(self.prob_pick_avg_gain).value,
-                                                                   ctypes.c_double(self.prob_split_avg_gain).value,
                                                                    ctypes.c_double(self.prob_pick_pooled_gain).value,
-                                                                   ctypes.c_double(self.prob_split_pooled_gain).value,
+                                                                   ctypes.c_double(self.prob_pick_avg_gain).value,
                                                                    ctypes.c_double(self.min_gain).value,
                                                                    self.missing_action,
                                                                    self.categ_split_type,
@@ -1275,7 +1257,7 @@ class IsolationForest:
                         X_cat = X_cat.assign(**{X_cat.columns[cl] : cl})
                     if (self.all_perm
                         and (self.ndim == 1)
-                        and (self.prob_pick_pooled_gain or self.prob_split_pooled_gain)
+                        and (self.prob_pick_pooled_gain)
                     ):
                         if np.math.factorial(self._cat_mapping[cl].shape[0]) > np.iinfo(ctypes.c_size_t).max:
                             msg  = "Number of permutations for categorical variables is larger than "
@@ -2179,6 +2161,11 @@ class IsolationForest:
         else:
             ncols_per_tree = self.ncols_per_tree
 
+        if (self.prob_pick_pooled_gain or self.prob_pick_avg_gain) and self.ndim == 1:
+            ncols_tot = (X_num.shape[1] if X_num is not None else 0) + (X_cat.shape[1] if X_cat is not None else 0)
+            if self.ntry > ncols_tot:
+                warnings.warn("Passed 'ntry' larger than number of columns, will decrease it.")
+
         if isinstance(self.random_state, np.random.RandomState):
             seed = self.random_state.randint(np.iinfo(np.int32).max)
         else:
@@ -2201,10 +2188,8 @@ class IsolationForest:
                                ctypes.c_bool(self.penalize_range).value,
                                ctypes.c_bool(self.standardize_data),
                                ctypes.c_bool(self.weigh_by_kurtosis).value,
-                               ctypes.c_double(self.prob_pick_avg_gain).value,
-                               ctypes.c_double(self.prob_split_avg_gain).value,
                                ctypes.c_double(self.prob_pick_pooled_gain).value,
-                               ctypes.c_double(self.prob_split_pooled_gain).value,
+                               ctypes.c_double(self.prob_pick_avg_gain).value,
                                ctypes.c_double(self.min_gain).value,
                                self.missing_action,
                                self.categ_split_type,
@@ -2845,8 +2830,6 @@ class IsolationForest:
             "ncols_per_tree" : self.ncols_per_tree,
             "prob_pick_avg_gain" : float(self.prob_pick_avg_gain),
             "prob_pick_pooled_gain" : float(self.prob_pick_pooled_gain),
-            "prob_split_avg_gain" : float(self.prob_split_avg_gain),
-            "prob_split_pooled_gain" : float(self.prob_split_pooled_gain),
             "min_gain" : float(self.min_gain),
             "missing_action" : self.missing_action,  ## is in c++
             "new_categ_action" : self.new_categ_action,  ## is in c++
@@ -2892,8 +2875,6 @@ class IsolationForest:
         self.ncols_per_tree = metadata["params"]["ncols_per_tree"]
         self.prob_pick_avg_gain = metadata["params"]["prob_pick_avg_gain"]
         self.prob_pick_pooled_gain = metadata["params"]["prob_pick_pooled_gain"]
-        self.prob_split_avg_gain = metadata["params"]["prob_split_avg_gain"]
-        self.prob_split_pooled_gain = metadata["params"]["prob_split_pooled_gain"]
         self.min_gain = metadata["params"]["min_gain"]
         self.missing_action = metadata["params"]["missing_action"]
         self.new_categ_action = metadata["params"]["new_categ_action"]
@@ -2914,6 +2895,19 @@ class IsolationForest:
             self.standardize_data = True
         self.weigh_by_kurtosis = metadata["params"]["weigh_by_kurtosis"]
         self.assume_full_distr = metadata["params"]["assume_full_distr"]
+
+        if "prob_split_avg_gain" in metadata["params"].keys():
+            if metadata["params"]["prob_split_avg_gain"] > 0:
+                msg = "'prob_split_avg_gain' has been deprecated in favor of 'prob_pick_avg_gain' + 'ntry'."
+                if self.ndim > 1:
+                    msg += " Be sure to change these parameters if refitting this model or adding trees."
+                warnings.warn(msg)
+        if "prob_split_pooled_gain" in metadata["params"].keys():
+            if metadata["params"]["prob_split_pooled_gain"] > 0:
+                msg = "'prob_split_pooled_gain' has been deprecated in favor of 'prob_pick_pooled_gain' + 'ntry'."
+                if self.ndim > 1:
+                    msg += " Be sure to change these parameters if refitting this model or adding trees."
+                warnings.warn(msg)
 
         self.is_fitted_ = True
         self._is_extended_ = self.ndim > 1

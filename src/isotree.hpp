@@ -20,7 +20,8 @@
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
 *     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 *     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
-*     [10] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
+*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -413,9 +414,7 @@ typedef struct {
     uint64_t  random_seed;
     bool      weigh_by_kurt;
     double    prob_pick_by_gain_avg;
-    double    prob_split_by_gain_avg;
     double    prob_pick_by_gain_pl;
-    double    prob_split_by_gain_pl;
     double    min_gain;
     CategSplit      cat_split_type;
     NewCategAction  new_cat_action;
@@ -631,8 +630,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 bool   standardize_dist, double tmat[],
                 double output_depths[], bool standardize_depth,
                 real_t col_weights[], bool weigh_by_kurt,
-                double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
-                double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
+                double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
                 double min_gain, MissingAction missing_action,
                 CategSplit cat_split_type, NewCategAction new_cat_action,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
@@ -648,8 +646,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              size_t max_depth,     size_t ncols_per_tree,
              bool   limit_depth,   bool penalize_range, bool standardize_data,
              real_t col_weights[], bool weigh_by_kurt,
-             double prob_pick_by_gain_avg, double prob_split_by_gain_avg,
-             double prob_pick_by_gain_pl,  double prob_split_by_gain_pl,
+             double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
              double min_gain, MissingAction missing_action,
              CategSplit cat_split_type, NewCategAction new_cat_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
@@ -886,12 +883,17 @@ void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams
 template <class InputData, class WorkerMemory>
 void get_split_range(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params);
 template <class InputData, class WorkerMemory>
+void get_split_range_v2(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params);
+template <class InputData, class WorkerMemory>
 int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size_t col_num);
 bool is_col_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s,
                   size_t col_num);
 template <class InputData>
 void set_col_as_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s,
                       InputData &input_data, size_t col_num, ColType col_type);
+template <class InputData>
+void set_col_as_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s,
+                      InputData &input_data, size_t col_num);
 template <class InputData, class WorkerMemory>
 void add_separation_step(WorkerMemory &workspace, InputData &input_data, double remainder);
 template <class InputData, class WorkerMemory>
