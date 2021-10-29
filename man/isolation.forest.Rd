@@ -191,7 +191,9 @@ gotten if the column were converted to numerical by assigning to each category a
 number `~ Unif(0, 1)` and calculate gain with those assumed standard deviations.
 
 Compared to a pooled gain, this tends to result in more cases in which a single observation or very
-few of them are put into one branch. Recommended to use sub-samples (parameter `sample_size`) when
+few of them are put into one branch. Typically, datasets with outliers defined by extreme values in
+some column more or less independently of the rest, usually see better performance under this type
+of split. Recommended to use sub-samples (parameter `sample_size`) when
 passing this parameter. Note that, since this will create isolated nodes faster, the resulting object
 will be lighter (use less memory).
 

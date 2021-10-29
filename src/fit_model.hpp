@@ -1106,7 +1106,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         }
 
         /* TODO: revisit if this covers all the cases */
-        if (model_params.ntry > 1 && (tree_root == NULL || gain))
+        if (model_params.ntry > 1 || gain)
         {
             min_size_dbl = std::max(min_size_dbl, model_params.sample_size);
             if (model_params.ndim < 2 && input_data.Xc_indptr != NULL)
