@@ -916,10 +916,10 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     workspace.end = model_params.sample_size - 1;
 
     /* in some cases, it's not possible to use column weights even if they are given */
-    bool avoid_col_weights = (tree_root != NULL && model_params.ndim < 2 &&
+    bool avoid_col_weights = (tree_root != NULL && model_params.ntry >= input_data.ncols_tot &&
                               (model_params.prob_pick_by_gain_avg + model_params.prob_pick_by_gain_pl) >= 1)
                                 ||
-                             (hplane_root != NULL && model_params.ndim >= input_data.ncols_tot);
+                             (tree_root == NULL && model_params.ndim >= input_data.ncols_tot);
     if (input_data.col_weights != NULL && !avoid_col_weights)
         workspace.col_sampler.initialize(input_data.col_weights, input_data.ncols_tot);
 
