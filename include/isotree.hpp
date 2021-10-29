@@ -331,7 +331,8 @@ typedef struct Imputer {
 * - col_weights[ncols_numeric + ncols_categ]
 *       Sampling weights for each column, assuming all the numeric columns come before the categorical columns.
 *       Ignored when picking columns by deterministic criterion.
-*       If passing NULL, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+*       If passing NULL, each column will have a uniform weight. If used along with kurtosis weights, the
+*       effect is multiplicative.
 * - weigh_by_kurt
 *       Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
 *       for each tree as briefly proposed in [1]. Note that this is only done at the beginning of each tree
@@ -612,7 +613,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - col_weights
 *       Sampling weights for each column, assuming all the numeric columns come before the categorical columns.
 *       Ignored when picking columns by deterministic criterion.
-*       If passing NULL, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+*       If passing NULL, each column will have a uniform weight. If used along with kurtosis weights, the
+*       effect is multiplicative.
 * - weigh_by_kurt
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.

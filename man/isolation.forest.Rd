@@ -391,7 +391,9 @@ If `data` is a `data.frame` and the variable passed here matches to the name of 
 taken as that column name.}
 
 \item{column_weights}{Sampling weights for each column in `data`. Ignored when picking columns by deterministic criterion.
-If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+If passing `NULL`, each column will have a uniform weight. If used along with kurtosis weights, the
+effect is multiplicative.
+
 Note that, if passing a data.frame with both numeric and categorical columns, the column names must
 not be repeated, otherwise the column weights passed here will not end up matching. If passing a `data.frame`
 to `data`, will assume the column order is the same as in there, regardless of whether the entries passed to
@@ -600,7 +602,7 @@ plot.space(Z2, "Extended Isolation Forest")
 
 ### SCiForest
 iso_sci = isolation.forest(
-     X, ndim=2,
+     X, ndim=2, ntry=3,
      ntrees=100,
      nthreads=1,
      penalize_range=TRUE,

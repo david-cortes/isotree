@@ -19,7 +19,8 @@ distribution density (i.e. if the weight is two, it has the same effect of inclu
 point twice). If not `NULL`, model must have been built with `weights_as_sample_prob` = `FALSE`.}
 
 \item{column_weights}{Sampling weights for each column in `data`. Ignored when picking columns by deterministic criterion.
-If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.}
+If passing `NULL`, each column will have a uniform weight. If used along with kurtosis weights, the
+effect is multiplicative.}
 }
 \value{
 The same `model` object now modified, as invisible.

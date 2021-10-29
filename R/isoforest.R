@@ -404,7 +404,9 @@
 #' (with or without enclosing `sample_weights` in quotes), it will assume the weights are to be
 #' taken as that column name.
 #' @param column_weights Sampling weights for each column in `data`. Ignored when picking columns by deterministic criterion.
-#' If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+#' If passing `NULL`, each column will have a uniform weight. If used along with kurtosis weights, the
+#' effect is multiplicative.
+#' 
 #' Note that, if passing a data.frame with both numeric and categorical columns, the column names must
 #' not be repeated, otherwise the column weights passed here will not end up matching. If passing a `data.frame`
 #' to `data`, will assume the column order is the same as in there, regardless of whether the entries passed to
@@ -528,7 +530,7 @@
 #' 
 #' ### SCiForest
 #' iso_sci = isolation.forest(
-#'      X, ndim=2,
+#'      X, ndim=2, ntry=3,
 #'      ntrees=100,
 #'      nthreads=1,
 #'      penalize_range=TRUE,
@@ -783,10 +785,7 @@ isolation.forest <- function(data,
     
     if (!is.null(sample_weights) && (sample_size == NROW(data)) && weights_as_sample_prob)
         stop("Sampling weights are only supported when using sub-samples for each tree.")
-    
-    if (weigh_by_kurtosis & !is.null(column_weights))
-        stop("Cannot pass column weights when weighting columns by kurtosis.")
-    
+        
     if ((output_score || output_dist || output_imputations) & (sample_size != NROW(data)))
         stop("Cannot calculate scores/distances/imputations when sub-sampling data ('sample_size').")
     
@@ -1322,7 +1321,8 @@ summary.isolation_forest <- function(object, ...) {
 #' distribution density (i.e. if the weight is two, it has the same effect of including the same data
 #' point twice). If not `NULL`, model must have been built with `weights_as_sample_prob` = `FALSE`.
 #' @param column_weights Sampling weights for each column in `data`. Ignored when picking columns by deterministic criterion.
-#' If passing `NULL`, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+#' If passing `NULL`, each column will have a uniform weight. If used along with kurtosis weights, the
+#' effect is multiplicative.
 #' @return The same `model` object now modified, as invisible.
 #' @details If constructing trees with different sample sizes, the outlier scores will not be centered around
 #' 0.5 and might have a very skewed distribution. The standardizing constant for the scores will be
@@ -1339,8 +1339,6 @@ isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights 
     
     if (!is.null(sample_weights) && model$weights_as_sample_prob)
         stop("Cannot use sampling weights with 'partial_fit'.")
-    if (!is.null(column_weights) && model$weigh_by_kurtosis)
-        stop("Cannot pass column weights when weighting columns by kurtosis.")
     if (typeof(model$params$ntrees) != "integer")
         stop("'model' has invalid structure.")
     if (is.na(model$params$ntrees) || model$params$ntrees >= .Machine$integer.max)

@@ -874,7 +874,8 @@ class IsolationForest:
             point twice), according to parameter 'weights_as_sample_prob' in the model constructor method.
         column_weights : None or array(n_features,)
             Sampling weights for each column in 'X'. Ignored when picking columns by deterministic criterion.
-            If passing None, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+            If passing None, each column will have a uniform weight. If used along with kurtosis weights, the
+            effect is multiplicative.
         categ_cols : None or array-like
             Columns that hold categorical features, when the data is passed as an array or matrix.
             Categorical columns should contain only integer values with a continuous numeration starting at zero,
@@ -898,8 +899,6 @@ class IsolationForest:
                 and (self.weights_as_sample_prob)
         ):
             raise ValueError("Sampling weights are only supported when using sub-samples for each tree.")
-        if column_weights is not None and self.weigh_by_kurtosis:
-            raise ValueError("Cannot pass column weights when weighting columns by kurtosis.")
         self._reset_obj()
         X_num, X_cat, ncat, sample_weights, column_weights, nrows = self._process_data(X, sample_weights, column_weights)
 
@@ -1038,7 +1037,8 @@ class IsolationForest:
             Other dtypes are not supported.
         column_weights : None or array(n_features,)
             Sampling weights for each column in 'X'. Ignored when picking columns by deterministic criterion.
-            If passing None, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+            If passing None, each column will have a uniform weight. If used along with kurtosis weights, the
+            effect is multiplicative.
             Note that, if passing a DataFrame with both numeric and categorical columns, the column names must
             not be repeated, otherwise the column weights passed here will not end up matching.
         output_outlierness : None or str in ["score", "avg_depth"]
@@ -1081,8 +1081,6 @@ class IsolationForest:
             raise ValueError("Cannot use 'fit_predict' when the sample size is limited.")
         if self.sample_with_replacement:
             raise ValueError("Cannot use 'fit_predict' or 'fit_transform' when sampling with replacement.")
-        if column_weights is not None and self.weigh_by_kurtosis:
-            raise ValueError("Cannot pass column weights when weighting columns by kurtosis.")
 
         if (output_outlierness is None) and (output_distance is None):
             raise ValueError("Must pass at least one of 'output_outlierness' or 'output_distance'.")
@@ -2029,7 +2027,8 @@ class IsolationForest:
             Not used. Kept for compatibility with SciKit-Learn.
         column_weights : None or array(n_features,)
             Sampling weights for each column in 'X'. Ignored when picking columns by deterministic criterion.
-            If passing None, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+            If passing None, each column will have a uniform weight. If used along with kurtosis weights, the
+            effect is multiplicative.
             Note that, if passing a DataFrame with both numeric and categorical columns, the column names must
             not be repeated, otherwise the column weights passed here will not end up matching.
         categ_cols : None or array-like
@@ -2094,7 +2093,8 @@ class IsolationForest:
             point twice). If not 'None', model must have been built with 'weights_as_sample_prob' = 'False'.
         column_weights : None or array(n_features,)
             Sampling weights for each column in 'X'. Ignored when picking columns by deterministic criterion.
-            If passing None, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+            If passing None, each column will have a uniform weight. If used along with kurtosis weights, the
+            effect is multiplicative.
 
         Returns
         -------
@@ -2105,8 +2105,6 @@ class IsolationForest:
             self._init()
         if (sample_weights is not None) and (self.weights_as_sample_prob):
             raise ValueError("Cannot use sampling weights with 'partial_fit'.")
-        if (column_weights is not None) and (self.weigh_by_kurtosis):
-            raise ValueError("Cannot pass column weights when weighting columns by kurtosis.")
 
         if not self.is_fitted_:
             trees_restore = self.ntrees

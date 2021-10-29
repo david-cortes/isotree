@@ -190,7 +190,8 @@
 * - col_weights[ncols_numeric + ncols_categ]
 *       Sampling weights for each column, assuming all the numeric columns come before the categorical columns.
 *       Ignored when picking columns by deterministic criterion.
-*       If passing NULL, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+*       If passing NULL, each column will have a uniform weight. If used along with kurtosis weights, the
+*       effect is multiplicative.
 * - weigh_by_kurt
 *       Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
 *       for each tree as briefly proposed in [1]. Note that this is only done at the beginning of each tree
@@ -729,7 +730,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - col_weights
 *       Sampling weights for each column, assuming all the numeric columns come before the categorical columns.
 *       Ignored when picking columns by deterministic criterion.
-*       If passing NULL, each column will have a uniform weight. Cannot be used when weighting by kurtosis.
+*       If passing NULL, each column will have a uniform weight. If used along with kurtosis weights, the
+*       effect is multiplicative.
 * - weigh_by_kurt
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
@@ -915,12 +917,13 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     workspace.st  = 0;
     workspace.end = model_params.sample_size - 1;
 
-    /* in some cases, it's not possible to use column weights even if they are given */
+    /* in some cases, it's not possible to use column weights even if they are given,
+       because every single column will always need to be checked or end up being used. */
     bool avoid_col_weights = (tree_root != NULL && model_params.ntry >= input_data.ncols_tot &&
                               (model_params.prob_pick_by_gain_avg + model_params.prob_pick_by_gain_pl) >= 1)
                                 ||
                              (tree_root == NULL && model_params.ndim >= input_data.ncols_tot);
-    if (input_data.col_weights != NULL && !avoid_col_weights)
+    if (input_data.col_weights != NULL && !avoid_col_weights && !model_params.weigh_by_kurt)
         workspace.col_sampler.initialize(input_data.col_weights, input_data.ncols_tot);
 
 
@@ -1236,6 +1239,11 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
             }
 
             for (auto &w : kurt_weights) w = std::fmax(1e-8, -1. + w);
+            if (input_data.col_weights != NULL)
+            {
+                for (size_t col = 0; col < input_data.ncols_tot; col++)
+                    kurt_weights[col] *= input_data.col_weights[col];
+            }
             workspace.col_sampler.initialize(kurt_weights.data(), kurt_weights.size());
         }
 
@@ -1322,14 +1330,19 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                 }
             }
 
+            if (input_data.col_weights != NULL)
+            {
+                for (size_t col : cols_take)
+                    kurt_weights[col] *= input_data.col_weights[col];
+            }
+
             workspace.col_sampler.initialize(kurt_weights.data(), kurt_weights.size());
         }
     }
 
     workspace.col_sampler.initialize(input_data.ncols_tot);
     /* TODO: this can be done more efficiently when sub-sampling columns */
-    if (! (model_params.weigh_by_kurt && !avoid_col_weights))
-        workspace.col_sampler.leave_m_cols(model_params.ncols_per_tree, workspace.rnd_generator);
+    workspace.col_sampler.leave_m_cols(model_params.ncols_per_tree, workspace.rnd_generator);
     workspace.try_all = false;
     if (hplane_root != NULL && model_params.ndim >= input_data.ncols_tot)
         workspace.try_all = true;
