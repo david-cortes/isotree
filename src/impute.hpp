@@ -715,7 +715,7 @@ void drop_nonterminal_imp_node(std::vector<ImputeNode>  &imputer_tree,
 }
 
 template <class ImputedData>
-void combine_imp_single(ImputedData &imp_addfrom, ImputedData &imp_addto)
+void combine_imp_single(ImputedData &restrict imp_addfrom, ImputedData &restrict imp_addto)
 {
     size_t col;
     for (size_t ix = 0; ix < imp_addfrom.n_missing_num; ix++)

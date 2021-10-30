@@ -407,7 +407,7 @@ void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool 
 
 template <class real_t>
 void build_btree_sampler(std::vector<double> &btree_weights, real_t *restrict sample_weights,
-                         size_t nrows, size_t &log2_n, size_t &btree_offset)
+                         size_t nrows, size_t &restrict log2_n, size_t &restrict btree_offset)
 {
     /* build a perfectly-balanced binary search tree in which each node will
        hold the sum of the weights of its children */
@@ -433,9 +433,9 @@ void build_btree_sampler(std::vector<double> &btree_weights, real_t *restrict sa
 }
 
 template <class real_t>
-void sample_random_rows(std::vector<size_t> &ix_arr, size_t nrows, bool with_replacement,
-                        RNG_engine &rnd_generator, std::vector<size_t> &ix_all,
-                        real_t sample_weights[], std::vector<double> &btree_weights,
+void sample_random_rows(std::vector<size_t> &restrict ix_arr, size_t nrows, bool with_replacement,
+                        RNG_engine &rnd_generator, std::vector<size_t> &restrict ix_all,
+                        real_t *restrict sample_weights, std::vector<double> &restrict btree_weights,
                         size_t log2_n, size_t btree_offset, std::vector<bool> &is_repeated)
 {
     size_t ntake = ix_arr.size();
@@ -1003,8 +1003,8 @@ size_t divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, d
 
 /* For numerical columns */
 template <class real_t>
-void divide_subset_split(size_t ix_arr[], real_t x[], size_t st, size_t end, double split_point,
-                         MissingAction missing_action, size_t &st_NA, size_t &end_NA, size_t &split_ix)
+void divide_subset_split(size_t *restrict ix_arr, real_t x[], size_t st, size_t end, double split_point,
+                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix)
 {
     size_t temp;
 
@@ -1056,9 +1056,9 @@ void divide_subset_split(size_t ix_arr[], real_t x[], size_t st, size_t end, dou
 
 /* For sparse numeric columns */
 template <class real_t, class sparse_ix>
-void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-                         real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[], double split_point,
-                         MissingAction missing_action, size_t &st_NA, size_t &end_NA, size_t &split_ix)
+void divide_subset_split(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
+                         real_t Xc[], sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr, double split_point,
+                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix)
 {
     /* TODO: this is a mess, needs refactoring */
     /* TODO: when moving zeros, would be better to instead move by '>' (opposite as in here) */
@@ -1319,8 +1319,8 @@ void divide_subset_split(size_t ix_arr[], size_t st, size_t end, size_t col_num,
 }
 
 /* For categorical columns split by subset */
-void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, signed char split_categ[],
-                         MissingAction missing_action, size_t &st_NA, size_t &end_NA, size_t &split_ix)
+void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end, signed char split_categ[],
+                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix)
 {
     size_t temp;
 
@@ -1371,9 +1371,9 @@ void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, signed
 }
 
 /* For categorical columns split by subset, used at prediction time (with similarity) */
-void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, signed char split_categ[],
+void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end, signed char split_categ[],
                          int ncat, MissingAction missing_action, NewCategAction new_cat_action,
-                         bool move_new_to_left, size_t &st_NA, size_t &end_NA, size_t &split_ix)
+                         bool move_new_to_left, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix)
 {
     size_t temp;
     int cval;
@@ -1589,8 +1589,8 @@ void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, signed
 }
 
 /* For categoricals split on a single category */
-void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, int split_categ,
-                         MissingAction missing_action, size_t &st_NA, size_t &end_NA, size_t &split_ix)
+void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end, int split_categ,
+                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix)
 {
     size_t temp;
 
@@ -1641,9 +1641,9 @@ void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end, int sp
 }
 
 /* For categoricals split on sub-set that turned out to have 2 categories only (prediction-time) */
-void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end,
+void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end,
                          MissingAction missing_action, NewCategAction new_cat_action,
-                         bool move_new_to_left, size_t &st_NA, size_t &end_NA, size_t &split_ix)
+                         bool move_new_to_left, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix)
 {
     size_t temp;
 
@@ -1743,10 +1743,10 @@ void divide_subset_split(size_t ix_arr[], int x[], size_t st, size_t end,
 /* for regular numeric columns */
 template <class real_t>
 void get_range(size_t ix_arr[], real_t *restrict x, size_t st, size_t end,
-               MissingAction missing_action, double &xmin, double &xmax, bool &unsplittable)
+               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable)
 {
-    double xmin_ =  HUGE_VAL;
-    double xmax_ = -HUGE_VAL;
+    xmin =  HUGE_VAL;
+    xmax = -HUGE_VAL;
     double xval;
 
     if (missing_action == Fail)
@@ -1754,8 +1754,8 @@ void get_range(size_t ix_arr[], real_t *restrict x, size_t st, size_t end,
         for (size_t row = st; row <= end; row++)
         {
             xval = x[ix_arr[row]];
-            xmin_ = (xval < xmin_)? xval : xmin_;
-            xmax_ = (xval > xmax_)? xval : xmax_;
+            xmin = (xval < xmin)? xval : xmin;
+            xmax = (xval > xmax)? xval : xmax;
         }
     }
 
@@ -1765,25 +1765,23 @@ void get_range(size_t ix_arr[], real_t *restrict x, size_t st, size_t end,
         for (size_t row = st; row <= end; row++)
         {
             xval = x[ix_arr[row]];
-            xmin_ = std::fmin(xmin_, xval);
-            xmax_ = std::fmax(xmax_, xval);
+            xmin = std::fmin(xmin, xval);
+            xmax = std::fmax(xmax, xval);
         }
     }
-
-    xmin = xmin_; xmax = xmax_;
 
     unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
 }
 
 /* for sparse inputs */
 template <class real_t, class sparse_ix>
-void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-               real_t *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-               MissingAction missing_action, double &xmin_, double &xmax_, bool &unsplittable)
+void get_range(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
+               real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable)
 {
     /* ix_arr must already be sorted beforehand */
-    double xmin =  HUGE_VAL;
-    double xmax = -HUGE_VAL;
+    xmin =  HUGE_VAL;
+    xmax = -HUGE_VAL;
 
     size_t st_col  = Xc_indptr[col_num];
     size_t end_col = Xc_indptr[col_num + 1];
@@ -1797,7 +1795,6 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
         )
     {
         unsplittable = true;
-        xmin_ = xmin; xmax_ = xmax;
         return;
     }
 
@@ -1869,14 +1866,13 @@ void get_range(size_t ix_arr[], size_t st, size_t end, size_t col_num,
         xmin = std::fmin(xmin, 0);
         xmax = std::fmax(xmax, 0);
     }
-    xmin_ = xmin; xmax_ = xmax;
-    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
 
+    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
 }
 
 
-void get_categs(size_t ix_arr[], int x[], size_t st, size_t end, int ncat,
-                MissingAction missing_action, signed char categs[], size_t &npresent, bool &unsplittable)
+void get_categs(size_t *restrict ix_arr, int x[], size_t st, size_t end, int ncat,
+                MissingAction missing_action, signed char categs[], size_t &restrict npresent, bool &unsplittable)
 {
     std::fill(categs, categs + ncat, -1);
     npresent = 0;
@@ -1950,7 +1946,7 @@ size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, real_t x[])
 }
 
 template <class real_t, class sparse_ix>
-size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, size_t col_num, real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[])
+size_t move_NAs_to_front(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num, real_t Xc[], sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr)
 {
     size_t st_non_na = st;
     size_t temp;
@@ -2025,8 +2021,8 @@ size_t center_NAs(size_t *restrict ix_arr, size_t st_left, size_t st, size_t cur
 }
 
 template <class real_t, class sparse_ix>
-void todense(size_t ix_arr[], size_t st, size_t end,
-             size_t col_num, real_t *restrict Xc, sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+void todense(size_t *restrict ix_arr, size_t st, size_t end,
+             size_t col_num, real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
              double *restrict buffer_arr)
 {
     std::fill(buffer_arr, buffer_arr + (end - st + 1), (double)0);

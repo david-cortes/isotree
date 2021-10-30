@@ -537,7 +537,7 @@ double expected_sd_cat(double p[], size_t n, size_t pos[])
 }
 
 template <class number>
-double expected_sd_cat(number counts[], double p[], size_t n, size_t pos[])
+double expected_sd_cat(number *restrict counts, double *restrict p, size_t n, size_t *restrict pos)
 {
     if (n <= 1) return 0;
 
@@ -550,7 +550,7 @@ double expected_sd_cat(number counts[], double p[], size_t n, size_t pos[])
 }
 
 template <class number>
-double expected_sd_cat_single(number counts[], double p[], size_t n, size_t pos[], size_t cat_exclude, number cnt)
+double expected_sd_cat_single(number *restrict counts, double *restrict p, size_t n, size_t *restrict pos, size_t cat_exclude, number cnt)
 {
     if (cat_exclude == 0)
         return expected_sd_cat(counts, p, n-1, pos + 1);
@@ -688,7 +688,7 @@ double midpoint(real_t x, real_t y)
 
 /* TODO: make this a compensated sum */
 template <class real_t, class real_t_>
-double find_split_rel_gain_t(real_t_ *restrict x, size_t n, double &split_point)
+double find_split_rel_gain_t(real_t_ *restrict x, size_t n, double &restrict split_point)
 {
     real_t this_gain;
     real_t best_gain = -HUGE_VAL;
@@ -720,7 +720,7 @@ double find_split_rel_gain_t(real_t_ *restrict x, size_t n, double &split_point)
 }
 
 template <class real_t_>
-double find_split_rel_gain(real_t_ *restrict x, size_t n, double &split_point)
+double find_split_rel_gain(real_t_ *restrict x, size_t n, double &restrict split_point)
 {
     if (n < THRESHOLD_LONG_DOUBLE)
         return find_split_rel_gain_t<double, real_t_>(x, n, split_point);
@@ -729,7 +729,7 @@ double find_split_rel_gain(real_t_ *restrict x, size_t n, double &split_point)
 }
 
 template <class real_t, class real_t_>
-double find_split_rel_gain_t(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix)
+double find_split_rel_gain_t(real_t_ *restrict x, real_t_ xmean, size_t *restrict ix_arr, size_t st, size_t end, double &split_point, size_t &restrict split_ix)
 {
     real_t this_gain;
     real_t best_gain = -HUGE_VAL;
@@ -761,7 +761,7 @@ double find_split_rel_gain_t(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[]
 }
 
 template <class real_t_>
-double find_split_rel_gain(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix)
+double find_split_rel_gain(real_t_ *restrict x, real_t_ xmean, size_t *restrict ix_arr, size_t st, size_t end, double &restrict split_point, size_t &restrict split_ix)
 {
     if ((end-st+1) < THRESHOLD_LONG_DOUBLE)
         return find_split_rel_gain_t<double, real_t_>(x, xmean, ix_arr, st, end, split_point, split_ix);
@@ -861,7 +861,7 @@ long double calc_sd_right_to_left_weighted(real_t_ *restrict x, real_t_ xmean, s
 
 template <class real_t, class real_t_>
 double find_split_std_gain_t(real_t_ *restrict x, size_t n, double *restrict sd_arr,
-                             GainCriterion criterion, double min_gain, double &split_point)
+                             GainCriterion criterion, double min_gain, double &restrict split_point)
 {
     real_t full_sd = calc_sd_right_to_left<real_t>(x, n, sd_arr);
     real_t running_mean = 0;
@@ -897,7 +897,7 @@ double find_split_std_gain_t(real_t_ *restrict x, size_t n, double *restrict sd_
 
 template <class real_t_>
 double find_split_std_gain(real_t_ *restrict x, size_t n, double *restrict sd_arr,
-                           GainCriterion criterion, double min_gain, double &split_point)
+                           GainCriterion criterion, double min_gain, double &restrict split_point)
 {
     if (n < THRESHOLD_LONG_DOUBLE)
         return find_split_std_gain_t<double, real_t_>(x, n, sd_arr, criterion, min_gain, split_point);
@@ -907,7 +907,7 @@ double find_split_std_gain(real_t_ *restrict x, size_t n, double *restrict sd_ar
 
 template <class real_t>
 double find_split_std_gain_weighted(real_t *restrict x, size_t n, double *restrict sd_arr,
-                                    GainCriterion criterion, double min_gain, double &split_point,
+                                    GainCriterion criterion, double min_gain, double &restrict split_point,
                                     double *restrict w, size_t *restrict sorted_ix)
 {
     long double cumw;
@@ -949,7 +949,7 @@ double find_split_std_gain_weighted(real_t *restrict x, size_t n, double *restri
 
 template <class real_t, class real_t_>
 double find_split_std_gain_t(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
-                             GainCriterion criterion, double min_gain, double &split_point, size_t &split_ix)
+                             GainCriterion criterion, double min_gain, double &restrict split_point, size_t &restrict split_ix)
 {
     real_t full_sd = calc_sd_right_to_left<real_t>(x, xmean, ix_arr, st, end, sd_arr);
     real_t running_mean = 0;
@@ -985,7 +985,7 @@ double find_split_std_gain_t(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[]
 
 template <class real_t_>
 double find_split_std_gain(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
-                           GainCriterion criterion, double min_gain, double &split_point, size_t &split_ix)
+                           GainCriterion criterion, double min_gain, double &restrict split_point, size_t &restrict split_ix)
 {
     if ((end-st+1) < THRESHOLD_LONG_DOUBLE)
         return find_split_std_gain_t<double, real_t_>(x, xmean, ix_arr, st, end, sd_arr, criterion, min_gain, split_point, split_ix);
@@ -995,7 +995,7 @@ double find_split_std_gain(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], 
 
 template <class real_t, class mapping>
 double find_split_std_gain_weighted(real_t *restrict x, real_t xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
-                                    GainCriterion criterion, double min_gain, double &split_point, size_t &split_ix, mapping w)
+                                    GainCriterion criterion, double min_gain, double &restrict split_point, size_t &restrict split_ix, mapping w)
 {
     long double cumw;
     double full_sd = calc_sd_right_to_left_weighted(x, xmean, ix_arr, st, end, sd_arr, w, cumw);
@@ -1038,7 +1038,7 @@ double find_split_std_gain_weighted(real_t *restrict x, real_t xmean, size_t ix_
 /* for split-criterion in hyperplanes (see below for version aimed at single-variable splits) */
 double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
                         double min_gain, bool as_relative_gain, double *restrict buffer_sd,
-                        double &split_point, double &xmin, double &xmax)
+                        double &restrict split_point, double &restrict xmin, double &restrict xmax)
 {
     /* Note: the input 'x' is supposed to be a linear combination of standardized variables, so
        all numbers are assumed to be small and in the same scale */
@@ -1071,7 +1071,7 @@ double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
 
 double eval_guided_crit_weighted(double *restrict x, size_t n, GainCriterion criterion,
                                  double min_gain, bool as_relative_gain, double *restrict buffer_sd,
-                                 double &split_point, double &xmin, double &xmax,
+                                 double &restrict split_point, double &restrict xmin, double &restrict xmax,
                                  double *restrict w, size_t *restrict buffer_indices)
 {
     /* Note: the input 'x' is supposed to be a linear combination of standardized variables, so
@@ -1106,7 +1106,7 @@ double eval_guided_crit_weighted(double *restrict x, size_t n, GainCriterion cri
 template <class real_t_>
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, real_t_ *restrict x,
                         double *restrict buffer_sd, bool as_relative_gain,
-                        size_t &split_ix, double &split_point, double &xmin, double &xmax,
+                        size_t &split_ix, double &restrict split_point, double &restrict xmin, double &restrict xmax,
                         GainCriterion criterion, double min_gain, MissingAction missing_action)
 {
     double gain;
@@ -1154,7 +1154,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, real_t_ 
 template <class real_t_, class mapping>
 double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end, real_t_ *restrict x,
                                  double *restrict buffer_sd, bool as_relative_gain,
-                                 size_t &split_ix, double &split_point, double &xmin, double &xmax,
+                                 size_t &split_ix, double &restrict split_point, double &restrict xmin, double &restrict xmax,
                                  GainCriterion criterion, double min_gain, MissingAction missing_action,
                                  mapping w)
 {
@@ -1264,7 +1264,7 @@ double eval_guided_crit_weighted(size_t ix_arr[], size_t st, size_t end,
 /* https://math.stackexchange.com/questions/3343384/expected-variance-and-kurtosis-from-pmf-in-which-possible-discrete-values-are-dr */
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *restrict x, int ncat,
                         size_t *restrict buffer_cnt, size_t *restrict buffer_pos, double *restrict buffer_prob,
-                        int &chosen_cat, signed char *restrict split_categ, signed char *restrict buffer_split,
+                        int &restrict chosen_cat, signed char *restrict split_categ, signed char *restrict buffer_split,
                         GainCriterion criterion, double min_gain, bool all_perm,
                         MissingAction missing_action, CategSplit cat_split_type)
 {
@@ -1556,7 +1556,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
 template <class mapping>
 double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end, int *restrict x, int ncat,
                                  size_t *restrict buffer_pos, double *restrict buffer_prob,
-                                 int &chosen_cat, signed char *restrict split_categ, signed char *restrict buffer_split,
+                                 int &restrict chosen_cat, signed char *restrict split_categ, signed char *restrict buffer_split,
                                  GainCriterion criterion, double min_gain, bool all_perm,
                                  MissingAction missing_action, CategSplit cat_split_type,
                                  mapping w)
