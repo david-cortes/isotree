@@ -683,16 +683,9 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         {
             if (!workspace.changed_weights)
             {
-                /* https://sourceforge.net/p/mingw-w64/bugs/909/ */
-                #if !defined(_WIN32) && !defined(_WIN64)
-                trees.back().pct_tree_left = (long double)(workspace.st_NA - workspace.st)
+                trees.back().pct_tree_left = (ldouble_safe)(workspace.st_NA - workspace.st)
                                                 /
-                                             (long double)(workspace.end - workspace.st + 1 - (workspace.end_NA - workspace.st_NA));
-                #else
-                trees.back().pct_tree_left = (double)(workspace.st_NA - workspace.st)
-                                                /
-                                             (double)(workspace.end - workspace.st + 1 - (workspace.end_NA - workspace.st_NA));
-                #endif
+                                             (ldouble_safe)(workspace.end - workspace.st + 1 - (workspace.end_NA - workspace.st_NA));
 
                 if (model_params.missing_action == Divide && workspace.st_NA < workspace.end_NA)
                 {
@@ -715,14 +708,8 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
             else
             {
-                /* https://sourceforge.net/p/mingw-w64/bugs/909/ */
-                #if !defined(_WIN32) && !defined(_WIN64)
-                long double sum_weight_left = 0;
-                long double sum_weight_right = 0;
-                #else
-                double sum_weight_left = 0;
-                double sum_weight_right = 0;
-                #endif
+                ldouble_safe sum_weight_left = 0;
+                ldouble_safe sum_weight_right = 0;
 
                 if (workspace.weights_arr.size()) {
                     for (size_t row = workspace.st; row < workspace.st_NA; row++)
@@ -775,15 +762,9 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
         else
         {
-            #if !defined(_WIN32) && !defined(_WIN64)
-            trees.back().pct_tree_left = (long double) (workspace.split_ix - workspace.st)
+            trees.back().pct_tree_left = (ldouble_safe) (workspace.split_ix - workspace.st)
                                             /
-                                         (long double) (workspace.end - workspace.st + 1);
-            #else
-            trees.back().pct_tree_left = (double) (workspace.split_ix - workspace.st)
-                                            /
-                                         (double) (workspace.end - workspace.st + 1);
-            #endif
+                                         (ldouble_safe) (workspace.end - workspace.st + 1);
             workspace.end = workspace.split_ix - 1;
         }
 

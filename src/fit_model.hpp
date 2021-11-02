@@ -411,7 +411,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 weight_as_sample, col_weights,
                                 Xc, Xc_ind, Xc_indptr,
                                 0, 0, std::vector<double>(),
-                                std::vector<char>(), 0};
+                                std::vector<char>(), 0, NULL};
     ModelParams model_params = {with_replacement, sample_size, ntrees, ncols_per_tree,
                                 limit_depth? log2ceil(sample_size) : max_depth? max_depth : (sample_size - 1),
                                 penalize_range, standardize_data, random_seed, weigh_by_kurt,
@@ -426,6 +426,40 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     {
         build_btree_sampler(input_data.btree_weights_init, input_data.sample_weights,
                             input_data.nrows, input_data.log2_n, input_data.btree_offset);
+    }
+
+    /* same for column weights */
+    ColumnSampler base_col_sampler;
+    if (
+        col_weights != NULL ||
+        (model_params.weigh_by_kurt && model_params.sample_size == input_data.nrows &&
+         (model_params.ncols_per_tree == 0 || model_params.ncols_per_tree >= input_data.ncols_tot / (model_params.ntrees * 2)))
+    )
+    {
+        bool avoid_col_weights = (model_outputs != NULL && model_params.ntry >= input_data.ncols_tot &&
+                                 (model_params.prob_pick_by_gain_avg + model_params.prob_pick_by_gain_pl) >= 1)
+                                    ||
+                                 (model_outputs == NULL && model_params.ndim >= input_data.ncols_tot);
+        if (!avoid_col_weights)
+        {
+            if (model_params.weigh_by_kurt && model_params.sample_size == input_data.nrows)
+            {
+                RNG_engine rnd_generator(random_seed);
+                std::vector<double> kurt_weights = calc_kurtosis_all_data(input_data, model_params, rnd_generator);
+                if (col_weights != NULL) {
+                    for (size_t col = 0; col < input_data.ncols_tot; col++)
+                        kurt_weights[col] *= col_weights[col];
+                }
+                base_col_sampler.initialize(kurt_weights.data(), input_data.ncols_tot);
+            }
+
+            else
+            {
+                base_col_sampler.initialize(input_data.col_weights, input_data.ncols_tot);
+            }
+
+            input_data.preinitialized_col_sampler = &base_col_sampler;
+        }
     }
 
     /* if imputing missing values on-the-fly, need to determine which are missing */
@@ -812,7 +846,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 false, col_weights,
                                 Xc, Xc_ind, Xc_indptr,
                                 0, 0, std::vector<double>(),
-                                std::vector<char>(), 0};
+                                std::vector<char>(), 0, NULL};
     ModelParams model_params = {false, nrows, (size_t)1, ncols_per_tree,
                                 max_depth? max_depth : (nrows - 1),
                                 penalize_range, standardize_data, random_seed, weigh_by_kurt,
@@ -923,8 +957,11 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                               (model_params.prob_pick_by_gain_avg + model_params.prob_pick_by_gain_pl) >= 1)
                                 ||
                              (tree_root == NULL && model_params.ndim >= input_data.ncols_tot);
-    if (input_data.col_weights != NULL && !avoid_col_weights && !model_params.weigh_by_kurt)
-        workspace.col_sampler.initialize(input_data.col_weights, input_data.ncols_tot);
+    if (input_data.preinitialized_col_sampler == NULL)
+    {
+        if (input_data.col_weights != NULL && !avoid_col_weights && !model_params.weigh_by_kurt)
+            workspace.col_sampler.initialize(input_data.col_weights, input_data.ncols_tot);
+    }
 
 
     /* set expected tree size and add root node */
@@ -1167,7 +1204,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     }
 
     /* weigh columns by kurtosis in the sample if required */
-    if (model_params.weigh_by_kurt && !avoid_col_weights)
+    if (model_params.weigh_by_kurt && !avoid_col_weights && input_data.preinitialized_col_sampler == NULL)
     {
         std::vector<double> kurt_weights(input_data.ncols_numeric + input_data.ncols_categ, 0.);
 
@@ -1340,7 +1377,10 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         }
     }
 
-    workspace.col_sampler.initialize(input_data.ncols_tot);
+    if (input_data.preinitialized_col_sampler == NULL)
+        workspace.col_sampler.initialize(input_data.ncols_tot);
+    else
+        workspace.col_sampler = *((ColumnSampler*)input_data.preinitialized_col_sampler);
     /* TODO: this can be done more efficiently when sub-sampling columns */
     workspace.col_sampler.leave_m_cols(model_params.ncols_per_tree, workspace.rnd_generator);
     workspace.try_all = false;

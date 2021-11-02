@@ -6,7 +6,10 @@ import ctypes
 import json
 import os
 from copy import deepcopy
-from ._cpp_interface import isoforest_cpp_obj, _sort_csc_indices, _reconstruct_csr_sliced, _reconstruct_csr_with_categ, _get_has_openmp
+from ._cpp_interface import (
+    isoforest_cpp_obj, _sort_csc_indices, _reconstruct_csr_sliced,
+    _reconstruct_csr_with_categ, _get_has_openmp
+)
 
 __all__ = ["IsolationForest"]
 
@@ -114,7 +117,7 @@ class IsolationForest:
     'FCF' (reference [11]_):
         ``ndim=2``, ``sample_size=256``, ``max_depth=None``, ``ntrees=200``, ``missing_action="fail"``,
         ``coefs="normal"``, ``ntry=1``, ``prob_pick_pooled_gain=1``.
-        Might provide similar or better results with ``ndim=1``.
+        Might provide similar or better results with ``ndim=1`` and/or sample size as low as 32.
         For the FCF model aimed at imputing missing values,
         might give better results with ``ntry=10`` or higher and much larger sample sizes.
 

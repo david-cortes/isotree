@@ -55,22 +55,22 @@
 template <class real_t>
 double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], MissingAction missing_action)
 {
-    long double m = 0;
-    long double M2 = 0, M3 = 0, M4 = 0;
-    long double delta, delta_s, delta_div;
-    long double diff, n;
-    long double out;
+    ldouble_safe m = 0;
+    ldouble_safe M2 = 0, M3 = 0, M4 = 0;
+    ldouble_safe delta, delta_s, delta_div;
+    ldouble_safe diff, n;
+    ldouble_safe out;
 
     if (missing_action == Fail)
     {
         for (size_t row = st; row <= end; row++)
         {
-            n  =  (long double)(row - st + 1);
+            n  =  (ldouble_safe)(row - st + 1);
 
             delta      =  x[ix_arr[row]] - m;
             delta_div  =  delta / n;
             delta_s    =  delta_div * delta_div;
-            diff       =  delta * (delta_div * (long double)(row - st));
+            diff       =  delta * (delta_div * (ldouble_safe)(row - st));
 
             m   +=  delta_div;
             M4  +=  diff * delta_s * (n * n - 3 * n + 3) + 6 * delta_s * M2 - 4 * delta_div * M3;
@@ -78,7 +78,7 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], Missing
             M2  +=  diff;
         }
 
-        out = ( M4 / M2 ) * ( (long double)(end - st + 1) / M2 );
+        out = ( M4 / M2 ) * ( (ldouble_safe)(end - st + 1) / M2 );
         return (!is_na_or_inf(out) && out > 0.)? out : 0.;
     }
 
@@ -90,12 +90,12 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], Missing
             if (!is_na_or_inf(x[ix_arr[row]]))
             {
                 cnt++;
-                n = (long double) cnt;
+                n = (ldouble_safe) cnt;
 
                 delta      =  x[ix_arr[row]] - m;
                 delta_div  =  delta / n;
                 delta_s    =  delta_div * delta_div;
-                diff       =  delta * (delta_div * (long double)(cnt - 1));
+                diff       =  delta * (delta_div * (ldouble_safe)(cnt - 1));
 
                 m   +=  delta_div;
                 M4  +=  diff * delta_s * (n * n - 3 * n + 3) + 6 * delta_s * M2 - 4 * delta_div * M3;
@@ -104,7 +104,64 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], Missing
             }
         }
 
-        out = ( M4 / M2 ) * ( (long double)cnt / M2 );
+        out = ( M4 / M2 ) * ( (ldouble_safe)cnt / M2 );
+        return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+    }
+}
+
+template <class real_t>
+double calc_kurtosis(real_t x[], size_t n, MissingAction missing_action)
+{
+    ldouble_safe m = 0;
+    ldouble_safe M2 = 0, M3 = 0, M4 = 0;
+    ldouble_safe delta, delta_s, delta_div;
+    ldouble_safe diff, n_;
+    ldouble_safe out;
+
+    if (missing_action == Fail)
+    {
+        for (size_t row = 0; row < n; row++)
+        {
+            n_  =  (ldouble_safe)(row + 1);
+
+            delta      =  x[row] - m;
+            delta_div  =  delta / n_;
+            delta_s    =  delta_div * delta_div;
+            diff       =  delta * (delta_div * (ldouble_safe)row);
+
+            m   +=  delta_div;
+            M4  +=  diff * delta_s * (n_ * n_ - 3 * n_ + 3) + 6 * delta_s * M2 - 4 * delta_div * M3;
+            M3  +=  diff * delta_div * (n_ - 2) - 3 * delta_div * M2;
+            M2  +=  diff;
+        }
+
+        out = ( M4 / M2 ) * ( (ldouble_safe)n / M2 );
+        return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+    }
+
+    else
+    {
+        size_t cnt = 0;
+        for (size_t row = 0; row < n; row++)
+        {
+            if (!is_na_or_inf(x[row]))
+            {
+                cnt++;
+                n_ = (ldouble_safe) cnt;
+
+                delta      =  x[row] - m;
+                delta_div  =  delta / n_;
+                delta_s    =  delta_div * delta_div;
+                diff       =  delta * (delta_div * (ldouble_safe)(cnt - 1));
+
+                m   +=  delta_div;
+                M4  +=  diff * delta_s * (n_ * n_ - 3 * n_ + 3) + 6 * delta_s * M2 - 4 * delta_div * M3;
+                M3  +=  diff * delta_div * (n_ - 2) - 3 * delta_div * M2;
+                M2  +=  diff;
+            }
+        }
+
+        out = ( M4 / M2 ) * ( (ldouble_safe)cnt / M2 );
         return (!is_na_or_inf(out) && out > 0.)? out : 0.;
     }
 }
@@ -114,13 +171,13 @@ template <class real_t, class mapping>
 double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, real_t x[],
                               MissingAction missing_action, mapping w)
 {
-    long double m = 0;
-    long double M2 = 0, M3 = 0, M4 = 0;
-    long double delta, delta_s, delta_div;
-    long double diff;
-    long double n = 0;
-    long double out;
-    long double n_prev = 0.;
+    ldouble_safe m = 0;
+    ldouble_safe M2 = 0, M3 = 0, M4 = 0;
+    ldouble_safe delta, delta_s, delta_div;
+    ldouble_safe diff;
+    ldouble_safe n = 0;
+    ldouble_safe out;
+    ldouble_safe n_prev = 0.;
     double w_this;
 
     for (size_t row = st; row <= end; row++)
@@ -147,23 +204,59 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, real_t x[]
     return (!is_na_or_inf(out) && out > 0.)? out : 0.;
 }
 
+template <class real_t>
+double calc_kurtosis_weighted(real_t *restrict x, size_t n_, MissingAction missing_action, real_t *restrict w)
+{
+    ldouble_safe m = 0;
+    ldouble_safe M2 = 0, M3 = 0, M4 = 0;
+    ldouble_safe delta, delta_s, delta_div;
+    ldouble_safe diff;
+    ldouble_safe n = 0;
+    ldouble_safe out;
+    ldouble_safe n_prev = 0.;
+    double w_this;
+
+    for (size_t row = 0; row < n_; row++)
+    {
+        if (!is_na_or_inf(x[row]))
+        {
+            w_this = w[row];
+            n += w_this;
+
+            delta      =  x[row] - m;
+            delta_div  =  delta / n;
+            delta_s    =  delta_div * delta_div;
+            diff       =  delta * (delta_div * n_prev);
+            n_prev   =  n;
+
+            m   +=  w_this * (delta_div);
+            M4  +=  w_this * (diff * delta_s * (n * n - 3 * n + 3) + 6 * delta_s * M2 - 4 * delta_div * M3);
+            M3  +=  w_this * (diff * delta_div * (n - 2) - 3 * delta_div * M2);
+            M2  +=  w_this * (diff);
+        }
+    }
+
+    out = ( M4 / M2 ) * ( n / M2 );
+    return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+}
+
 
 /* TODO: make these compensated sums */
 /* TODO: can this use the same algorithm as above but with a correction at the end,
    like it was done for the variance? */
 template <class real_t, class sparse_ix>
-double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-                     real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
+                     real_t Xc[], sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                      MissingAction missing_action)
 {
     /* ix_arr must be already sorted beforehand */
     if (Xc_indptr[col_num] == Xc_indptr[col_num + 1])
         return 0;
 
-    long double s1 = 0;
-    long double s2 = 0;
-    long double s3 = 0;
-    long double s4 = 0;
+    ldouble_safe s1 = 0;
+    ldouble_safe s2 = 0;
+    ldouble_safe s3 = 0;
+    ldouble_safe s4 = 0;
     size_t cnt = end - st + 1;
 
     if (cnt <= 1) return 0;
@@ -174,6 +267,8 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, size_t col_num,
     size_t ind_end_col = Xc_ind[end_col];
     size_t *ptr_st = std::lower_bound(ix_arr + st, ix_arr + end + 1, Xc_ind[st_col]);
 
+    real_t xval;
+
     if (missing_action != Fail)
     {
         for (size_t *row = ptr_st;
@@ -182,17 +277,18 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, size_t col_num,
         {
             if (Xc_ind[curr_pos] == (sparse_ix)(*row))
             {
-                if (is_na_or_inf(Xc[curr_pos]))
+                xval = Xc[curr_pos];
+                if (is_na_or_inf(xval))
                 {
                     cnt--;
                 }
 
                 else
                 {
-                    s1 += pw1(Xc[curr_pos]);
-                    s2 += pw2(Xc[curr_pos]);
-                    s3 += pw3(Xc[curr_pos]);
-                    s4 += pw4(Xc[curr_pos]);
+                    s1 += pw1(xval);
+                    s2 += pw2(xval);
+                    s3 += pw3(xval);
+                    s4 += pw4(xval);
                 }
 
                 if (row == ix_arr + end || curr_pos == end_col) break;
@@ -217,10 +313,11 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, size_t col_num,
         {
             if (Xc_ind[curr_pos] == (sparse_ix)(*row))
             {
-                s1 += pw1(Xc[curr_pos]);
-                s2 += pw2(Xc[curr_pos]);
-                s3 += pw3(Xc[curr_pos]);
-                s4 += pw4(Xc[curr_pos]);
+                xval = Xc[curr_pos];
+                s1 += pw1(xval);
+                s2 += pw2(xval);
+                s3 += pw3(xval);
+                s4 += pw4(xval);
 
                 if (row == ix_arr + end || curr_pos == end_col) break;
                 curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *(++row)) - Xc_ind;
@@ -237,30 +334,89 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, size_t col_num,
     }
 
     if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return 0;
-    long double cnt_l = (long double) cnt;
-    long double sn = s1 / cnt_l;
-    long double v  = s2 / cnt_l - pw2(sn);
+    ldouble_safe cnt_l = (ldouble_safe) cnt;
+    ldouble_safe sn = s1 / cnt_l;
+    ldouble_safe v  = s2 / cnt_l - pw2(sn);
     if (v <= 0) return 0.;
-    long double out =  (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt_l * pw4(sn)) / (cnt_l * pw2(v));
+    ldouble_safe out =  (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt_l * pw4(sn)) / (cnt_l * pw2(v));
+    return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+}
+
+template <class real_t, class sparse_ix>
+double calc_kurtosis(size_t col_num, size_t nrows,
+                     real_t Xc[], sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+                     MissingAction missing_action)
+{
+    if (Xc_indptr[col_num] == Xc_indptr[col_num + 1])
+        return 0;
+
+    ldouble_safe s1 = 0;
+    ldouble_safe s2 = 0;
+    ldouble_safe s3 = 0;
+    ldouble_safe s4 = 0;
+    size_t cnt = nrows;
+
+    if (cnt <= 1) return 0;
+
+    real_t xval;
+
+    if (missing_action != Fail)
+    {
+        for (size_t ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num+1]; ix++)
+        {
+            xval = Xc[ix];
+            if (is_na_or_inf(xval))
+            {
+                cnt--;
+            }
+
+            else
+            {
+                s1 += pw1(xval);
+                s2 += pw2(xval);
+                s3 += pw3(xval);
+                s4 += pw4(xval);
+            }
+        }
+    }
+
+    else
+    {
+        for (size_t ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num+1]; ix++)
+        {
+            xval = Xc[ix];
+            s1 += pw1(xval);
+            s2 += pw2(xval);
+            s3 += pw3(xval);
+            s4 += pw4(xval);
+        }
+    }
+
+    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return 0;
+    ldouble_safe cnt_l = (ldouble_safe) cnt;
+    ldouble_safe sn = s1 / cnt_l;
+    ldouble_safe v  = s2 / cnt_l - pw2(sn);
+    if (v <= 0) return 0.;
+    ldouble_safe out =  (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt_l * pw4(sn)) / (cnt_l * pw2(v));
     return (!is_na_or_inf(out) && out > 0.)? out : 0.;
 }
 
 
 template <class real_t, class sparse_ix, class mapping>
-double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-                              real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+double calc_kurtosis_weighted(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
+                              real_t Xc[], sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                               MissingAction missing_action, mapping w)
 {
     /* ix_arr must be already sorted beforehand */
     if (Xc_indptr[col_num] == Xc_indptr[col_num + 1])
         return 0;
 
-    long double s1 = 0;
-    long double s2 = 0;
-    long double s3 = 0;
-    long double s4 = 0;
+    ldouble_safe s1 = 0;
+    ldouble_safe s2 = 0;
+    ldouble_safe s3 = 0;
+    ldouble_safe s4 = 0;
     double w_this;
-    long double cnt = 0.;
+    ldouble_safe cnt = 0;
     for (size_t row = st; row <= end; row++)
         cnt += w[ix_arr[row]];
 
@@ -272,6 +428,8 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, size_t col
     size_t ind_end_col = Xc_ind[end_col];
     size_t *ptr_st = std::lower_bound(ix_arr + st, ix_arr + end + 1, Xc_ind[st_col]);
 
+    real_t xval;
+
     if (missing_action != Fail)
     {
         for (size_t *row = ptr_st;
@@ -281,18 +439,19 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, size_t col
             if (Xc_ind[curr_pos] == (sparse_ix)(*row))
             {
                 w_this = w[*row];
+                xval = Xc[curr_pos];
 
-                if (is_na_or_inf(Xc[curr_pos]))
+                if (is_na_or_inf(xval))
                 {
                     cnt -= w_this;
                 }
 
                 else
                 {
-                    s1 += w_this * pw1(Xc[curr_pos]);
-                    s2 += w_this * pw2(Xc[curr_pos]);
-                    s3 += w_this * pw3(Xc[curr_pos]);
-                    s4 += w_this * pw4(Xc[curr_pos]);
+                    s1 += w_this * pw1(xval);
+                    s2 += w_this * pw2(xval);
+                    s3 += w_this * pw3(xval);
+                    s4 += w_this * pw4(xval);
                 }
 
                 if (row == ix_arr + end || curr_pos == end_col) break;
@@ -318,11 +477,12 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, size_t col
             if (Xc_ind[curr_pos] == (sparse_ix)(*row))
             {
                 w_this = w[*row];
+                xval = Xc[curr_pos];
                 
-                s1 += w_this * pw1(Xc[curr_pos]);
-                s2 += w_this * pw2(Xc[curr_pos]);
-                s3 += w_this * pw3(Xc[curr_pos]);
-                s4 += w_this * pw4(Xc[curr_pos]);
+                s1 += w_this * pw1(xval);
+                s2 += w_this * pw2(xval);
+                s3 += w_this * pw3(xval);
+                s4 += w_this * pw4(xval);
 
                 if (row == ix_arr + end || curr_pos == end_col) break;
                 curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *(++row)) - Xc_ind;
@@ -339,17 +499,82 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, size_t col
     }
 
     if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return 0;
-    long double sn = s1 / cnt;
-    long double v  = s2 / cnt - pw2(sn);
+    ldouble_safe sn = s1 / cnt;
+    ldouble_safe v  = s2 / cnt - pw2(sn);
     if (v <= 0) return 0.;
-    long double out =  (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt * pw4(sn)) / (cnt * pw2(v));
+    ldouble_safe out =  (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt * pw4(sn)) / (cnt * pw2(v));
+    return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+}
+
+template <class real_t, class sparse_ix>
+double calc_kurtosis_weighted(size_t col_num, size_t nrows,
+                              real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+                              MissingAction missing_action, real_t *restrict w)
+{
+    if (Xc_indptr[col_num] == Xc_indptr[col_num + 1])
+        return 0;
+
+    ldouble_safe s1 = 0;
+    ldouble_safe s2 = 0;
+    ldouble_safe s3 = 0;
+    ldouble_safe s4 = 0;
+    double w_this;
+    ldouble_safe cnt = nrows - (Xc_indptr[col_num + 1] - Xc_indptr[col_num]);
+    for (size_t ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num + 1]; ix++)
+        cnt += w[Xc_ind[ix]];
+
+    if (cnt <= 1) return 0;
+    
+    real_t xval;
+
+    if (missing_action != Fail)
+    {
+        for (size_t ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num + 1]; ix++)
+        {
+            w_this = w[Xc_ind[ix]];
+            xval = Xc[ix];
+
+            if (is_na_or_inf(xval))
+            {
+                cnt -= w_this;
+            }
+
+            else
+            {
+                s1 += w_this * pw1(xval);
+                s2 += w_this * pw2(xval);
+                s3 += w_this * pw3(xval);
+                s4 += w_this * pw4(xval);
+            }
+        }
+    }
+
+    else
+    {
+        for (size_t ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num + 1]; ix++)
+        {
+            w_this = w[Xc_ind[ix]];
+            xval = Xc[ix];
+
+            s1 += w_this * pw1(xval);
+            s2 += w_this * pw2(xval);
+            s3 += w_this * pw3(xval);
+            s4 += w_this * pw4(xval);
+        }
+    }
+
+    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return 0;
+    ldouble_safe sn = s1 / cnt;
+    ldouble_safe v  = s2 / cnt - pw2(sn);
+    if (v <= 0) return 0.;
+    ldouble_safe out =  (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt * pw4(sn)) / (cnt * pw2(v));
     return (!is_na_or_inf(out) && out > 0.)? out : 0.;
 }
 
 
 
-double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, int x[], int ncat, size_t buffer_cnt[], double buffer_prob[],
-                     MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator)
+double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[], double buffer_prob[],
+                              MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator)
 {
     /* This calculation proceeds as follows:
         - If splitting by subsets, it will assign a random weight ~Unif(0,1) to
@@ -360,26 +585,7 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, int x[], int ncat, 
           level has equal probability of being picked.
         (Note that both are misleading heuristics, but might be better than random)
     */
-    size_t cnt = end - st + 1;
-    std::fill(buffer_cnt, buffer_cnt + ncat + 1, (size_t)0);
     double sum_kurt = 0;
-
-    if (missing_action == Fail)
-    {
-        for (size_t row = st; row <= end; row++)
-            buffer_cnt[x[ix_arr[row]]]++;
-    }
-
-    else
-    {
-        for (size_t row = st; row <= end; row++)
-        {
-            if (x[ix_arr[row]] >= 0)
-                buffer_cnt[x[ix_arr[row]]]++;
-            else
-                buffer_cnt[ncat]++;
-        }
-    }
 
     cnt -= buffer_cnt[ncat];
     if (cnt <= 1) return 0;
@@ -441,26 +647,79 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, int x[], int ncat, 
     return -1; /* this will never be reached, but CRAN complains otherwise */
 }
 
+double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat, size_t *restrict buffer_cnt, double buffer_prob[],
+                     MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator)
+{
+    /* This calculation proceeds as follows:
+        - If splitting by subsets, it will assign a random weight ~Unif(0,1) to
+          each category, and approximate kurtosis by sampling from such distribution
+          with the same probabilities as given by the current counts.
+        - If splitting by isolating one category, will binarize at each categorical level,
+          assume the values are zero or one, and output the average assuming each categorical
+          level has equal probability of being picked.
+        (Note that both are misleading heuristics, but might be better than random)
+    */
+    size_t cnt = end - st + 1;
+    std::fill(buffer_cnt, buffer_cnt + ncat + 1, (size_t)0);
+
+    if (missing_action == Fail)
+    {
+        for (size_t row = st; row <= end; row++)
+            buffer_cnt[x[ix_arr[row]]]++;
+    }
+
+    else
+    {
+        for (size_t row = st; row <= end; row++)
+        {
+            if (x[ix_arr[row]] >= 0)
+                buffer_cnt[x[ix_arr[row]]]++;
+            else
+                buffer_cnt[ncat]++;
+        }
+    }
+
+    return calc_kurtosis_internal(cnt, x, ncat, buffer_cnt, buffer_prob,
+                                  missing_action, cat_split_type, rnd_generator);
+}
+
+double calc_kurtosis(size_t nrows, int x[], int ncat, size_t buffer_cnt[], double buffer_prob[],
+                     MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator)
+{
+    size_t cnt = nrows;
+    std::fill(buffer_cnt, buffer_cnt + ncat + 1, (size_t)0);
+
+    if (missing_action == Fail)
+    {
+        for (size_t row = 0; row < nrows; row++)
+            buffer_cnt[x[row]]++;
+    }
+
+    else
+    {
+        for (size_t row = 0; row < nrows; row++)
+        {
+            if (x[row] >= 0)
+                buffer_cnt[x[row]]++;
+            else
+                buffer_cnt[ncat]++;
+        }
+    }
+
+    return calc_kurtosis_internal(cnt, x, ncat, buffer_cnt, buffer_prob,
+                                  missing_action, cat_split_type, rnd_generator);
+}
+
 
 /* TODO: this one should get a buffer preallocated from outside */
 template <class mapping>
-double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, int x[], int ncat, double buffer_prob[],
-                              MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator, mapping w)
+double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, int x[], int ncat,
+                                       double buffer_prob[], MissingAction missing_action, CategSplit cat_split_type,
+                                       RNG_engine &rnd_generator, mapping w)
 {
-    long double cnt = 0.;
-    std::vector<long double> buffer_cnt(ncat+1, 0.);
     double sum_kurt = 0;
-    double w_this;
 
-    for (size_t row = st; row <= end; row++)
-    {
-        w_this = w[ix_arr[row]];
-        if (x[ix_arr[row]] >= 0)
-            buffer_cnt[x[ix_arr[row]]] += w_this;
-        else
-            buffer_cnt[ncat] += w_this;
-    }
-    cnt = std::accumulate(buffer_cnt.begin(), buffer_cnt.end(), (long double)0.);
+    ldouble_safe cnt = std::accumulate(buffer_cnt.begin(), buffer_cnt.end(), (ldouble_safe)0.);
 
     cnt -= buffer_cnt[ncat];
     if (cnt <= 1) return 0;
@@ -521,6 +780,48 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, int x[], i
     return -1; /* this will never be reached, but CRAN complains otherwise */
 }
 
+template <class mapping>
+double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, int x[], int ncat, double buffer_prob[],
+                              MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator, mapping w)
+{
+    std::vector<ldouble_safe> buffer_cnt(ncat+1, 0.);
+    double w_this;
+
+    for (size_t row = st; row <= end; row++)
+    {
+        w_this = w[ix_arr[row]];
+        if (x[ix_arr[row]] >= 0)
+            buffer_cnt[x[ix_arr[row]]] += w_this;
+        else
+            buffer_cnt[ncat] += w_this;
+    }
+    
+    return calc_kurtosis_weighted_internal(buffer_cnt, x, ncat,
+                                           buffer_prob, missing_action, cat_split_type,
+                                           rnd_generator, w);
+}
+
+template <class real_t>
+double calc_kurtosis_weighted(size_t nrows, int x[], int ncat, double *restrict buffer_prob,
+                              MissingAction missing_action, CategSplit cat_split_type,
+                              RNG_engine &rnd_generator, real_t *restrict w)
+{
+    std::vector<ldouble_safe> buffer_cnt(ncat+1, 0.);
+    double w_this;
+
+    for (size_t row = 0; row < nrows; row++)
+    {
+        w_this = w[row];
+        if (x[row] >= 0)
+            buffer_cnt[x[row]] += w_this;
+        else
+            buffer_cnt[ncat] += w_this;
+    }
+    
+    return calc_kurtosis_weighted_internal(buffer_cnt, x, ncat,
+                                           buffer_prob, missing_action, cat_split_type,
+                                           rnd_generator, w);
+}
 
 double expected_sd_cat(double p[], size_t n, size_t pos[])
 {

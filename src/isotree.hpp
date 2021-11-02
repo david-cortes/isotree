@@ -223,6 +223,14 @@ using std::isnan;
     #define size_t_for size_t
 #endif
 
+/* MinGW has issues processing long doubles in parallel.
+   See https://sourceforge.net/p/mingw-w64/bugs/909/ */
+#if (defined(_WIN32) || defined(_WIN64)) && (defined(__GNUC__) || defined(__GNUG__))
+    typedef double ldouble_safe;
+#else
+    typedef long double ldouble_safe;
+#endif
+
 #if defined(_FOR_R) || defined(_FOR_PYTHON) || !defined(_WIN32)
     #define ISOTREE_EXPORTED 
 #else
@@ -384,6 +392,7 @@ struct InputData {
     std::vector<double> btree_weights_init;  /* only when using weights for sampling */
     std::vector<char>   has_missing;         /* only used when producing missing imputations on-the-fly */
     size_t              n_missing;           /* only used when producing missing imputations on-the-fly */
+    void*       preinitialized_col_sampler;  /* only when using column weights */
 };
 
 
@@ -901,6 +910,8 @@ void add_remainder_separation_steps(WorkerMemory &workspace, InputData &input_da
 template <class PredictionData, class sparse_ix>
 void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                           PredictionData &prediction_data, sparse_ix *restrict tree_num, int nthreads);
+template <class InputData>
+std::vector<double> calc_kurtosis_all_data(InputData &input_data, ModelParams &model_params, RNG_engine &rnd_generator);
 
 
 /* utils.cpp */
@@ -961,13 +972,8 @@ void get_range(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                MissingAction missing_action, double &restrict xmin_, double &restrict xmax_, bool &unsplittable);
 void get_categs(size_t *restrict ix_arr, int x[], size_t st, size_t end, int ncat,
                 MissingAction missing_action, signed char categs[], size_t &restrict npresent, bool &unsplittable);
-#if !defined(_WIN32) && !defined(_WIN64)
-long double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
-                                  std::vector<double> &weights_arr, hashed_map<size_t, double> &weights_map);
-#else
-     double calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
-                                  std::vector<double> &weights_arr, hashed_map<size_t, double> &weights_map);
-#endif
+ldouble_safe calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
+                                   std::vector<double> &weights_arr, hashed_map<size_t, double> &weights_map);
 extern bool interrupt_switch;
 extern bool signal_is_locked;
 void set_interrup_global_variable(int s);
@@ -1068,22 +1074,46 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, do
 /* crit.cpp */
 template <class real_t=double>
 double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], MissingAction missing_action);
+template <class real_t>
+double calc_kurtosis(real_t x[], size_t n, MissingAction missing_action);
 template <class real_t, class mapping>
 double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, real_t x[],
                               MissingAction missing_action, mapping w);
+template <class real_t>
+double calc_kurtosis_weighted(real_t *restrict x, size_t n_, MissingAction missing_action, real_t *restrict w);
 template <class real_t, class sparse_ix>
-double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-                     real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
+                     real_t Xc[], sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                      MissingAction missing_action);
+template <class real_t, class sparse_ix>
+double calc_kurtosis(size_t col_num, size_t nrows,
+                     real_t Xc[], sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+                     MissingAction missing_action);
+template <class real_t, class sparse_ix>
+double calc_kurtosis_weighted(size_t col_num, size_t nrows,
+                              real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+                              MissingAction missing_action, real_t *restrict w);
 template <class real_t, class sparse_ix, class mapping>
-double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, size_t col_num,
-                              real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+double calc_kurtosis_weighted(size_t col_num, size_t nrows,
+                              real_t Xc[], sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                               MissingAction missing_action, mapping w);
-double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, int x[], int ncat, size_t buffer_cnt[], double buffer_prob[],
+double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[], double buffer_prob[],
+                              MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator);
+double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat, size_t *restrict buffer_cnt, double buffer_prob[],
                      MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator);
+double calc_kurtosis(size_t nrows, int x[], int ncat, size_t buffer_cnt[], double buffer_prob[],
+                     MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator);
+template <class mapping>
+double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, int x[], int ncat,
+                                       double buffer_prob[], MissingAction missing_action, CategSplit cat_split_type,
+                                       RNG_engine &rnd_generator, mapping w);
 template <class mapping>
 double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, int x[], int ncat, double buffer_prob[],
                               MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator, mapping w);
+template <class real_t>
+double calc_kurtosis_weighted(size_t nrows, int x[], int ncat, double *restrict buffer_prob,
+                              MissingAction missing_action, CategSplit cat_split_type,
+                              RNG_engine &rnd_generator, real_t *restrict w);
 double expected_sd_cat(double p[], size_t n, size_t pos[]);
 template <class number>
 double expected_sd_cat(number *restrict counts, double *restrict p, size_t n, size_t *restrict pos);

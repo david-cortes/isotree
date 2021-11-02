@@ -58,7 +58,7 @@
 #' Might provide much better results with `max_depth=NULL` despite the reference's recommendation.
 #' \item 'FCF' (reference [11]): `ndim=2`, `sample_size=256`, `max_depth=NULL`, `ntrees=200`,
 #' `missing_action="fail"`, `coefs="normal"`, `ntry=1`, `prob_pick_pooled_gain=1`.
-#' Might provide similar or better results with `ndim=1`.
+#' Might provide similar or better results with `ndim=1`  and/or sample size as low as 32.
 #' For the FCF model aimed at imputing missing values,
 #' might give better results with `ntry=10` or higher and much larger sample sizes.
 #' }
