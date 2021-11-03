@@ -1,6 +1,6 @@
 # IsoTree
 
-Fast and multi-threaded implementation of Isolation Forest (a.k.a. iForest) and variations of it such as Extended Isolation Forest (EIF), Split-Criterion iForest (SCiForest), Fair-Cut Forest, and other customizable variants, aimed at outlier/anomaly detection plus additions for imputation of missing values, distance/similarity calculation between observations, and handling of categorical data. Written in C++ with interfaces for Python, R, and C. An additional wrapper for Ruby can be found [here](https://github.com/ankane/isotree).
+Fast and multi-threaded implementation of Isolation Forest (a.k.a. iForest) and variations of it such as Extended Isolation Forest (EIF), Split-Criterion iForest (SCiForest), Fair-Cut Forest, Robust Random-Cut Forest (RRCF), and other customizable variants, aimed at outlier/anomaly detection plus additions for imputation of missing values, distance/similarity calculation between observations, and handling of categorical data. Written in C++ with interfaces for Python, R, and C. An additional wrapper for Ruby can be found [here](https://github.com/ankane/isotree).
 
 The new concepts in this software are described in:
 * [Revisiting randomized choices in isolation forests](https://arxiv.org/abs/2110.13402)
@@ -248,3 +248,4 @@ The package does not currenly have any functionality for visualizing trees. Pull
 * Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 * Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
 * Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+* Guha, Sudipto, et al. "Robust random cut forest based anomaly detection on streams." International conference on machine learning. PMLR, 2016.

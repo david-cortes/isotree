@@ -20,10 +20,19 @@
 #     [5] https://sourceforge.net/projects/iforest/
 #     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 #     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
-#     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
-#     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+#     [8] Cortes, David.
+#         "Distance approximation using Isolation Forests."
+#         arXiv preprint arXiv:1910.12362 (2019).
+#     [9] Cortes, David.
+#         "Imputing missing values with unsupervised random trees."
+#         arXiv preprint arXiv:1911.06646 (2019).
 #     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
-#     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+#     [11] Cortes, David.
+#          "Revisiting randomized choices in isolation forests."
+#          arXiv preprint arXiv:2110.13402 (2021).
+#     [12] Guha, Sudipto, et al.
+#          "Robust random cut forest based anomaly detection on streams."
+#          International conference on machine learning. PMLR, 2016.
 # 
 #     BSD 2-Clause License
 #     Copyright (c) 2019-2021, David Cortes
@@ -272,6 +281,8 @@ cdef extern from "headers_joined.hpp":
                     double *output_depths, bool_t standardize_depth,
                     real_t_ *col_weights, bool_t weigh_by_kurt,
                     double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+                    double prob_pick_col_by_range, double prob_pick_col_by_var,
+                    double prob_pick_col_by_kurt,
                     double min_gain, MissingAction missing_action,
                     CategSplit cat_split_type, NewCategAction new_cat_action,
                     bool_t all_perm, Imputer *imputer, size_t min_imp_obs,
@@ -317,6 +328,8 @@ cdef extern from "headers_joined.hpp":
                  bool_t   limit_depth,  bool_t penalize_range, bool_t standardize_data,
                  real_t_ *col_weights, bool_t weigh_by_kurt,
                  double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+                 double prob_pick_col_by_range, double prob_pick_col_by_var,
+                 double prob_pick_col_by_kurt,
                  double min_gain, MissingAction missing_action,
                  CategSplit cat_split_type, NewCategAction new_cat_action,
                  UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
@@ -597,6 +610,8 @@ cdef class isoforest_cpp_obj:
                   bool_t calc_depth, bool_t standardize_depth,
                   bool_t weigh_by_kurt,
                   double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+                  double prob_pick_col_by_range, double prob_pick_col_by_var,
+                  double prob_pick_col_by_kurt,
                   double min_gain, missing_action, cat_split_type, new_cat_action,
                   bool_t build_imputer, size_t min_imp_obs,
                   depth_imp, weigh_imp_rows, bool_t impute_at_fit,
@@ -737,6 +752,8 @@ cdef class isoforest_cpp_obj:
                         depths_ptr, standardize_depth,
                         col_weights_ptr, weigh_by_kurt,
                         prob_pick_by_gain_pl, prob_pick_by_gain_avg,
+                        prob_pick_col_by_range, prob_pick_col_by_var,
+                        prob_pick_col_by_kurt,
                         min_gain, missing_action_C,
                         cat_split_type_C, new_cat_action_C,
                         all_perm, imputer_ptr, min_imp_obs,
@@ -765,6 +782,8 @@ cdef class isoforest_cpp_obj:
                  bool_t limit_depth, bool_t penalize_range, bool_t standardize_data,
                  bool_t weigh_by_kurt,
                  double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+                 double prob_pick_col_by_range, double prob_pick_col_by_var,
+                 double prob_pick_col_by_kurt,
                  double min_gain, missing_action, cat_split_type, new_cat_action,
                  bool_t build_imputer, size_t min_imp_obs,
                  depth_imp, weigh_imp_rows,
@@ -877,6 +896,8 @@ cdef class isoforest_cpp_obj:
                      limit_depth,  penalize_range, standardize_data,
                      col_weights_ptr, weigh_by_kurt,
                      prob_pick_by_gain_pl, prob_pick_by_gain_avg,
+                     prob_pick_col_by_range, prob_pick_col_by_var,
+                     prob_pick_col_by_kurt,
                      min_gain, missing_action_C,
                      cat_split_type_C, new_cat_action_C,
                      depth_imp_C, weigh_imp_rows_C,

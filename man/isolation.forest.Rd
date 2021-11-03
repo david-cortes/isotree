@@ -15,6 +15,9 @@ isolation.forest(
   ncols_per_tree = NCOL(data),
   prob_pick_pooled_gain = 0,
   prob_pick_avg_gain = 0,
+  prob_pick_col_by_range = 0,
+  prob_pick_col_by_var = 0,
+  prob_pick_col_by_kurt = 0,
   min_gain = 0,
   missing_action = ifelse(ndim > 1, "impute", "divide"),
   new_categ_action = ifelse(ndim > 1, "impute", "weighted"),
@@ -137,7 +140,7 @@ If using pooled gain, one might want to substitute `max_depth` with `min_gain`.}
 
 \item{ncols_per_tree}{Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
 somewhat similar to the 'mtry' parameter of random forests.
-In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
+In general, this is only relevant when using non-random splits and/or weighted column choices.
 
 If passing a number between zero and one, will assume it means taking a sample size that represents
 that proportion of the columns in the data. Note that, if passing exactly 1, will assume it means taking
@@ -211,6 +214,75 @@ Under this option, models are likely to produce better results when increasing `
 
 Important detail: if using either `prob_pick_avg_gain` or `prob_pick_pooled_gain`, the distribution of
 outlier scores is unlikely to be centered around 0.5.}
+
+\item{prob_pick_col_by_range}{When using `ndim=1`, this denotes the probability of choosing the column to split with a probability
+proportional to the range spanned by each column within a node as proposed in reference [12].
+
+When using `ndim>1`, this denotes the probability of choosing columns to create a hyperplane with a probability proportional to the range spanned by each column within a node.
+
+This option is not compatible with categorical data. If passing column weights, the
+effect will be multiplicative. This option is not compatible with `weigh_by_kurtosis`.
+
+Be aware that the data is not standardized in any way for the range calculations, thus the scales
+of features will make a large difference under this option, which might not make it suitable for
+all types of data.
+
+If there are infinite values, all columns having infinite values will be treated as having the
+same weight, and will be chosen before every other column with non-infinite values.
+
+Note that the proposed RRCF model from [12] uses a different scoring metric for producing anomaly
+scores, while this library uses isolation depth regardless of how columns are chosen, thus results
+are likely to be different from those of other software implementations. Nevertheless, as explored
+in [11], isolation depth as a scoring metric typically provides better results than the
+"co-displacement" metric from [12] under these split types.}
+
+\item{prob_pick_col_by_var}{When using `ndim=1`, this denotes the probability of choosing the column to split with a probability
+proportional to the variance of each column within a node.
+
+When using `ndim>1`, this denotes the probability of choosing columns to create a hyperplane with a
+probability proportional to the variance of each column within a node.
+
+For categorical data, it will calculate the expected variance if the column were converted to
+numerical by assigning to each category a random number `~ Unif(0, 1)`, which depending on the number of
+categories and their distribution, produces numbers typically a bit smaller than standardized numerical
+variables.
+
+Note that when using sparse matrices, the calculation of variance will rely on a procedure that
+uses sums of squares, which has less numerical precision than the
+calculation used for dense inputs, and as such, the results might differ slightly.
+
+Be aware that this calculated variance is not standardized in any way, so the scales of
+features will make a large difference under this option.
+
+If passing column weights, the effect will be multiplicative. This option is not compatible
+with `weigh_by_kurtosis`.
+
+If passing a `missing_action` different than "fail", infinite values will be ignored for the
+variance calculation. Otherwise, all columns with infinite values will have the same probability
+and will be chosen before columns with non-infinite values.}
+
+\item{prob_pick_col_by_kurt}{When using `ndim=1`, this denotes the probability of choosing the column to split with a probability
+proportional to the kurtosis of each column \bold{within a node} (unlike the option `weigh_by_kurtosis`
+which calculates this metric only at the root).
+
+When using `ndim>1`, this denotes the probability of choosing columns to create a hyperplane with a
+probability proportional to the kurtosis of each column within a node.
+
+For categorical data, it will calculate the expected kurtosis if the column were converted to
+numerical by assigning to each category a random number `~ Unif(0, 1)`.
+
+Note that when using sparse matrices, the calculation of kurtosis will rely on a procedure that
+uses sums of squares and higher-power numbers, which has less numerical precision than the
+calculation used for dense inputs, and as such, the results might differ slightly.
+
+If passing column weights, the effect will be multiplicative. This option is not compatible
+with `weigh_by_kurtosis`.
+
+If passing a `missing_action` different than "fail", infinite values will be ignored for the
+kurtosis calculation. Otherwise, all columns with infinite values will have the same probability
+and will be chosen before columns with non-infinite values.
+
+Be aware that kurtosis can be a rather slow metric to calculate.}
 
 \item{min_gain}{Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
 are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
@@ -306,16 +378,25 @@ in [4]. This is ignored when using `ndim=1`.}
 
 \item{weigh_by_kurtosis}{Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
 for each tree as briefly proposed in reference [1]. Note that this is only done at the beginning of each tree
-sample, so if not using sub-samples, it's better to pass column weights calculated externally. For
-categorical columns, will calculate expected kurtosis if the column was converted to numerical by
-assigning to each category a random number `~ Unif(0, 1)`.
+sample. For categorical columns, will calculate expected kurtosis if the column were converted to numerical
+by assigning to each category a random number `~ Unif(0, 1)`.
 
 Note that when using sparse matrices, the calculation of kurtosis will rely on a procedure that
 uses sums of squares and higher-power numbers, which has less numerical precision than the
 calculation used for dense inputs, and as such, the results might differ slightly.
 
 Using this option makes the model more likely to pick the columns that have anomalous values
-when viewed as a 1-d distribution, and can bring a large improvement in some datasets.}
+when viewed as a 1-d distribution, and can bring a large improvement in some datasets.
+
+This is intended as a cheap feature selector, while the parameter `prob_pick_col_by_kurt`
+provides the option to do this at each node in the tree for a different overall type of model.
+
+If passing column weights, the effect will be multiplicative. This option is not compatible
+with randomized column selection proportional to some other per-node metric.
+
+If passing `missing_action="fail"` and the data has infinite values, columns with rows
+having infinite values will get a weight of zero. If passing a different value for missing
+action, infinite values will be ignored in the kurtosis calculation.}
 
 \item{coefs}{For the extended model, whether to sample random coefficients according to a normal distribution `~ N(0, 1)`
 (as proposed in reference [4]) or according to a uniform distribution `~ Unif(-1, +1)` as proposed in reference [3].
@@ -491,6 +572,12 @@ Might provide much better results with `max_depth=NULL` despite the reference's 
 Might provide similar or better results with `ndim=1`  and/or sample size as low as 32.
 For the FCF model aimed at imputing missing values,
 might give better results with `ntry=10` or higher and much larger sample sizes.
+\item 'RRCF' (reference [12]): `ndim=1`, `prob_pick_col_by_range=1`, `sample_size=256` or more, `max_depth=NULL`,
+`ntrees=100` or more, `missing_action="fail"`. Note however that reference [12] proposed a
+different method for calculation of anomaly scores, while this library uses isolation depth just
+like for 'iForest', so results might differ significantly from those of other libraries.
+Nevertheless, experiments in reference [11] suggest that isolation depth might be a better
+scoring metric for this model.
 }
 }
 
@@ -724,6 +811,7 @@ if (require("outliertree")) {
 \item Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
 \item \url{https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom}
 \item Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+\item Guha, Sudipto, et al. "Robust random cut forest based anomaly detection on streams." International conference on machine learning. PMLR, 2016.
 }
 }
 \seealso{

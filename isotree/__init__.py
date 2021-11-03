@@ -120,6 +120,13 @@ class IsolationForest:
         Might provide similar or better results with ``ndim=1`` and/or sample size as low as 32.
         For the FCF model aimed at imputing missing values,
         might give better results with ``ntry=10`` or higher and much larger sample sizes.
+    'RRCF' (reference [12]_):
+        ``ndim=1``, ``prob_pick_col_by_range=1``, ``sample_size=256`` or more, ``max_depth=None``,
+        ``ntrees=100`` or more, ``missing_action="fail"``. Note however that reference [12]_ proposed a
+        different method for calculation of anomaly scores, while this library uses isolation depth just
+        like for 'iForest', so results might differ significantly from those of other libraries.
+        Nevertheless, experiments in reference [11]_ suggest that isolation depth might be a better
+        scoring metric for this model.
 
     Note
     ----
@@ -227,14 +234,14 @@ class IsolationForest:
     ncols_per_tree : None, int, or float(0,1]
         Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
         somewhat similar to the 'mtry' parameter of random forests.
-        In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
+        In general, this is only relevant when using non-random splits and/or weighted column choices.
 
         If passing a number between zero and one, will assume it means taking a sample size that represents
         that proportion of the columns in the data. If passing exactly 1, will assume it means taking
         100% of the columns rather than taking 1 column.
 
         If passing ``None`` (the default) or zero, will use the full number of available columns.
-    prob_pick_pooled_gain : float(0, 1)
+    prob_pick_pooled_gain : float[0, 1]
         This parameter indicates the probability of choosing the threshold on which to split a variable
         (with ``ndim=1``) or a linear combination of variables (when using ``ndim>1``) as the threshold
         that maximizes a pooled standard deviation gain criterion (see references [9]_ and [11]_) on the
@@ -267,7 +274,7 @@ class IsolationForest:
 
         Important detail: if using either ``prob_pick_avg_gain`` or ``prob_pick_pooled_gain``, the distribution of
         outlier scores is unlikely to be centered around 0.5.
-    prob_pick_avg_gain : float(0, 1)
+    prob_pick_avg_gain : float[0, 1]
         This parameter indicates the probability of choosing the threshold on which to split a variable
         (with ``ndim=1``) or a linear combination of variables (when using ``ndim>1``) as the threshold
         that maximizes an averaged standard deviation gain criterion (see references [4]_ and [11]_) on the
@@ -301,6 +308,76 @@ class IsolationForest:
 
         Important detail: if using either ``prob_pick_avg_gain`` or ``prob_pick_pooled_gain``, the distribution of
         outlier scores is unlikely to be centered around 0.5.
+    prob_pick_col_by_range : float[0, 1]
+        When using ``ndim=1``, this denotes the probability of choosing the column to split with a probability
+        proportional to the range spanned by each column within a node as proposed in reference [12]_.
+
+        When using ``ndim>1``, this denotes the probability of choosing columns to create a hyperplane with a
+        probability proportional to the range spanned by each column within a node.
+
+        This option is not compatible with categorical data. If passing column weights, the
+        effect will be multiplicative. This option is not compatible with ``weigh_by_kurtosis``.
+
+        Be aware that the data is not standardized in any way for the range calculations, thus the scales
+        of features will make a large difference under this option, which might not make it suitable for
+        all types of data.
+
+        If there are infinite values, all columns having infinite values will be treated as having the
+        same weight, and will be chosen before every other column with non-infinite values.
+
+        Note that the proposed RRCF model from [12]_ uses a different scoring metric for producing anomaly
+        scores, while this library uses isolation depth regardless of how columns are chosen, thus results
+        are likely to be different from those of other software implementations. Nevertheless, as explored
+        in [11]_, isolation depth as a scoring metric typically provides better results than the
+        "co-displacement" metric from [12]_ under these split types.
+    prob_pick_col_by_var : float[0, 1]
+        When using ``ndim=1``, this denotes the probability of choosing the column to split with a probability
+        proportional to the variance of each column within a node.
+
+        When using ``ndim>1``, this denotes the probability of choosing columns to create a hyperplane with a
+        probability proportional to the variance of each column within a node.
+
+        For categorical data, it will calculate the expected variance if the column were converted to
+        numerical by assigning to each category a random number ~ Unif(0, 1), which depending on the number of
+        categories and their distribution, produces numbers typically a bit smaller than standardized numerical
+        variables.
+
+        Note that when using sparse matrices, the calculation of variance will rely on a procedure that
+        uses sums of squares, which has less numerical precision than the
+        calculation used for dense inputs, and as such, the results might differ slightly.
+
+        Be aware that this calculated variance is not standardized in any way, so the scales of
+        features will make a large difference under this option.
+
+        If passing column weights, the effect will be multiplicative. This option is not compatible
+        with ``weigh_by_kurtosis``.
+
+        If passing a ``missing_action`` different than "fail", infinite values will be ignored for the
+        variance calculation. Otherwise, all columns with infinite values will have the same probability
+        and will be chosen before columns with non-infinite values.
+    prob_pick_col_by_kurt : float[0, 1]
+        When using ``ndim=1``, this denotes the probability of choosing the column to split with a probability
+        proportional to the kurtosis of each column **within a node** (unlike the option ``weigh_by_kurtosis``
+        which calculates this metric only at the root).
+
+        When using ``ndim>1``, this denotes the probability of choosing columns to create a hyperplane with a
+        probability proportional to the kurtosis of each column within a node.
+
+        For categorical data, it will calculate the expected kurtosis if the column were converted to
+        numerical by assigning to each category a random number ~ Unif(0, 1).
+
+        Note that when using sparse matrices, the calculation of kurtosis will rely on a procedure that
+        uses sums of squares and higher-power numbers, which has less numerical precision than the
+        calculation used for dense inputs, and as such, the results might differ slightly.
+
+        If passing column weights, the effect will be multiplicative. This option is not compatible
+        with ``weigh_by_kurtosis``.
+
+        If passing a ``missing_action`` different than "fail", infinite values will be ignored for the
+        kurtosis calculation. Otherwise, all columns with infinite values will have the same probability
+        and will be chosen before columns with non-infinite values.
+
+        Be aware that kurtosis can be a rather slow metric to calculate.
     min_gain : float > 0
         Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
         are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
@@ -409,9 +486,8 @@ class IsolationForest:
     weigh_by_kurtosis : bool
         Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
         for each tree as briefly proposed in [1]_. Note that this is only done at the beginning of each tree
-        sample, so if not using sub-samples, it's better to pass column weights calculated externally. For
-        categorical columns, will calculate expected kurtosis if the column was converted to numerical by
-        assigning to each category a random number ~ Unif(0, 1).
+        sample. For categorical columns, will calculate expected kurtosis if the column were converted to
+        numerical by assigning to each category a random number ~ Unif(0, 1).
 
         Note that when using sparse matrices, the calculation of kurtosis will rely on a procedure that
         uses sums of squares and higher-power numbers, which has less numerical precision than the
@@ -419,6 +495,16 @@ class IsolationForest:
 
         Using this option makes the model more likely to pick the columns that have anomalous values
         when viewed as a 1-d distribution, and can bring a large improvement in some datasets.
+
+        This is intended as a cheap feature selector, while the parameter ``prob_pick_col_by_kurt``
+        provides the option to do this at each node in the tree for a different overall type of model.
+
+        If passing column weights, the effect will be multiplicative. This option is not compatible
+        with randomized column selection proportional to some other per-node metric.
+
+        If passing ``missing_action="fail"`` and the data has infinite values, columns with rows
+        having infinite values will get a weight of zero. If passing a different value for missing
+        action, infinite values will be ignored in the kurtosis calculation.
     coefs : str, one of "normal" or "uniform"
         For the extended model, whether to sample random coefficients according to a normal distribution ~ N(0, 1)
         (as proposed in [4]_) or according to a uniform distribution ~ Unif(-1, +1) as proposed in [3]_. Ignored for the
@@ -509,10 +595,14 @@ class IsolationForest:
     .. [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
     .. [11] Cortes, David. "Revisiting randomized choices in isolation forests."
             arXiv preprint arXiv:2110.13402 (2021).
+    .. [12] Guha, Sudipto, et al. "Robust random cut forest based anomaly detection on streams."
+*           International conference on machine learning. PMLR, 2016.
     """
     def __init__(self, sample_size = "auto", ntrees = 500, ndim = 3, ntry = 1,
                  categ_cols = None, max_depth = "auto", ncols_per_tree = None,
                  prob_pick_pooled_gain = 0.0, prob_pick_avg_gain = 0.0,
+                 prob_pick_col_by_range = 0.0, prob_pick_col_by_var = 0.0,
+                 prob_pick_col_by_kurt = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
                  categ_split_type = "subset", all_perm = False,
                  coef_by_prop = False, recode_categ = False,
@@ -533,6 +623,9 @@ class IsolationForest:
         self.ncols_per_tree = ncols_per_tree
         self.prob_pick_avg_gain = prob_pick_avg_gain
         self.prob_pick_pooled_gain = prob_pick_pooled_gain
+        self.prob_pick_col_by_range = prob_pick_col_by_range
+        self.prob_pick_col_by_var = prob_pick_col_by_var
+        self.prob_pick_col_by_kurt = prob_pick_col_by_kurt
         self.min_gain = min_gain
         self.missing_action = missing_action
         self.new_categ_action = new_categ_action
@@ -573,6 +666,9 @@ class IsolationForest:
                  categ_cols = self.categ_cols,
                  max_depth = self.max_depth, ncols_per_tree = self.ncols_per_tree,
                  prob_pick_avg_gain = self.prob_pick_avg_gain, prob_pick_pooled_gain = self.prob_pick_pooled_gain,
+                 prob_pick_col_by_range = self.prob_pick_col_by_range,
+                 prob_pick_col_by_var = self.prob_pick_col_by_var,
+                 prob_pick_col_by_kurt = self.prob_pick_col_by_kurt,
                  min_gain = self.min_gain, missing_action = self.missing_action, new_categ_action = self.new_categ_action,
                  categ_split_type = self.categ_split_type, all_perm = self.all_perm,
                  coef_by_prop = self.coef_by_prop, recode_categ = self.recode_categ,
@@ -589,6 +685,8 @@ class IsolationForest:
     def _initialize_full(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 1,
                  categ_cols = None, max_depth = "auto", ncols_per_tree = None,
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
+                 prob_pick_col_by_range = 0.0, prob_pick_col_by_var = 0.0,
+                 prob_pick_col_by_kurt = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
                  categ_split_type = "subset", all_perm = False,
                  coef_by_prop = False, recode_categ = True,
@@ -639,12 +737,25 @@ class IsolationForest:
 
         assert prob_pick_avg_gain     >= 0
         assert prob_pick_pooled_gain  >= 0
+        assert prob_pick_col_by_range >= 0
+        assert prob_pick_col_by_var   >= 0
+        assert prob_pick_col_by_kurt  >= 0
         assert min_gain               >= 0
         s = prob_pick_avg_gain + prob_pick_pooled_gain
         if s > 1:
             warnings.warn("Split type probabilities sum to more than 1, will standardize them")
             prob_pick_avg_gain     /= s
             prob_pick_pooled_gain  /= s
+
+        s = prob_pick_col_by_range + prob_pick_col_by_var + prob_pick_col_by_kurt
+        if s > 1:
+            warnings.warn("Column choice probabilities sum to more than 1, will standardize them")
+            prob_pick_col_by_range  /= s
+            prob_pick_col_by_var    /= s
+            prob_pick_col_by_kurt   /= s
+
+        if weigh_by_kurtosis and (prob_pick_col_by_range or prob_pick_col_by_var or prob_pick_col_by_kurt):
+            raise ValueError("'weigh_by_kurtosis' is incompatible with by-node column weight criteria.")
 
         if (ndim == 1) and ((sample_size is None) or (sample_size == "auto")) and ((prob_pick_avg_gain >= 1) or (prob_pick_pooled_gain >= 1)) and (not sample_with_replacement):
             msg  = "Passed parameters for deterministic single-variable splits"
@@ -704,8 +815,11 @@ class IsolationForest:
         self.categ_cols              =  categ_cols
         self.max_depth               =  max_depth
         self.ncols_per_tree          =  ncols_per_tree
-        self.prob_pick_avg_gain      =  prob_pick_avg_gain
-        self.prob_pick_pooled_gain   =  prob_pick_pooled_gain
+        self.prob_pick_avg_gain      =  float(prob_pick_avg_gain)
+        self.prob_pick_pooled_gain   =  float(prob_pick_pooled_gain)
+        self.prob_pick_col_by_range  =  float(prob_pick_col_by_range)
+        self.prob_pick_col_by_var    =  float(prob_pick_col_by_var)
+        self.prob_pick_col_by_kurt   =  float(prob_pick_col_by_kurt)
         self.min_gain                =  min_gain
         self.missing_action          =  missing_action
         self.new_categ_action        =  new_categ_action
@@ -978,6 +1092,9 @@ class IsolationForest:
                                 ctypes.c_bool(self.weigh_by_kurtosis).value,
                                 ctypes.c_double(self.prob_pick_pooled_gain).value,
                                 ctypes.c_double(self.prob_pick_avg_gain).value,
+                                ctypes.c_double(self.prob_pick_col_by_range).value,
+                                ctypes.c_double(self.prob_pick_col_by_var).value,
+                                ctypes.c_double(self.prob_pick_col_by_kurt).value,
                                 ctypes.c_double(self.min_gain).value,
                                 self.missing_action,
                                 self.categ_split_type,
@@ -1173,6 +1290,9 @@ class IsolationForest:
                                                                    ctypes.c_bool(self.weigh_by_kurtosis).value,
                                                                    ctypes.c_double(self.prob_pick_pooled_gain).value,
                                                                    ctypes.c_double(self.prob_pick_avg_gain).value,
+                                                                   ctypes.c_double(self.prob_pick_col_by_range).value,
+                                                                   ctypes.c_double(self.prob_pick_col_by_var).value,
+                                                                   ctypes.c_double(self.prob_pick_col_by_kurt).value,
                                                                    ctypes.c_double(self.min_gain).value,
                                                                    self.missing_action,
                                                                    self.categ_split_type,
@@ -2191,6 +2311,9 @@ class IsolationForest:
                                ctypes.c_bool(self.weigh_by_kurtosis).value,
                                ctypes.c_double(self.prob_pick_pooled_gain).value,
                                ctypes.c_double(self.prob_pick_avg_gain).value,
+                               ctypes.c_double(getattr(self, "prob_pick_col_by_range", 0.)).value,
+                               ctypes.c_double(getattr(self, "prob_pick_col_by_var", 0.)).value,
+                               ctypes.c_double(getattr(self, "prob_pick_col_by_kurt", 0.)).value,
                                ctypes.c_double(self.min_gain).value,
                                self.missing_action,
                                self.categ_split_type,
@@ -2831,6 +2954,9 @@ class IsolationForest:
             "ncols_per_tree" : self.ncols_per_tree,
             "prob_pick_avg_gain" : float(self.prob_pick_avg_gain),
             "prob_pick_pooled_gain" : float(self.prob_pick_pooled_gain),
+            "prob_pick_col_by_range" : float(self.prob_pick_col_by_range),
+            "prob_pick_col_by_var" : float(self.prob_pick_col_by_var),
+            "prob_pick_col_by_kurt" : float(self.prob_pick_col_by_kurt),
             "min_gain" : float(self.min_gain),
             "missing_action" : self.missing_action,  ## is in c++
             "new_categ_action" : self.new_categ_action,  ## is in c++
@@ -2876,6 +3002,18 @@ class IsolationForest:
         self.ncols_per_tree = metadata["params"]["ncols_per_tree"]
         self.prob_pick_avg_gain = metadata["params"]["prob_pick_avg_gain"]
         self.prob_pick_pooled_gain = metadata["params"]["prob_pick_pooled_gain"]
+        try:
+            self.prob_pick_col_by_range = metadata["params"]["prob_pick_col_by_range"]
+        except:
+            self.prob_pick_col_by_range = 0.0
+        try:
+            self.prob_pick_col_by_var = metadata["params"]["prob_pick_col_by_var"]
+        except:
+            self.prob_pick_col_by_var = 0.0
+        try:
+            self.prob_pick_col_by_kurt = metadata["params"]["prob_pick_col_by_kurt"]
+        except:
+            self.prob_pick_col_by_kurt = 0.0
         self.min_gain = metadata["params"]["min_gain"]
         self.missing_action = metadata["params"]["missing_action"]
         self.new_categ_action = metadata["params"]["new_categ_action"]

@@ -18,10 +18,19 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
-*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
-*     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+*     [8] Cortes, David.
+*         "Distance approximation using Isolation Forests."
+*         arXiv preprint arXiv:1910.12362 (2019).
+*     [9] Cortes, David.
+*         "Imputing missing values with unsupervised random trees."
+*         arXiv preprint arXiv:1911.06646 (2019).
 *     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
-*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [11] Cortes, David.
+*          "Revisiting randomized choices in isolation forests."
+*          arXiv preprint arXiv:2110.13402 (2021).
+*     [12] Guha, Sudipto, et al.
+*          "Robust random cut forest based anomaly detection on streams."
+*          International conference on machine learning. PMLR, 2016.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -412,7 +421,7 @@ void build_btree_sampler(std::vector<double> &btree_weights, real_t *restrict sa
     /* build a perfectly-balanced binary search tree in which each node will
        hold the sum of the weights of its children */
     log2_n = log2ceil(nrows);
-    if (!btree_weights.size())
+    if (btree_weights.empty())
         btree_weights.resize(pow2(log2_n + 1), 0);
     else
         btree_weights.assign(btree_weights.size(), 0);
@@ -513,7 +522,7 @@ void sample_random_rows(std::vector<size_t> &restrict ix_arr, size_t nrows, bool
         if (ntake >= (nrows / 2))
         {
 
-            if (!ix_all.size())
+            if (ix_all.empty())
                 ix_all.resize(nrows);
 
             /* in order for random seeds to always be reproducible, don't re-use previous shuffles */
@@ -551,7 +560,7 @@ void sample_random_rows(std::vector<size_t> &restrict ix_arr, size_t nrows, bool
             if (((long double)ntake / (long double)nrows) > (1. / 50.))
             {
 
-                if (!is_repeated.size())
+                if (is_repeated.empty())
                     is_repeated.resize(nrows, false);
                 else
                     is_repeated.assign(is_repeated.size(), false);
@@ -683,7 +692,7 @@ void ColumnSampler::initialize(real_t weights[], size_t n_cols)
 {
     this->n_cols = n_cols;
     this->tree_levels = log2ceil(n_cols);
-    if (!this->tree_weights.size())
+    if (this->tree_weights.empty())
         this->tree_weights.resize(pow2(this->tree_levels + 1), 0);
     else {
         if (this->tree_weights.size() != pow2(this->tree_levels + 1))
@@ -717,7 +726,7 @@ void ColumnSampler::drop_weights()
 
 bool ColumnSampler::has_weights()
 {
-    return this->tree_weights.size() > 0;
+    return !this->tree_weights.empty();
 }
 
 void ColumnSampler::initialize(size_t n_cols)
@@ -973,13 +982,260 @@ void ColumnSampler::shuffle_remainder(RNG_engine &rnd_generator)
     }
 }
 
-
 size_t ColumnSampler::get_remaining_cols()
 {
     if (!this->has_weights())
         return this->curr_pos;
     else
         return this->n_cols - this->n_dropped;
+}
+
+bool SingleNodeColumnSampler::initialize
+(
+    double *restrict weights,
+    std::vector<size_t> *col_indices,
+    size_t curr_pos,
+    size_t n_sample,
+    bool backup_weights
+)
+{
+    if (!curr_pos) return false;
+
+    this->col_indices = col_indices->data();
+    this->curr_pos = curr_pos;
+    this->n_left = this->curr_pos;
+    this->weights_orig = weights;
+    
+    if (n_sample > std::max(log2ceil(this->curr_pos), (size_t)3))
+    {
+        this->using_tree = true;
+        this->backup_weights = false;
+
+        if (this->used_weights.empty()) {
+            this->used_weights.reserve(col_indices->size());
+            this->mapped_indices.reserve(col_indices->size());
+            this->tree_weights.reserve(2 * col_indices->size());
+        }
+
+        this->used_weights.resize(this->curr_pos);
+        this->mapped_indices.resize(this->curr_pos);
+
+        for (size_t col = 0; col < this->curr_pos; col++) {
+            this->mapped_indices[col] = this->col_indices[col];
+            this->used_weights[col] = weights[this->col_indices[col]];
+        }
+
+        this->tree_weights.resize(0);
+        build_btree_sampler(this->tree_weights, this->used_weights.data(),
+                            this->curr_pos, this->tree_levels, this->offset);
+
+        this->n_inf = 0;
+        if (std::isinf(this->tree_weights[0]))
+        {
+            if (this->mapped_inf_indices.empty())
+                this->mapped_inf_indices.resize(this->curr_pos);
+
+            for (size_t col = 0; col < this->curr_pos; col++)
+            {
+                if (std::isinf(weights[this->col_indices[col]]))
+                {
+                    this->mapped_inf_indices[this->n_inf++] = this->col_indices[col];
+                    weights[this->col_indices[col]] = 0;
+                }
+
+                else
+                {
+                    this->mapped_indices[col - this->n_inf] = this->col_indices[col];
+                    this->used_weights[col - this->n_inf] = weights[this->col_indices[col]];
+                }
+            }
+
+            this->tree_weights.resize(0);
+            build_btree_sampler(this->tree_weights, this->used_weights.data(),
+                                this->curr_pos - this->n_inf, this->tree_levels, this->offset);
+        }
+
+        this->used_weights.resize(0);
+
+        if (this->tree_weights[0] <= 0 && !this->n_inf)
+            return false;
+    }
+
+    else
+    {
+        this->using_tree = false;
+        this->backup_weights = backup_weights;
+
+        if (this->backup_weights)
+        {
+            if (this->weights_own.empty())
+                this->weights_own.resize(col_indices->size());
+            this->weights_own.assign(weights, weights + this->curr_pos);
+        }
+
+        this->cumw = 0;
+        for (size_t col = 0; col < this->curr_pos; col++)
+            this->cumw += weights[this->col_indices[col]];
+
+        if (std::isnan(this->cumw))
+            throw std::runtime_error("NAs encountered. Try using a different value for 'missing_action'.\n");
+
+        /* if it's infinite, will choose among columns with infinite weight first */
+        this->n_inf = 0;
+        if (std::isinf(this->cumw))
+        {
+            if (this->inifinite_weights.empty())
+                this->inifinite_weights.resize(col_indices->size());
+            else
+                this->inifinite_weights.assign(col_indices->size(), false);
+
+            this->cumw = 0;
+            for (size_t col = 0; col < this->curr_pos; col++)
+            {
+                if (std::isinf(weights[this->col_indices[col]])) {
+                    this->n_inf++;
+                    this->inifinite_weights[this->col_indices[col]] = true;
+                    weights[this->col_indices[col]] = 0;
+                }
+
+                else {
+                    this->cumw += weights[this->col_indices[col]];
+                }
+            }
+        }
+
+        if (!this->cumw && !this->n_inf) return false;
+    }
+
+    return true;
+}
+
+bool SingleNodeColumnSampler::sample_col(size_t &col_chosen, RNG_engine &rnd_generator)
+{
+    if (!this->using_tree)
+    {
+        if (this->backup_weights)
+            this->weights_orig = this->weights_own.data();
+
+        /* if there's infinites, choose uniformly at random from them */
+        if (this->n_inf)
+        {
+            size_t chosen = std::uniform_int_distribution<size_t>(0, this->n_inf-1)(rnd_generator);
+            size_t curr = 0;
+            for (size_t col = 0; col < this->curr_pos; col++)
+            {
+                curr += inifinite_weights[this->col_indices[col]];
+                if (curr == chosen)
+                {
+                    col_chosen = this->col_indices[col];
+                    this->n_inf--;
+                    this->inifinite_weights[col_chosen] = false;
+                    this->n_left--;
+                    return true;
+                }
+            }
+            assert(0);
+        }
+
+        if (!this->n_left) return false;
+
+        /* due to the way this is calculated, there can be large roundoff errors and even negatives */
+        if (this->cumw <= 0)
+        {
+            for (size_t col = 0; col < this->curr_pos; col++)
+                this->weights_orig[this->col_indices[col]] = this->weights_own[this->col_indices[col]]? 1 : 0;
+        }
+
+        /* if there are no infinites, choose a column according to weight */
+        ldouble_safe chosen = std::uniform_real_distribution<ldouble_safe>((ldouble_safe)0, this->cumw)(rnd_generator);
+        ldouble_safe cumw = 0;
+        for (size_t col = 0; col < this->curr_pos; col++)
+        {
+            cumw += this->weights_orig[this->col_indices[col]];
+            if (cumw >= chosen)
+            {
+                col_chosen = this->col_indices[col];
+                this->cumw -= this->weights_orig[col_chosen];
+                this->weights_orig[col_chosen] = 0;
+                this->n_left--;
+                return true;
+            }
+        }
+        col_chosen = this->col_indices[this->curr_pos-1];
+        this->cumw -= this->weights_orig[col_chosen];
+        this->weights_orig[col_chosen] = 0;
+        this->n_left--;
+        return true;
+    }
+
+    else
+    {
+        /* if there's infinites, choose uniformly at random from them */
+        if (this->n_inf)
+        {
+            size_t chosen = std::uniform_int_distribution<size_t>(0, this->n_inf-1)(rnd_generator);
+            col_chosen = this->mapped_inf_indices[chosen];
+            std::swap(this->mapped_inf_indices[chosen], this->mapped_inf_indices[--this->n_inf]);
+            this->n_left--;
+            return true;
+        }
+
+        else
+        {
+            /* TODO: should standardize all these tree traversals into one.
+               This one in particular could do with sampling only a single
+               random number as it will not typically require exhausting all
+               options like the usual column sampler. */
+            if (!this->n_left) return false;
+            size_t curr_ix = 0;
+            double rnd_subrange, w_left;
+            double curr_subrange = this->tree_weights[0];
+            if (curr_subrange <= 0)
+                return false;
+
+            for (size_t lev = 0; lev < tree_levels; lev++)
+            {
+                rnd_subrange = std::uniform_real_distribution<double>(0., curr_subrange)(rnd_generator);
+                w_left = this->tree_weights[ix_child(curr_ix)];
+                curr_ix = ix_child(curr_ix) + (rnd_subrange >= w_left);
+                curr_subrange = this->tree_weights[curr_ix];
+            }
+
+            col_chosen = this->mapped_indices[curr_ix - this->offset];
+
+            this->tree_weights[curr_ix] = 0.;
+            for (size_t lev = 0; lev < this->tree_levels; lev++)
+            {
+                curr_ix = ix_parent(curr_ix);
+                this->tree_weights[curr_ix] =   this->tree_weights[ix_child(curr_ix)]
+                                              + this->tree_weights[ix_child(curr_ix) + 1];
+            }
+            
+            this->n_left--;
+            return true;
+        }
+    }
+}
+
+void SingleNodeColumnSampler::backup(const SingleNodeColumnSampler &other)
+{
+    this->n_inf = other.n_inf;
+    this->n_left = other.n_left;
+    this->using_tree = other.using_tree;
+
+    if (this->using_tree)
+    {
+        this->tree_weights = other.tree_weights;
+        this->mapped_inf_indices = other.mapped_inf_indices;
+    }
+
+    else
+    {
+        this->cumw = other.cumw;
+        if (this->backup_weights)
+            this->weights_own = other.weights_own;
+        this->inifinite_weights = other.inifinite_weights;
+    }
 }
 
 
@@ -1892,12 +2148,12 @@ void get_categs(size_t *restrict ix_arr, int x[], size_t st, size_t end, int nca
 ldouble_safe calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
                                    std::vector<double> &weights_arr, hashed_map<size_t, double> &weights_map)
 {
-    if (curr_depth > 0 && weights_arr.size())
+    if (curr_depth > 0 && !weights_arr.empty())
         return std::accumulate(ix_arr.begin() + st,
                                ix_arr.begin() + end + 1,
                                (ldouble_safe)0,
                                [&weights_arr](const ldouble_safe a, const size_t ix){return a + weights_arr[ix];});
-    else if (curr_depth > 0 && weights_map.size())
+    else if (curr_depth > 0 && !weights_map.empty())
         return std::accumulate(ix_arr.begin() + st,
                                ix_arr.begin() + end + 1,
                                (ldouble_safe)0,

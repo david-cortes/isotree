@@ -18,10 +18,19 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
-*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
-*     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+*     [8] Cortes, David.
+*         "Distance approximation using Isolation Forests."
+*         arXiv preprint arXiv:1910.12362 (2019).
+*     [9] Cortes, David.
+*         "Imputing missing values with unsupervised random trees."
+*         arXiv preprint arXiv:1911.06646 (2019).
 *     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
-*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [11] Cortes, David.
+*          "Revisiting randomized choices in isolation forests."
+*          arXiv preprint arXiv:2110.13402 (2021).
+*     [12] Guha, Sudipto, et al.
+*          "Robust random cut forest based anomaly detection on streams."
+*          International conference on machine learning. PMLR, 2016.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -104,6 +113,9 @@ public:
     bool   weigh_by_kurt = false;
     double prob_pick_by_gain_pl = 0.;
     double prob_pick_by_gain_avg = 0.;
+    double prob_pick_col_by_range = 0.;
+    double prob_pick_col_by_var = 0.;
+    double prob_pick_col_by_kurt = 0.;
     double min_gain = 0.;
     MissingAction missing_action = Impute;
 
@@ -146,6 +158,8 @@ public:
         size_t max_depth, size_t ncols_per_tree, bool   limit_depth,
         bool penalize_range, bool standardize_data, bool weigh_by_kurt,
         double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+        double prob_pick_col_by_range, double prob_pick_col_by_var,
+        double prob_pick_col_by_kurt,
         double min_gain, MissingAction missing_action,
         CategSplit cat_split_type, NewCategAction new_cat_action,
         bool   all_perm, bool build_imputer, size_t min_imp_obs,

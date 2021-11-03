@@ -50,7 +50,8 @@ class build_ext_subclass( build_ext ):
                     e.extra_compile_args += ['-O3', '-std=gnu++11']
                     e.define_macros += [("_FILE_OFFSET_BITS", 64)]
                 else:
-                    e.extra_compile_args += ['-O3', '-std=c++11']
+                    # e.extra_compile_args += ['-O3', '-std=c++11']
+                    e.extra_compile_args += ['-O3', '-std=c++11', '-ggdb']
 
                 if (os.path.exists("src/robinmap/include/tsl")):
                     e.define_macros += [("_USE_ROBIN_MAP", None)]
@@ -68,6 +69,10 @@ class build_ext_subclass( build_ext ):
                 # ## for testing (run with `LD_PRELOAD=libasan.so python script.py`)
                 # e.extra_compile_args = ["-std=c++11", "-fsanitize=address", "-static-libasan", "-ggdb"]
                 # e.extra_link_args    = ["-fsanitize=address", "-static-libasan"]
+
+                # ## for testing with clang (run with `LD_PRELOAD=libasan.so python script.py`)
+                # e.extra_compile_args = ["-std=c++11", "-fsanitize=address", "-static-libsan"]
+                # e.extra_link_args    = ["-fsanitize=address", "-static-libsan"]
 
         # if is_clang:
         #         e.extra_compile_args += ['-fopenmp=libomp']

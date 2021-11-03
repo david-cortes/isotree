@@ -18,10 +18,19 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
-*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
-*     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+*     [8] Cortes, David.
+*         "Distance approximation using Isolation Forests."
+*         arXiv preprint arXiv:1910.12362 (2019).
+*     [9] Cortes, David.
+*         "Imputing missing values with unsupervised random trees."
+*         arXiv preprint arXiv:1911.06646 (2019).
 *     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
-*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [11] Cortes, David.
+*          "Revisiting randomized choices in isolation forests."
+*          arXiv preprint arXiv:2110.13402 (2021).
+*     [12] Guha, Sudipto, et al.
+*          "Robust random cut forest based anomaly detection on streams."
+*          International conference on machine learning. PMLR, 2016.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -74,6 +83,9 @@ struct IsoTree_Params {
     bool   weigh_by_kurt = false;
     double prob_pick_by_gain_pl = 0.;
     double prob_pick_by_gain_avg = 0.;
+    double prob_pick_col_by_range = 0.;
+    double prob_pick_col_by_var = 0.;
+    double prob_pick_col_by_kurt = 0.;
     double min_gain = 0.;
     MissingAction missing_action = Impute;
 
@@ -126,6 +138,9 @@ void set_isotree_parameters
     uint8_t*   weigh_by_kurt,
     double*    prob_pick_by_gain_pl,
     double*    prob_pick_by_gain_avg,
+    double*    prob_pick_col_by_range,
+    double*    prob_pick_col_by_var,
+    double*    prob_pick_col_by_kurt,
     double*    min_gain,
     uint8_t*   missing_action,
     uint8_t*   cat_split_type,
@@ -160,6 +175,9 @@ void set_isotree_parameters
     if (weigh_by_kurt) params->weigh_by_kurt = *weigh_by_kurt;
     if (prob_pick_by_gain_avg) params->prob_pick_by_gain_avg = *prob_pick_by_gain_avg;
     if (prob_pick_by_gain_pl) params->prob_pick_by_gain_pl = *prob_pick_by_gain_pl;
+    if (prob_pick_col_by_range) params->prob_pick_col_by_range = *prob_pick_col_by_range;
+    if (prob_pick_col_by_var) params->prob_pick_col_by_var = *prob_pick_col_by_var;
+    if (prob_pick_col_by_kurt) params->prob_pick_col_by_kurt = *prob_pick_col_by_kurt;
     if (min_gain) params->min_gain = *min_gain;
     if (missing_action) params->missing_action = (MissingAction)*missing_action;
     if (cat_split_type) params->cat_split_type = (CategSplit)*cat_split_type;
@@ -193,6 +211,9 @@ void get_isotree_parameters
     uint8_t*   weigh_by_kurt,
     double*    prob_pick_by_gain_pl,
     double*    prob_pick_by_gain_avg,
+    double*    prob_pick_col_by_range,
+    double*    prob_pick_col_by_var,
+    double*    prob_pick_col_by_kurt,
     double*    min_gain,
     uint8_t*   missing_action,
     uint8_t*   cat_split_type,
@@ -227,6 +248,9 @@ void get_isotree_parameters
     if (weigh_by_kurt) *weigh_by_kurt = params->weigh_by_kurt;
     if (prob_pick_by_gain_avg) *prob_pick_by_gain_avg = params->prob_pick_by_gain_avg;
     if (prob_pick_by_gain_pl) *prob_pick_by_gain_pl = params->prob_pick_by_gain_pl;
+    if (prob_pick_col_by_range) *prob_pick_col_by_range = params->prob_pick_col_by_range;
+    if (prob_pick_col_by_var) *prob_pick_col_by_var = params->prob_pick_col_by_var;
+    if (prob_pick_col_by_kurt) *prob_pick_col_by_kurt = params->prob_pick_col_by_kurt;
     if (min_gain) *min_gain = params->min_gain;
     if (missing_action) *missing_action = params->missing_action;
     if (cat_split_type) *cat_split_type = params->cat_split_type;
@@ -282,6 +306,8 @@ void* isotree_fit
                 params->limit_depth, params->penalize_range,
                 params->standardize_data, params->weigh_by_kurt,
                 params->prob_pick_by_gain_pl, params->prob_pick_by_gain_avg,
+                params->prob_pick_col_by_range, params->prob_pick_col_by_var,
+                params->prob_pick_col_by_kurt,
                 params->min_gain, params->missing_action,
                 params->cat_split_type, params->new_cat_action,
                 params->all_perm, params->build_imputer, params->min_imp_obs,

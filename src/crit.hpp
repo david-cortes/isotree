@@ -18,10 +18,19 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
-*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
-*     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+*     [8] Cortes, David.
+*         "Distance approximation using Isolation Forests."
+*         arXiv preprint arXiv:1910.12362 (2019).
+*     [9] Cortes, David.
+*         "Imputing missing values with unsupervised random trees."
+*         arXiv preprint arXiv:1911.06646 (2019).
 *     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
-*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [11] Cortes, David.
+*          "Revisiting randomized choices in isolation forests."
+*          arXiv preprint arXiv:2110.13402 (2021).
+*     [12] Guha, Sudipto, et al.
+*          "Robust random cut forest based anomaly detection on streams."
+*          International conference on machine learning. PMLR, 2016.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -362,7 +371,7 @@ double calc_kurtosis(size_t col_num, size_t nrows,
 
     if (missing_action != Fail)
     {
-        for (size_t ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num+1]; ix++)
+        for (auto ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num+1]; ix++)
         {
             xval = Xc[ix];
             if (is_na_or_inf(xval))
@@ -382,7 +391,7 @@ double calc_kurtosis(size_t col_num, size_t nrows,
 
     else
     {
-        for (size_t ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num+1]; ix++)
+        for (auto ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num+1]; ix++)
         {
             xval = Xc[ix];
             s1 += pw1(xval);
@@ -520,7 +529,7 @@ double calc_kurtosis_weighted(size_t col_num, size_t nrows,
     ldouble_safe s4 = 0;
     double w_this;
     ldouble_safe cnt = nrows - (Xc_indptr[col_num + 1] - Xc_indptr[col_num]);
-    for (size_t ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num + 1]; ix++)
+    for (auto ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num + 1]; ix++)
         cnt += w[Xc_ind[ix]];
 
     if (cnt <= 1) return 0;
@@ -529,7 +538,7 @@ double calc_kurtosis_weighted(size_t col_num, size_t nrows,
 
     if (missing_action != Fail)
     {
-        for (size_t ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num + 1]; ix++)
+        for (auto ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num + 1]; ix++)
         {
             w_this = w[Xc_ind[ix]];
             xval = Xc[ix];
@@ -551,7 +560,7 @@ double calc_kurtosis_weighted(size_t col_num, size_t nrows,
 
     else
     {
-        for (size_t ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num + 1]; ix++)
+        for (auto ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num + 1]; ix++)
         {
             w_this = w[Xc_ind[ix]];
             xval = Xc[ix];
@@ -882,6 +891,117 @@ double expected_sd_cat_single(number *restrict counts, double *restrict p, size_
 
     }
     return std::sqrt(std::fmax(cum_var, 0.0l));
+}
+
+template <class number>
+double expected_sd_cat_internal(int ncat, number *restrict buffer_cnt, long double cnt_l,
+                                size_t *restrict buffer_pos, double *restrict buffer_prob)
+{
+    /* move zero-valued to the beginning */
+    std::iota(buffer_pos, buffer_pos + ncat, (size_t)0);
+    size_t st_pos = 0;
+    int ncat_present = 0;
+    size_t temp;
+    for (int cat = 0; cat < ncat; cat++)
+    {
+        if (buffer_cnt[cat])
+        {
+            ncat_present++;
+            buffer_prob[cat] = (long double) buffer_cnt[cat] / cnt_l;
+        }
+
+        else
+        {
+            temp = buffer_pos[st_pos];
+            buffer_pos[st_pos] = buffer_pos[cat];
+            buffer_pos[cat] = temp;
+            st_pos++;
+        }
+    }
+
+    if (ncat_present <= 1) return 0;
+    return expected_sd_cat(buffer_prob, ncat_present, buffer_pos + st_pos);
+}
+
+
+double expected_sd_cat(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat,
+                       MissingAction missing_action,
+                       size_t *restrict buffer_cnt, size_t *restrict buffer_pos, double buffer_prob[])
+{
+    /* generate counts */
+    std::fill(buffer_cnt, buffer_cnt + ncat + 1, (size_t)0);
+    size_t cnt = end - st + 1;
+
+    if (missing_action != Fail)
+    {
+        int xval;
+        for (size_t row = st; row <= end; row++)
+        {
+            xval = x[ix_arr[row]];
+            if (xval < 0)
+                buffer_cnt[ncat]++;
+            else
+                buffer_cnt[xval]++;
+        }
+        cnt -= buffer_cnt[ncat];
+        if (cnt == 0) return 0;
+    }
+
+    else
+    {
+        for (size_t row = st; row <= end; row++)
+        {
+            if (x[ix_arr[row]] >= 0) buffer_cnt[x[ix_arr[row]]]++;
+        }
+    }
+
+    return expected_sd_cat_internal(ncat, buffer_cnt, cnt, buffer_pos, buffer_prob);
+}
+
+template <class mapping>
+double expected_sd_cat_weighted(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat,
+                                MissingAction missing_action, mapping w,
+                                double *restrict buffer_cnt, size_t *restrict buffer_pos, double *restrict buffer_prob)
+{
+    /* generate counts */
+    std::fill(buffer_cnt, buffer_cnt + ncat + 1, 0.);
+    ldouble_safe cnt = 0;
+
+    if (missing_action != Fail)
+    {
+        int xval;
+        double w_this;
+        for (size_t row = st; row <= end; row++)
+        {
+            xval = x[ix_arr[row]];
+            w_this = w[ix_arr[row]];
+
+            if (xval < 0) {
+                buffer_cnt[ncat] += w_this;
+            }
+            else {
+                buffer_cnt[xval] += w_this;
+                cnt += w_this;
+            }
+        }
+        if (cnt == 0) return 0;
+    }
+
+    else
+    {
+        for (size_t row = st; row <= end; row++)
+        {
+            if (x[ix_arr[row]] >= 0)
+            {
+                buffer_cnt[x[ix_arr[row]]] += w[ix_arr[row]];
+            }
+        }
+        for (int cat = 0; cat < ncat; cat++)
+            cnt += buffer_cnt[cat];
+        if (cnt == 0) return 0;
+    }
+
+    return expected_sd_cat_internal(ncat, buffer_cnt, cnt, buffer_pos, buffer_prob);
 }
 
 /* Note: this isn't exactly comparable to the pooled gain from numeric variables,
@@ -1590,6 +1710,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
         case SingleCateg:
         {
             size_t cnt = end - st + 1;
+            long double cnt_l = (long double) cnt;
             size_t ncat_present = 0;
 
             switch(criterion)
@@ -1603,7 +1724,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                         if (buffer_cnt[cat])
                         {
                             ncat_present++;
-                            buffer_prob[cat] = (long double) buffer_cnt[cat] / (long double) cnt;
+                            buffer_prob[cat] = (long double) buffer_cnt[cat] / cnt_l;
                         }
 
                         else

@@ -8,9 +8,9 @@ Authors@R: c(
   person(given="Thibaut", family="Goetghebuer-Planchon", role="cph",
          comment="Copyright holder of included robinmap library"),
   person(given="David", family="Blackman", role="cph",
-         comment="Copyright holder of original Xoshiro code"),
+         comment="Copyright holder of original xoshiro code"),
   person(given="Sebastiano", family="Vigna", role="cph",
-         comment="Copyright holder of original Xoshiro code")
+         comment="Copyright holder of original xoshiro code")
   )
 Maintainer: David Cortes <david.cortes.rivera@gmail.com>
 URL: https://github.com/david-cortes/isotree
@@ -19,7 +19,9 @@ Description: Fast and multi-threaded implementation of
 	isolation forest (Liu, Ting, Zhou (2008) <doi:10.1109/ICDM.2008.17>),
 	extended isolation forest (Hariri, Kind, Brunner (2018) <arXiv:1811.02141>),
 	SCiForest (Liu, Ting, Zhou (2010) <doi:10.1007/978-3-642-15883-4_18>),
-	and fair-cut forest (Cortes (2021) <arXiv:2110:13402>),
+	fair-cut forest (Cortes (2021) <arXiv:2110:13402>),
+       robust random-cut forest (Guha, Mishra, Roy, Schrijvers (2016) <http://proceedings.mlr.press/v48/guha16.html>),
+       and customizable variations of them,
 	for isolation-based outlier detection, clustered outlier detection, distance or similarity
 	approximation (Cortes (2019) <arXiv:1910.12362>),
 	and imputation of missing values (Cortes (2019) <arXiv:1911.06646>),

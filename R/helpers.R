@@ -71,6 +71,14 @@ check.is.1d <- function(var, name) {
     }
 }
 
+coerce.null <- function(x, repl) {
+    if (is.null(x)) {
+        return(repl)
+    } else {
+        return(x)
+    }
+}
+
 set.list.elt <- function(lst, el_name, val) {
     if (el_name %in% names(lst)) {
         ix <- which(names(lst) == el_name) - 1L
@@ -800,6 +808,7 @@ export.metadata <- function(model) {
         ncols_per_tree = model$params$ncols_per_tree,
         prob_pick_avg_gain = model$params$prob_pick_avg_gain,
         prob_pick_pooled_gain = model$params$prob_pick_pooled_gain,
+        prob_pick_col_by_range = model$params$prob_pick_col_by_range,
         min_gain = model$params$min_gain,
         missing_action = model$params$missing_action,  ## is in c++
         new_categ_action = model$params$new_categ_action,  ## is in c++
@@ -830,6 +839,9 @@ take.metadata <- function(metadata) {
             ncols_per_tree = metadata$params$ncols_per_tree,
             prob_pick_avg_gain = metadata$params$prob_pick_avg_gain,
             prob_pick_pooled_gain = metadata$params$prob_pick_pooled_gain,
+            prob_pick_col_by_range = metadata$params$prob_pick_col_by_range,
+            prob_pick_col_by_var = metadata$params$prob_pick_col_by_var,
+            prob_pick_col_by_kurt = metadata$params$prob_pick_col_by_kurt,
             min_gain = metadata$params$min_gain, missing_action = metadata$params$missing_action,
             new_categ_action = metadata$params$new_categ_action,
             categ_split_type = metadata$params$categ_split_type,
@@ -861,6 +873,10 @@ take.metadata <- function(metadata) {
             imp_ser     =  NULL
         )
     )
+
+    this$params$prob_pick_col_by_range  <-  coerce.null(this$params$prob_pick_col_by_range, 0.0)
+    this$params$prob_pick_col_by_var    <-  coerce.null(this$params$prob_pick_col_by_var, 0.0)
+    this$params$prob_pick_col_by_kurt   <-  coerce.null(this$params$prob_pick_col_by_kurt, 0.0)
 
     if (!NROW(this$metadata$standardize_data))
         this$metadata$standardize_data <- TRUE

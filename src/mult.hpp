@@ -18,10 +18,19 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
-*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
-*     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+*     [8] Cortes, David.
+*         "Distance approximation using Isolation Forests."
+*         arXiv preprint arXiv:1910.12362 (2019).
+*     [9] Cortes, David.
+*         "Imputing missing values with unsupervised random trees."
+*         arXiv preprint arXiv:1911.06646 (2019).
 *     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
-*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [11] Cortes, David.
+*          "Revisiting randomized choices in isolation forests."
+*          arXiv preprint arXiv:2110.13402 (2021).
+*     [12] Guha, Sudipto, et al.
+*          "Robust random cut forest based anomaly detection on streams."
+*          International conference on machine learning. PMLR, 2016.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -57,14 +66,16 @@ void calc_mean_and_sd_t(size_t ix_arr[], size_t st, size_t end, real_t_ *restric
     real_t m = 0;
     real_t s = 0;
     real_t m_prev = x[ix_arr[st]];
+    real_t_ xval;
 
     if (missing_action == Fail)
     {
         m_prev = x[ix_arr[st]];
         for (size_t row = st; row <= end; row++)
         {
-            m += (x[ix_arr[row]] - m) / (real_t)(row - st + 1);
-            s += (x[ix_arr[row]] - m) * (x[ix_arr[row]] - m_prev);
+            xval = x[ix_arr[row]];
+            m += (xval - m) / (real_t)(row - st + 1);
+            s += (xval - m) * (xval - m_prev);
             m_prev = m;
         }
 
@@ -82,11 +93,12 @@ void calc_mean_and_sd_t(size_t ix_arr[], size_t st, size_t end, real_t_ *restric
 
         for (size_t row = st; row <= end; row++)
         {
-            if (!is_na_or_inf(x[ix_arr[row]]))
+            xval = x[ix_arr[row]];
+            if (!is_na_or_inf(xval))
             {
                 cnt++;
-                m += (x[ix_arr[row]] - m) / (real_t)cnt;
-                s += (x[ix_arr[row]] - m) * (x[ix_arr[row]] - m_prev);
+                m += (xval - m) / (real_t)cnt;
+                s += (xval - m) * (xval - m_prev);
                 m_prev = m;
             }
         }
@@ -101,12 +113,14 @@ double calc_mean_only(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict 
 {
     size_t cnt = 0;
     double m = 0;
+    real_t_ xval;
     for (size_t row = st; row <= end; row++)
     {
-        if (!is_na_or_inf(x[ix_arr[row]]))
+        xval = x[ix_arr[row]];
+        if (!is_na_or_inf(xval))
         {
             cnt++;
-            m += (x[ix_arr[row]] - m) / (double)cnt;
+            m += (xval - m) / (double)cnt;
         }
     }
 
@@ -133,6 +147,7 @@ void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *
     double m = 0;
     long double s = 0;
     double m_prev = x[ix_arr[st]];
+    real_t_ xval;
     while (is_na_or_inf(m_prev) && st <= end)
     {
         m_prev = x[ix_arr[++st]];
@@ -140,12 +155,13 @@ void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *
 
     for (size_t row = st; row <= end; row++)
     {
-        if (!is_na_or_inf(x[ix_arr[row]]))
+        xval = x[ix_arr[row]];
+        if (!is_na_or_inf(xval))
         {
             w_this = w[ix_arr[row]];
             cnt += w_this;
-            m += w_this * (x[ix_arr[row]] - m) / cnt;
-            s += w_this * ((x[ix_arr[row]] - m) * (x[ix_arr[row]] - m_prev));
+            m += w_this * (xval - m) / cnt;
+            s += w_this * ((xval - m) * (xval - m_prev));
             m_prev = m;
         }
     }

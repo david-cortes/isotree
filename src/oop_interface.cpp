@@ -18,10 +18,19 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
-*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
-*     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+*     [8] Cortes, David.
+*         "Distance approximation using Isolation Forests."
+*         arXiv preprint arXiv:1910.12362 (2019).
+*     [9] Cortes, David.
+*         "Imputing missing values with unsupervised random trees."
+*         arXiv preprint arXiv:1911.06646 (2019).
 *     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
-*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [11] Cortes, David.
+*          "Revisiting randomized choices in isolation forests."
+*          arXiv preprint arXiv:2110.13402 (2021).
+*     [12] Guha, Sudipto, et al.
+*          "Robust random cut forest based anomaly detection on streams."
+*          International conference on machine learning. PMLR, 2016.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -58,6 +67,8 @@ IsolationForest::IsolationForest
     size_t max_depth, size_t ncols_per_tree, bool   limit_depth,
     bool penalize_range, bool standardize_data, bool weigh_by_kurt,
     double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+    double prob_pick_col_by_range, double prob_pick_col_by_var,
+    double prob_pick_col_by_kurt,
     double min_gain, MissingAction missing_action,
     CategSplit cat_split_type, NewCategAction new_cat_action,
     bool   all_perm, bool build_imputer, size_t min_imp_obs,
@@ -81,6 +92,9 @@ IsolationForest::IsolationForest
         weigh_by_kurt(weigh_by_kurt),
         prob_pick_by_gain_pl(prob_pick_by_gain_pl),
         prob_pick_by_gain_avg(prob_pick_by_gain_avg),
+        prob_pick_col_by_range(prob_pick_col_by_range),
+        prob_pick_col_by_var(prob_pick_col_by_var),
+        prob_pick_col_by_kurt(prob_pick_col_by_kurt),
         min_gain(min_gain),
         missing_action(missing_action),
         cat_split_type(cat_split_type),
@@ -115,6 +129,9 @@ void IsolationForest::fit(double X[], size_t nrows, size_t ncols)
         (double*)nullptr, this->weigh_by_kurt,
         this->prob_pick_by_gain_pl,
         this->prob_pick_by_gain_avg,
+        this->prob_pick_col_by_range,
+        this->prob_pick_col_by_var,
+        this->prob_pick_col_by_kurt,
         this->min_gain, this->missing_action,
         this->cat_split_type, this->new_cat_action,
         this->all_perm, &this->imputer, this->min_imp_obs,
@@ -149,6 +166,9 @@ void IsolationForest::fit(double numeric_data[],   size_t ncols_numeric,  size_t
         col_weights, this->weigh_by_kurt,
         this->prob_pick_by_gain_pl,
         this->prob_pick_by_gain_avg,
+        this->prob_pick_col_by_range,
+        this->prob_pick_col_by_var,
+        this->prob_pick_col_by_kurt,
         this->min_gain, this->missing_action,
         this->cat_split_type, this->new_cat_action,
         this->all_perm, &this->imputer, this->min_imp_obs,
@@ -184,6 +204,9 @@ void IsolationForest::fit(double Xc[], int Xc_ind[], int Xc_indptr[],
         col_weights, this->weigh_by_kurt,
         this->prob_pick_by_gain_pl,
         this->prob_pick_by_gain_avg,
+        this->prob_pick_col_by_range,
+        this->prob_pick_col_by_var,
+        this->prob_pick_col_by_kurt,
         this->min_gain, this->missing_action,
         this->cat_split_type, this->new_cat_action,
         this->all_perm, &this->imputer, this->min_imp_obs,
@@ -206,8 +229,8 @@ std::vector<double> IsolationForest::predict(double X[], size_t nrows, bool stan
         (double*)nullptr, (int*)nullptr, (int*)nullptr,
         (double*)nullptr, (int*)nullptr, (int*)nullptr,
         nrows, this->nthreads, standardize,
-        this->model.trees.size()? &this->model : nullptr,
-        this->model_ext.hplanes.size()? &this->model_ext : nullptr,
+        (!this->model.trees.empty())? &this->model : nullptr,
+        (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
         out.data(), (int*)nullptr, (double*)nullptr);
     return out;
 }
@@ -226,8 +249,8 @@ void IsolationForest::predict(double numeric_data[], int categ_data[], bool is_c
         (double*)nullptr, (int*)nullptr, (int*)nullptr,
         (double*)nullptr, (int*)nullptr, (int*)nullptr,
         nrows, this->nthreads, standardize,
-        this->model.trees.size()? &this->model : nullptr,
-        this->model_ext.hplanes.size()? &this->model_ext : nullptr,
+        (!this->model.trees.empty())? &this->model : nullptr,
+        (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
         output_depths, tree_num, per_tree_depths);
 }
 
@@ -246,8 +269,8 @@ void IsolationForest::predict(double X_sparse[], int X_ind[], int X_indptr[], bo
         is_csc? X_sparse : (double*)nullptr, is_csc? X_ind : (int*)nullptr, is_csc? X_indptr : (int*)nullptr,
         is_csc? (double*)nullptr : X_sparse, is_csc? (int*)nullptr : X_ind, is_csc? (int*)nullptr : X_indptr,
         nrows, this->nthreads, standardize,
-        this->model.trees.size()? &this->model : nullptr,
-        this->model_ext.hplanes.size()? &this->model_ext : nullptr,
+        (!this->model.trees.empty())? &this->model : nullptr,
+        (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
         output_depths, tree_num, per_tree_depths);
 }
 
@@ -263,8 +286,8 @@ std::vector<double> IsolationForest::predict_distance(double X[], size_t nrows,
     calc_similarity(X, (int*)nullptr,
                     (double*)nullptr, (int*)nullptr, (int*)nullptr,
                     nrows, this->nthreads, assume_full_distr, standardize_dist,
-                    this->model.trees.size()? &this->model : nullptr,
-                    this->model_ext.hplanes.size()? &this->model_ext : nullptr,
+                    (!this->model.trees.empty())? &this->model : nullptr,
+                    (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                     tmat.data(), (double*)nullptr, (size_t)0);
     if (!triangular)
         tmat_to_dense(tmat.data(), dmat.data(), nrows, false);
@@ -284,8 +307,8 @@ void IsolationForest::predict_distance(double numeric_data[], int categ_data[],
     calc_similarity(numeric_data, categ_data,
                     (double*)nullptr, (int*)nullptr, (int*)nullptr,
                     nrows, this->nthreads, assume_full_distr, standardize_dist,
-                    this->model.trees.size()? &this->model : nullptr,
-                    this->model_ext.hplanes.size()? &this->model_ext : nullptr,
+                    (!this->model.trees.empty())? &this->model : nullptr,
+                    (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                     triangular? dist_matrix : tmat.data(),
                     (double*)nullptr,
                     (size_t)0);
@@ -305,8 +328,8 @@ void IsolationForest::predict_distance(double Xc[], int Xc_ind[], int Xc_indptr[
     calc_similarity((double*)nullptr, (int*)nullptr,
                     Xc, Xc_ind, Xc_indptr,
                     nrows, this->nthreads, assume_full_distr, standardize_dist,
-                    this->model.trees.size()? &this->model : nullptr,
-                    this->model_ext.hplanes.size()? &this->model_ext : nullptr,
+                    (!this->model.trees.empty())? &this->model : nullptr,
+                    (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                     triangular? dist_matrix : tmat.data(),
                     (double*)nullptr,
                     (size_t)0);
@@ -318,27 +341,27 @@ void IsolationForest::impute(double X[], size_t nrows)
 {
     this->check_is_fitted();
     this->check_nthreads();
-    if (!this->imputer.imputer_tree.size())
+    if (this->imputer.imputer_tree.empty())
         throw std::runtime_error("Model was built without imputation capabilities.\n");
     impute_missing_values(X, (int*)nullptr, true,
                           (double*)nullptr, (int*)nullptr, (int*)nullptr,
                           nrows, this->nthreads,
-                          this->model.trees.size()? &this->model : nullptr,
-                          this->model_ext.hplanes.size()? &this->model_ext : nullptr,
+                          (!this->model.trees.empty())? &this->model : nullptr,
+                          (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                           this->imputer);
 }
 
 void IsolationForest::impute(double numeric_data[], int categ_data[], bool is_col_major, size_t nrows)
 {
     this->check_is_fitted();
-    if (!this->imputer.imputer_tree.size())
+    if (this->imputer.imputer_tree.empty())
         throw std::runtime_error("Model was built without imputation capabilities.\n");
     this->check_nthreads();
     impute_missing_values(numeric_data, categ_data, is_col_major,
                           (double*)nullptr, (int*)nullptr, (int*)nullptr,
                           nrows, this->nthreads,
-                          this->model.trees.size()? &this->model : nullptr,
-                          this->model_ext.hplanes.size()? &this->model_ext : nullptr,
+                          (!this->model.trees.empty())? &this->model : nullptr,
+                          (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                           this->imputer);
 }
 
@@ -346,14 +369,14 @@ void IsolationForest::impute(double Xr[], int Xr_ind[], int Xr_indptr[],
                              int categ_data[], bool is_col_major, size_t nrows)
 {
     this->check_is_fitted();
-    if (!this->imputer.imputer_tree.size())
+    if (this->imputer.imputer_tree.empty())
         throw std::runtime_error("Model was built without imputation capabilities.\n");
     this->check_nthreads();
     impute_missing_values((double*)nullptr, categ_data, is_col_major,
                           Xr, Xr_ind, Xr_indptr,
                           nrows, this->nthreads,
-                          this->model.trees.size()? &this->model : nullptr,
-                          this->model_ext.hplanes.size()? &this->model_ext : nullptr,
+                          (!this->model.trees.empty())? &this->model : nullptr,
+                          (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                           this->imputer);
 }
 
@@ -448,9 +471,9 @@ void IsolationForest::check_nthreads()
 
 size_t IsolationForest::get_ntrees() const
 {
-    if (this->model.trees.size())
+    if (!this->model.trees.empty())
         return this->model.trees.size();
-    else if (this->model_ext.hplanes.size())
+    else if (!this->model_ext.hplanes.empty())
         return this->model_ext.hplanes.size();
     else
         throw std::runtime_error("Model is not fitted or is corrupted.\n");
@@ -458,7 +481,7 @@ size_t IsolationForest::get_ntrees() const
 
 bool IsolationForest::check_can_predict_per_tree() const
 {
-    if (this->model.trees.size())
+    if (!this->model.trees.empty())
     {
         if (this->model.missing_action == Divide)
             return false;
@@ -489,10 +512,17 @@ void IsolationForest::check_params()
 
     if (this->prob_pick_by_gain_avg < 0) throw std::runtime_error("'prob_pick_by_gain_avg' must be >= 0.\n");
     if (this->prob_pick_by_gain_pl < 0) throw std::runtime_error("'prob_pick_by_gain_pl' must be >= 0.\n");
+    if (this->prob_pick_col_by_range < 0) throw std::runtime_error("'prob_pick_col_by_range' must be >= 0.\n");
+    if (this->prob_pick_col_by_var < 0) throw std::runtime_error("'prob_pick_col_by_var' must be >= 0.\n");
+    if (this->prob_pick_col_by_kurt < 0) throw std::runtime_error("'prob_pick_col_by_kurt' must be >= 0.\n");
 
     if (prob_pick_by_gain_avg + prob_pick_by_gain_pl
         > 1. + 2. * std::numeric_limits<double>::epsilon())
         throw std::runtime_error("Probabilities for gain-based splits sum to more than 1.\n");
+
+    if (prob_pick_col_by_var + prob_pick_col_by_var + prob_pick_col_by_kurt
+        > 1. + 2. * std::numeric_limits<double>::epsilon())
+        throw std::runtime_error("Probabilities for column choices sum to more than 1.\n");
 
     if (min_gain < 0)
         throw std::runtime_error("'min_gain' cannot be negative.\n");
@@ -534,9 +564,9 @@ void IsolationForest::serialize_template(otype &out) const
     this->check_is_fitted();
 
     serialize_combined(
-        this->model.trees.size()? &this->model : nullptr,
-        this->model_ext.hplanes.size()? &this->model_ext : nullptr,
-        this->imputer.imputer_tree.size()? &this->imputer : nullptr,
+        (!this->model.trees.empty())? &this->model : nullptr,
+        (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
+        (!this->imputer.imputer_tree.empty())? &this->imputer : nullptr,
         (char*)nullptr,
         (size_t)0,
         out
@@ -587,21 +617,21 @@ IsolationForest IsolationForest::deserialize_template(itype &inp, int nthreads)
         (char*)nullptr
     );
 
-    if (!model.trees.size() && !model_ext.hplanes.size())
+    if (model.trees.empty() && model_ext.hplanes.empty())
         throw std::runtime_error("Error: model contains no trees.\n");
 
     size_t ntrees;
     size_t ndim = 3;
     bool build_imputer = false;
 
-    if (model.trees.size()) {
+    if (!model.trees.empty()) {
         ntrees = model.trees.size();
         ndim = 1;
     }
     else {
         ntrees = model_ext.hplanes.size();
     }
-    if (imputer.imputer_tree.size()) {
+    if (!imputer.imputer_tree.empty()) {
         if (imputer.imputer_tree.size() != ntrees)
             throw std::runtime_error("Error: imputer has incorrect number of trees.\n");
         build_imputer = true;
@@ -609,7 +639,7 @@ IsolationForest IsolationForest::deserialize_template(itype &inp, int nthreads)
 
     IsolationForest out = IsolationForest(nthreads, ndim, ntrees, build_imputer);
 
-    if (model.trees.size()) {
+    if (!model.trees.empty()) {
         out.get_model() = std::move(model);
         out.penalize_range = out.get_model().has_range_penalty;
     }
@@ -617,7 +647,7 @@ IsolationForest IsolationForest::deserialize_template(itype &inp, int nthreads)
         out.get_model_ext() = std::move(model_ext);
         out.penalize_range = out.get_model_ext().has_range_penalty;
     }
-    if (imputer.imputer_tree.size())
+    if (!imputer.imputer_tree.empty())
         out.get_imputer() = std::move(imputer);
 
     return out;

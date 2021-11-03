@@ -18,10 +18,19 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
-*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
-*     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+*     [8] Cortes, David.
+*         "Distance approximation using Isolation Forests."
+*         arXiv preprint arXiv:1910.12362 (2019).
+*     [9] Cortes, David.
+*         "Imputing missing values with unsupervised random trees."
+*         arXiv preprint arXiv:1911.06646 (2019).
 *     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
-*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [11] Cortes, David.
+*          "Revisiting randomized choices in isolation forests."
+*          arXiv preprint arXiv:2110.13402 (2021).
+*     [12] Guha, Sudipto, et al.
+*          "Robust random cut forest based anomaly detection on streams."
+*          International conference on machine learning. PMLR, 2016.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -85,7 +94,6 @@ typedef enum  NewCategAction {Weighted=0,  Smallest=11,    Random=12}  NewCategA
 typedef enum  MissingAction  {Divide=21,   Impute=22,      Fail=0}     MissingAction;  /* Divide is only for non-extended model */
 typedef enum  ColType        {Numeric=31,  Categorical=32, NotUsed=0}  ColType;
 typedef enum  CategSplit     {SubSet=0,    SingleCateg=41}             CategSplit;
-typedef enum  GainCriterion  {Averaged=51, Pooled=52,      NoCrit=0}   Criterion;      /* For guided splits */
 typedef enum  CoefType       {Uniform=61,  Normal=0}                   CoefType;       /* For extended model */
 typedef enum  UseDepthImp    {Lower=71,    Higher=0,       Same=72}    UseDepthImp;    /* For NA imputation */
 typedef enum  WeighImpRows   {Inverse=0,   Prop=81,        Flat=82}    WeighImpRows;   /* For NA imputation */
@@ -286,7 +294,7 @@ typedef struct Imputer {
 * - ncols_per_tree
 *       Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
 *       similar to the 'mtry' parameter of random forests.
-*       In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
+*       In general, this is only relevant when using non-random splits and/or weighted column choices.
 *       If passing zero, will use the full number of available columns.
 *       Recommended value: 0.
 * - limit_depth
@@ -336,9 +344,15 @@ typedef struct Imputer {
 * - weigh_by_kurt
 *       Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
 *       for each tree as briefly proposed in [1]. Note that this is only done at the beginning of each tree
-*       sample, so if not using sub-samples, it's better to pass column weights calculated externally. For
-*       categorical columns, will calculate expected kurtosis if the column was converted to numerical by
-*       assigning to each category a random number ~ Unif(0, 1).
+*       sample. For categorical columns, will calculate expected kurtosis if the column were converted to
+*       numerical by assigning to each category a random number ~ Unif(0, 1).
+*       This is intended as a cheap feature selector, while the parameter 'prob_pick_col_by_kurt'
+*       provides the option to do this at each node in the tree for a different overall type of model.
+*       If passing column weights, the effect will be multiplicative. This option is not compatible
+*       with randomized column selection proportional to some other per-node metric.
+*       If passing 'missing_action=fail' and the data has infinite values, columns with rows
+*       having infinite values will get a weight of zero. If passing a different value for missing
+*      action, infinite values will be ignored in the kurtosis calculation.
 * - prob_pick_by_gain_pl
 *       This parameter indicates the probability of choosing the threshold on which to split a variable
 *       (with 'ndim=1') or a linear combination of variables (when using 'ndim>1') as the threshold
@@ -390,6 +404,59 @@ typedef struct Imputer {
 *       Under this option, models are likely to produce better results when increasing 'max_depth'.
 *       Important detail: if using either 'prob_pick_avg_gain' or 'prob_pick_pooled_gain', the distribution of
 *       outlier scores is unlikely to be centered around 0.5.
+* - prob_pick_col_by_range
+*       When using 'ndim=1', this denotes the probability of choosing the column to split with a probability
+*       proportional to the range spanned by each column within a node as proposed in reference [12].
+*       When using 'ndim>1', this denotes the probability of choosing columns to create a hyperplane with a
+*       probability proportional to the range spanned by each column within a node.
+*       This option is not compatible with categorical data. If passing column weights, the
+*       effect will be multiplicative. This option is not compatible with 'weigh_by_kurtosis'.
+*       Be aware that the data is not standardized in any way for the range calculations, thus the scales
+*       of features will make a large difference under this option, which might not make it suitable for
+*       all types of data.
+*       If there are infinite values, all columns having infinite values will be treated as having the
+*       same weight, and will be chosen before every other column with non-infinite values.
+*       Note that the proposed RRCF model from [12] uses a different scoring metric for producing anomaly
+*       scores, while this library uses isolation depth regardless of how columns are chosen, thus results
+*       are likely to be different from those of other software implementations. Nevertheless, as explored
+*       in [11], isolation depth as a scoring metric typically provides better results than the
+*       "co-displacement" metric from [12] under these split types.
+* - prob_pick_col_by_var
+*       When using 'ndim=1', this denotes the probability of choosing the column to split with a probability
+*       proportional to the variance of each column within a node.
+*       When using 'ndim>1', this denotes the probability of choosing columns to create a hyperplane with a
+*       probability proportional to the variance of each column within a node.
+*       For categorical data, it will calculate the expected variance if the column were converted to
+*       numerical by assigning to each category a random number ~ Unif(0, 1), which depending on the number of
+*       categories and their distribution, produces numbers typically a bit smaller than standardized numerical
+*       variables.
+*       Note that when using sparse matrices, the calculation of variance will rely on a procedure that
+*       uses sums of squares, which has less numerical precision than the
+*       calculation used for dense inputs, and as such, the results might differ slightly.
+*       Be aware that this calculated variance is not standardized in any way, so the scales of
+*       features will make a large difference under this option.
+*       If passing column weights, the effect will be multiplicative. This option is not compatible
+*       with 'weigh_by_kurtosis'.
+*       If passing a 'missing_action' different than 'fail', infinite values will be ignored for the
+*       variance calculation. Otherwise, all columns with infinite values will have the same probability
+*       and will be chosen before columns with non-infinite values.
+* - prob_pick_col_by_kurt
+*       When using 'ndim=1', this denotes the probability of choosing the column to split with a probability
+*       proportional to the kurtosis of each column **within a node** (unlike the option 'weigh_by_kurtosis'
+*       which calculates this metric only at the root).
+*       When using 'ndim>1', this denotes the probability of choosing columns to create a hyperplane with a
+*       probability proportional to the kurtosis of each column within a node.
+*       For categorical data, it will calculate the expected kurtosis if the column were converted to
+*       numerical by assigning to each category a random number ~ Unif(0, 1).
+*       Note that when using sparse matrices, the calculation of kurtosis will rely on a procedure that
+*       uses sums of squares and higher-power numbers, which has less numerical precision than the
+*       calculation used for dense inputs, and as such, the results might differ slightly.
+*       If passing column weights, the effect will be multiplicative. This option is not compatible
+*       with 'weigh_by_kurtosis'.
+*       If passing a 'missing_action' different than 'fail', infinite values will be ignored for the
+*       kurtosis calculation. Otherwise, all columns with infinite values will have the same probability
+*       and will be chosen before columns with non-infinite values.
+*       Be aware that kurtosis can be a rather slow metric to calculate.
 * - min_gain
 *       Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
 *       are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
@@ -515,6 +582,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 real_t output_depths[], bool standardize_depth,
                 real_t col_weights[], bool weigh_by_kurt,
                 double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+                double prob_pick_col_by_range, double prob_pick_col_by_var,
+                double prob_pick_col_by_kurt,
                 double min_gain, MissingAction missing_action,
                 CategSplit cat_split_type, NewCategAction new_cat_action,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
@@ -624,6 +693,15 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - prob_pick_by_gain_avg
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
+* - prob_pick_col_by_range
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
+* - prob_pick_col_by_var
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
+* - prob_pick_col_by_kurt
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
 * - min_gain
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
@@ -669,6 +747,8 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              bool   limit_depth,   bool penalize_range, bool standardize_data,
              real_t col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+             double prob_pick_col_by_range, double prob_pick_col_by_var,
+             double prob_pick_col_by_kurt,
              double min_gain, MissingAction missing_action,
              CategSplit cat_split_type, NewCategAction new_cat_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,

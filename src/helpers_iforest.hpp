@@ -18,10 +18,19 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
-*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
-*     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+*     [8] Cortes, David.
+*         "Distance approximation using Isolation Forests."
+*         arXiv preprint arXiv:1910.12362 (2019).
+*     [9] Cortes, David.
+*         "Imputing missing values with unsupervised random trees."
+*         arXiv preprint arXiv:1911.06646 (2019).
 *     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
-*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [11] Cortes, David.
+*          "Revisiting randomized choices in isolation forests."
+*          arXiv preprint arXiv:2110.13402 (2021).
+*     [12] Guha, Sudipto, et al.
+*          "Robust random cut forest based anomaly detection on streams."
+*          International conference on machine learning. PMLR, 2016.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -138,7 +147,7 @@ int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size
 bool is_col_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s,
                   size_t col_num)
 {
-    if (col_is_taken.size())
+    if (!col_is_taken.empty())
         return col_is_taken[col_num];
     else
         return col_is_taken_s.find(col_num) != col_is_taken_s.end();
@@ -149,7 +158,7 @@ void set_col_as_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_i
                       InputData &input_data, size_t col_num, ColType col_type)
 {
     col_num += ((col_type == Numeric)? 0 : input_data.ncols_numeric);
-    if (col_is_taken.size())
+    if (!col_is_taken.empty())
         col_is_taken[col_num] = true;
     else
         col_is_taken_s.insert(col_num);
@@ -159,7 +168,7 @@ template <class InputData>
 void set_col_as_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s,
                       InputData &input_data, size_t col_num)
 {
-    if (col_is_taken.size())
+    if (!col_is_taken.empty())
         col_is_taken[col_num] = true;
     else
         col_is_taken_s.insert(col_num);
@@ -171,7 +180,7 @@ void add_separation_step(WorkerMemory &workspace, InputData &input_data, double 
     if (!workspace.changed_weights)
         increase_comb_counter(workspace.ix_arr.data(), workspace.st, workspace.end,
                               input_data.nrows, workspace.tmat_sep.data(), remainder);
-    else if (workspace.weights_arr.size())
+    else if (!workspace.weights_arr.empty())
         increase_comb_counter(workspace.ix_arr.data(), workspace.st, workspace.end,
                               input_data.nrows, workspace.tmat_sep.data(), workspace.weights_arr.data(), remainder);
     else
@@ -270,7 +279,7 @@ RecursionState::RecursionState(WorkerMemory &workspace, bool full_state)
         this->changed_weights = workspace.changed_weights;
 
         /* for the extended model, it's not necessary to copy everything */
-        if (!workspace.comb_val.size() && workspace.st_NA < workspace.end_NA)
+        if (workspace.comb_val.empty() && workspace.st_NA < workspace.end_NA)
         {
             this->ix_arr = std::vector<size_t>(workspace.ix_arr.begin() + workspace.st_NA,
                                                workspace.ix_arr.begin() + workspace.end_NA);
@@ -278,7 +287,7 @@ RecursionState::RecursionState(WorkerMemory &workspace, bool full_state)
             {
                 size_t tot = workspace.end_NA - workspace.st_NA;
                 this->weights_arr = std::unique_ptr<double[]>(new double[tot]);
-                if (workspace.weights_arr.size())
+                if (!workspace.weights_arr.empty())
                     for (size_t ix = 0; ix < tot; ix++)
                         this->weights_arr[ix] = workspace.weights_arr[workspace.ix_arr[ix + workspace.st_NA]];
                 else
@@ -310,7 +319,7 @@ void RecursionState::restore_state(WorkerMemory &workspace)
 
         workspace.changed_weights = this->changed_weights;
 
-        if (!workspace.comb_val.size() && this->ix_arr.size())
+        if (workspace.comb_val.empty() && !this->ix_arr.empty())
         {
             std::copy(this->ix_arr.begin(),
                       this->ix_arr.end(),
@@ -318,7 +327,7 @@ void RecursionState::restore_state(WorkerMemory &workspace)
             if (this->changed_weights)
             {
                 size_t tot = workspace.end_NA - workspace.st_NA;
-                if (workspace.weights_arr.size())
+                if (!workspace.weights_arr.empty())
                     for (size_t ix = 0; ix < tot; ix++)
                         workspace.weights_arr[workspace.ix_arr[ix + workspace.st_NA]] = this->weights_arr[ix];
                 else
@@ -417,4 +426,300 @@ std::vector<double> calc_kurtosis_all_data(InputData &input_data, ModelParams &m
     }
 
     return kurt_weights;
+}
+
+template <class InputData, class WorkerMemory>
+void calc_ranges_all_cols(InputData &input_data, WorkerMemory &workspace, ModelParams &model_params,
+                          double *restrict ranges, double *restrict saved_xmin, double *restrict saved_xmax)
+{
+    workspace.col_sampler.prepare_full_pass();
+    while (workspace.col_sampler.sample_col(workspace.col_chosen))
+    {
+        get_split_range(workspace, input_data, model_params);
+
+        if (workspace.unsplittable) {
+            workspace.col_sampler.drop_col(workspace.col_chosen);
+        }
+        else {
+            ranges[workspace.col_chosen] = workspace.xmax - workspace.xmin;
+            if (input_data.col_weights != NULL) {
+                ranges[workspace.col_chosen] *= input_data.col_weights[workspace.col_chosen];
+                ranges[workspace.col_chosen] = std::fmax(ranges[workspace.col_chosen], 1e-100);
+            }
+            if (saved_xmin != NULL) {
+                saved_xmin[workspace.col_chosen] = workspace.xmin;
+                saved_xmax[workspace.col_chosen] = workspace.xmax;
+            }
+        }
+    }
+}
+
+template <class InputData, class WorkerMemory>
+void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelParams &model_params,
+                       double *restrict variances, double *restrict saved_xmin, double *restrict saved_xmax,
+                       double *restrict saved_means, double *restrict saved_sds)
+{
+    double xmean, xsd;
+    if (saved_means != NULL)
+        workspace.has_saved_stats = true;
+
+    workspace.col_sampler.prepare_full_pass();
+    while (workspace.col_sampler.sample_col(workspace.col_chosen))
+    {
+        if (workspace.col_chosen < input_data.ncols_numeric)
+        {
+            get_split_range(workspace, input_data, model_params);
+            if (workspace.unsplittable)
+            {
+                workspace.col_sampler.drop_col(workspace.col_chosen);
+                continue;
+            }
+
+            if (saved_xmin != NULL)
+            {
+                saved_xmin[workspace.col_chosen] = workspace.xmin;
+                saved_xmax[workspace.col_chosen] = workspace.xmax;
+            }
+
+
+            if (input_data.Xc_indptr == NULL)
+            {
+                if (workspace.weights_arr.empty() && workspace.weights_map.empty())
+                {
+                    calc_mean_and_sd(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                     input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                     model_params.missing_action, xsd, xmean);
+                }
+
+                else if (!workspace.weights_arr.empty())
+                {
+                    calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                              input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                              workspace.weights_arr,
+                                              model_params.missing_action, xsd, xmean);
+                }
+
+                else
+                {
+                    calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                              input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                              workspace.weights_map,
+                                              model_params.missing_action, xsd, xmean);
+                }
+            }
+
+            else
+            {
+                if (workspace.weights_arr.empty() && workspace.weights_map.empty())
+                {
+                    calc_mean_and_sd(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                     workspace.col_chosen,
+                                     input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                     xsd, xmean);
+                }
+
+                else if (!workspace.weights_arr.empty())
+                {
+                    calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                              workspace.col_chosen,
+                                              input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                              xsd, xmean, workspace.weights_arr);
+                }
+
+                else
+                {
+                    calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                              workspace.col_chosen,
+                                              input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                              xsd, xmean, workspace.weights_map);
+                }
+            }
+
+            if (saved_means != NULL) saved_means[workspace.col_chosen] = xmean;
+            if (saved_sds != NULL) saved_sds[workspace.col_chosen] = xsd;
+        }
+
+        else
+        {
+            size_t col = workspace.col_chosen - input_data.ncols_numeric;
+            if (workspace.weights_arr.empty() && workspace.weights_map.empty())
+            {
+                if (workspace.buffer_szt.size() < (size_t)2 * (size_t)input_data.ncat[col] + 1)
+                    workspace.buffer_szt.resize((size_t)2 * (size_t)input_data.ncat[col] + 1);
+                xsd = expected_sd_cat(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                      input_data.categ_data + col * input_data.nrows,
+                                      input_data.ncat[col],
+                                      model_params.missing_action,
+                                      workspace.buffer_szt.data(),
+                                      workspace.buffer_szt.data() + input_data.ncat[col] + 1,
+                                      workspace.buffer_dbl.data());
+            }
+
+            else if (!workspace.weights_arr.empty())
+            {
+                if (workspace.buffer_dbl.size() < (size_t)2 * (size_t)input_data.ncat[col] + 1)
+                    workspace.buffer_dbl.resize((size_t)2 * (size_t)input_data.ncat[col] + 1);
+                xsd = expected_sd_cat_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                               input_data.categ_data + col * input_data.nrows,
+                                               input_data.ncat[col],
+                                               model_params.missing_action, workspace.weights_arr,
+                                               workspace.buffer_dbl.data(),
+                                               workspace.buffer_szt.data(),
+                                               workspace.buffer_dbl.data() + input_data.ncat[col] + 1);
+            }
+
+            else
+            {
+                if (workspace.buffer_dbl.size() < (size_t)2 * (size_t)input_data.ncat[col] + 1)
+                    workspace.buffer_dbl.resize((size_t)2 * (size_t)input_data.ncat[col] + 1);
+                xsd = expected_sd_cat_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                               input_data.categ_data + col * input_data.nrows,
+                                               input_data.ncat[col],
+                                               model_params.missing_action, workspace.weights_map,
+                                               workspace.buffer_dbl.data(),
+                                               workspace.buffer_szt.data(),
+                                               workspace.buffer_dbl.data() + input_data.ncat[col] + 1);
+            }
+        }
+
+        if (xsd)
+        {
+            variances[workspace.col_chosen] = square(xsd);
+            if (input_data.col_weights != NULL)
+                variances[workspace.col_chosen] *= input_data.col_weights[workspace.col_chosen];
+            variances[workspace.col_chosen] = std::fmax(variances[workspace.col_chosen], 1e-100);
+        }
+
+        else
+        {
+            workspace.col_sampler.drop_col(workspace.col_chosen);
+        }
+    }
+}
+
+template <class InputData, class WorkerMemory>
+void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelParams &model_params,
+                        double *restrict kurtosis, double *restrict saved_xmin, double *restrict saved_xmax)
+{
+    workspace.col_sampler.prepare_full_pass();
+    while (workspace.col_sampler.sample_col(workspace.col_chosen))
+    {
+        get_split_range(workspace, input_data, model_params);
+
+        if (workspace.unsplittable)
+        {
+            workspace.col_sampler.drop_col(workspace.col_chosen);
+            continue;
+        }
+
+        if (saved_xmin != NULL)
+        {
+            saved_xmin[workspace.col_chosen] = workspace.xmin;
+            saved_xmax[workspace.col_chosen] = workspace.xmax;
+        }
+
+        if (workspace.col_chosen < input_data.ncols_numeric)
+        {
+            if (input_data.Xc_indptr == NULL)
+            {
+                if (workspace.weights_arr.empty() && workspace.weights_map.empty())
+                {
+                    kurtosis[workspace.col_chosen] =
+                        calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                      input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                      model_params.missing_action);
+                }
+
+                else if (!workspace.weights_arr.empty())
+                {
+                    kurtosis[workspace.col_chosen] =
+                        calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                               input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                               model_params.missing_action, workspace.weights_arr);
+                }
+
+                else
+                {
+                    kurtosis[workspace.col_chosen] =
+                        calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                               input_data.numeric_data + workspace.col_chosen * input_data.nrows,
+                                               model_params.missing_action, workspace.weights_map);
+                }
+            }
+
+            else
+            {
+                if (workspace.weights_arr.empty() && workspace.weights_map.empty())
+                {
+                    kurtosis[workspace.col_chosen] =
+                        calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                      workspace.col_chosen,
+                                      input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                      model_params.missing_action);
+                }
+
+                else if (!workspace.weights_arr.empty())
+                {
+                    kurtosis[workspace.col_chosen] =
+                        calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                               workspace.col_chosen,
+                                               input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                               model_params.missing_action, workspace.weights_arr);
+                }
+
+                else
+                {
+                    kurtosis[workspace.col_chosen] =
+                        calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                               workspace.col_chosen,
+                                               input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                                               model_params.missing_action, workspace.weights_map);
+                }
+            }
+        }
+
+        else
+        {
+            size_t col = workspace.col_chosen - input_data.ncols_numeric;
+            if (workspace.weights_arr.empty() && workspace.weights_map.empty())
+            {
+                kurtosis[workspace.col_chosen] =
+                    calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                  input_data.categ_data + col * input_data.nrows,
+                                  input_data.ncat[col],
+                                  workspace.buffer_szt.data(), workspace.buffer_dbl.data(),
+                                  model_params.missing_action, model_params.cat_split_type,
+                                  workspace.rnd_generator);
+            }
+
+            else if (!workspace.weights_arr.empty())
+            {
+                kurtosis[workspace.col_chosen] =
+                    calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                           input_data.categ_data + col * input_data.nrows,
+                                           input_data.ncat[col],
+                                           workspace.buffer_dbl.data(),
+                                           model_params.missing_action, model_params.cat_split_type,
+                                           workspace.rnd_generator, workspace.weights_arr);
+            }
+
+            else
+            {
+                kurtosis[workspace.col_chosen] =
+                    calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                           input_data.categ_data + col * input_data.nrows,
+                                           input_data.ncat[col],
+                                           workspace.buffer_dbl.data(),
+                                           model_params.missing_action, model_params.cat_split_type,
+                                           workspace.rnd_generator, workspace.weights_map);
+            }
+        }
+
+        kurtosis[workspace.col_chosen] = std::fmax(1e-8, -1. + kurtosis[workspace.col_chosen]);
+        if (input_data.col_weights != NULL)
+        {
+            kurtosis[workspace.col_chosen] *= input_data.col_weights[workspace.col_chosen];
+            kurtosis[workspace.col_chosen] = std::fmax(kurtosis[workspace.col_chosen], 1e-100);
+        }
+    }
 }

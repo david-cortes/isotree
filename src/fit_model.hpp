@@ -18,10 +18,19 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
-*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
-*     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+*     [8] Cortes, David.
+*         "Distance approximation using Isolation Forests."
+*         arXiv preprint arXiv:1910.12362 (2019).
+*     [9] Cortes, David.
+*         "Imputing missing values with unsupervised random trees."
+*         arXiv preprint arXiv:1911.06646 (2019).
 *     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
-*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [11] Cortes, David.
+*          "Revisiting randomized choices in isolation forests."
+*          arXiv preprint arXiv:2110.13402 (2021).
+*     [12] Guha, Sudipto, et al.
+*          "Robust random cut forest based anomaly detection on streams."
+*          International conference on machine learning. PMLR, 2016.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -145,7 +154,7 @@
 * - ncols_per_tree
 *       Number of columns to use (have as potential candidates for splitting at each iteration) in each tree,
 *       similar to the 'mtry' parameter of random forests.
-*       In general, this is only relevant when using non-random splits and/or weighting by kurtosis.
+*       In general, this is only relevant when using non-random splits and/or weighted column choices.
 *       If passing zero, will use the full number of available columns.
 *       Recommended value: 0.
 * - limit_depth
@@ -195,9 +204,15 @@
 * - weigh_by_kurt
 *       Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
 *       for each tree as briefly proposed in [1]. Note that this is only done at the beginning of each tree
-*       sample, so if not using sub-samples, it's better to pass column weights calculated externally. For
-*       categorical columns, will calculate expected kurtosis if the column was converted to numerical by
-*       assigning to each category a random number ~ Unif(0, 1).
+*       sample. For categorical columns, will calculate expected kurtosis if the column were converted to
+*       numerical by assigning to each category a random number ~ Unif(0, 1).
+*       This is intended as a cheap feature selector, while the parameter 'prob_pick_col_by_kurt'
+*       provides the option to do this at each node in the tree for a different overall type of model.
+*       If passing column weights, the effect will be multiplicative. This option is not compatible
+*       with randomized column selection proportional to some other per-node metric.
+*       If passing 'missing_action=fail' and the data has infinite values, columns with rows
+*       having infinite values will get a weight of zero. If passing a different value for missing
+*      action, infinite values will be ignored in the kurtosis calculation.
 * - prob_pick_by_gain_pl
 *       This parameter indicates the probability of choosing the threshold on which to split a variable
 *       (with 'ndim=1') or a linear combination of variables (when using 'ndim>1') as the threshold
@@ -249,6 +264,59 @@
 *       Under this option, models are likely to produce better results when increasing 'max_depth'.
 *       Important detail: if using either 'prob_pick_avg_gain' or 'prob_pick_pooled_gain', the distribution of
 *       outlier scores is unlikely to be centered around 0.5.
+* - prob_pick_col_by_range
+*       When using 'ndim=1', this denotes the probability of choosing the column to split with a probability
+*       proportional to the range spanned by each column within a node as proposed in reference [12].
+*       When using 'ndim>1', this denotes the probability of choosing columns to create a hyperplane with a
+*       probability proportional to the range spanned by each column within a node.
+*       This option is not compatible with categorical data. If passing column weights, the
+*       effect will be multiplicative. This option is not compatible with 'weigh_by_kurtosis'.
+*       Be aware that the data is not standardized in any way for the range calculations, thus the scales
+*       of features will make a large difference under this option, which might not make it suitable for
+*       all types of data.
+*       Note that the proposed RRCF model from [12] uses a different scoring metric for producing anomaly
+*       scores, while this library uses isolation depth regardless of how columns are chosen, thus results
+*       are likely to be different from those of other software implementations. Nevertheless, as explored
+*       in [11], isolation depth as a scoring metric typically provides better results than the
+*       "co-displacement" metric from [12] under these split types.
+* - prob_pick_col_by_var
+*       When using 'ndim=1', this denotes the probability of choosing the column to split with a probability
+*       proportional to the variance of each column within a node.
+*       When using 'ndim>1', this denotes the probability of choosing columns to create a hyperplane with a
+*       probability proportional to the variance of each column within a node.
+*       For categorical data, it will calculate the expected variance if the column were converted to
+*       numerical by assigning to each category a random number ~ Unif(0, 1), which depending on the number of
+*       categories and their distribution, produces numbers typically a bit smaller than standardized numerical
+*       variables.
+*       Note that when using sparse matrices, the calculation of variance will rely on a procedure that
+*       uses sums of squares, which has less numerical precision than the
+*       calculation used for dense inputs, and as such, the results might differ slightly.
+*       Be aware that this calculated variance is not standardized in any way, so the scales of
+*       features will make a large difference under this option.
+*       If there are infinite values, all columns having infinite values will be treated as having the
+*       same weight, and will be chosen before every other column with non-infinite values.
+*       If passing column weights , the effect will be multiplicative. This option is not compatible
+*       with 'weigh_by_kurtosis'.
+*       If passing a 'missing_action' different than 'fail', infinite values will be ignored for the
+*       variance calculation. Otherwise, all columns with infinite values will have the same probability
+*       and will be chosen before columns with non-infinite values.
+* - prob_pick_col_by_kurt
+*       When using 'ndim=1', this denotes the probability of choosing the column to split with a probability
+*       proportional to the kurtosis of each column **within a node** (unlike the option 'weigh_by_kurtosis'
+*       which calculates this metric only at the root).
+*       When using 'ndim>1', this denotes the probability of choosing columns to create a hyperplane with a
+*       probability proportional to the kurtosis of each column within a node.
+*       For categorical data, it will calculate the expected kurtosis if the column were converted to
+*       numerical by assigning to each category a random number ~ Unif(0, 1).
+*       Note that when using sparse matrices, the calculation of kurtosis will rely on a procedure that
+*       uses sums of squares and higher-power numbers, which has less numerical precision than the
+*       calculation used for dense inputs, and as such, the results might differ slightly.
+*       If passing column weights, the effect will be multiplicative. This option is not compatible
+*       with 'weigh_by_kurtosis'.
+*       If passing a 'missing_action' different than 'fail', infinite values will be ignored for the
+*       variance calculation. Otherwise, all columns with infinite values will have the same probability
+*       and will be chosen before columns with non-infinite values.
+*       Be aware that kurtosis can be a rather slow metric to calculate.
 * - min_gain
 *       Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
 *       are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
@@ -375,14 +443,24 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 double output_depths[], bool standardize_depth,
                 real_t col_weights[], bool weigh_by_kurt,
                 double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+                double prob_pick_col_by_range, double prob_pick_col_by_var,
+                double prob_pick_col_by_kurt,
                 double min_gain, MissingAction missing_action,
                 CategSplit cat_split_type, NewCategAction new_cat_action,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
                 uint64_t random_seed, int nthreads)
 {
-    if (prob_pick_by_gain_avg < 0 || prob_pick_by_gain_pl < 0)
+    if (
+        prob_pick_by_gain_avg < 0 || prob_pick_by_gain_pl < 0 || prob_pick_col_by_range < 0 ||
+        prob_pick_col_by_var < 0 || prob_pick_col_by_kurt < 0
+    ) {
         throw std::runtime_error("Cannot pass negative probabilities.\n");
+    }
+    if (prob_pick_col_by_range && categ_data != NULL)
+        throw std::runtime_error("'prob_pick_col_by_range' is not compatible with categorical data.\n");
+    if (prob_pick_col_by_kurt && weigh_by_kurt)
+        throw std::runtime_error("'weigh_by_kurt' and 'prob_pick_col_by_kurt' cannot be used together.\n");
     if (ndim == 0 && model_outputs == NULL)
         throw std::runtime_error("Must pass 'ndim>0' in the extended model.\n");
 
@@ -416,6 +494,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 limit_depth? log2ceil(sample_size) : max_depth? max_depth : (sample_size - 1),
                                 penalize_range, standardize_data, random_seed, weigh_by_kurt,
                                 prob_pick_by_gain_avg, prob_pick_by_gain_pl,
+                                prob_pick_col_by_range, prob_pick_col_by_var,
+                                prob_pick_col_by_kurt,
                                 min_gain, cat_split_type, new_cat_action, missing_action, all_perm,
                                 (model_outputs != NULL)? 0 : ndim, ntry,
                                 coef_type, coef_by_prop, calc_dist, (bool)(output_depths != NULL), impute_at_fit,
@@ -439,7 +519,10 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         bool avoid_col_weights = (model_outputs != NULL && model_params.ntry >= input_data.ncols_tot &&
                                  (model_params.prob_pick_by_gain_avg + model_params.prob_pick_by_gain_pl) >= 1)
                                     ||
-                                 (model_outputs == NULL && model_params.ndim >= input_data.ncols_tot);
+                                 (model_outputs == NULL && model_params.ndim >= input_data.ncols_tot)
+                                    ||
+                                 (model_params.prob_pick_col_by_range + model_params.prob_pick_col_by_var
+                                  + model_params.prob_pick_col_by_kurt >= 1);
         if (!avoid_col_weights)
         {
             if (model_params.weigh_by_kurt && model_params.sample_size == input_data.nrows)
@@ -775,6 +858,15 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - prob_pick_by_gain_avg
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
+* - prob_pick_col_by_range
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
+* - prob_pick_col_by_var
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
+* - prob_pick_col_by_kurt
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
 * - min_gain
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
@@ -820,14 +912,24 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              bool   limit_depth,   bool penalize_range, bool standardize_data,
              real_t col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+             double prob_pick_col_by_range, double prob_pick_col_by_var,
+             double prob_pick_col_by_kurt,
              double min_gain, MissingAction missing_action,
              CategSplit cat_split_type, NewCategAction new_cat_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
              bool   all_perm, Imputer *imputer, size_t min_imp_obs,
              uint64_t random_seed)
 {
-    if (prob_pick_by_gain_avg < 0 || prob_pick_by_gain_pl < 0 )
+    if (
+        prob_pick_by_gain_avg < 0 || prob_pick_by_gain_pl < 0 || prob_pick_col_by_range < 0 ||
+        prob_pick_col_by_var < 0 || prob_pick_col_by_kurt < 0
+    ) {
         throw std::runtime_error("Cannot pass negative probabilities.\n");
+    }
+    if (prob_pick_col_by_range && categ_data != NULL)
+        throw std::runtime_error("'prob_pick_col_by_range' is not compatible with categorical data.\n");
+    if (prob_pick_col_by_kurt && weigh_by_kurt)
+        throw std::runtime_error("'weigh_by_kurt' and 'prob_pick_col_by_kurt' cannot be used together.\n");
     if (ndim == 0 && model_outputs == NULL)
         throw std::runtime_error("Must pass 'ndim>0' in the extended model.\n");
 
@@ -851,6 +953,8 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 max_depth? max_depth : (nrows - 1),
                                 penalize_range, standardize_data, random_seed, weigh_by_kurt,
                                 prob_pick_by_gain_avg, prob_pick_by_gain_pl,
+                                prob_pick_col_by_range, prob_pick_col_by_var,
+                                prob_pick_col_by_kurt,
                                 min_gain, cat_split_type, new_cat_action, missing_action, all_perm,
                                 (model_outputs != NULL)? 0 : ndim, ntry,
                                 coef_type, coef_by_prop, false, false, false, depth_imp, weigh_imp_rows, min_imp_obs};
@@ -933,11 +1037,11 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                size_t                   tree_num)
 {
     /* initialize array for depths if called for */
-    if (!workspace.ix_arr.size() && model_params.calc_depth)
+    if (workspace.ix_arr.empty() && model_params.calc_depth)
         workspace.row_depths.resize(input_data.nrows, 0);
 
     /* choose random sample of rows */
-    if (!workspace.ix_arr.size()) workspace.ix_arr.resize(model_params.sample_size);
+    if (workspace.ix_arr.empty()) workspace.ix_arr.resize(model_params.sample_size);
     if (input_data.log2_n > 0)
         workspace.btree_weights.assign(input_data.btree_weights_init.begin(),
                                        input_data.btree_weights_init.end());
@@ -956,7 +1060,10 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     bool avoid_col_weights = (tree_root != NULL && model_params.ntry >= input_data.ncols_tot &&
                               (model_params.prob_pick_by_gain_avg + model_params.prob_pick_by_gain_pl) >= 1)
                                 ||
-                             (tree_root == NULL && model_params.ndim >= input_data.ncols_tot);
+                             (tree_root == NULL && model_params.ndim >= input_data.ncols_tot)
+                                ||
+                             (model_params.prob_pick_col_by_range + model_params.prob_pick_col_by_var
+                              + model_params.prob_pick_col_by_kurt >= 1);;
     if (input_data.preinitialized_col_sampler == NULL)
     {
         if (input_data.col_weights != NULL && !avoid_col_weights && !model_params.weigh_by_kurt)
@@ -989,8 +1096,21 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     }
 
     /* initialize array with candidate categories if not already done */
-    if (!workspace.categs.size())
+    if (workspace.categs.empty())
         workspace.categs.resize(input_data.max_categ);
+
+    /* initialize array with per-node column weights if needed */
+    if ((model_params.prob_pick_col_by_range ||
+         model_params.prob_pick_col_by_var ||
+         model_params.prob_pick_col_by_kurt) && workspace.node_col_weights.empty())
+    {
+        workspace.node_col_weights.resize(input_data.ncols_tot);
+        if (tree_root != NULL || model_params.standardize_data || model_params.missing_action != Fail)
+        {
+            workspace.saved_stat1.resize(input_data.ncols_numeric);
+            workspace.saved_stat2.resize(input_data.ncols_numeric);
+        }
+    }
 
     /* IMPORTANT!!!!!
        The standard library implementation is likely going to use the Box-Muller method
@@ -1010,7 +1130,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     }
 
     /* for the extended model, initialize extra vectors and objects */
-    if (hplane_root != NULL && !workspace.comb_val.size())
+    if (hplane_root != NULL && workspace.comb_val.empty())
     {
         workspace.comb_val.resize(model_params.sample_size);
         workspace.col_take.resize(model_params.ndim);
@@ -1062,7 +1182,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         /* For the extended model, if there is no sub-sampling, these weights will remain
            constant throughout and do not need to be re-generated. */
         if (!(  hplane_root != NULL &&
-                (workspace.weights_map.size() || workspace.weights_arr.size()) &&
+                (!workspace.weights_map.empty() || !workspace.weights_arr.empty()) &&
                 model_params.sample_size == input_data.nrows
               )
             )
@@ -1083,7 +1203,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
             /* if the sub-sample size is large, fill a full array matching to the sample size */
             else
             {
-                if (!workspace.weights_arr.size())
+                if (workspace.weights_arr.empty())
                 {
                     workspace.weights_arr.assign(input_data.sample_weights, input_data.sample_weights + input_data.nrows);
                     weight_scaling = std::accumulate(workspace.ix_arr.begin(),
@@ -1112,16 +1232,19 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     }
 
     /* if producing distance/similarity, also need to initialize the triangular matrix */
-    if (model_params.calc_dist && !workspace.tmat_sep.size())
+    if (model_params.calc_dist && workspace.tmat_sep.empty())
         workspace.tmat_sep.resize((input_data.nrows * (input_data.nrows - 1)) / 2, 0);
 
     /* make space for buffers if not already allocated */
     if (
             (model_params.prob_pick_by_gain_avg > 0 ||
              model_params.prob_pick_by_gain_pl > 0  ||
+             model_params.prob_pick_col_by_range > 0  ||
+             model_params.prob_pick_col_by_var > 0  ||
+             model_params.prob_pick_col_by_kurt > 0  ||
              model_params.weigh_by_kurt || hplane_root != NULL)
                 &&
-            (!workspace.buffer_dbl.size() && !workspace.buffer_szt.size() && !workspace.buffer_chr.size())
+            (workspace.buffer_dbl.empty() && workspace.buffer_szt.empty() && workspace.buffer_chr.empty())
         )
     {
         size_t min_size_dbl = 0;
@@ -1133,7 +1256,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
 
         if (input_data.ncols_categ)
         {
-            min_size_szt = 2 * input_data.max_categ;
+            min_size_szt = (size_t)2 * (size_t)input_data.max_categ;
             min_size_dbl = input_data.max_categ + 1;
             if (gain && model_params.cat_split_type == SubSet)
                 min_size_chr = input_data.max_categ;
@@ -1153,6 +1276,24 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                 min_size_dbl = std::max(min_size_dbl, (size_t)2*model_params.sample_size);
         }
 
+        /* for sampled column choices */
+        if (model_params.prob_pick_col_by_var)
+        {
+            if (input_data.ncols_categ) {
+                min_size_szt = std::max(min_size_szt, (size_t)input_data.max_categ + 1);
+                min_size_dbl = std::max(min_size_dbl, (size_t)input_data.max_categ + 1);
+            }
+        }
+
+        if (model_params.prob_pick_col_by_kurt)
+        {
+            if (input_data.ncols_categ) {
+                min_size_szt = std::max(min_size_szt, (size_t)input_data.max_categ + 1);
+                min_size_dbl = std::max(min_size_dbl, (size_t)input_data.max_categ);
+            }
+
+        }
+
         /* for the extended model */
         if (hplane_root != NULL)
         {
@@ -1165,14 +1306,14 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
 
             if (input_data.ncols_categ && model_params.cat_split_type == SubSet)
             {
-                min_size_szt = std::max(min_size_szt, 2 * (size_t)input_data.max_categ + 1);
+                min_size_szt = std::max(min_size_szt, (size_t)2 * (size_t)input_data.max_categ + (size_t)1);
                 min_size_dbl = std::max(min_size_dbl, (size_t)input_data.max_categ);
             }
 
             if (model_params.weigh_by_kurt)
                 min_size_szt = std::max(min_size_szt, input_data.ncols_tot);
 
-            if (gain && (workspace.weights_arr.size() || workspace.weights_map.size()))
+            if (gain && (!workspace.weights_arr.empty() || !workspace.weights_map.empty()))
             {
                 workspace.sample_weights.resize(model_params.sample_size);
                 min_size_szt = std::max(min_size_szt, model_params.sample_size);
@@ -1204,6 +1345,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     }
 
     /* weigh columns by kurtosis in the sample if required */
+    /* TODO: this one could probably be refactored to use the function in the helpers */
     if (model_params.weigh_by_kurt && !avoid_col_weights && input_data.preinitialized_col_sampler == NULL)
     {
         std::vector<double> kurt_weights(input_data.ncols_numeric + input_data.ncols_categ, 0.);
@@ -1216,11 +1358,11 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
 
                 for (size_t col = 0; col < input_data.ncols_numeric; col++)
                 {
-                    if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                    if (workspace.weights_arr.empty() && workspace.weights_map.empty())
                         kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
                                                           input_data.numeric_data + col * input_data.nrows,
                                                           model_params.missing_action);
-                    else if (workspace.weights_arr.size())
+                    else if (!workspace.weights_arr.empty())
                         kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
                                                                    input_data.numeric_data + col * input_data.nrows,
                                                                    model_params.missing_action, workspace.weights_arr);
@@ -1236,11 +1378,11 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                 std::sort(workspace.ix_arr.begin(), workspace.ix_arr.end());
                 for (size_t col = 0; col < input_data.ncols_numeric; col++)
                 {
-                    if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                    if (workspace.weights_arr.empty() && workspace.weights_map.empty())
                         kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end, col,
                                                           input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                           model_params.missing_action);
-                    else if (workspace.weights_arr.size())
+                    else if (!workspace.weights_arr.empty())
                         kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, col,
                                                                    input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                                    model_params.missing_action, workspace.weights_arr);
@@ -1253,13 +1395,13 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
 
             for (size_t col = 0; col < input_data.ncols_categ; col++)
             {
-                if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                if (workspace.weights_arr.empty() && workspace.weights_map.empty())
                     kurt_weights[col + input_data.ncols_numeric] =
                         calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
                                       input_data.categ_data + col * input_data.nrows, input_data.ncat[col],
                                       workspace.buffer_szt.data(), workspace.buffer_dbl.data(),
                                       model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator);
-                else if (workspace.weights_arr.size())
+                else if (!workspace.weights_arr.empty())
                     kurt_weights[col + input_data.ncols_numeric] =
                         calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
                                                input_data.categ_data + col * input_data.nrows, input_data.ncat[col],
@@ -1305,11 +1447,11 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                 {
                     if (input_data.Xc_indptr == NULL)
                     {
-                        if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                        if (workspace.weights_arr.empty() && workspace.weights_map.empty())
                             kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
                                                               input_data.numeric_data + col * input_data.nrows,
                                                               model_params.missing_action);
-                        else if (workspace.weights_arr.size())
+                        else if (!workspace.weights_arr.empty())
                             kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
                                                                        input_data.numeric_data + col * input_data.nrows,
                                                                        model_params.missing_action, workspace.weights_arr);
@@ -1322,11 +1464,11 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
 
                     else
                     {
-                        if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                        if (workspace.weights_arr.empty() && workspace.weights_map.empty())
                             kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end, col,
                                                               input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                               model_params.missing_action);
-                        else if (workspace.weights_arr.size())
+                        else if (!workspace.weights_arr.empty())
                             kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, col,
                                                                        input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                                        model_params.missing_action, workspace.weights_arr);
@@ -1340,14 +1482,14 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
 
                 else
                 {
-                    if (!workspace.weights_arr.size() && !workspace.weights_map.size())
+                    if (workspace.weights_arr.empty() && workspace.weights_map.empty())
                         kurt_weights[col] =
                             calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
                                           input_data.categ_data + (col - input_data.ncols_numeric) * input_data.nrows,
                                           input_data.ncat[col - input_data.ncols_numeric],
                                           workspace.buffer_szt.data(), workspace.buffer_dbl.data(),
                                           model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator);
-                    else if (workspace.weights_arr.size())
+                    else if (!workspace.weights_arr.empty())
                         kurt_weights[col] =
                             calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
                                                   input_data.categ_data + (col - input_data.ncols_numeric) * input_data.nrows,

@@ -18,10 +18,19 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
-*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
-*     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+*     [8] Cortes, David.
+*         "Distance approximation using Isolation Forests."
+*         arXiv preprint arXiv:1910.12362 (2019).
+*     [9] Cortes, David.
+*         "Imputing missing values with unsupervised random trees."
+*         arXiv preprint arXiv:1911.06646 (2019).
 *     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
-*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [11] Cortes, David.
+*          "Revisiting randomized choices in isolation forests."
+*          arXiv preprint arXiv:2110.13402 (2021).
+*     [12] Guha, Sudipto, et al.
+*          "Robust random cut forest based anomaly detection on streams."
+*          International conference on machine learning. PMLR, 2016.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -258,10 +267,15 @@ typedef enum  NewCategAction {Weighted=0,  Smallest=11,    Random=12}  NewCategA
 typedef enum  MissingAction  {Divide=21,   Impute=22,      Fail=0}     MissingAction;  /* Divide is only for non-extended model */
 typedef enum  ColType        {Numeric=31,  Categorical=32, NotUsed=0}  ColType;
 typedef enum  CategSplit     {SubSet=0,    SingleCateg=41}             CategSplit;
-typedef enum  GainCriterion  {Averaged=51, Pooled=52,      NoCrit=0}   Criterion;      /* For guided splits */
 typedef enum  CoefType       {Uniform=61,  Normal=0}                   CoefType;       /* For extended model */
 typedef enum  UseDepthImp    {Lower=71,    Higher=0,       Same=72}    UseDepthImp;    /* For NA imputation */
 typedef enum  WeighImpRows   {Inverse=0,   Prop=81,        Flat=82}    WeighImpRows;   /* For NA imputation */
+
+/* These are only used internally */
+typedef enum  GainCriterion  {Averaged=51, Pooled=52,      NoCrit=0}   Criterion;      /* For guided splits */
+typedef enum  ColCriterion   {Uniformly,   ByRange, ByVar, ByKurt}     ColCriterion;   /* For proportional choices */
+
+
 
 /* Notes about new categorical action:
 *  - For single-variable case, if using 'Smallest', can then pass data at prediction time
@@ -424,6 +438,9 @@ typedef struct {
     bool      weigh_by_kurt;
     double    prob_pick_by_gain_avg;
     double    prob_pick_by_gain_pl;
+    double    prob_pick_col_by_range;
+    double    prob_pick_col_by_var;
+    double    prob_pick_col_by_kurt;
     double    min_gain;
     CategSplit      cat_split_type;
     NewCategAction  new_cat_action;
@@ -507,6 +524,41 @@ public:
     ColumnSampler() = default;
 };
 
+class SingleNodeColumnSampler
+{
+public:
+    double *restrict weights_orig;
+    std::vector<bool> inifinite_weights;
+    ldouble_safe cumw;
+    size_t n_inf;
+    size_t *restrict col_indices;
+    size_t curr_pos;
+    bool using_tree;
+
+    bool backup_weights;
+    std::vector<double> weights_own;
+    size_t n_left;
+
+    std::vector<double> tree_weights;
+    size_t offset;
+    size_t tree_levels;
+    std::vector<double> used_weights;
+    std::vector<size_t> mapped_indices;
+    std::vector<size_t> mapped_inf_indices;
+
+    bool initialize(
+        double *restrict weights,
+        std::vector<size_t> *col_indices,
+        size_t curr_pos,
+        size_t n_sample,
+        bool backup_weights
+    );
+
+    bool sample_col(size_t &col_chosen, RNG_engine &rnd_generator);
+
+    void backup(const SingleNodeColumnSampler &other);
+};
+
 template <class ImputedData>
 struct WorkerMemory {
     std::vector<size_t>  ix_arr;
@@ -531,18 +583,26 @@ struct WorkerMemory {
     int                  ncat_tried;
     std::vector<double>  btree_weights;   /* only when using weights for sampling */
     ColumnSampler        col_sampler;     /* columns can get eliminated, keep a copy for each thread */
+    SingleNodeColumnSampler node_col_sampler;
 
     /* for split criterion */
     std::vector<double>  buffer_dbl;
     std::vector<size_t>  buffer_szt;
     std::vector<signed char> buffer_chr;
     double               prob_split_type;
+    ColCriterion         col_criterion;
     GainCriterion        criterion;
     double               this_gain;
     double               this_split_point;
     int                  this_categ;
     std::vector<signed char> this_split_categ;
     bool                 determine_split;
+
+    /* for weighted column choices */
+    std::vector<double>  node_col_weights;
+    std::vector<double>  saved_stat1;
+    std::vector<double>  saved_stat2;
+    bool                 has_saved_stats;
 
     /* for the extended model */
     size_t   ntry;
@@ -640,6 +700,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 double output_depths[], bool standardize_depth,
                 real_t col_weights[], bool weigh_by_kurt,
                 double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+                double prob_pick_col_by_range, double prob_pick_col_by_var,
+                double prob_pick_col_by_kurt,
                 double min_gain, MissingAction missing_action,
                 CategSplit cat_split_type, NewCategAction new_cat_action,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
@@ -656,6 +718,8 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              bool   limit_depth,   bool penalize_range, bool standardize_data,
              real_t col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+             double prob_pick_col_by_range, double prob_pick_col_by_var,
+             double prob_pick_col_by_kurt,
              double min_gain, MissingAction missing_action,
              CategSplit cat_split_type, NewCategAction new_cat_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
@@ -912,6 +976,16 @@ void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_
                           PredictionData &prediction_data, sparse_ix *restrict tree_num, int nthreads);
 template <class InputData>
 std::vector<double> calc_kurtosis_all_data(InputData &input_data, ModelParams &model_params, RNG_engine &rnd_generator);
+template <class InputData, class WorkerMemory>
+void calc_ranges_all_cols(InputData &input_data, WorkerMemory &workspace, ModelParams &model_params,
+                          double *restrict ranges, double *restrict saved_xmin, double *restrict saved_xmax);
+template <class InputData, class WorkerMemory>
+void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelParams &model_params,
+                       double *restrict variances, double *restrict saved_xmin, double *restrict saved_xmax,
+                       double *restrict saved_means, double *restrict saved_sds);
+template <class InputData, class WorkerMemory>
+void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelParams &model_params,
+                        double *restrict kurtosis, double *restrict saved_xmin, double *restrict saved_xmax);
 
 
 /* utils.cpp */
@@ -1119,6 +1193,16 @@ template <class number>
 double expected_sd_cat(number *restrict counts, double *restrict p, size_t n, size_t *restrict pos);
 template <class number>
 double expected_sd_cat_single(number *restrict counts, double *restrict p, size_t n, size_t *restrict pos, size_t cat_exclude, number cnt);
+template <class number>
+double expected_sd_cat_internal(int ncat, number *restrict buffer_cnt, long double cnt_l,
+                                size_t *restrict buffer_pos, double *restrict buffer_prob);
+double expected_sd_cat(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat,
+                       MissingAction missing_action,
+                       size_t *restrict buffer_cnt, size_t *restrict buffer_pos, double buffer_prob[]);
+template <class mapping>
+double expected_sd_cat_weighted(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat,
+                                MissingAction missing_action, mapping w,
+                                double *restrict buffer_cnt, size_t *restrict buffer_pos, double *restrict buffer_prob);
 template <class number>
 double categ_gain(number cnt_left, number cnt_right,
                   long double s_left, long double s_right,

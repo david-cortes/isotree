@@ -18,10 +18,19 @@
 *     [5] https://sourceforge.net/projects/iforest/
 *     [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
 *     [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
-*     [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
-*     [9] Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+*     [8] Cortes, David.
+*         "Distance approximation using Isolation Forests."
+*         arXiv preprint arXiv:1910.12362 (2019).
+*     [9] Cortes, David.
+*         "Imputing missing values with unsupervised random trees."
+*         arXiv preprint arXiv:1911.06646 (2019).
 *     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
-*     [11] Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+*     [11] Cortes, David.
+*          "Revisiting randomized choices in isolation forests."
+*          arXiv preprint arXiv:2110.13402 (2021).
+*     [12] Guha, Sudipto, et al.
+*          "Robust random cut forest based anomaly detection on streams."
+*          International conference on machine learning. PMLR, 2016.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -103,9 +112,7 @@ extern "C" {
 #if !defined(ISOTREE_H) && !defined(ISOTREE_OOP_H)
 typedef enum  NewCategAction {Weighted=0,  Smallest=11,    Random=12}  NewCategAction; /* Weighted means Impute in the extended model */
 typedef enum  MissingAction  {Divide=21,   Impute=22,      Fail=0}     MissingAction;  /* Divide is only for non-extended model */
-typedef enum  ColType        {Numeric=31,  Categorical=32, NotUsed=0}  ColType;
 typedef enum  CategSplit     {SubSet=0,    SingleCateg=41}             CategSplit;
-typedef enum  GainCriterion  {Averaged=51, Pooled=52,      NoCrit=0}   Criterion;      /* For guided splits */
 typedef enum  CoefType       {Uniform=61,  Normal=0}                   CoefType;       /* For extended model */
 typedef enum  UseDepthImp    {Lower=71,    Higher=0,       Same=72}    UseDepthImp;    /* For NA imputation */
 typedef enum  WeighImpRows   {Inverse=0,   Prop=81,        Flat=82}    WeighImpRows;   /* For NA imputation */
@@ -117,9 +124,7 @@ enum IsoTreeExitCodes {IsoTreeSuccess=0, IsoTreeError=1};
 typedef uint8_t isotree_bool;
 typedef uint8_t NewCategAction_t;
 typedef uint8_t MissingAction_t;
-typedef uint8_t ColType_t;
 typedef uint8_t CategSplit_t;
-typedef uint8_t GainCriterion_t;
 typedef uint8_t CoefType_t;
 typedef uint8_t UseDepthImp_t;
 typedef uint8_t WeighImpRows_t;
@@ -147,6 +152,9 @@ typedef struct isotree_parameters {
     bool   weigh_by_kurt; /* default=false */
     double prob_pick_by_gain_pl; /* default=0 */
     double prob_pick_by_gain_avg; /* default=0 */
+    double prob_pick_col_by_range; /* default=0 */
+    double prob_pick_col_by_var; /* default=0 */
+    double prob_pick_col_by_kurt; /* default=0 */
     double min_gain; /* default=0 */
     MissingAction missing_action; /* default=Impute */
 
@@ -225,7 +233,7 @@ static inline isotree_parameters get_default_isotree_parameters()
 {
     return (isotree_parameters) {
         -1, 1, 3, 1, Normal, false, true, 0, 500, 0, 0, true, false,
-        true, false, 0., 0., 0., Impute, SubSet, Weighted,
+        true, false, 0., 0., 0., 0., 0., 0., Impute, SubSet, Weighted,
         false, false, false, 3, Higher, Inverse
     };
 }
@@ -273,6 +281,9 @@ void set_isotree_parameters
     isotree_bool*   weigh_by_kurt,
     double*    prob_pick_by_gain_pl,
     double*    prob_pick_by_gain_avg,
+    double*    prob_pick_col_by_range,
+    double*    prob_pick_col_by_var,
+    double*    prob_pick_col_by_kurt,
     double*    min_gain,
     MissingAction_t*   missing_action,
     CategSplit_t*      cat_split_type,
@@ -308,6 +319,9 @@ void get_isotree_parameters
     isotree_bool*   weigh_by_kurt,
     double*    prob_pick_by_gain_pl,
     double*    prob_pick_by_gain_avg,
+    double*    prob_pick_col_by_range,
+    double*    prob_pick_col_by_var,
+    double*    prob_pick_col_by_kurt,
     double*    min_gain,
     MissingAction_t*   missing_action,
     CategSplit_t*      cat_split_type,
@@ -343,6 +357,8 @@ static inline isotree_parameters_t allocate_isotree_parameters(isotree_parameter
         &weight_as_sample, &parameters.sample_size, &parameters.ntrees, &parameters.max_depth,
         &parameters.ncols_per_tree, &limit_depth, &penalize_range, &standardize_data, &weigh_by_kurt,
         &parameters.prob_pick_by_gain_pl, &parameters.prob_pick_by_gain_avg,
+        &parameters.prob_pick_col_by_range, &parameters.prob_pick_col_by_var,
+        &parameters.prob_pick_col_by_kurt,
         &parameters.min_gain, &missing_action, &cat_split_type, &new_cat_action, &coef_by_prop,
         &all_perm, &build_imputer, &parameters.min_imp_obs, &depth_imp, &weigh_imp_rows
     );
