@@ -69,7 +69,6 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     std::unique_ptr<RecursionState> recursion_state;
     std::vector<bool> col_is_taken;
     hashed_set<size_t> col_is_taken_s;
-    std::unique_ptr<SingleNodeColumnSampler> node_col_sampler_backup;
 
     /* calculate imputation statistics if desired */
     if (impute_nodes != NULL)
@@ -193,8 +192,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 
         if (model_params.ntry > 1)
         {
-            node_col_sampler_backup = std::unique_ptr<SingleNodeColumnSampler>(new SingleNodeColumnSampler());
-            node_col_sampler_backup->backup(workspace.node_col_sampler);
+            workspace.node_col_sampler.backup(workspace.node_col_sampler_backup, input_data.ncols_tot);
         }
     }
 
@@ -220,7 +218,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     {
         if (attempt > 0 && workspace.col_criterion != Uniformly)
         {
-            workspace.node_col_sampler.backup(*node_col_sampler_backup);
+            workspace.node_col_sampler.restore(workspace.node_col_sampler_backup);
         }
 
         if (workspace.col_criterion == Uniformly)
@@ -381,7 +379,6 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     col_is_taken.clear();
     col_is_taken.shrink_to_fit();
     col_is_taken_s.clear();
-    node_col_sampler_backup.reset();
 
     /* if the best split is not good enough, don't split any further */
     if (workspace.criterion != NoCrit && hplanes.back().score <= 0)

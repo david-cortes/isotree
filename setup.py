@@ -50,8 +50,8 @@ class build_ext_subclass( build_ext ):
                     e.extra_compile_args += ['-O3', '-std=gnu++11']
                     e.define_macros += [("_FILE_OFFSET_BITS", 64)]
                 else:
-                    # e.extra_compile_args += ['-O3', '-std=c++11']
-                    e.extra_compile_args += ['-O3', '-std=c++11', '-ggdb']
+                    e.extra_compile_args += ['-O3', '-std=c++11']
+                    # e.extra_compile_args += ['-O3', '-std=c++11', '-ggdb']
 
                 if (os.path.exists("src/robinmap/include/tsl")):
                     e.define_macros += [("_USE_ROBIN_MAP", None)]
@@ -191,7 +191,7 @@ class build_ext_subclass( build_ext ):
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.4.2',
+    version = '0.4.2-1',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',

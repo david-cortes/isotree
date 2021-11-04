@@ -1217,7 +1217,49 @@ bool SingleNodeColumnSampler::sample_col(size_t &col_chosen, RNG_engine &rnd_gen
     }
 }
 
-void SingleNodeColumnSampler::backup(const SingleNodeColumnSampler &other)
+void SingleNodeColumnSampler::backup(SingleNodeColumnSampler &other, size_t ncols_tot)
+{
+    other.n_inf = this->n_inf;
+    other.n_left = this->n_left;
+    other.using_tree = this->using_tree;
+
+    if (this->using_tree)
+    {
+        if (other.tree_weights.empty())
+        {
+            other.tree_weights.reserve(ncols_tot);
+            other.mapped_inf_indices.reserve(ncols_tot);
+        }
+        other.tree_weights.assign(this->tree_weights.begin(), this->tree_weights.end());
+        other.mapped_inf_indices.assign(this->mapped_inf_indices.begin(), this->mapped_inf_indices.end());
+    }
+
+    else
+    {
+        other.cumw = this->cumw;
+        if (this->backup_weights)
+        {
+            if (other.weights_own.empty())
+                other.weights_own.reserve(ncols_tot);
+            
+            other.weights_own.resize(this->n_left);
+            for (size_t col = 0; col < this->n_left; col++)
+                other.weights_own[col] = this->weights_own[this->col_indices[col]];
+        }
+
+        if (this->inifinite_weights.size())
+        {
+            if (other.inifinite_weights.empty())
+                other.inifinite_weights.reserve(ncols_tot);
+
+            other.inifinite_weights.resize(this->n_left);
+            for (size_t col = 0; col < this->n_left; col++)
+                other.inifinite_weights[col] = this->inifinite_weights[this->col_indices[col]];
+        }
+    }
+}
+
+void SingleNodeColumnSampler::restore(const SingleNodeColumnSampler &other)
 {
     this->n_inf = other.n_inf;
     this->n_left = other.n_left;
@@ -1225,16 +1267,24 @@ void SingleNodeColumnSampler::backup(const SingleNodeColumnSampler &other)
 
     if (this->using_tree)
     {
-        this->tree_weights = other.tree_weights;
-        this->mapped_inf_indices = other.mapped_inf_indices;
+        this->tree_weights.assign(other.tree_weights.begin(), other.tree_weights.end());
+        this->mapped_inf_indices.assign(other.mapped_inf_indices.begin(), other.mapped_inf_indices.end());
     }
 
     else
     {
         this->cumw = other.cumw;
         if (this->backup_weights)
-            this->weights_own = other.weights_own;
-        this->inifinite_weights = other.inifinite_weights;
+        {
+            for (size_t col = 0; col < this->n_left; col++)
+                this->weights_own[this->col_indices[col]] = other.weights_own[col];
+        }
+
+        if (this->inifinite_weights.size())
+        {
+            for (size_t col = 0; col < this->n_left; col++)
+                this->inifinite_weights[this->col_indices[col]] = other.inifinite_weights[col];
+        }
     }
 }
 

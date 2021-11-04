@@ -556,7 +556,9 @@ public:
 
     bool sample_col(size_t &col_chosen, RNG_engine &rnd_generator);
 
-    void backup(const SingleNodeColumnSampler &other);
+    void backup(SingleNodeColumnSampler &other, size_t ncols_tot);
+
+    void restore(const SingleNodeColumnSampler &other);
 };
 
 template <class ImputedData>
@@ -584,6 +586,7 @@ struct WorkerMemory {
     std::vector<double>  btree_weights;   /* only when using weights for sampling */
     ColumnSampler        col_sampler;     /* columns can get eliminated, keep a copy for each thread */
     SingleNodeColumnSampler node_col_sampler;
+    SingleNodeColumnSampler node_col_sampler_backup;
 
     /* for split criterion */
     std::vector<double>  buffer_dbl;
