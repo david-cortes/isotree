@@ -143,6 +143,10 @@ class IsolationForest:
     and/or deeper trees can result in significantly slower model fitting and predictions - in such cases,
     using ``min_gain`` (with a value like 0.25) with ``max_depth=None`` can offer a better speed/performance
     trade-off than changing ``max_depth``.
+    
+    If the data has categorical variables and these are more important important for determining
+    outlierness compared to numerical columns, one might want to experiment with ``ndim=1``,
+    ``categ_split_type="single_categ"``, and ``scoring_metric="adj_depth"``.
 
     Note
     ----
@@ -474,12 +478,62 @@ class IsolationForest:
         as proposed in [4]_ and implemented in the authors' original code in [5]_. Not used in single-variable model
         when splitting by categorical variables.
 
+        This option is not supported when using density-based outlier scoring metrics.
+
         It's recommended to turn this off for faster predictions on sparse CSC matrices.
 
         Note that this can make a very large difference in the results when using ``prob_pick_pooled_gain``.
 
         Be aware that this option can make the distribution of outlier scores a bit different
-        (i.e. not centered around 0.5)
+        (i.e. not centered around 0.5).
+    scoring_metric : str
+        Metric to use for determining outlier scores. Options are:
+
+        ``"depth"``
+            Will use isolation depth as proposed in reference [1]_. This is typically the safest choice
+            and plays well with all model types offered by this library.
+        
+        ``"density"``
+            Will set scores for each terminal node as the ratio between the points in the sub-sample
+            that end up in that node and the fraction of the volume in the feature space which defines
+            the node according to the splits that lead to it, with a maximum density value of
+            :math:`log_2(n)`_. If using ``ndim=1``, for categorical variables, this is defined in terms
+            of number of categories that go towards each side of the split divided by number of categories
+            in the observations that reached that node.
+
+            The expected density for uniformly-random data and splits is equal to 1, and the outlier scores
+            will be calculated using the same transformation as with ``"depth"``.
+            
+            This might lead to better predictions in some datasets when doing splits by a pooled
+            gain criterion.
+
+            This option is incompatible with ``penalize_range``.
+
+        ``"adj_depth"``
+            Will use an adjusted isolation depth that takes into account the number of points that
+            go to each side of a given split vs. the fraction of the range of that feature that each
+            side of the split occupies, by a metric as follows:
+                :math:`d = \frac{2}{(1 + \frac{1}{2 p}}`_
+            Where :math:`p`_ is defined as:
+                :math:`p = \frac{n_s}{n_t} / \frac{r_s}{r_t}`_
+            With :math:`n_t`_ being the number of points that reach a given node, :math:`n_s`_ the
+            number of points that are sent to a given side of the split/branch at that node,
+            :math:`r_t`_ being the range (maximum minus minimum) of the splitting feature or
+            linear combination among the points that reached the node, and :math:`r_s`_ being the
+            range of the same feature or linear combination among the points that are sent to this
+            same side of the split/branch. This makes each split add a number between zero and two
+            to the isolation depth, with this number's probabilistic distribution being centered
+            around 1 and thus the expected isolation depth remaing the same as in the original
+            ``"depth"`` metric, but having more variability around the extremes.
+
+            This might lead to better predictions when using ``ndim=1``, particularly in the prescence
+            of categorical variables.
+
+        ``"adj_density"``
+            Will use the same metric from ``"adj_depth"``, but applied multiplicatively instead
+            of additively. The expected value for this adjusted density is also equal to one and
+            thus the same transformation is used for calculating outlier scores as when using a
+            depth-based metric.
     standardize_data : bool
         Whether to standardize the features at each node before creating alinear combination of them as suggested
         in [4]_. This is ignored when using ``ndim=1``.
@@ -607,7 +661,8 @@ class IsolationForest:
                  categ_split_type = "subset", all_perm = False,
                  coef_by_prop = False, recode_categ = False,
                  weights_as_sample_prob = True, sample_with_replacement = False,
-                 penalize_range = False, standardize_data = True, weigh_by_kurtosis = False,
+                 penalize_range = False, standardize_data = True,
+                 scoring_metric = "depth", weigh_by_kurtosis = False,
                  coefs = "normal", assume_full_distr = True,
                  build_imputer = False, min_imp_obs = 3,
                  depth_imp = "higher", weigh_imp_rows = "inverse",
@@ -637,6 +692,7 @@ class IsolationForest:
         self.sample_with_replacement = sample_with_replacement
         self.penalize_range = penalize_range
         self.standardize_data = standardize_data
+        self.scoring_metric = scoring_metric
         self.weigh_by_kurtosis = weigh_by_kurtosis
         self.coefs = coefs
         self.assume_full_distr = assume_full_distr
@@ -675,7 +731,7 @@ class IsolationForest:
                  weights_as_sample_prob = self.weights_as_sample_prob,
                  sample_with_replacement = self.sample_with_replacement if (self.bootstrap is None) else self.bootstrap,
                  penalize_range = self.penalize_range, standardize_data = self.standardize_data,
-                 weigh_by_kurtosis = self.weigh_by_kurtosis,
+                 scoring_metric = self.scoring_metric, weigh_by_kurtosis = self.weigh_by_kurtosis,
                  coefs = self.coefs, assume_full_distr = self.assume_full_distr,
                  build_imputer = self.build_imputer, min_imp_obs = self.min_imp_obs,
                  depth_imp = self.depth_imp, weigh_imp_rows = self.weigh_imp_rows,
@@ -691,7 +747,8 @@ class IsolationForest:
                  categ_split_type = "subset", all_perm = False,
                  coef_by_prop = False, recode_categ = True,
                  weights_as_sample_prob = True, sample_with_replacement = False,
-                 penalize_range = True, standardize_data = True, weigh_by_kurtosis = False,
+                 penalize_range = True, standardize_data = True,
+                 scoring_metric = "depth", weigh_by_kurtosis = False,
                  coefs = "normal", assume_full_distr = True,
                  build_imputer = False, min_imp_obs = 3,
                  depth_imp = "higher", weigh_imp_rows = "inverse",
@@ -728,12 +785,13 @@ class IsolationForest:
         assert isinstance(min_imp_obs, int)
         assert min_imp_obs >= 1
 
-        assert missing_action    in ["divide",        "impute",   "fail",   "auto"]
-        assert new_categ_action  in ["weighted",      "smallest", "random", "impute", "auto"]
+        assert missing_action    in ["divide",        "impute",    "fail",   "auto"]
+        assert new_categ_action  in ["weighted",      "smallest",  "random", "impute", "auto"]
         assert categ_split_type  in ["single_categ",  "subset"]
         assert coefs             in ["normal",        "uniform"]
-        assert depth_imp         in ["lower",         "higher",   "same"]
-        assert weigh_imp_rows    in ["inverse",       "prop",     "flat"]
+        assert depth_imp         in ["lower",         "higher",    "same"]
+        assert weigh_imp_rows    in ["inverse",       "prop",      "flat"]
+        assert scoring_metric    in ["depth",         "adj_depth", "density", "adj_density"]
 
         assert prob_pick_avg_gain     >= 0
         assert prob_pick_pooled_gain  >= 0
@@ -789,6 +847,9 @@ class IsolationForest:
             if (categ_split_type != "single_categ") and (new_categ_action == "weighted"):
                 raise ValueError("'new_categ_action' = 'weighted' not supported in extended model.")
 
+        if penalize_range and scoring_metric in ["density", "adj_density"]:
+            raise ValueError("'penalize_range' is incompatible with density scoring.")
+
         if nthreads is None:
             nthreads = 1
         elif nthreads < 0:
@@ -808,6 +869,8 @@ class IsolationForest:
             categ_cols = np.array(categ_cols).reshape(-1).astype(int)
             categ_cols.sort()
 
+        ## TODO: for better sklearn compatibility, should have versions of
+        ## these with underscores at the end
         self.sample_size             =  sample_size
         self.ntrees                  =  ntrees
         self.ndim                    =  ndim
@@ -827,6 +890,7 @@ class IsolationForest:
         self.coefs                   =  coefs
         self.depth_imp               =  depth_imp
         self.weigh_imp_rows          =  weigh_imp_rows
+        self.scoring_metric          =  scoring_metric
         self.min_imp_obs             =  min_imp_obs
         self.random_seed             =  random_seed
         self.nthreads                =  nthreads
@@ -983,7 +1047,7 @@ class IsolationForest:
             Note that, if passing NumPy arrays, they are used in column-major order (a.k.a. "Fortran arrays"),
             and if they are not already in column-major format, will need to create a copy of the data.
         y : None
-            Not used. Kept as argument for compatibility with SciKit-learn pipelining.
+            Not used. Kept as argument for compatibility with Scikit-Learn pipelining.
         sample_weights : None or array(n_samples,)
             Sample observation weights for each row of 'X', with higher weights indicating either higher sampling
             probability (i.e. the observation has a larger effect on the fitted model, if using sub-samples), or
@@ -1084,6 +1148,7 @@ class IsolationForest:
                                 ctypes.c_bool(limit_depth).value,
                                 ctypes.c_bool(self.penalize_range).value,
                                 ctypes.c_bool(self.standardize_data).value,
+                                self.scoring_metric,
                                 ctypes.c_bool(False).value,
                                 ctypes.c_bool(False).value,
                                 ctypes.c_bool(False).value,
@@ -1282,6 +1347,7 @@ class IsolationForest:
                                                                    ctypes.c_bool(limit_depth).value,
                                                                    ctypes.c_bool(self.penalize_range).value,
                                                                    ctypes.c_bool(self.standardize_data).value,
+                                                                   self.scoring_metric,
                                                                    ctypes.c_bool(output_distance is not None).value,
                                                                    ctypes.c_bool(output_distance == "dist").value,
                                                                    ctypes.c_bool(square_mat).value,
@@ -2972,6 +3038,7 @@ class IsolationForest:
             "sample_with_replacement" : self.sample_with_replacement,
             "penalize_range" : self.penalize_range,
             "standardize_data" : self.standardize_data,
+            "scoring_metric" : self.scoring_metric,
             "weigh_by_kurtosis" : self.weigh_by_kurtosis,
             "assume_full_distr" : self.assume_full_distr,
         }
@@ -3032,6 +3099,10 @@ class IsolationForest:
             self.standardize_data = metadata["params"]["standardize_data"]
         except:
             self.standardize_data = True
+        try:
+            self.scoring_metric = metadata["params"]["scoring_metric"]
+        except:
+            self.scoring_metric = "depth"
         self.weigh_by_kurtosis = metadata["params"]["weigh_by_kurtosis"]
         self.assume_full_distr = metadata["params"]["assume_full_distr"]
 

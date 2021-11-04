@@ -346,6 +346,11 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
             if (model_params.missing_action != Fail)
                 hplanes.back().fill_val.assign(workspace.ext_fill_val.begin(), workspace.ext_fill_val.begin() + workspace.ntaken);
 
+            if (model_params.scoring_metric != Depth)
+            {
+                workspace.density_calculator.save_range(workspace.xmin, workspace.xmax);
+            }
+
             if (input_data.ncols_categ)
             {
                 hplanes.back().fill_new.assign(workspace.ext_fill_new.begin(), workspace.ext_fill_new.begin() + workspace.ntaken);
@@ -485,6 +490,57 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 
     shrink_to_fit_hplane(hplanes.back(), false);
 
+    /* if using a custom scoring metric, need to calculate it now */
+    if (model_params.scoring_metric != Depth)
+    {
+        if (workspace.criterion != NoCrit)
+            workspace.density_calculator.restore_range(workspace.xmin, workspace.xmax);
+
+        if (model_params.scoring_metric == Density)
+        {
+            workspace.density_calculator.push_density(workspace.xmin, workspace.xmax, hplanes.back().split_point);
+        }
+
+        else
+        {
+            double pct_tree_left;
+            if (workspace.weights_arr.empty() && workspace.weights_map.empty())
+            {
+                pct_tree_left = (ldouble_safe)(workspace.split_ix - workspace.st)
+                                / (ldouble_safe)(workspace.end - workspace.st + 1);
+            }
+            
+            else
+            {
+                ldouble_safe wtot = 0;
+                ldouble_safe wleft = 0;
+                if (!workspace.weights_arr.empty())
+                {
+                    for (size_t ix = workspace.st; ix < workspace.split_ix; ix++)
+                        wtot += workspace.weights_arr[workspace.ix_arr[ix]];
+                    wleft = wtot;
+                    for (size_t ix = workspace.split_ix; ix <= workspace.end; ix++)
+                        wtot += workspace.weights_arr[workspace.ix_arr[ix]];
+                }
+
+                else
+                {
+                    for (size_t ix = workspace.st; ix < workspace.split_ix; ix++)
+                        wtot += workspace.weights_map[workspace.ix_arr[ix]];
+                    wleft = wtot;
+                    for (size_t ix = workspace.split_ix; ix <= workspace.end; ix++)
+                        wtot += workspace.weights_map[workspace.ix_arr[ix]];
+                }
+
+                pct_tree_left = wleft / wtot;
+            }
+
+            workspace.density_calculator.push_adj(workspace.xmin, workspace.xmax,
+                                                  hplanes.back().split_point, pct_tree_left,
+                                                  model_params.scoring_metric);
+        }
+    }
+
     /* now split */
 
     /* back-up where it was */
@@ -507,7 +563,9 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     hplanes[hplane_from].hplane_right = hplanes.size();
     recursion_state->restore_state(workspace);
     hplanes.emplace_back();
+
     if (impute_nodes != NULL) impute_nodes->emplace_back(hplane_from);
+    if (model_params.scoring_metric != Depth) workspace.density_calculator.pop();
     workspace.st = workspace.split_ix;
     split_hplane_recursive(hplanes,
                            workspace,
@@ -520,17 +578,48 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 
     terminal_statistics:
     {
-        if (workspace.weights_arr.empty() && workspace.weights_map.empty())
-        {
-            hplanes.back().score = (double)(curr_depth + expected_avg_depth(workspace.end - workspace.st + 1));
-        }
-
-        else
+        bool has_weights = !workspace.weights_arr.empty() || !workspace.weights_map.empty();
+        if (has_weights)
         {
             if (sum_weight == -HUGE_VAL)
                 sum_weight = calculate_sum_weights(workspace.ix_arr, workspace.st, workspace.end, curr_depth,
                                                    workspace.weights_arr, workspace.weights_map);
-            hplanes.back().score = (double)(curr_depth + expected_avg_depth(sum_weight));
+        }
+
+        switch (model_params.scoring_metric)
+        {
+            case Depth:
+            {
+                if (!has_weights)
+                    hplanes.back().score = curr_depth + expected_avg_depth(workspace.end - workspace.st + 1);
+                else
+                    hplanes.back().score = curr_depth + expected_avg_depth(sum_weight);
+                break;
+            }
+
+            case AdjDepth:
+            {
+                if (!has_weights)
+                    hplanes.back().score = workspace.density_calculator.calc_adj_depth() + expected_avg_depth(workspace.end - workspace.st + 1);
+                else
+                    hplanes.back().score = workspace.density_calculator.calc_adj_depth() + expected_avg_depth(sum_weight);
+                break;
+            }
+
+            case Density:
+            {
+                if (!has_weights)
+                    hplanes.back().score = workspace.density_calculator.calc_density(workspace.end - workspace.st + 1, model_params.sample_size);
+                else
+                    hplanes.back().score = workspace.density_calculator.calc_density(sum_weight, model_params.sample_size);
+                break;
+            }
+
+            case AdjDensity:
+            {
+                hplanes.back().score = workspace.density_calculator.calc_adj_density();
+                break;
+            }
         }
 
         /* don't leave any vector initialized */

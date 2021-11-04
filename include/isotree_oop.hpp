@@ -110,6 +110,7 @@ public:
     bool   limit_depth = true; /* if 'true', then 'max_depth' is ignored */
     bool   penalize_range = false;
     bool   standardize_data = true; /* only for ndim==1 */
+    ScoringMetric scoring_metric = Depth;
     bool   weigh_by_kurt = false;
     double prob_pick_by_gain_pl = 0.;
     double prob_pick_by_gain_avg = 0.;
@@ -156,7 +157,8 @@ public:
         bool with_replacement, bool weight_as_sample,
         size_t sample_size, size_t ntrees,
         size_t max_depth, size_t ncols_per_tree, bool   limit_depth,
-        bool penalize_range, bool standardize_data, bool weigh_by_kurt,
+        bool penalize_range, bool standardize_data,
+        ScoringMetric scoring_metric, bool weigh_by_kurt,
         double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
         double prob_pick_col_by_range, double prob_pick_col_by_var,
         double prob_pick_col_by_kurt,

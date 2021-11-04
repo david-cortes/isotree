@@ -224,7 +224,8 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                      size_t nrows, size_t ncols_numeric, size_t ncols_categ, size_t ndim, size_t ntry,
                      Rcpp::CharacterVector coef_type, bool coef_by_prop, bool with_replacement, bool weight_as_sample,
                      size_t sample_size, size_t ntrees,  size_t max_depth, size_t ncols_per_tree, bool limit_depth,
-                     bool penalize_range, bool standardize_data, bool calc_dist, bool standardize_dist, bool sq_dist,
+                     bool penalize_range, bool standardize_data, Rcpp::CharacterVector scoring_metric,
+                     bool calc_dist, bool standardize_dist, bool sq_dist,
                      bool calc_depth, bool standardize_depth, bool weigh_by_kurt,
                      double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
                      double prob_pick_col_by_range, double prob_pick_col_by_var,
@@ -283,6 +284,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     MissingAction   missing_action_C  =  Divide;
     UseDepthImp     depth_imp_C       =  Higher;
     WeighImpRows    weigh_imp_rows_C  =  Inverse;
+    ScoringMetric   scoring_metric_C  =  Depth;
 
     if (Rcpp::as<std::string>(coef_type) == "uniform")
     {
@@ -323,6 +325,18 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     else if (Rcpp::as<std::string>(weigh_imp_rows) == "flat")
     {
         weigh_imp_rows_C  =  Flat;
+    }
+    if (Rcpp::as<std::string>(scoring_metric) == "adj_depth")
+    {
+        scoring_metric_C  =  AdjDepth;
+    }
+    else if (Rcpp::as<std::string>(scoring_metric) == "density")
+    {
+        scoring_metric_C  =  Density;
+    }
+    else if (Rcpp::as<std::string>(scoring_metric) == "adj_density")
+    {
+        scoring_metric_C  =  AdjDensity;
     }
 
     Rcpp::NumericVector  tmat    =  Rcpp::NumericVector();
@@ -386,6 +400,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                 sample_weights_ptr, with_replacement, weight_as_sample,
                 nrows, sample_size, ntrees, max_depth, ncols_per_tree,
                 limit_depth, penalize_range, standardize_data,
+                scoring_metric_C,
                 standardize_dist, tmat_ptr,
                 depths_ptr, standardize_depth,
                 col_weights_ptr, weigh_by_kurt,
@@ -592,6 +607,7 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
     {
         weigh_imp_rows_C  =  Flat;
     }
+    
 
     IsoForest*     model_ptr      =  NULL;
     ExtIsoForest*  ext_model_ptr  =  NULL;

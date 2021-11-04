@@ -428,6 +428,30 @@ std::vector<double> calc_kurtosis_all_data(InputData &input_data, ModelParams &m
     return kurt_weights;
 }
 
+template <class InputData>
+void calc_ranges_all_data(InputData &input_data, ModelParams &model_params,
+                          double *restrict xmin, double *restrict xmax, bool &any_unsplittable)
+{
+    bool unsplittable;
+    for (size_t col = 0; col < input_data.ncols_numeric; col++)
+    {
+        if (input_data.Xc_indptr == NULL)
+        {
+            get_range(input_data.numeric_data + col * input_data.nrows, input_data.nrows,
+                      model_params.missing_action, xmin[col], xmax[col], unsplittable);
+        }
+
+        else
+        {
+            get_range(col, input_data.nrows,
+                      input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+                      model_params.missing_action, xmin[col], xmax[col], unsplittable);
+        }
+
+        any_unsplittable = any_unsplittable || unsplittable;
+    }
+}
+
 template <class InputData, class WorkerMemory>
 void calc_ranges_all_cols(InputData &input_data, WorkerMemory &workspace, ModelParams &model_params,
                           double *restrict ranges, double *restrict saved_xmin, double *restrict saved_xmax)

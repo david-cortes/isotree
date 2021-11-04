@@ -113,6 +113,12 @@ cdef extern from "headers_joined.hpp":
         Prop
         Flat
 
+    ctypedef enum ScoringMetric:
+        Depth
+        AdjDepth
+        Density
+        AdjDensity
+
     ctypedef struct IsoTree:
         ColType       col_type
         size_t        col_num
@@ -277,6 +283,7 @@ cdef extern from "headers_joined.hpp":
                     size_t nrows, size_t sample_size, size_t ntrees,
                     size_t max_depth,   size_t ncols_per_tree,
                     bool_t limit_depth, bool_t penalize_range, bool_t standardize_data,
+                    ScoringMetric scoring_metric,
                     bool_t standardize_dist, double *tmat,
                     double *output_depths, bool_t standardize_depth,
                     real_t_ *col_weights, bool_t weigh_by_kurt,
@@ -606,6 +613,7 @@ cdef class isoforest_cpp_obj:
                   size_t sample_size, size_t ntrees,
                   size_t max_depth,   size_t ncols_per_tree,
                   bool_t limit_depth, bool_t penalize_range, bool_t standardize_data,
+                  scoring_metric,
                   bool_t calc_dist, bool_t standardize_dist, bool_t sq_dist,
                   bool_t calc_depth, bool_t standardize_depth,
                   bool_t weigh_by_kurt,
@@ -678,6 +686,7 @@ cdef class isoforest_cpp_obj:
         cdef MissingAction   missing_action_C  =  Divide
         cdef UseDepthImp     depth_imp_C       =  Same
         cdef WeighImpRows    weigh_imp_rows_C  =  Flat
+        cdef ScoringMetric   scoring_metric_C  =  Depth
 
         if coef_type == "uniform":
             coef_type_C       =  Uniform
@@ -699,6 +708,12 @@ cdef class isoforest_cpp_obj:
             weigh_imp_rows_C  =  Inverse
         elif weigh_imp_rows == "prop":
             weigh_imp_rows_C  =  Prop
+        if scoring_metric == "adj_depth":
+            scoring_metric_C  =  AdjDepth
+        elif scoring_metric == "density":
+            scoring_metric_C  =  Density
+        elif scoring_metric == "adj_density":
+            scoring_metric_C  =  AdjDensity
 
         cdef np.ndarray[double, ndim = 1]  tmat    =  np.empty(0, dtype = ctypes.c_double)
         cdef np.ndarray[double, ndim = 2]  dmat    =  np.empty((0, 0), dtype = ctypes.c_double)
@@ -748,6 +763,7 @@ cdef class isoforest_cpp_obj:
                         nrows, sample_size, ntrees,
                         max_depth,   ncols_per_tree,
                         limit_depth, penalize_range, standardize_data,
+                        scoring_metric_C,
                         standardize_dist, tmat_ptr,
                         depths_ptr, standardize_depth,
                         col_weights_ptr, weigh_by_kurt,

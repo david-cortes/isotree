@@ -171,9 +171,42 @@
 *       as proposed in [4] and implemented in the authors' original code in [5]. Not used in single-variable model
 *       when splitting by categorical variables. Note that this can make a very large difference in the results
 *       when using 'prob_pick_pooled_gain'.
+*       This option is not supported when using density-based outlier scoring metrics.
 * - standardize_data
 *       Whether to standardize the features at each node before creating a linear combination of them as suggested
 *       in [4]. This is ignored when using 'ndim=1'.
+* - scoring_metric
+*       Metric to use for determining outlier scores.
+*       If passing 'Depth', will use isolation depth as proposed in reference [1]_. This is typically the safest choice
+*       and plays well with all model types offered by this library.
+*       if passing 'Density', will set scores for each terminal node as the ratio between the points in the sub-sample
+*       that end up in that node and the fraction of the volume in the feature space which defines
+*       the node according to the splits that lead to it, with a maximum density value of
+*       'log2(n)' - when using 'ndim=1', for categorical variables, this is defined in terms
+*       of number of categories that go towards each side of the split divided by number of categories
+*       in the observations that reached that node. The expected density for uniformly-random data and
+*       splits under 'Density' is equal to 1, and the outlier scores will be calculated using the same 
+*       transformation as with 'Depth'. 'Density' might lead to better predictions in some datasets when
+*       doing splits by a pooled gain criterion, and is incompatible with 'penalize_range'.
+*       If passing 'AdjDepth', will use an adjusted isolation depth that takes into account the number of points that
+*       go to each side of a given split vs. the fraction of the range of that feature that each
+*       side of the split occupies, by a metric as follows: 'd = 2/ (1 + 1/(2*p))'
+*       where 'p' is defined as 'p = (n_s / n_t) / (r_s / r_t)
+*       with 'n_t' being the number of points that reach a given node, 'n_s' the
+*       number of points that are sent to a given side of the split/branch at that node,
+*       'r_t' being the range (maximum minus minimum) of the splitting feature or
+*       linear combination among the points that reached the node, and 'r_s' being the
+*       range of the same feature or linear combination among the points that are sent to this
+*       same side of the split/branch. This makes each split add a number between zero and two
+*       to the isolation depth, with this number's probabilistic distribution being centered
+*       around 1 and thus the expected isolation depth remaing the same as in the original
+*       'Depth' metric, but having more variability around the extremes.
+*       'AdjDepth' might lead to better predictions when using 'ndim=1', particularly in the prescence
+*       of categorical variables.
+*       If passing 'AdjDensity', will use the same metric from 'AdjDepth', but applied multiplicatively instead
+*       of additively. The expected value for this adjusted density is also equal to one and
+*       thus the same transformation is used for calculating outlier scores as when using a
+*       depth-based metric.
 * - standardize_dist
 *       If passing 'tmat' (see documentation for it), whether to standardize the resulting average separation
 *       depths in order to produce a distance metric or not, in the same way this is done for the outlier score.
@@ -439,6 +472,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 size_t nrows, size_t sample_size, size_t ntrees,
                 size_t max_depth, size_t ncols_per_tree,
                 bool   limit_depth, bool penalize_range, bool standardize_data,
+                ScoringMetric scoring_metric,
                 bool   standardize_dist, double tmat[],
                 double output_depths[], bool standardize_depth,
                 real_t col_weights[], bool weigh_by_kurt,
@@ -463,6 +497,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         throw std::runtime_error("'weigh_by_kurt' and 'prob_pick_col_by_kurt' cannot be used together.\n");
     if (ndim == 0 && model_outputs == NULL)
         throw std::runtime_error("Must pass 'ndim>0' in the extended model.\n");
+    if (penalize_range && (scoring_metric == Density || scoring_metric == AdjDensity))
+        throw std::runtime_error("'penalize_range' is incompatible with density scoring.\n");
 
 
     /* TODO: this function should also accept the array as a memoryview with a
@@ -496,7 +532,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 prob_pick_by_gain_avg, prob_pick_by_gain_pl,
                                 prob_pick_col_by_range, prob_pick_col_by_var,
                                 prob_pick_col_by_kurt,
-                                min_gain, cat_split_type, new_cat_action, missing_action, all_perm,
+                                min_gain, cat_split_type, new_cat_action, missing_action,
+                                scoring_metric, all_perm,
                                 (model_outputs != NULL)? 0 : ndim, ntry,
                                 coef_type, coef_by_prop, calc_dist, (bool)(output_depths != NULL), impute_at_fit,
                                 depth_imp, weigh_imp_rows, min_imp_obs};
@@ -559,7 +596,11 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         model_outputs->new_cat_action = new_cat_action;
         model_outputs->cat_split_type = cat_split_type;
         model_outputs->missing_action = missing_action;
-        model_outputs->exp_avg_depth  = expected_avg_depth(sample_size);
+        model_outputs->scoring_metric = scoring_metric;
+        if (model_outputs->scoring_metric != Density && model_outputs->scoring_metric != AdjDensity)
+            model_outputs->exp_avg_depth  = expected_avg_depth(sample_size);
+        else
+            model_outputs->exp_avg_depth  = 1;
         model_outputs->exp_avg_sep = expected_separation_depth(model_params.sample_size);
         model_outputs->orig_sample_size = input_data.nrows;
         model_outputs->has_range_penalty = penalize_range;
@@ -572,7 +613,11 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         model_outputs_ext->new_cat_action = new_cat_action;
         model_outputs_ext->cat_split_type = cat_split_type;
         model_outputs_ext->missing_action = missing_action;
-        model_outputs_ext->exp_avg_depth  = expected_avg_depth(sample_size);
+        model_outputs_ext->scoring_metric = scoring_metric;
+        if (model_outputs_ext->scoring_metric != Density && model_outputs_ext->scoring_metric != AdjDensity)
+            model_outputs_ext->exp_avg_depth  = expected_avg_depth(sample_size);
+        else
+            model_outputs_ext->exp_avg_depth  = 1;
         model_outputs_ext->exp_avg_sep = expected_separation_depth(model_params.sample_size);
         model_outputs_ext->orig_sample_size = input_data.nrows;
         model_outputs_ext->has_range_penalty = penalize_range;
@@ -955,7 +1000,9 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 prob_pick_by_gain_avg, prob_pick_by_gain_pl,
                                 prob_pick_col_by_range, prob_pick_col_by_var,
                                 prob_pick_col_by_kurt,
-                                min_gain, cat_split_type, new_cat_action, missing_action, all_perm,
+                                min_gain, cat_split_type, new_cat_action, missing_action,
+                                (model_outputs != NULL)? model_outputs->scoring_metric : model_outputs_ext->scoring_metric,
+                                all_perm,
                                 (model_outputs != NULL)? 0 : ndim, ntry,
                                 coef_type, coef_by_prop, false, false, false, depth_imp, weigh_imp_rows, min_imp_obs};
 
@@ -1529,6 +1576,13 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     if (hplane_root != NULL && model_params.ndim >= input_data.ncols_tot)
         workspace.try_all = true;
 
+    if (model_params.scoring_metric != Depth)
+    {
+        workspace.density_calculator.initialize(model_params.max_depth,
+                                                input_data.ncols_categ? input_data.max_categ : 0,
+                                                tree_root != NULL && input_data.ncols_categ,
+                                                model_params.scoring_metric);
+    }
 
     if (tree_root != NULL)
         split_itree_recursive(*tree_root,

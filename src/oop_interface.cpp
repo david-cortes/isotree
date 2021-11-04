@@ -65,7 +65,8 @@ IsolationForest::IsolationForest
     bool with_replacement, bool weight_as_sample,
     size_t sample_size, size_t ntrees,
     size_t max_depth, size_t ncols_per_tree, bool   limit_depth,
-    bool penalize_range, bool standardize_data, bool weigh_by_kurt,
+    bool penalize_range, bool standardize_data,
+    ScoringMetric scoring_metric, bool weigh_by_kurt,
     double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
     double prob_pick_col_by_range, double prob_pick_col_by_var,
     double prob_pick_col_by_kurt,
@@ -89,6 +90,7 @@ IsolationForest::IsolationForest
         limit_depth(limit_depth),
         penalize_range(penalize_range),
         standardize_data(standardize_data),
+        scoring_metric(scoring_metric),
         weigh_by_kurt(weigh_by_kurt),
         prob_pick_by_gain_pl(prob_pick_by_gain_pl),
         prob_pick_by_gain_avg(prob_pick_by_gain_avg),
@@ -124,6 +126,7 @@ void IsolationForest::fit(double X[], size_t nrows, size_t ncols)
         nrows, this->sample_size, this->ntrees,
         this->max_depth, this->ncols_per_tree,
         this->limit_depth, this->penalize_range, this->standardize_data,
+        this->scoring_metric,
         false, (double*)nullptr,
         (double*)nullptr, true,
         (double*)nullptr, this->weigh_by_kurt,
@@ -161,6 +164,7 @@ void IsolationForest::fit(double numeric_data[],   size_t ncols_numeric,  size_t
         nrows, this->sample_size, this->ntrees,
         this->max_depth, this->ncols_per_tree,
         this->limit_depth, this->penalize_range, this->standardize_data,
+        this->scoring_metric,
         false, (double*)nullptr,
         (double*)nullptr, true,
         col_weights, this->weigh_by_kurt,
@@ -199,6 +203,7 @@ void IsolationForest::fit(double Xc[], int Xc_ind[], int Xc_indptr[],
         nrows, this->sample_size, this->ntrees,
         this->max_depth, this->ncols_per_tree,
         this->limit_depth, this->penalize_range, this->standardize_data,
+        this->scoring_metric,
         false, (double*)nullptr,
         (double*)nullptr, true,
         col_weights, this->weigh_by_kurt,
@@ -548,8 +553,11 @@ void IsolationForest::check_params()
     if (this->weigh_imp_rows != Inverse && this->weigh_imp_rows != Prop && this->weigh_imp_rows != Flat)
         throw std::runtime_error("Invalid 'weigh_imp_rows'.\n");
 
-    if (this->sample_size == 1)
-        throw std::runtime_error("'sample_size' must be greater than 1.\n");
+    if (this->sample_size > 0 && this->sample_size <= 2)
+        throw std::runtime_error("'sample_size' must be greater than 2.\n");
+
+    if (this->penalize_range && (this->scoring_metric == Density || this->scoring_metric == AdjDensity))
+        throw std::runtime_error("'penalize_range' is incompatible with density scoring.\n");
 }
 
 void IsolationForest::check_is_fitted() const

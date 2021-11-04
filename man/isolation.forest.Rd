@@ -29,6 +29,7 @@ isolation.forest(
   sample_with_replacement = FALSE,
   penalize_range = FALSE,
   standardize_data = TRUE,
+  scoring_metric = "depth",
   weigh_by_kurtosis = FALSE,
   coefs = "normal",
   assume_full_distr = TRUE,
@@ -366,15 +367,62 @@ reasonable range in the data being split (given by `2 * range` in data and cente
 as proposed in reference [4] and implemented in the authors' original code in reference [5]. Not used in single-variable model
 when splitting by categorical variables.
 
+This option is not supported when using density-based outlier scoring metrics.
+
 It's recommended to turn this off for faster predictions on sparse CSC matrices.
 
 Note that this can make a very large difference in the results when using `prob_pick_pooled_gain`.
 
 Be aware that this option can make the distribution of outlier scores a bit different
-(i.e. not centered around 0.5)}
+(i.e. not centered around 0.5).}
 
 \item{standardize_data}{Whether to standardize the features at each node before creating alinear combination of them as suggested
 in [4]. This is ignored when using `ndim=1`.}
+
+\item{scoring_metric}{Metric to use for determining outlier scores. Options are:\itemize{
+\item "depth": Will use isolation depth as proposed in reference [1]. This is typically the safest choice
+and plays well with all model types offered by this library.
+\item "density" : Will set scores for each terminal node as the ratio between the points in the sub-sample
+that end up in that node and the fraction of the volume in the feature space which defines
+the node according to the splits that lead to it, with a maximum density value of
+\eqn{log_2(n)}{log2(n)}. If using `ndim=1`, for categorical variables, this is defined in terms
+of number of categories that go towards each side of the split divided by number of categories
+in the observations that reached that node.
+
+The expected density for uniformly-random data and splits is equal to 1, and the outlier scores
+will be calculated using the same transformation as with `"depth"`.
+
+This might lead to better predictions in some datasets when doing splits by a pooled
+gain criterion.
+
+This option is incompatible with `penalize_range`.
+\item "adj_depth" : Will use an adjusted isolation depth that takes into account the number of points that
+go to each side of a given split vs. the fraction of the range of that feature that each
+side of the split occupies, by a metric as follows:
+
+\eqn{d = \frac{2}{(1 + \frac{1}{2 p}}}{d = 2 / (1 + 1/(2*p))}
+
+Where \eqn{p} is defined as:
+
+\eqn{p = \frac{n_s}{n_t} / \frac{r_s}{r_t}}{p = (n_s / n_t) / (r_s / r_t)}
+
+With \eqn{n_t} being the number of points that reach a given node, \eqn{n_s} the
+number of points that are sent to a given side of the split/branch at that node,
+\eqn{r_t} being the range (maximum minus minimum) of the splitting feature or
+linear combination among the points that reached the node, and \eqn{r_s} being the
+range of the same feature or linear combination among the points that are sent to this
+same side of the split/branch. This makes each split add a number between zero and two
+to the isolation depth, with this number's probabilistic distribution being centered
+around 1 and thus the expected isolation depth remaing the same as in the original
+`"depth"` metric, but having more variability around the extremes.
+
+This might lead to better predictions when using `ndim=1`, particularly in the prescence
+of categorical variables.
+\item "adj_density": Will use the same metric from `"adj_depth"`, but applied multiplicatively instead
+of additively. The expected value for this adjusted density is also equal to one and
+thus the same transformation is used for calculating outlier scores as when using a
+depth-based metric.
+}}
 
 \item{weigh_by_kurtosis}{Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
 for each tree as briefly proposed in reference [1]. Note that this is only done at the beginning of each tree
@@ -547,6 +595,10 @@ are likely to benefit from deeper trees (controlled by `max_depth`), but using l
 and/or deeper trees can result in significantly slower model fitting and predictions - in such cases,
 using `min_gain` (with a value like 0.25) with `max_depth=NULL` can offer a better speed/performance
 trade-off than changing `max_depth`.
+
+If the data has categorical variables and these are more important important for determining
+outlierness compared to numerical columns, one might want to experiment with `ndim=1`,
+`categ_split_type="single_categ"`, and `scoring_metric="adj_depth"`.
 }
 \details{
 If requesting outlier scores or depths or separation/distance while fitting the

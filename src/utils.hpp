@@ -97,8 +97,28 @@
         value |= value >> 32;
         return tab64[((uint64_t)((value - (value >> 1))*0x07EDD5E59A4E28C2)) >> 58] + 1;
     }
-#else /* other architectures - might not be entirely precise, and will be slower */
-    size_t log2ceil(size_t x) {return (size_t)(std::ceil(std::log2((long double) x)));}
+#else /* other architectures - might be much slower */
+    #if __cplusplus  >= 202002L
+    #include <bit>
+    size_t log2ceil(size_t value)
+    {
+        size_t out = std::numeric_limits<size_t>::digits - std::countl_zero(value);
+        out -= (value == ((size_t)1 << (out-1)));
+        return out;
+    }
+    #else
+    size_t log2ceil(size_t value)
+    {
+        size_t value_ = value;
+        size_t out = 0;
+        while (value >= 1) {
+            value = value >> 1;
+            out++;
+        }
+        out -= (value_ == ((size_t)1 << (out-1)));
+        return out;
+    }
+    #endif
 #endif
 
 #define THRESHOLD_EXACT_H 256 /* above this will get approximated */
@@ -1289,6 +1309,235 @@ void SingleNodeColumnSampler::restore(const SingleNodeColumnSampler &other)
 }
 
 
+void DensityCalculator::initialize(size_t max_depth, int max_categ, bool reserve_counts, ScoringMetric scoring_metric)
+{
+    this->multipliers.reserve(max_depth+1);
+    this->multipliers.clear();
+    if (scoring_metric != AdjDensity)
+        this->multipliers.push_back(0);
+    else
+        this->multipliers.push_back(1);
+
+    if (reserve_counts)
+    {
+        this->counts.resize(max_categ);
+    }
+}
+
+void DensityCalculator::push_density(double xmin, double xmax, double split_point)
+{
+    if (std::isinf(xmax) || std::isinf(xmin))
+    {
+        this->multipliers.push_back(0);
+        return;
+    }
+
+    double range = xmax - xmin;
+    if (range <= 0) range = std::numeric_limits<double>::min();
+    double mult_left = std::log((split_point - xmin) / range);
+    double mult_right = std::log((xmax - split_point) / range);
+    if (std::isinf(mult_left))
+    {
+        double diff = split_point - xmin;
+        do {
+            diff = std::nextafter(diff, HUGE_VAL);
+            mult_left = std::log(diff / range);
+        } while (std::isinf(mult_left));
+    }
+
+    mult_left = std::isnan(mult_left)? 0 : mult_left;
+    mult_right = std::isnan(mult_right)? 0 : mult_right;
+
+    ldouble_safe curr = this->multipliers.back();
+    this->multipliers.back() = curr + mult_right;
+    this->multipliers.push_back(curr + mult_left);
+}
+
+void DensityCalculator::push_density(int n_left, int n_present)
+{
+    this->push_density(0., (double)n_present, (double)n_left);
+}
+
+/* For single category splits */
+void DensityCalculator::push_density(size_t counts[], int ncat)
+{
+    /* this one assumes 'categ_present' has entries 0/1 for missing/present */
+    int n_present = 0;
+    for (size_t cat = 0; cat < ncat; cat++)
+        n_present += counts[cat] > 0;
+    this->push_density(0., (double)n_present, 1.);
+}
+
+/* For single category splits */
+void DensityCalculator::push_density(int n_present)
+{
+    this->push_density(0., (double)n_present, 1.);
+}
+
+/* For binary categorical splits */
+void DensityCalculator::push_density()
+{
+    this->multipliers.push_back(0);
+}
+
+void DensityCalculator::push_adj(double xmin, double xmax, double split_point, double pct_tree_left, ScoringMetric scoring_metric)
+{
+    double range = xmax - xmin;
+    double chunk_left = (split_point - xmin) / range;
+    double chunk_right = (xmax - split_point) / range;
+    if (std::isinf(xmax) || std::isinf(xmin))
+    {
+        chunk_left = pct_tree_left;
+        chunk_right = 1. - pct_tree_left;
+        goto add_chunks;
+    }
+
+    if (range <= 0) range = std::numeric_limits<double>::min();
+
+    if (!std::isnan(chunk_left) && chunk_left <= 0)
+    {
+        double diff = split_point - xmin;
+        do {
+            diff = std::nextafter(diff, HUGE_VAL);
+            chunk_left = diff / range;
+        } while (chunk_left == 0);
+    }
+
+    if (std::isnan(chunk_left) || std::isnan(chunk_right))
+    {
+        chunk_left = 0.5;
+        chunk_right = 0.5;
+    }
+
+    chunk_left = pct_tree_left / chunk_left;
+    chunk_right = (1. - pct_tree_left) / chunk_right;
+
+    add_chunks:
+    chunk_left = 2. / (1. + .5/chunk_left);
+    chunk_right = 2. / (1. + .5/chunk_right);
+    // chunk_left = 2. / (1. + 1./chunk_left);
+    // chunk_right = 2. / (1. + 1./chunk_right);
+    // chunk_left = 2. - std::exp2(1. - chunk_left);
+    // chunk_right = 2. - std::exp2(1. - chunk_right);
+
+    ldouble_safe curr = this->multipliers.back();
+    if (scoring_metric == AdjDepth)
+    {
+        this->multipliers.back() = curr + chunk_right;
+        this->multipliers.push_back(curr + chunk_left);
+    }
+
+    else 
+    {
+        this->multipliers.back() = std::fmax(curr * chunk_right, (ldouble_safe)std::numeric_limits<double>::epsilon());
+        this->multipliers.push_back(std::fmax(curr * chunk_left, (ldouble_safe)std::numeric_limits<double>::epsilon()));
+    }
+}
+
+void DensityCalculator::push_adj(signed char *restrict categ_present, size_t *restrict counts, int ncat, ScoringMetric scoring_metric)
+{
+    /* this one assumes 'categ_present' has entries -1/0/1 for missing/right/left */
+    int cnt_cat_left = 0;
+    int cnt_cat = 0;
+    size_t cnt = 0;
+    size_t cnt_left = 0;
+    for (int cat = 0; cat < ncat; cat++)
+    {
+        if (counts[cat] > 0)
+        {
+            cnt += counts[cat];
+            cnt_cat_left += categ_present[cat];
+            cnt_left += categ_present[cat]? counts[cat] : 0;
+            cnt_cat++;
+        }
+    }
+
+    double pct_tree_left = (long double)cnt_left / (long double)cnt;
+    this->push_adj(0., (double)cnt_cat, (double)cnt_cat_left, pct_tree_left, scoring_metric);
+}
+
+/* For single category splits */
+void DensityCalculator::push_adj(size_t *restrict counts, int ncat, int chosen_cat, ScoringMetric scoring_metric)
+{
+    /* this one assumes 'categ_present' has entries 0/1 for missing/present */
+    int cnt_cat = 0;
+    size_t cnt = 0;
+    for (int cat = 0; cat < ncat; cat++)
+    {
+        cnt += counts[cat];
+        cnt_cat += counts[cat] > 0;
+    }
+
+    double pct_tree_left = (long double)counts[chosen_cat] / (long double)cnt;
+    this->push_adj(0., (double)cnt_cat, 1., pct_tree_left, scoring_metric);
+}
+
+/* For binary categorical splits */
+void DensityCalculator::push_adj(double pct_tree_left, ScoringMetric scoring_metric)
+{
+    this->push_adj(0., 1., 0.5, pct_tree_left, scoring_metric);
+}
+
+void DensityCalculator::pop()
+{
+    this->multipliers.pop_back();
+}
+
+double DensityCalculator::calc_density(long double remainder, size_t sample_size)
+{
+    long double res = std::exp( std::log(remainder) - std::log((long double)sample_size) - this->multipliers.back() );
+    return std::fmin(res, std::log2((long double)sample_size));
+    // return std::fmin(res, expected_avg_depth(sample_size));
+    // return res;
+    // return std::fmin(res, 2.0l*std::log2((long double)sample_size));
+}
+
+ldouble_safe DensityCalculator::calc_adj_depth()
+{
+    ldouble_safe out = this->multipliers.back();
+    return std::fmax(out, (ldouble_safe)std::numeric_limits<double>::min());
+}
+
+double DensityCalculator::calc_adj_density()
+{
+    return this->multipliers.back();
+}
+
+void DensityCalculator::save_range(double xmin, double xmax)
+{
+    this->xmin = xmin;
+    this->xmax = xmax;
+}
+
+void DensityCalculator::restore_range(double &restrict xmin, double &restrict xmax)
+{
+    xmin = this->xmin;
+    xmax = this->xmax;
+}
+
+void DensityCalculator::save_counts(size_t *restrict cat_counts, int ncat)
+{
+    this->counts.assign(cat_counts, cat_counts + ncat);
+}
+
+void DensityCalculator::save_n_present_and_left(signed char *restrict split_left, int ncat)
+{
+    this->n_present = 0;
+    this->n_left = 0;
+    for (int cat = 0; cat < ncat; cat++)
+    {
+        this->n_present += split_left[cat] >= 0;
+        this->n_left += split_left[cat] == 1;
+    }
+}
+
+void DensityCalculator::save_n_present(size_t *restrict cat_counts, int ncat)
+{
+    this->n_present = 0;
+    for (int cat = 0; cat < ncat; cat++)
+        this->n_present +=  cat_counts[cat] > 0;
+}
+
 /* For hyperplane intersections */
 size_t divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, double split_point)
 {
@@ -2079,6 +2328,35 @@ void get_range(size_t ix_arr[], real_t *restrict x, size_t st, size_t end,
     unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
 }
 
+template <class real_t>
+void get_range(real_t *restrict x, size_t n,
+               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable)
+{
+    xmin =  HUGE_VAL;
+    xmax = -HUGE_VAL;
+
+    if (missing_action == Fail)
+    {
+        for (size_t row = 0; row < n; row++)
+        {
+            xmin = (x[row] < xmin)? x[row] : xmin;
+            xmax = (x[row] > xmax)? x[row] : xmax;
+        }
+    }
+
+
+    else
+    {
+        for (size_t row = 0; row < n; row++)
+        {
+            xmin = std::fmin(xmin, x[row]);
+            xmax = std::fmax(xmax, x[row]);
+        }
+    }
+
+    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
+}
+
 /* for sparse inputs */
 template <class real_t, class sparse_ix>
 void get_range(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
@@ -2176,6 +2454,42 @@ void get_range(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
     unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
 }
 
+template <class real_t, class sparse_ix>
+void get_range(size_t col_num, size_t nrows,
+               real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable)
+{
+    xmin =  HUGE_VAL;
+    xmax = -HUGE_VAL;
+
+    if ((size_t)(Xc_indptr[col_num+1] - Xc_indptr[col_num]) < nrows)
+    {
+        xmin = 0;
+        xmax = 0;
+    }
+
+    if (missing_action == Fail)
+    {
+        for (auto ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num+1]; ix++)
+        {
+            xmin = (Xc[ix] < xmin)? Xc[ix] : xmin;
+            xmax = (Xc[ix] > xmax)? Xc[ix] : xmax;
+        }
+    }
+
+    else
+    {
+        for (auto ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num+1]; ix++)
+        {
+            if (std::isinf(Xc[ix])) continue;
+            xmin = std::fmin(xmin, Xc[ix]);
+            xmax = std::fmax(xmax, Xc[ix]);
+        }
+    }
+
+    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
+}
+
 
 void get_categs(size_t *restrict ix_arr, int x[], size_t st, size_t end, int ncat,
                 MissingAction missing_action, signed char categs[], size_t &restrict npresent, bool &unsplittable)
@@ -2193,6 +2507,14 @@ void get_categs(size_t *restrict ix_arr, int x[], size_t st, size_t end, int nca
                                );
 
     unsplittable = npresent < 2;
+}
+
+void count_categs(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat, size_t *restrict counts)
+{
+    std::fill(counts, counts + ncat, (size_t)0);
+    for (size_t row = st; row <= end; row++)
+        if (x[ix_arr[row]] >= 0)
+            counts[x[ix_arr[row]]]++;
 }
 
 ldouble_safe calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,

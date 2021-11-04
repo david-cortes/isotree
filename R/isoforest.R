@@ -48,6 +48,10 @@
 #' using `min_gain` (with a value like 0.25) with `max_depth=NULL` can offer a better speed/performance
 #' trade-off than changing `max_depth`.
 #' 
+#' If the data has categorical variables and these are more important important for determining
+#' outlierness compared to numerical columns, one might want to experiment with `ndim=1`,
+#' `categ_split_type="single_categ"`, and `scoring_metric="adj_depth"`.
+#' 
 #' @section Matching models from references:
 #' Shorthands for parameter combinations that match some of the references:\itemize{
 #' \item 'iForest' (reference [1]): `ndim=1`, `sample_size=256`, `max_depth=8`, `ntrees=100`, `missing_action="fail"`.
@@ -393,12 +397,58 @@
 #' as proposed in reference [4] and implemented in the authors' original code in reference [5]. Not used in single-variable model
 #' when splitting by categorical variables.
 #' 
+#' This option is not supported when using density-based outlier scoring metrics.
+#' 
 #' It's recommended to turn this off for faster predictions on sparse CSC matrices.
 #' 
 #' Note that this can make a very large difference in the results when using `prob_pick_pooled_gain`.
 #' 
 #' Be aware that this option can make the distribution of outlier scores a bit different
-#' (i.e. not centered around 0.5)
+#' (i.e. not centered around 0.5).
+#' @param scoring_metric Metric to use for determining outlier scores. Options are:\itemize{
+#' \item "depth": Will use isolation depth as proposed in reference [1]. This is typically the safest choice
+#' and plays well with all model types offered by this library.
+#' \item "density" : Will set scores for each terminal node as the ratio between the points in the sub-sample
+#' that end up in that node and the fraction of the volume in the feature space which defines
+#' the node according to the splits that lead to it, with a maximum density value of
+#' \eqn{log_2(n)}{log2(n)}. If using `ndim=1`, for categorical variables, this is defined in terms
+#' of number of categories that go towards each side of the split divided by number of categories
+#' in the observations that reached that node.
+#' 
+#' The expected density for uniformly-random data and splits is equal to 1, and the outlier scores
+#' will be calculated using the same transformation as with `"depth"`.
+#' 
+#' This might lead to better predictions in some datasets when doing splits by a pooled
+#' gain criterion.
+#' 
+#' This option is incompatible with `penalize_range`.
+#' \item "adj_depth" : Will use an adjusted isolation depth that takes into account the number of points that
+#' go to each side of a given split vs. the fraction of the range of that feature that each
+#' side of the split occupies, by a metric as follows:
+#' 
+#' \eqn{d = \frac{2}{(1 + \frac{1}{2 p}}}{d = 2 / (1 + 1/(2*p))}
+#' 
+#' Where \eqn{p} is defined as:
+#' 
+#' \eqn{p = \frac{n_s}{n_t} / \frac{r_s}{r_t}}{p = (n_s / n_t) / (r_s / r_t)}
+#' 
+#' With \eqn{n_t} being the number of points that reach a given node, \eqn{n_s} the
+#' number of points that are sent to a given side of the split/branch at that node,
+#' \eqn{r_t} being the range (maximum minus minimum) of the splitting feature or
+#' linear combination among the points that reached the node, and \eqn{r_s} being the
+#' range of the same feature or linear combination among the points that are sent to this
+#' same side of the split/branch. This makes each split add a number between zero and two
+#' to the isolation depth, with this number's probabilistic distribution being centered
+#' around 1 and thus the expected isolation depth remaing the same as in the original
+#' `"depth"` metric, but having more variability around the extremes.
+#' 
+#' This might lead to better predictions when using `ndim=1`, particularly in the prescence
+#' of categorical variables.
+#' \item "adj_density": Will use the same metric from `"adj_depth"`, but applied multiplicatively instead
+#' of additively. The expected value for this adjusted density is also equal to one and
+#' thus the same transformation is used for calculating outlier scores as when using a
+#' depth-based metric.
+#' }
 #' @param standardize_data Whether to standardize the features at each node before creating alinear combination of them as suggested
 #' in [4]. This is ignored when using `ndim=1`.
 #' @param weigh_by_kurtosis Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
@@ -734,7 +784,8 @@ isolation.forest <- function(data,
                              categ_split_type = "subset", all_perm = FALSE,
                              coef_by_prop = FALSE, recode_categ = FALSE,
                              weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
-                             penalize_range = FALSE, standardize_data = TRUE, weigh_by_kurtosis = FALSE,
+                             penalize_range = FALSE, standardize_data = TRUE,
+                             scoring_metric = "depth", weigh_by_kurtosis = FALSE,
                              coefs = "normal", assume_full_distr = TRUE,
                              build_imputer = FALSE, output_imputations = FALSE, min_imp_obs = 3,
                              depth_imp = "higher", weigh_imp_rows = "inverse",
@@ -777,49 +828,51 @@ isolation.forest <- function(data,
         ndim <- NCOL(data)
     }
 
-    check.pos.int(ntrees,          "ntrees")
-    check.pos.int(ndim,            "ndim")
-    check.pos.int(ntry,            "ntry")
-    check.pos.int(min_imp_obs,     "min_imp_obs")
-    check.pos.int(seed,            "seed")
-    check.pos.int(ncols_per_tree,  "ncols_per_tree")
+    check.pos.int(ntrees)
+    check.pos.int(ndim)
+    check.pos.int(ntry)
+    check.pos.int(min_imp_obs)
+    check.pos.int(seed)
+    check.pos.int(ncols_per_tree)
     
-    allowed_missing_action    <-  c("divide",       "impute",   "fail")
-    allowed_new_categ_action  <-  c("weighted",     "smallest", "random", "impute")
+    allowed_missing_action    <-  c("divide",       "impute",    "fail")
+    allowed_new_categ_action  <-  c("weighted",     "smallest",  "random", "impute")
     allowed_categ_split_type  <-  c("single_categ", "subset")
     allowed_coefs             <-  c("normal",       "uniform")
-    allowed_depth_imp         <-  c("lower",        "higher",   "same")
-    allowed_weigh_imp_rows    <-  c("inverse",      "prop",     "flat")
+    allowed_depth_imp         <-  c("lower",        "higher",    "same")
+    allowed_weigh_imp_rows    <-  c("inverse",      "prop",      "flat")
+    allowed_scoring_metric    <-  c("depth",        "adj_depth", "density", "adj_density")
 
     max_depth  <-  check.max.depth(max_depth)
     
-    check.str.option(missing_action,    "missing_action",    allowed_missing_action)
-    check.str.option(new_categ_action,  "new_categ_action",  allowed_new_categ_action)
-    check.str.option(categ_split_type,  "categ_split_type",  allowed_categ_split_type)
-    check.str.option(coefs,             "coefs",             allowed_coefs)
-    check.str.option(depth_imp,         "depth_imp",         allowed_depth_imp)
-    check.str.option(weigh_imp_rows,    "weigh_imp_rows",    allowed_weigh_imp_rows)
+    check.str.option(missing_action,    allowed_missing_action)
+    check.str.option(new_categ_action,  allowed_new_categ_action)
+    check.str.option(categ_split_type,  allowed_categ_split_type)
+    check.str.option(coefs,             allowed_coefs)
+    check.str.option(depth_imp,         allowed_depth_imp)
+    check.str.option(weigh_imp_rows,    allowed_weigh_imp_rows)
+    check.str.option(scoring_metric,    allowed_scoring_metric)
     
-    check.is.prob(prob_pick_avg_gain,      "prob_pick_avg_gain")
-    check.is.prob(prob_pick_pooled_gain,   "prob_pick_pooled_gain")
-    check.is.prob(prob_pick_col_by_range,  "prob_pick_col_by_range")
-    check.is.prob(prob_pick_col_by_var,    "prob_pick_col_by_var")
-    check.is.prob(prob_pick_col_by_kurt,   "prob_pick_col_by_kurt")
+    check.is.prob(prob_pick_avg_gain)
+    check.is.prob(prob_pick_pooled_gain)
+    check.is.prob(prob_pick_col_by_range)
+    check.is.prob(prob_pick_col_by_var)
+    check.is.prob(prob_pick_col_by_kurt)
     
-    check.is.bool(all_perm,                 "all_perm")
-    check.is.bool(recode_categ,             "recode_categ")
-    check.is.bool(coef_by_prop,             "coef_by_prop")
-    check.is.bool(weights_as_sample_prob,   "weights_as_sample_prob")
-    check.is.bool(sample_with_replacement,  "sample_with_replacement")
-    check.is.bool(penalize_range,           "penalize_range")
-    check.is.bool(standardize_data,         "standardize_data")
-    check.is.bool(weigh_by_kurtosis,        "weigh_by_kurtosis")
-    check.is.bool(assume_full_distr,        "assume_full_distr")
-    check.is.bool(output_score,             "output_score")
-    check.is.bool(output_dist,              "output_dist")
-    check.is.bool(square_dist,              "square_dist")
-    check.is.bool(build_imputer,            "build_imputer")
-    check.is.bool(output_imputations,       "output_imputations")
+    check.is.bool(all_perm)
+    check.is.bool(recode_categ)
+    check.is.bool(coef_by_prop)
+    check.is.bool(weights_as_sample_prob)
+    check.is.bool(sample_with_replacement)
+    check.is.bool(penalize_range)
+    check.is.bool(standardize_data)
+    check.is.bool(weigh_by_kurtosis)
+    check.is.bool(assume_full_distr)
+    check.is.bool(output_score)
+    check.is.bool(output_dist)
+    check.is.bool(square_dist)
+    check.is.bool(build_imputer)
+    check.is.bool(output_imputations)
     
     s <- prob_pick_avg_gain + prob_pick_pooled_gain
     if (s > 1) {
@@ -875,8 +928,8 @@ isolation.forest <- function(data,
         }
     }
     
-    if (!is.null(sample_weights)) check.is.1d(sample_weights, "sample_weights")
-    if (!is.null(column_weights)) check.is.1d(column_weights, "column_weights")
+    if (!is.null(sample_weights)) check.is.1d(sample_weights)
+    if (!is.null(column_weights)) check.is.1d(column_weights)
     
     if (!is.null(sample_weights) && (sample_size == NROW(data)) && weights_as_sample_prob)
         stop("Sampling weights are only supported when using sub-samples for each tree.")
@@ -921,6 +974,10 @@ isolation.forest <- function(data,
 
     if (weigh_by_kurtosis && (prob_pick_col_by_range || prob_pick_col_by_var || prob_pick_col_by_kurt)) {
         stop("'weigh_by_kurtosis' is incompatible with by-node column weight criteria.")
+    }
+
+    if (penalize_range && scoring_metric %in% c("density", "adj_density")) {
+        stop("'penalize_range' is incompatible with density scoring.")
     }
     
     ### cast all parameters
@@ -993,7 +1050,8 @@ isolation.forest <- function(data,
                              pdata$nrows, pdata$ncols_num, pdata$ncols_cat, ndim, ntry,
                              coefs, coef_by_prop, sample_with_replacement, weights_as_sample_prob,
                              sample_size, ntrees,  max_depth, ncols_per_tree, FALSE,
-                             penalize_range, standardize_data, output_dist, TRUE, square_dist,
+                             penalize_range, standardize_data, scoring_metric,
+                             output_dist, TRUE, square_dist,
                              output_score, TRUE, weigh_by_kurtosis,
                              prob_pick_pooled_gain, prob_pick_avg_gain,
                              prob_pick_col_by_range, prob_pick_col_by_var,
@@ -1033,6 +1091,7 @@ isolation.forest <- function(data,
             sample_with_replacement = sample_with_replacement,
             penalize_range = penalize_range,
             standardize_data = standardize_data,
+            scoring_metric = scoring_metric,
             weigh_by_kurtosis = weigh_by_kurtosis,
             coefs = coefs, assume_full_distr = assume_full_distr,
             build_imputer = build_imputer, min_imp_obs = min_imp_obs,
@@ -1177,12 +1236,14 @@ isolation.forest <- function(data,
 #' collection through `gc()`.
 #' @details The standardized outlier score is calculated according to the original paper's formula:
 #' \eqn{  2^{ - \frac{\bar{d}}{c(n)}  }  }{2^(-avg(depth)/c(nobs))}, where
-#' \eqn{\bar{d}}{avg(depth)} is the average depth under each tree at which an observation
+#' \eqn{\bar{d}}{avg(depth)} is the average depth (or other calculated metric such as density, according to
+#' what was passed for `scoring_metric`) under each tree at which an observation
 #' becomes isolated (a remainder is extrapolated if the actual terminal node is not isolated),
 #' and \eqn{c(n)}{c(nobs)} is the expected isolation depth if observations were uniformly random
 #' (see references under \link{isolation.forest} for details). The actual calculation
 #' of \eqn{c(n)}{c(nobs)} however differs from the paper as this package uses more exact procedures
-#' for calculation of harmonic numbers.
+#' for calculation of harmonic numbers when using `scoring_metric="depth` or `scoring_metric="adj_depth"`.
+#' For `scoring_metric="density"` and `scoring_metric="adj_density"`, \eqn{c(n)}{c(nobs)} is always equal to one.
 #' 
 #' The distribution of outlier scores should be centered around 0.5, unless using non-random splits (parameters
 #' `prob_pick_avg_gain`, `prob_pick_pooled_gain`)
@@ -1218,7 +1279,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
     isotree.restore.handle(object)
     
     allowed_type <- c("score", "avg_depth", "dist", "avg_sep", "tree_num", "tree_depths", "impute")
-    check.str.option(type, "type", allowed_type)
+    check.str.option(type, allowed_type)
     check.is.bool(square_mat)
     if (!NROW(newdata)) stop("'newdata' must be a data.frame, matrix, or sparse matrix.")
     if ((object$metadata$ncols_cat > 0 && is.null(object$metadata$categ_cols)) && NROW(intersect(class(newdata), get.types.spmat(TRUE, TRUE, TRUE)))) {

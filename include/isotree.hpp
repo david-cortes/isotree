@@ -97,6 +97,7 @@ typedef enum  CategSplit     {SubSet=0,    SingleCateg=41}             CategSpli
 typedef enum  CoefType       {Uniform=61,  Normal=0}                   CoefType;       /* For extended model */
 typedef enum  UseDepthImp    {Lower=71,    Higher=0,       Same=72}    UseDepthImp;    /* For NA imputation */
 typedef enum  WeighImpRows   {Inverse=0,   Prop=81,        Flat=82}    WeighImpRows;   /* For NA imputation */
+typedef enum  ScoringMetric  {Depth=0, AdjDepth=91, Density=92, AdjDensity=93} ScoringMetric;
 
 /* Notes about new categorical action:
 *  - For single-variable case, if using 'Smallest', can then pass data at prediction time
@@ -311,9 +312,42 @@ typedef struct Imputer {
 *       as proposed in [4] and implemented in the authors' original code in [5]. Not used in single-variable model
 *       when splitting by categorical variables. Note that this can make a very large difference in the results
 *       when using 'prob_pick_pooled_gain'.
+*       This option is not supported when using density-based outlier scoring metrics.
 * - standardize_data
 *       Whether to standardize the features at each node before creating a linear combination of them as suggested
 *       in [4]. This is ignored when using 'ndim=1'.
+* - scoring_metric
+*       Metric to use for determining outlier scores.
+*       If passing 'Depth', will use isolation depth as proposed in reference [1]_. This is typically the safest choice
+*       and plays well with all model types offered by this library.
+*       if passing 'Density', will set scores for each terminal node as the ratio between the points in the sub-sample
+*       that end up in that node and the fraction of the volume in the feature space which defines
+*       the node according to the splits that lead to it, with a maximum density value of
+*       'log2(n)' - when using 'ndim=1', for categorical variables, this is defined in terms
+*       of number of categories that go towards each side of the split divided by number of categories
+*       in the observations that reached that node. The expected density for uniformly-random data and
+*       splits under 'Density' is equal to 1, and the outlier scores will be calculated using the same 
+*       transformation as with 'Depth'. 'Density' might lead to better predictions in some datasets when
+*       doing splits by a pooled gain criterion, and is incompatible with 'penalize_range'.
+*       If passing 'AdjDepth', will use an adjusted isolation depth that takes into account the number of points that
+*       go to each side of a given split vs. the fraction of the range of that feature that each
+*       side of the split occupies, by a metric as follows: 'd = 2/ (1 + 1/(2*p))'
+*       where 'p' is defined as 'p = (n_s / n_t) / (r_s / r_t)
+*       with 'n_t' being the number of points that reach a given node, 'n_s' the
+*       number of points that are sent to a given side of the split/branch at that node,
+*       'r_t' being the range (maximum minus minimum) of the splitting feature or
+*       linear combination among the points that reached the node, and 'r_s' being the
+*       range of the same feature or linear combination among the points that are sent to this
+*       same side of the split/branch. This makes each split add a number between zero and two
+*       to the isolation depth, with this number's probabilistic distribution being centered
+*       around 1 and thus the expected isolation depth remaing the same as in the original
+*       'Depth' metric, but having more variability around the extremes.
+*       'AdjDepth' might lead to better predictions when using 'ndim=1', particularly in the prescence
+*       of categorical variables.
+*       If passing 'AdjDensity', will use the same metric from 'AdjDepth', but applied multiplicatively instead
+*       of additively. The expected value for this adjusted density is also equal to one and
+*       thus the same transformation is used for calculating outlier scores as when using a
+*       depth-based metric.
 * - standardize_dist
 *       If passing 'tmat' (see documentation for it), whether to standardize the resulting average separation
 *       depths in order to produce a distance metric or not, in the same way this is done for the outlier score.
@@ -578,6 +612,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 size_t nrows, size_t sample_size, size_t ntrees,
                 size_t max_depth,   size_t ncols_per_tree,
                 bool   limit_depth, bool penalize_range, bool standardize_data,
+                ScoringMetric scoring_metric,
                 bool   standardize_dist, double tmat[],
                 real_t output_depths[], bool standardize_depth,
                 real_t col_weights[], bool weigh_by_kurt,

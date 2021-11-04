@@ -458,6 +458,9 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                             trees.back().range_low  = workspace.xmin - workspace.xmax + trees.back().num_split;
                             trees.back().range_high = workspace.xmax - workspace.xmin + trees.back().num_split;
                         }
+
+                        if (model_params.scoring_metric != Depth)
+                            workspace.density_calculator.save_range(workspace.xmin, workspace.xmax);
                     }
 
                     else
@@ -465,7 +468,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                         trees.back().score    = workspace.this_gain;
                         trees.back().col_num  = workspace.col_chosen - input_data.ncols_numeric;
                         trees.back().col_type = Categorical;
-                        switch(model_params.cat_split_type)
+                        switch (model_params.cat_split_type)
                         {
                             case SingleCateg:
                             {
@@ -477,8 +480,39 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                             {
                                 trees.back().cat_split.assign(workspace.this_split_categ.begin(),
                                                               workspace.this_split_categ.begin()
-                                                                + input_data.ncat[workspace.col_chosen - input_data.ncols_numeric]);
+                                                                + input_data.ncat[trees.back().col_num]);
                                 break;
+                            }
+                        }
+
+                        if (model_params.scoring_metric != Depth)
+                        {
+                            if (model_params.scoring_metric == Density)
+                            {
+                                switch (model_params.cat_split_type)
+                                {
+                                    case SingleCateg:
+                                    {
+                                        workspace.density_calculator.save_n_present(workspace.buffer_szt.data(),
+                                                                                    input_data.ncat[trees.back().col_num]);
+                                        break;
+                                    }
+
+                                    case SubSet:
+                                    {
+                                        workspace.density_calculator.save_n_present_and_left(
+                                            workspace.this_split_categ.data(),
+                                            input_data.ncat[trees.back().col_num]
+                                        );
+                                        break;
+                                    }
+                                }
+                            }
+
+                            else
+                            {
+                                workspace.density_calculator.save_counts(workspace.buffer_szt.data(),
+                                                                         input_data.ncat[trees.back().col_num]);
                             }
                         }
                     }
@@ -771,9 +805,16 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                     }
 
                     if (model_params.new_cat_action == Random)
+                    {
+                        if (model_params.scoring_metric == Density)
+                        {
+                            workspace.density_calculator.save_n_present_and_left(trees.back().cat_split.data(), input_data.ncat[trees.back().col_num]);
+                        }
+
                         for (int cat = 0; cat < input_data.ncat[trees.back().col_num]; cat++)
                             if (trees.back().cat_split[cat] < 0)
                                 trees.back().cat_split[cat] = workspace.rbin(workspace.rnd_generator) < 0.5;
+                    }
 
                     divide_subset_split(workspace.ix_arr.data(), input_data.categ_data + input_data.nrows * trees.back().col_num,
                                         workspace.st, workspace.end, trees.back().cat_split.data(), model_params.missing_action,
@@ -889,6 +930,153 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             workspace.end = workspace.split_ix - 1;
         }
 
+        /* Depending on the scoring metric, might need to calculate fractions of data and volume */
+        if (model_params.scoring_metric != Depth)
+        {
+            switch (trees.back().col_type)
+            {
+                case Numeric:
+                {
+                    if (!workspace.determine_split)
+                        workspace.density_calculator.restore_range(workspace.xmin, workspace.xmax);
+
+                    if (model_params.scoring_metric == Density)
+                        workspace.density_calculator.push_density(workspace.xmin, workspace.xmax, trees.back().num_split);
+                    else
+                        workspace.density_calculator.push_adj(workspace.xmin, workspace.xmax,
+                                                              trees.back().num_split, trees.back().pct_tree_left,
+                                                              model_params.scoring_metric);
+                    break;
+                }
+
+                case Categorical:
+                {
+                    switch (model_params.cat_split_type)
+                    {
+                        case SingleCateg:
+                        {
+                            if (model_params.scoring_metric == Density)
+                            {
+                                if (workspace.determine_split)
+                                {
+                                    if (workspace.criterion == NoCrit)
+                                        workspace.density_calculator.push_density(workspace.npresent);
+                                    else
+                                        workspace.density_calculator.push_density(workspace.buffer_szt.data(),
+                                                                                  input_data.ncat[trees.back().col_num]);
+                                }
+
+                                else
+                                {
+                                    workspace.density_calculator.push_density(workspace.density_calculator.counts.data(),
+                                                                              input_data.ncat[trees.back().col_num]);
+                                }
+                            }
+
+                            else
+                            {
+                                if (workspace.determine_split)
+                                {
+                                    if (workspace.criterion == NoCrit)
+                                    {
+                                        count_categs(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                     input_data.categ_data + trees.back().col_num * input_data.nrows,
+                                                     input_data.ncat[trees.back().col_num],
+                                                     workspace.density_calculator.counts.data());
+                                        workspace.density_calculator.push_adj(workspace.density_calculator.counts.data(),
+                                                                              input_data.ncat[trees.back().col_num],
+                                                                              trees.back().chosen_cat,
+                                                                              model_params.scoring_metric);
+                                    }
+
+                                    else
+                                    {
+                                        workspace.density_calculator.push_adj(workspace.buffer_szt.data(),
+                                                                              input_data.ncat[trees.back().col_num],
+                                                                              trees.back().chosen_cat,
+                                                                              model_params.scoring_metric);
+                                    }
+                                }
+
+                                else
+                                {
+
+                                    workspace.density_calculator.push_adj(workspace.density_calculator.counts.data(),
+                                                                          input_data.ncat[trees.back().col_num],
+                                                                          trees.back().chosen_cat,
+                                                                          model_params.scoring_metric);
+                                }
+                            }
+                            break;
+                        }
+
+                        case SubSet:
+                        {
+                            if (model_params.scoring_metric == Density)
+                            {
+                                if (!trees.back().cat_split.size())
+                                {
+                                    workspace.density_calculator.push_density();
+                                }
+                                
+                                else
+                                {
+                                    workspace.density_calculator.push_density(workspace.density_calculator.n_left,
+                                                                              workspace.density_calculator.n_present);
+                                }
+
+                            }
+
+                            else
+                            {
+                                if (!trees.back().cat_split.size())
+                                {
+                                    workspace.density_calculator.push_adj(trees.back().pct_tree_left,
+                                                                          model_params.scoring_metric);
+                                }
+
+                                else
+                                {
+                                    if (workspace.determine_split)
+                                    {
+                                        if (workspace.criterion == NoCrit)
+                                        {
+                                            count_categs(workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                         input_data.categ_data + trees.back().col_num * input_data.nrows,
+                                                         input_data.ncat[trees.back().col_num],
+                                                         workspace.density_calculator.counts.data());
+                                            workspace.density_calculator.push_adj(trees.back().cat_split.data(),
+                                                                                  workspace.density_calculator.counts.data(),
+                                                                                  input_data.ncat[trees.back().col_num],
+                                                                                  model_params.scoring_metric);
+                                        }
+
+                                        else
+                                        {
+                                            workspace.density_calculator.push_adj(trees.back().cat_split.data(),
+                                                                                  workspace.buffer_szt.data(),
+                                                                                  input_data.ncat[trees.back().col_num],
+                                                                                  model_params.scoring_metric);
+                                        }
+                                    }
+
+                                    else
+                                    {
+                                        workspace.density_calculator.push_adj(trees.back().cat_split.data(),
+                                                                              workspace.density_calculator.counts.data(),
+                                                                              input_data.ncat[trees.back().col_num],
+                                                                              model_params.scoring_metric);
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
         /* Branch where to assign new categories can be pre-determined in this case */
         if (
             trees.back().col_type       == Categorical &&
@@ -917,6 +1105,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
         /* right branch */
         recursion_state->restore_state(workspace);
+        if (model_params.scoring_metric != Depth) workspace.density_calculator.pop();
         if (model_params.missing_action != Fail)
         {
             switch(model_params.missing_action)
@@ -985,17 +1174,47 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
     /* if it reached the limit, calculate terminal statistics */
     terminal_statistics:
     {
-        if (!workspace.changed_weights)
-        {
-            trees.back().score = (double)(curr_depth + expected_avg_depth(workspace.end - workspace.st + 1));
-        }
-
-        else
+        if (workspace.changed_weights)
         {
             if (sum_weight <= -HUGE_VAL)
                 sum_weight = calculate_sum_weights(workspace.ix_arr, workspace.st, workspace.end, curr_depth,
                                                    workspace.weights_arr, workspace.weights_map);
-            trees.back().score = (double)(curr_depth + expected_avg_depth(sum_weight));
+        }
+
+        switch (model_params.scoring_metric)
+        {
+            case Depth:
+            {
+                if (!workspace.changed_weights)
+                    trees.back().score = curr_depth + expected_avg_depth(workspace.end - workspace.st + 1);
+                else
+                    trees.back().score = curr_depth + expected_avg_depth(sum_weight);
+                break;
+            }
+
+            case AdjDepth:
+            {
+                if (!workspace.changed_weights)
+                    trees.back().score = workspace.density_calculator.calc_adj_depth() + expected_avg_depth(workspace.end - workspace.st + 1);
+                else
+                    trees.back().score = workspace.density_calculator.calc_adj_depth() + expected_avg_depth(sum_weight);
+                break;
+            }
+
+            case Density:
+            {
+                if (!workspace.changed_weights)
+                    trees.back().score = workspace.density_calculator.calc_density(workspace.end - workspace.st + 1, model_params.sample_size);
+                else
+                    trees.back().score = workspace.density_calculator.calc_density(sum_weight, model_params.sample_size);
+                break;
+            }
+
+            case AdjDensity:
+            {
+                trees.back().score = workspace.density_calculator.calc_adj_density();
+                break;
+            }
         }
 
         trees.back().cat_split.clear();

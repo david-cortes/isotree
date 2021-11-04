@@ -77,12 +77,14 @@ Predict method for Isolation Forest
 \details{
 The standardized outlier score is calculated according to the original paper's formula:
 \eqn{  2^{ - \frac{\bar{d}}{c(n)}  }  }{2^(-avg(depth)/c(nobs))}, where
-\eqn{\bar{d}}{avg(depth)} is the average depth under each tree at which an observation
+\eqn{\bar{d}}{avg(depth)} is the average depth (or other calculated metric such as density, according to
+what was passed for `scoring_metric`) under each tree at which an observation
 becomes isolated (a remainder is extrapolated if the actual terminal node is not isolated),
 and \eqn{c(n)}{c(nobs)} is the expected isolation depth if observations were uniformly random
 (see references under \link{isolation.forest} for details). The actual calculation
 of \eqn{c(n)}{c(nobs)} however differs from the paper as this package uses more exact procedures
-for calculation of harmonic numbers.
+for calculation of harmonic numbers when using `scoring_metric="depth` or `scoring_metric="adj_depth"`.
+For `scoring_metric="density"` and `scoring_metric="adj_density"`, \eqn{c(n)}{c(nobs)} is always equal to one.
 
 The distribution of outlier scores should be centered around 0.5, unless using non-random splits (parameters
 `prob_pick_avg_gain`, `prob_pick_pooled_gain`)

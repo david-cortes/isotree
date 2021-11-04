@@ -60,8 +60,8 @@
 /* This is only used for the serialiation format and might not reflect the
    actual version of the library, do not use for anything else. */
 #define ISOTREE_VERSION_MAJOR 0
-#define ISOTREE_VERSION_MINOR 3
-#define ISOTREE_VERSION_PATCH 6
+#define ISOTREE_VERSION_MINOR 4
+#define ISOTREE_VERSION_PATCH 3
 
 /* For MinGW, needs to be defined before including any headers */
 #if (defined(_WIN32) || defined(_WIN64)) && (SIZE_MAX >= UINT64_MAX)
@@ -270,6 +270,7 @@ typedef enum  CategSplit     {SubSet=0,    SingleCateg=41}             CategSpli
 typedef enum  CoefType       {Uniform=61,  Normal=0}                   CoefType;       /* For extended model */
 typedef enum  UseDepthImp    {Lower=71,    Higher=0,       Same=72}    UseDepthImp;    /* For NA imputation */
 typedef enum  WeighImpRows   {Inverse=0,   Prop=81,        Flat=82}    WeighImpRows;   /* For NA imputation */
+typedef enum  ScoringMetric  {Depth=0, AdjDepth=91, Density=92, AdjDensity=93} ScoringMetric;
 
 /* These are only used internally */
 typedef enum  GainCriterion  {Averaged=51, Pooled=52,      NoCrit=0}   Criterion;      /* For guided splits */
@@ -335,6 +336,7 @@ typedef struct IsoForest {
     NewCategAction    new_cat_action;
     CategSplit        cat_split_type;
     MissingAction     missing_action;
+    ScoringMetric     scoring_metric;
     double            exp_avg_depth;
     double            exp_avg_sep;
     size_t            orig_sample_size;
@@ -348,6 +350,7 @@ typedef struct ExtIsoForest {
     NewCategAction    new_cat_action;
     CategSplit        cat_split_type;
     MissingAction     missing_action;
+    ScoringMetric     scoring_metric;
     double            exp_avg_depth;
     double            exp_avg_sep;
     size_t            orig_sample_size;
@@ -445,6 +448,7 @@ typedef struct {
     CategSplit      cat_split_type;
     NewCategAction  new_cat_action;
     MissingAction   missing_action;
+    ScoringMetric   scoring_metric;
     bool            all_perm;
 
     size_t ndim;        /* only for extended model */
@@ -485,6 +489,36 @@ struct ImputedData {
         initialize_impute_calc(*this, input_data, row);
     }
 
+};
+
+class DensityCalculator
+{
+public:
+    std::vector<ldouble_safe> multipliers;
+    double xmin;
+    double xmax;
+    std::vector<size_t> counts;
+    int n_present;
+    int n_left;
+    void initialize(size_t max_depth, int max_categ, bool reserve_counts, ScoringMetric scoring_metric);
+    void push_density(double xmin, double xmax, double split_point);
+    void push_density(size_t counts[], int ncat);
+    void push_density(int n_left, int n_present);
+    void push_density(int n_present);
+    void push_density();
+    void push_adj(double xmin, double xmax, double split_point, double pct_tree_left, ScoringMetric scoring_metric);
+    void push_adj(signed char *restrict categ_present, size_t *restrict counts, int ncat, ScoringMetric scoring_metric);
+    void push_adj(size_t *restrict counts, int ncat, int chosen_cat, ScoringMetric scoring_metric);
+    void push_adj(double pct_tree_left, ScoringMetric scoring_metric);
+    void pop();
+    double calc_density(long double remainder, size_t sample_size);
+    ldouble_safe calc_adj_depth();
+    double calc_adj_density();
+    void save_range(double xmin, double xmax);
+    void restore_range(double &restrict xmin, double &restrict xmax);
+    void save_counts(size_t *restrict cat_counts, int ncat);
+    void save_n_present_and_left(signed char *restrict split_left, int ncat);
+    void save_n_present(size_t *restrict cat_counts, int ncat);
 };
 
 /*  This class provides efficient methods for sampling columns at random,
@@ -640,6 +674,8 @@ struct WorkerMemory {
     std::vector<ImputedData> impute_vec;
     hashed_map<size_t, ImputedData> impute_map;
 
+    /* for non-depth scoring metric */
+    DensityCalculator density_calculator;
 };
 
 typedef struct WorkerForSimilarity {
@@ -699,6 +735,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 size_t nrows, size_t sample_size, size_t ntrees,
                 size_t max_depth, size_t ncols_per_tree,
                 bool   limit_depth, bool penalize_range, bool standardize_data,
+                ScoringMetric scoring_metric,
                 bool   standardize_dist, double tmat[],
                 double output_depths[], bool standardize_depth,
                 real_t col_weights[], bool weigh_by_kurt,
@@ -1043,12 +1080,20 @@ void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end
 template <class real_t=double>
 void get_range(size_t ix_arr[], real_t *restrict x, size_t st, size_t end,
                MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable);
+template <class real_t>
+void get_range(real_t *restrict x, size_t n,
+               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable);
 template <class real_t, class sparse_ix>
 void get_range(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                MissingAction missing_action, double &restrict xmin_, double &restrict xmax_, bool &unsplittable);
+template <class real_t, class sparse_ix>
+void get_range(size_t col_num, size_t nrows,
+               real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable);
 void get_categs(size_t *restrict ix_arr, int x[], size_t st, size_t end, int ncat,
                 MissingAction missing_action, signed char categs[], size_t &restrict npresent, bool &unsplittable);
+void count_categs(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat, size_t *restrict counts);
 ldouble_safe calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
                                    std::vector<double> &weights_arr, hashed_map<size_t, double> &weights_map);
 extern bool interrupt_switch;
