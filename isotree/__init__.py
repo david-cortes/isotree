@@ -596,7 +596,7 @@ class IsolationForest:
     .. [11] Cortes, David. "Revisiting randomized choices in isolation forests."
             arXiv preprint arXiv:2110.13402 (2021).
     .. [12] Guha, Sudipto, et al. "Robust random cut forest based anomaly detection on streams."
-*           International conference on machine learning. PMLR, 2016.
+            International conference on machine learning. PMLR, 2016.
     """
     def __init__(self, sample_size = "auto", ntrees = 500, ndim = 3, ntry = 1,
                  categ_cols = None, max_depth = "auto", ncols_per_tree = None,
