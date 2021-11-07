@@ -492,12 +492,11 @@ class IsolationForest:
         ``"depth"``
             Will use isolation depth as proposed in reference [1]_. This is typically the safest choice
             and plays well with all model types offered by this library.
-        
         ``"density"``
             Will set scores for each terminal node as the ratio between the points in the sub-sample
             that end up in that node and the fraction of the volume in the feature space which defines
             the node according to the splits that lead to it, with a maximum density value of
-            :math:`log_2(n)`_. If using ``ndim=1``, for categorical variables, this is defined in terms
+            :math:`log_2(n)`. If using ``ndim=1``, for categorical variables, this is defined in terms
             of number of categories that go towards each side of the split divided by number of categories
             in the observations that reached that node.
 
@@ -508,18 +507,17 @@ class IsolationForest:
             gain criterion.
 
             This option is incompatible with ``penalize_range``.
-
         ``"adj_depth"``
             Will use an adjusted isolation depth that takes into account the number of points that
             go to each side of a given split vs. the fraction of the range of that feature that each
             side of the split occupies, by a metric as follows:
-                :math:`d = \frac{2}{(1 + \frac{1}{2 p}}`_
-            Where :math:`p`_ is defined as:
-                :math:`p = \frac{n_s}{n_t} / \frac{r_s}{r_t}`_
-            With :math:`n_t`_ being the number of points that reach a given node, :math:`n_s`_ the
+                :math:`d = \\frac{2}{ 1 + \\frac{1}{2 p} }`
+            Where :math:`p` is defined as:
+                :math:`p = \\frac{n_s}{n_t} / \\frac{r_s}{r_t}`
+            With :math:`n_t` being the number of points that reach a given node, :math:`n_s` the
             number of points that are sent to a given side of the split/branch at that node,
-            :math:`r_t`_ being the range (maximum minus minimum) of the splitting feature or
-            linear combination among the points that reached the node, and :math:`r_s`_ being the
+            :math:`r_t` being the range (maximum minus minimum) of the splitting feature or
+            linear combination among the points that reached the node, and :math:`r_s` being the
             range of the same feature or linear combination among the points that are sent to this
             same side of the split/branch. This makes each split add a number between zero and two
             to the isolation depth, with this number's probabilistic distribution being centered
@@ -528,7 +526,6 @@ class IsolationForest:
 
             This might lead to better predictions when using ``ndim=1``, particularly in the prescence
             of categorical variables.
-
         ``"adj_density"``
             Will use the same metric from ``"adj_depth"``, but applied multiplicatively instead
             of additively. The expected value for this adjusted density is also equal to one and
