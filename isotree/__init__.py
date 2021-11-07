@@ -289,7 +289,7 @@ class IsolationForest:
 
         For categorical variables with ``ndim=1``, will take the expected standard deviation that would be
         gotten if the column were converted to numerical by assigning to each category a random
-        number ~ Unif(0, 1) and calculate gain with those assumed standard deviations.
+        number :math:`\\sim \\text{Unif}(0, 1)` and calculate gain with those assumed standard deviations.
 
         Compared to a pooled gain, this tends to result in more cases in which a single observation or very
         few of them are put into one branch. Typically, datasets with outliers defined by extreme values in
@@ -342,7 +342,7 @@ class IsolationForest:
         probability proportional to the variance of each column within a node.
 
         For categorical data, it will calculate the expected variance if the column were converted to
-        numerical by assigning to each category a random number ~ Unif(0, 1), which depending on the number of
+        numerical by assigning to each category a random number :math:`\\sim \\text{Unif}(0, 1)`, which depending on the number of
         categories and their distribution, produces numbers typically a bit smaller than standardized numerical
         variables.
 
@@ -368,7 +368,7 @@ class IsolationForest:
         probability proportional to the kurtosis of each column within a node.
 
         For categorical data, it will calculate the expected kurtosis if the column were converted to
-        numerical by assigning to each category a random number ~ Unif(0, 1).
+        numerical by assigning to each category a random number :math:`\\sim \\text{Unif}(0, 1)`.
 
         Note that when using sparse matrices, the calculation of kurtosis will rely on a procedure that
         uses sums of squares and higher-power numbers, which has less numerical precision than the
@@ -512,8 +512,10 @@ class IsolationForest:
             go to each side of a given split vs. the fraction of the range of that feature that each
             side of the split occupies, by a metric as follows:
                 :math:`d = \\frac{2}{ 1 + \\frac{1}{2 p} }`
+            
             Where :math:`p` is defined as:
                 :math:`p = \\frac{n_s}{n_t} / \\frac{r_s}{r_t}`
+            
             With :math:`n_t` being the number of points that reach a given node, :math:`n_s` the
             number of points that are sent to a given side of the split/branch at that node,
             :math:`r_t` being the range (maximum minus minimum) of the splitting feature or
@@ -538,7 +540,7 @@ class IsolationForest:
         Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
         for each tree as briefly proposed in [1]_. Note that this is only done at the beginning of each tree
         sample. For categorical columns, will calculate expected kurtosis if the column were converted to
-        numerical by assigning to each category a random number ~ Unif(0, 1).
+        numerical by assigning to each category a random number :math:`\\sim \\text{Unif}(0, 1)`.
 
         Note that when using sparse matrices, the calculation of kurtosis will rely on a procedure that
         uses sums of squares and higher-power numbers, which has less numerical precision than the
@@ -557,8 +559,8 @@ class IsolationForest:
         having infinite values will get a weight of zero. If passing a different value for missing
         action, infinite values will be ignored in the kurtosis calculation.
     coefs : str, one of "normal" or "uniform"
-        For the extended model, whether to sample random coefficients according to a normal distribution ~ N(0, 1)
-        (as proposed in [4]_) or according to a uniform distribution ~ Unif(-1, +1) as proposed in [3]_. Ignored for the
+        For the extended model, whether to sample random coefficients according to a normal distribution :math:`\\sim \\text{Normal}(0, 1)`
+        (as proposed in [4]_) or according to a uniform distribution :math:`\\sim \\text{Unif}(-1, +1)` as proposed in [3]_. Ignored for the
         single-variable model. Note that, for categorical variables, the coefficients will be sampled ~ N (0,1)
         regardless - in order for both types of variables to have transformations in similar ranges (which will tend
         to boost the importance of categorical variables), pass ``"uniform"`` here.
