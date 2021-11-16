@@ -2152,7 +2152,7 @@ void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end
     /* if NAs are not to be bothered with, just need to do a single pass */
     if (missing_action == Fail)
     {
-        /* move to the left if it's l.e. than the split point */
+        /* move to the left if it's equal to the chosen category */
         for (size_t row = st; row <= end; row++)
         {
             if (x[ix_arr[row]] == split_categ)
@@ -2166,7 +2166,7 @@ void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end
         split_ix = st;
     }
 
-    /* otherwise, first put to the left all l.e. and not NA, then all NAs to the end of the left */
+    /* otherwise, first put to the left all equal to chosen and not NA, then all NAs to the end of the left */
     else
     {
         for (size_t row = st; row <= end; row++)

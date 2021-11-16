@@ -91,6 +91,10 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             goto terminal_statistics;
     }
 
+    /* if there's no columns left to split, can end here */
+    if (!workspace.col_sampler.get_remaining_cols())
+        goto terminal_statistics;
+
     /* for sparse matrices, need to sort the indices */
     if (input_data.Xc_indptr != NULL && impute_nodes == NULL)
         std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
@@ -1089,6 +1093,13 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             for (int cat = 0; cat < input_data.ncat[trees.back().col_num]; cat++)
                 if (trees.back().cat_split[cat] < 0)
                     trees.back().cat_split[cat] = new_to_left;
+        }
+
+        /* If doing single-category splits, the branch that got only one category will not
+           be splittable anymore, so it can be dropped for the remainder of that branch */
+        if (trees.back().col_type == Categorical && model_params.cat_split_type == SingleCateg)
+        {
+            workspace.col_sampler.drop_col(trees.back().col_num + input_data.ncols_numeric);
         }
 
         /* left branch */
