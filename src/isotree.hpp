@@ -801,19 +801,19 @@ void simplify_hplane(IsoHPlane &hplane, WorkerMemory &workspace, InputData &inpu
 
 /* predict.cpp */
 template <class real_t, class sparse_ix>
-void predict_iforest(real_t numeric_data[], int categ_data[],
-                     bool is_col_major, size_t ncols_numeric, size_t ncols_categ,
-                     real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                     real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
+void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
+                     bool is_col_major, size_t ld_numeric, size_t ld_categ,
+                     real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+                     real_t *restrict Xr, sparse_ix *restrict Xr_ind, sparse_ix *restrict Xr_indptr,
                      size_t nrows, int nthreads, bool standardize,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                     double output_depths[],   sparse_ix tree_num[],
-                     double per_tree_depths[]);
+                     double *restrict output_depths,   sparse_ix *restrict tree_num,
+                     double *restrict per_tree_depths);
 template <class PredictionData, class sparse_ix>
 void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                                IsoForest             &model_outputs,
                                PredictionData        &prediction_data,
-                               double                &output_depth,
+                               double &restrict      output_depth,
                                sparse_ix *restrict   tree_num,
                                double *restrict      tree_depth,
                                size_t                row);
@@ -832,7 +832,7 @@ template <class PredictionData, class sparse_ix>
 void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
                           ExtIsoForest            &model_outputs,
                           PredictionData          &prediction_data,
-                          double                  &output_depth,
+                          double &restrict        output_depth,
                           sparse_ix *restrict     tree_num,
                           double *restrict        tree_depth,
                           size_t                  row);
@@ -840,7 +840,7 @@ template <class PredictionData, class sparse_ix, class ImputedData>
 void traverse_hplane(std::vector<IsoHPlane>   &hplane,
                      ExtIsoForest             &model_outputs,
                      PredictionData           &prediction_data,
-                     double                   &output_depth,
+                     double &restrict         output_depth,
                      std::vector<ImputeNode> *impute_nodes,
                      ImputedData             *imputed_data,
                      sparse_ix *restrict      tree_num,
@@ -849,15 +849,15 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
 template <class real_t, class sparse_ix>
 void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int nthreads,
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                         double output_depths[],   sparse_ix tree_num[],
-                         double per_tree_depths[]);
+                         double *restrict output_depths,   sparse_ix *restrict tree_num,
+                         double *restrict per_tree_depths);
 template <class PredictionData, class sparse_ix>
 void traverse_itree_csc(WorkerForPredictCSC   &workspace,
                         std::vector<IsoTree>  &trees,
                         IsoForest             &model_outputs,
                         PredictionData        &prediction_data,
-                        sparse_ix             *tree_num,
-                        double                *per_tree_depths,
+                        sparse_ix *restrict   tree_num,
+                        double *restrict      per_tree_depths,
                         size_t                curr_tree,
                         bool                  has_range_penalty);
 template <class PredictionData, class sparse_ix>
@@ -865,14 +865,14 @@ void traverse_hplane_csc(WorkerForPredictCSC      &workspace,
                          std::vector<IsoHPlane>   &hplanes,
                          ExtIsoForest             &model_outputs,
                          PredictionData           &prediction_data,
-                         sparse_ix                *tree_num,
-                         double                   *per_tree_depths,
+                         sparse_ix *restrict      tree_num,
+                         double *restrict         per_tree_depths,
                          size_t                   curr_tree,
                          bool                     has_range_penalty);
 template <class PredictionData>
 void add_csc_range_penalty(WorkerForPredictCSC  &workspace,
                            PredictionData       &prediction_data,
-                           double               *weights_arr,
+                           double *restrict     weights_arr,
                            size_t               col_num,
                            double               range_low,
                            double               range_high);
