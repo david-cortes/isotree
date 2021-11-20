@@ -39,21 +39,21 @@ Example AUC as outlier detector in typical datasets (notebook to produce results
 
 * Satellite dataset:
 
-| Library      | AUC defaults | AUC grid search |
-| :---:        | :---:        | :---:           |
-| isotree      | 0.70         | 0.84            |
-| eif          | -            | 0.714           |
-| scikit-learn | 0.687        | 0.74            |
-| h2o          | 0.662        | 0.748           |
+| Library      | AUROC defaults | AUROC grid search |
+| :---:        | :---:          | :---:             |
+| isotree      | 0.70           | 0.84              |
+| eif          | -              | 0.714             |
+| scikit-learn | 0.687          | 0.74              |
+| h2o          | 0.662          | 0.748             |
 
 * Annthyroid dataset:
 
-| Library      | AUC defaults | AUC grid search |
-| :---:        | :---:        | :---:           |
-| isotree      | 0.80         | 0.982           |
-| eif          | -            | 0.808           |
-| scikit-learn | 0.836        | 0.836           |
-| h2o          | 0.80         | 0.80            |
+| Library      | AUROC defaults | AUROC grid search |
+| :---:        | :---:          | :---:             |
+| isotree      | 0.80           | 0.982             |
+| eif          | -              | 0.808             |
+| scikit-learn | 0.836          | 0.836             |
+| h2o          | 0.80           | 0.80              |
 
 *(Disclaimer: these are rather small datasets and thus these AUC estimates have high variance)*
 
