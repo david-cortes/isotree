@@ -69,7 +69,7 @@ int main()
 
        IMPORTANT: the array where to save outlier scores
        must be passed already initialized to zeros. */
-    double *outlier_scores = (double*)calloc(nrow, sizeof(double));
+    double *outlier_scores = (double*)malloc(nrow * sizeof(double));
     if (!outlier_scores) throw_oom();
     int predict_exit_code = isotree_predict(
         model,

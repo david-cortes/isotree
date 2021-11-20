@@ -881,8 +881,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - output_depths[nrows] (out)
 *       Pointer to array where the output average depths or outlier scores will be written into
 *       (the return type is controlled according to parameter 'standardize').
-*       Must already be initialized to zeros, and should always be passed when calling
-*       this function (it is not optional).
+*       Should always be passed when calling this function (it is not optional).
 * - tree_num[nrows * ntrees] (out)
 *       Pointer to array where the output terminal node numbers will be written into.
 *       Note that the mapping between tree node and terminal tree node is not stored in

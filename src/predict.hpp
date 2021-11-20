@@ -158,8 +158,7 @@
 * - output_depths[nrows] (out)
 *       Pointer to array where the output average depths or outlier scores will be written into
 *       (the return type is controlled according to parameter 'standardize').
-*       Must already be initialized to zeros, and should always be passed when calling
-*       this function (it is not optional).
+*       Should always be passed when calling this function (it is not optional).
 * - tree_num[nrows * ntrees] (out)
 *       Pointer to array where the output terminal node numbers will be written into.
 *       Note that the mapping between tree node and terminal tree node is not stored in
@@ -221,17 +220,19 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
                     shared(nrows, model_outputs, prediction_data, output_depths, tree_num, per_tree_depths)
             for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             {
+                double score = 0;
                 for (size_t tree = 0; tree < model_outputs->trees.size(); tree++)
                 {
                     traverse_itree_no_recurse(model_outputs->trees[tree],
                                               *model_outputs,
                                               prediction_data,
-                                              output_depths[row],
+                                              score,
                                               (tree_num == NULL)? NULL : (tree_num + nrows * tree),
                                               (per_tree_depths == NULL)?
                                                   NULL : (per_tree_depths + tree + row*model_outputs->trees.size()),
                                               (size_t) row);
                 }
+                output_depths[row] = score;
             }
         }
 
@@ -241,20 +242,22 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
                     shared(nrows, model_outputs, prediction_data, output_depths, tree_num, per_tree_depths)
             for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             {
+                double score = 0;
                 for (size_t tree = 0; tree < model_outputs->trees.size(); tree++)
                 {
-                    output_depths[row] += traverse_itree(model_outputs->trees[tree],
-                                                         *model_outputs,
-                                                         prediction_data,
-                                                         (std::vector<ImputeNode>*)NULL,
-                                                         (ImputedData<sparse_ix>*)NULL,
-                                                         (double)0,
-                                                         (size_t) row,
-                                                         (tree_num == NULL)? NULL : (tree_num + nrows * tree),
-                                                         (per_tree_depths == NULL)?
-                                                            NULL : (per_tree_depths + tree + row*model_outputs->trees.size()),
-                                                         (size_t) 0);
+                    score += traverse_itree(model_outputs->trees[tree],
+                                            *model_outputs,
+                                            prediction_data,
+                                            (std::vector<ImputeNode>*)NULL,
+                                            (ImputedData<sparse_ix>*)NULL,
+                                            (double)0,
+                                            (size_t) row,
+                                            (tree_num == NULL)? NULL : (tree_num + nrows * tree),
+                                            (per_tree_depths == NULL)?
+                                                NULL : (per_tree_depths + tree + row*model_outputs->trees.size()),
+                                            (size_t) 0);
                 }
+                output_depths[row] = score;
             }
         }
     }
@@ -274,17 +277,19 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
                     shared(nrows, model_outputs_ext, prediction_data, output_depths, tree_num, per_tree_depths)
             for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             {
+                double score = 0;
                 for (size_t tree = 0; tree < model_outputs_ext->hplanes.size(); tree++)
                 {
                     traverse_hplane_fast(model_outputs_ext->hplanes[tree],
                                          *model_outputs_ext,
                                          prediction_data,
-                                         output_depths[row],
+                                         score,
                                          (tree_num == NULL)? NULL : (tree_num + nrows * tree),
                                          (per_tree_depths == NULL)?
                                             NULL : (per_tree_depths + tree + row*model_outputs_ext->hplanes.size()),
                                          (size_t) row);
                 }
+                output_depths[row] = score;
             }
         }
 
@@ -294,12 +299,13 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
                     shared(nrows, model_outputs_ext, prediction_data, output_depths, tree_num, per_tree_depths)
             for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             {
+                double score = 0;
                 for (size_t tree = 0; tree < model_outputs_ext->hplanes.size(); tree++)
                 {
                     traverse_hplane(model_outputs_ext->hplanes[tree],
                                     *model_outputs_ext,
                                     prediction_data,
-                                    output_depths[row],
+                                    score,
                                     (std::vector<ImputeNode>*)NULL,
                                     (ImputedData<sparse_ix>*)NULL,
                                     (tree_num == NULL)? NULL : (tree_num + nrows * tree),
@@ -307,6 +313,7 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
                                         NULL : (per_tree_depths + tree + row*model_outputs_ext->hplanes.size()),
                                     (size_t) row);
                 }
+                output_depths[row] = score;
             }
         }
     }

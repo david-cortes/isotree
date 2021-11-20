@@ -413,9 +413,6 @@ void delete_isotree_model(isotree_model_t isotree_model);
     'per_tree_depths' are not calculable when using 'ndim==1' plus either
     'missing_action==Divide' or 'new_cat_action==Weighted'.
 
-    IMPORTANT: 'output_scores' should be passed already initialized to
-    zeros.
-
     Will return 0 if it executes successfully, or 1 if an error happens
     (along with printing a message to 'stderr' if an error is encountered).
     Note that the only possible throwable error that can happen inside
