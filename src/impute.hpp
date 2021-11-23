@@ -31,6 +31,9 @@
 *     [12] Guha, Sudipto, et al.
 *          "Robust random cut forest based anomaly detection on streams."
 *          International conference on machine learning. PMLR, 2016.
+*     [13] Cortes, David.
+*          "Isolation forests: looking beyond tree depth."
+*          arXiv preprint arXiv:2111.11639 (2021).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes

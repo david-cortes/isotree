@@ -50,7 +50,7 @@
 #' 
 #' If the data has categorical variables and these are more important important for determining
 #' outlierness compared to numerical columns, one might want to experiment with `ndim=1`,
-#' `categ_split_type="single_categ"`, and `scoring_metric="adj_depth"`.
+#' `categ_split_type="single_categ"`, and `scoring_metric="density"`.
 #' 
 #' @section Matching models from references:
 #' Shorthands for parameter combinations that match some of the references:\itemize{
@@ -576,6 +576,7 @@
 #' \item \url{https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom}
 #' \item Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
 #' \item Guha, Sudipto, et al. "Robust random cut forest based anomaly detection on streams." International conference on machine learning. PMLR, 2016.
+#' \item Cortes, David. "Isolation forests: looking beyond tree depth." arXiv preprint arXiv:2111.11639 (2021).
 #' }
 #' @examples
 #' ### Example 1: detect an obvious outlier

@@ -146,7 +146,7 @@ class IsolationForest:
     
     If the data has categorical variables and these are more important important for determining
     outlierness compared to numerical columns, one might want to experiment with ``ndim=1``,
-    ``categ_split_type="single_categ"``, and ``scoring_metric="adj_depth"``.
+    ``categ_split_type="single_categ"``, and ``scoring_metric="density"``.
 
     Note
     ----
@@ -650,6 +650,8 @@ class IsolationForest:
             arXiv preprint arXiv:2110.13402 (2021).
     .. [12] Guha, Sudipto, et al. "Robust random cut forest based anomaly detection on streams."
             International conference on machine learning. PMLR, 2016.
+    .. [13] Cortes, David. "Isolation forests: looking beyond tree depth."
+            arXiv preprint arXiv:2111.11639 (2021).
     """
     def __init__(self, sample_size = "auto", ntrees = 500, ndim = 3, ntry = 1,
                  categ_cols = None, max_depth = "auto", ncols_per_tree = None,

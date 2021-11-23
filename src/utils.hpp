@@ -31,6 +31,9 @@
 *     [12] Guha, Sudipto, et al.
 *          "Robust random cut forest based anomaly detection on streams."
 *          International conference on machine learning. PMLR, 2016.
+*     [13] Cortes, David.
+*          "Isolation forests: looking beyond tree depth."
+*          arXiv preprint arXiv:2111.11639 (2021).
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -1326,23 +1329,26 @@ void DensityCalculator::initialize(size_t max_depth, int max_categ, bool reserve
 
 void DensityCalculator::push_density(double xmin, double xmax, double split_point)
 {
-    if (std::isinf(xmax) || std::isinf(xmin))
+    if (std::isinf(xmax) || std::isinf(xmin) || std::isnan(xmin) || std::isnan(xmax) || std::isnan(split_point))
     {
         this->multipliers.push_back(0);
         return;
     }
 
-    double range = xmax - xmin;
-    if (range <= 0) range = std::numeric_limits<double>::min();
-    double mult_left = std::log((split_point - xmin) / range);
-    double mult_right = std::log((xmax - split_point) / range);
-    if (std::isinf(mult_left))
+    double range = std::fmax(xmax - xmin, std::numeric_limits<double>::min());
+    double dleft = std::fmax(split_point - xmin, std::numeric_limits<double>::min());
+    double dright = std::fmax(xmax - split_point, std::numeric_limits<double>::min());
+    double mult_left = std::log(dleft / range);
+    double mult_right = std::log(dright / range);
+    while (std::isinf(mult_left))
     {
-        double diff = split_point - xmin;
-        do {
-            diff = std::nextafter(diff, HUGE_VAL);
-            mult_left = std::log(diff / range);
-        } while (std::isinf(mult_left));
+        dleft = std::nextafter(dleft, (mult_left < 0)? HUGE_VAL : (-HUGE_VAL));
+        mult_left = std::log(dleft / range);
+    }
+    while (std::isinf(mult_right))
+    {
+        dright = std::nextafter(dright, (mult_right < 0)? HUGE_VAL : (-HUGE_VAL));
+        mult_right = std::log(dright / range);
     }
 
     mult_left = std::isnan(mult_left)? 0 : mult_left;
@@ -1382,25 +1388,16 @@ void DensityCalculator::push_density()
 
 void DensityCalculator::push_adj(double xmin, double xmax, double split_point, double pct_tree_left, ScoringMetric scoring_metric)
 {
-    double range = xmax - xmin;
-    double chunk_left = (split_point - xmin) / range;
-    double chunk_right = (xmax - split_point) / range;
-    if (std::isinf(xmax) || std::isinf(xmin))
+    double range = std::fmax(xmax - xmin, std::numeric_limits<double>::min());
+    double dleft = std::fmax(split_point - xmin, std::numeric_limits<double>::min());
+    double dright = std::fmax(xmax - split_point, std::numeric_limits<double>::min());
+    double chunk_left = dleft / range;
+    double chunk_right = dright / range;
+    if (std::isinf(xmax) || std::isinf(xmin) || std::isnan(xmin) || std::isnan(xmax) || std::isnan(split_point))
     {
         chunk_left = pct_tree_left;
         chunk_right = 1. - pct_tree_left;
         goto add_chunks;
-    }
-
-    if (range <= 0) range = std::numeric_limits<double>::min();
-
-    if (!std::isnan(chunk_left) && chunk_left <= 0)
-    {
-        double diff = split_point - xmin;
-        do {
-            diff = std::nextafter(diff, HUGE_VAL);
-            chunk_left = diff / range;
-        } while (chunk_left == 0);
     }
 
     if (std::isnan(chunk_left) || std::isnan(chunk_right))

@@ -1,9 +1,10 @@
 # IsoTree
 
-Fast and multi-threaded implementation of Isolation Forest (a.k.a. iForest) and variations of it such as Extended Isolation Forest (EIF), Split-Criterion iForest (SCiForest), Fair-Cut Forest, Robust Random-Cut Forest (RRCF), and other customizable variants, aimed at outlier/anomaly detection plus additions for imputation of missing values, distance/similarity calculation between observations, and handling of categorical data. Written in C++ with interfaces for Python, R, and C. An additional wrapper for Ruby can be found [here](https://github.com/ankane/isotree).
+Fast and multi-threaded implementation of Isolation Forest (a.k.a. iForest) and variations of it such as Extended Isolation Forest (EIF), Split-Criterion iForest (SCiForest), Fair-Cut Forest (FCF), Robust Random-Cut Forest (RRCF), and other customizable variants, aimed at outlier/anomaly detection plus additions for imputation of missing values, distance/similarity calculation between observations, and handling of categorical data. Written in C++ with interfaces for Python, R, and C. An additional wrapper for Ruby can be found [here](https://github.com/ankane/isotree).
 
 The new concepts in this software are described in:
 * [Revisiting randomized choices in isolation forests](https://arxiv.org/abs/2110.13402)
+* [Isolation forests: looking beyond tree depth](https://arxiv.org/abs/2111.11639)
 * [Distance approximation using Isolation Forests](https://arxiv.org/abs/1910.12362)
 * [Imputing missing values with unsupervised random trees](https://arxiv.org/abs/1911.06646)
 
@@ -61,6 +62,10 @@ Example AUC as outlier detector in typical datasets (notebook to produce results
 
 While the original idea behind isolation forests consisted in deciding splits uniformly at random, it's possible to get better performance at detecting outliers in some datasets (particularly those with multimodal distributions) by determining splits according to an information gain criterion instead. The idea is described in ["Revisiting randomized choices in isolation forests"](https://arxiv.org/abs/2110.13402) along with some comparisons of different split guiding criteria.
 
+# Different outlier scoring criteria
+
+Although the intuition behind the algorithm was to look at the tree depth required for isolation, this package can also produce outlier scores based on density criteria, which provide improved results in some datasets, particularly when splitting on categorical features. The idea is described in ["Isolation forests: looking beyond tree depth"](https://arxiv.org/abs/2111.11639).
+
 # Distance / similarity calculations
 
 General idea was extended to produce distance (alternatively, similarity) between observations according to how many random splits it takes to separate them - idea is described in ["Distance approximation using Isolation Forests"](https://arxiv.org/abs/1910.12362).
@@ -80,6 +85,7 @@ There's already many available implementations of isolation forests for both Pyt
 * Can produce approximated pairwise distances between observations according to how many steps it takes on average to separate them down the tree.
 * Can produce missing value imputations according to observations that fall on each terminal node.
 * Can work with sparse matrices.
+* Can use either depth-based metrics or density-based metrics for calculation of outlier scores.
 * Supports sample/observation weights, either as sampling importance or as distribution density measurement.
 * Supports user-provided column sample weights.
 * Can sample columns randomly with weights given by kurtosis.
@@ -249,3 +255,4 @@ The package does not currenly have any functionality for visualizing trees. Pull
 * Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
 * Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
 * Guha, Sudipto, et al. "Robust random cut forest based anomaly detection on streams." International conference on machine learning. PMLR, 2016.
+* Cortes, David. "Isolation forests: looking beyond tree depth." arXiv preprint arXiv:2111.11639 (2021).
