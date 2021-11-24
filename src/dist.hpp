@@ -58,6 +58,15 @@
 #include "isotree.hpp" 
 
 
+/* TODO: the method used here is quite slow. From a high level perspective, what the code
+   in this file does is to pass observations down a tree and add +1 for each pair at each
+   step, but this is not actually necessary, as it's also possible to precompute the
+   separation depths between each pair of terminal nodes and then make only one addition
+   per tree for each pair of observations. Should add a 'precompute_distances' method
+   here as a different object class, and perhaps add also the 'isolation kernel'
+   technique for comparison purposes. */
+
+
 /* Calculate distance or similarity between data points
 * 
 * Parameters

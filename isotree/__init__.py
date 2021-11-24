@@ -2083,6 +2083,13 @@ class IsolationForest:
         The more threads that are set for the model, the higher the memory requirement will be as each
         thread will allocate an array with one entry per combination.
 
+        Note
+        ----
+        While in theory it should be possible to make this computation relatively fast by precomputing
+        results for each pair of terminal nodes in a given tree, the procedure here is based on
+        calculating this metric on-the-fly as each pair of observations is passed down a tree, which
+        makes it relatively slow, and thus not recommended for real-time usage.
+
         Parameters
         ----------
         X : array or array-like (n_samples, n_features)

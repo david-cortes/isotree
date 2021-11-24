@@ -113,6 +113,12 @@ can be small differences between runs due to roundoff error.
 
 When imputing missing values, the input may contain new columns (i.e. not present when the model was fitted),
 which will be output as-is.
+
+If passing `type="dist"` or `type="avg_sep"`, while in theory it should be possible to make such
+computations relatively fast by precomputing
+results for each pair of terminal nodes in a given tree, the procedure here is based on
+calculating this metric on-the-fly as each pair of observations is passed down a tree, which
+makes it relatively slow, and thus not recommended for real-time usage.
 }
 \section{Model serving considerations}{
 
