@@ -841,6 +841,16 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         /* add another round of separation depth for distance */
         if (model_params.calc_dist && curr_depth > 0)
             add_separation_step(workspace, input_data, (double)(-1));
+
+        /* if it split by a categorical variable with only 2 values,
+           the column will no longer be splittable in either branch */
+        if (trees.back().col_type == Categorical &&
+            model_params.cat_split_type == SubSet &&
+            trees.back().cat_split.empty())
+        {
+            workspace.col_sampler.drop_col(trees.back().col_num + input_data.ncols_numeric,
+                                           workspace.end - workspace.st + 1);
+        }
         
         size_t tree_from = trees.size() - 1;
         std::unique_ptr<RecursionState>
@@ -1081,6 +1091,11 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                     }
                     break;
                 }
+
+                default:
+                {
+                    assert(0);
+                }
             }
         }
 
@@ -1102,7 +1117,8 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
            be splittable anymore, so it can be dropped for the remainder of that branch */
         if (trees.back().col_type == Categorical && model_params.cat_split_type == SingleCateg)
         {
-            workspace.col_sampler.drop_col(trees.back().col_num + input_data.ncols_numeric);
+            workspace.col_sampler.drop_col(trees.back().col_num + input_data.ncols_numeric,
+                                           workspace.end - workspace.st + 1);
         }
 
         /* left branch */

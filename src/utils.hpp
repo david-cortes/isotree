@@ -856,11 +856,32 @@ void ColumnSampler::leave_m_cols(size_t m, RNG_engine &rnd_generator)
     }
 }
 
-void ColumnSampler::drop_col(size_t col)
+void ColumnSampler::drop_col(size_t col, size_t nobs_left)
 {
     if (!this->has_weights())
     {
-        std::swap(this->col_indices[this->last_given], this->col_indices[--this->curr_pos]);
+        if (this->col_indices[this->last_given] == col)
+        {
+            std::swap(this->col_indices[this->last_given], this->col_indices[--this->curr_pos]);
+        }
+
+        else if (this->curr_pos > 4*nobs_left)
+        {
+            return;
+        }
+
+        else
+        {
+            for (size_t ix = 0; ix < this->curr_pos; ix++)
+            {
+                if (this->col_indices[ix] == col)
+                {
+                    std::swap(this->col_indices[ix], this->col_indices[--this->curr_pos]);
+                    break;
+                }
+            }
+        }
+
         if (this->curr_col) this->curr_col--;
     }
 
@@ -876,6 +897,11 @@ void ColumnSampler::drop_col(size_t col)
                                           + this->tree_weights[ix_child(curr_ix) + 1];
         }
     }
+}
+
+void ColumnSampler::drop_col(size_t col)
+{
+    this->drop_col(col, SIZE_MAX);
 }
 
 void ColumnSampler::prepare_full_pass()
@@ -1369,7 +1395,7 @@ void DensityCalculator::push_density(size_t counts[], int ncat)
 {
     /* this one assumes 'categ_present' has entries 0/1 for missing/present */
     int n_present = 0;
-    for (size_t cat = 0; cat < ncat; cat++)
+    for (int cat = 0; cat < ncat; cat++)
         n_present += counts[cat] > 0;
     this->push_density(0., (double)n_present, 1.);
 }

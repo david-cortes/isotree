@@ -554,6 +554,7 @@ public:
     bool sample_col(size_t &col, RNG_engine &rnd_generator);
     void prepare_full_pass();        /* when passing through all columns */
     bool sample_col(size_t &col); /* when passing through all columns */
+    void drop_col(size_t col, size_t nobs_left);
     void drop_col(size_t col);
     void shuffle_remainder(RNG_engine &rnd_generator);
     bool has_weights();
