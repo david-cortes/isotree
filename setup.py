@@ -26,12 +26,13 @@ class build_ext_subclass( build_ext ):
 
         if is_msvc:
             for e in self.extensions:
-                e.extra_compile_args = ['/openmp', '/O2', '/std:c++14', '/wd4244', '/wd4267', '/wd4018']
+                e.extra_compile_args = ['/openmp', '/O2', '/std:c++14', '/fp:except-', '/wd4244', '/wd4267', '/wd4018']
                 ### Note: MSVC never implemented C++11
         else:
             self.add_march_native()
             self.add_openmp_linkage()
             self.add_restrict_qualifier()
+            self.add_no_math_errno()
             if sys.platform[:3].lower() != "win":
                 self.add_link_time_optimization()
 
@@ -96,6 +97,13 @@ class build_ext_subclass( build_ext ):
             for e in self.extensions:
                 e.extra_compile_args.append(arg_lto)
                 e.extra_link_args.append(arg_lto)
+
+    def add_no_math_errno(self):
+        arg_fnme = "-fno-math-errno"
+        if self.test_supports_compile_arg(arg_fnme):
+            for e in self.extensions:
+                e.extra_compile_args.append(arg_fnme)
+                e.extra_link_args.append(arg_fnme)
 
     def add_openmp_linkage(self):
         arg_omp1 = "-fopenmp"

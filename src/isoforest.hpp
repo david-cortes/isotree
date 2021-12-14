@@ -845,8 +845,8 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         /* if it split by a categorical variable with only 2 values,
            the column will no longer be splittable in either branch */
         if (trees.back().col_type == Categorical &&
-            model_params.cat_split_type == SubSet &&
-            trees.back().cat_split.empty())
+            ((model_params.cat_split_type == SubSet && trees.back().cat_split.empty()) ||
+             (model_params.cat_split_type == SingleCateg && input_data.ncat[trees.back().col_num] == 2)))
         {
             workspace.col_sampler.drop_col(trees.back().col_num + input_data.ncols_numeric,
                                            workspace.end - workspace.st + 1);
@@ -1115,7 +1115,10 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
         /* If doing single-category splits, the branch that got only one category will not
            be splittable anymore, so it can be dropped for the remainder of that branch */
-        if (trees.back().col_type == Categorical && model_params.cat_split_type == SingleCateg)
+        if (trees.back().col_type == Categorical &&
+            model_params.cat_split_type == SingleCateg &&
+            input_data.ncat[trees.back().col_num] > 2 /* <- in this case, would have been dropped earlier */
+            )
         {
             workspace.col_sampler.drop_col(trees.back().col_num + input_data.ncols_numeric,
                                            workspace.end - workspace.st + 1);

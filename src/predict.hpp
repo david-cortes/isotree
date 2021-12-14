@@ -336,8 +336,13 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
     }
 
     if (standardize)
+        #ifdef _WIN32
         #pragma omp parallel for if(nrows > 100) schedule(static) num_threads(nthreads) \
                 shared(nrows, output_depths, depth_divisor)
+        #else
+        #pragma omp parallel for simd if(nrows > 100) schedule(static) num_threads(nthreads) \
+                shared(nrows, output_depths, depth_divisor)
+        #endif
         for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             output_depths[row] = std::exp2( - output_depths[row] / depth_divisor );
     else

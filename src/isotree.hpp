@@ -504,6 +504,7 @@ public:
     int n_present;
     int n_left;
     void initialize(size_t max_depth, int max_categ, bool reserve_counts, ScoringMetric scoring_metric);
+    [[gnu::optimize("no-math-errno")]]
     void push_density(double xmin, double xmax, double split_point);
     void push_density(size_t counts[], int ncat);
     void push_density(int n_left, int n_present);
@@ -514,6 +515,7 @@ public:
     void push_adj(size_t *restrict counts, int ncat, int chosen_cat, ScoringMetric scoring_metric);
     void push_adj(double pct_tree_left, ScoringMetric scoring_metric);
     void pop();
+    [[gnu::optimize("no-math-errno")]]
     double calc_density(long double remainder, size_t sample_size);
     ldouble_safe calc_adj_depth();
     double calc_adj_density();
@@ -805,6 +807,7 @@ void simplify_hplane(IsoHPlane &hplane, WorkerMemory &workspace, InputData &inpu
 
 /* predict.cpp */
 template <class real_t, class sparse_ix>
+[[gnu::optimize("no-math-errno")]]
 void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
                      bool is_col_major, size_t ld_numeric, size_t ld_categ,
                      real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
@@ -1034,10 +1037,12 @@ void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPar
 
 /* utils.cpp */
 size_t log2ceil(size_t x);
+[[gnu::optimize("no-math-errno")]]
 double digamma(double x);
 double harmonic(size_t n);
 double harmonic_recursive(double a, double b);
 double expected_avg_depth(size_t sample_size);
+[[gnu::optimize("no-math-errno")]]
 double expected_avg_depth(long double approx_sample_size);
 double expected_separation_depth(size_t n);
 double expected_separation_depth_hotstart(double curr, size_t n_curr, size_t n_final);
