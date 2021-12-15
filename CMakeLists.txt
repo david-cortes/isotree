@@ -155,6 +155,23 @@ else()
             endif()
         endif()
     endif()
+    if (NOT (${CMAKE_CXX_FLAGS_RELEASE} MATCHES "-fno-trapping-math"))
+        set(OLD_FLAGS ${CMAKE_REQUIRED_FLAGS})
+        set(CMAKE_REQUIRED_FLAGS "-fno-trapping-math")
+        check_cxx_source_compiles(
+            "
+            int main(int argc, char **argv)
+            {
+                return 0;
+            }
+            "
+            SUPPORTS_FNTM
+        )
+        set(CMAKE_REQUIRED_FLAGS ${OLD_FLAGS})
+        if (SUPPORTS_FNTM)
+            set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-trapping-math")
+        endif()
+    endif()
     if (NOT (${CMAKE_CXX_FLAGS_RELEASE} MATCHES "-fno-math-errno"))
         set(OLD_FLAGS ${CMAKE_REQUIRED_FLAGS})
         set(CMAKE_REQUIRED_FLAGS "-fno-math-errno")

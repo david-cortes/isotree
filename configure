@@ -614,6 +614,7 @@ PACKAGE_URL=''
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+FNTP_FLAG
 FNE_FLAG
 SUPPORTS_RESTRICT
 OBJEXT
@@ -2679,6 +2680,30 @@ then :
   FNE_FLAG="-fno-math-errno"
 else $as_nop
   FNE_FLAG=""
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+CXXFLAGS="$OLD_CXXFLAGS"
+
+
+OLD_CXXFLAGS="$CXXFLAGS"
+CXXFLAGS="$CXXFLAGS -fno-trapping-math"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"
+then :
+  FNTP_FLAG="-fno-trapping-math"
+else $as_nop
+  FNTP_FLAG=""
 
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext

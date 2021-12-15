@@ -33,6 +33,7 @@ class build_ext_subclass( build_ext ):
             self.add_openmp_linkage()
             self.add_restrict_qualifier()
             self.add_no_math_errno()
+            self.add_no_trapping_math()
             if sys.platform[:3].lower() != "win":
                 self.add_link_time_optimization()
 
@@ -104,6 +105,13 @@ class build_ext_subclass( build_ext ):
             for e in self.extensions:
                 e.extra_compile_args.append(arg_fnme)
                 e.extra_link_args.append(arg_fnme)
+
+    def add_no_trapping_math(self):
+        arg_fntm = "-fno-trapping-math"
+        if self.test_supports_compile_arg(arg_fntm):
+            for e in self.extensions:
+                e.extra_compile_args.append(arg_fntm)
+                e.extra_link_args.append(arg_fntm)
 
     def add_openmp_linkage(self):
         arg_omp1 = "-fopenmp"
