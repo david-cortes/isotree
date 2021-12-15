@@ -62,7 +62,7 @@
    https://stackoverflow.com/questions/2589096/find-most-significant-bit-left-most-that-is-set-in-a-bit-array
    https://stackoverflow.com/questions/11376288/fast-computing-of-log2-for-64-bit-integers  */
 #if SIZE_MAX == UINT32_MAX /* 32-bit systems */
-    constexpr static const int MultiplyDeBruijnBitPosition[32] =
+    constexpr static const uint32_t MultiplyDeBruijnBitPosition[32] =
     {
         0, 9,  1,  10, 13, 21, 2, 29, 11, 14, 16, 18, 22, 25, 3, 30,
         8, 12, 20, 28, 15, 17, 24, 7, 19, 27, 23, 6,  26, 5,  4, 31

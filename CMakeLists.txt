@@ -3,7 +3,7 @@ project (isotree VERSION 0.4.4)
 set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_STANDARD_REQUIRED False)
 
 set(SRC_FILES ${PROJECT_SOURCE_DIR}/src/instantiate_template_headers.cpp
               ${PROJECT_SOURCE_DIR}/src/oop_interface.cpp

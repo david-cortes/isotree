@@ -291,7 +291,7 @@ public:
     double operator()(XoshiroRNG &rng)
     {
         #if SIZE_MAX >= UINT64_MAX
-        #   if __cplusplus >= 201402L
+        #   if (__cplusplus >= 201703L) || (__cplusplus >= 201402L && (defined(__GNUC__) || defined(_MSC_VER)))
         return (double)(gen_bits(rng) & two53_i) * 0x1.0p-53;
         #   else
         return std::ldexp(gen_bits(rng) & two53_i, -53);
@@ -304,7 +304,7 @@ public:
         memcpy(&rbits, rbits_, sizeof(uint32_t));
         rbits = rbits & two21_i;
         memcpy(rbits_, &rbits, sizeof(uint32_t));
-        #   if __cplusplus >= 201402L
+        #   if (__cplusplus >= 201703L) || (__cplusplus >= 201402L && (defined(__GNUC__) || defined(_MSC_VER)))
         return (double)bits * 0x1.0p-53;
         #   else
         return std::ldexp(bits, -53);
@@ -336,7 +336,7 @@ public:
     double operator()(XoshiroRNG &rng)
     {
         #if SIZE_MAX >= UINT64_MAX
-        #   if __cplusplus >= 201402L
+        #   if (__cplusplus >= 201703L) || (__cplusplus >= 201402L && (defined(__GNUC__) || defined(_MSC_VER)))
         double out = (double)((int64_t)(gen_bits(rng) & two54_i) - two53_ii) * 0x1.0p-53;
         #   else
         double out = std::ldexp((int64_t)(gen_bits(rng) & two54_i) - two53_ii, -53);
@@ -351,7 +351,7 @@ public:
         memcpy(&rbits, rbits_, sizeof(uint32_t));
         rbits = rbits & two22_i;
         memcpy(rbits_, &rbits, sizeof(uint32_t));
-        #   if __cplusplus >= 201402L
+        #   if (__cplusplus >= 201703L) || (__cplusplus >= 201402L && (defined(__GNUC__) || defined(_MSC_VER)))
         double out = (double)((int64_t)bits - two53_ii) * 0x1.0p-53;
         #   else
         double out = std::ldexp((int64_t)bits - two53_ii, -53);
@@ -395,7 +395,7 @@ public:
         
         else {
             #if SIZE_MAX >= UINT64_MAX
-            #   if __cplusplus >= 201402L
+            #   if (__cplusplus >= 201703L) || (__cplusplus >= 201402L && (defined(__GNUC__) || defined(_MSC_VER)))
             double rnd1 = ((double)(gen_bits(rng) & two52i) + 0.5) * 0x1.0p-52;
             double rnd2 = ((double)(gen_bits(rng) & two52i) + 0.5) * 0x1.0p-52;
             #   else
@@ -419,7 +419,7 @@ public:
             memcpy(&rbits2, rbits2_, sizeof(uint32_t));
             rbits2 = rbits2 & two20_i;
             memcpy(rbits2_, &rbits2, sizeof(uint32_t));
-            #   if __cplusplus >= 201402L
+            #   if (__cplusplus >= 201703L) || (__cplusplus >= 201402L && (defined(__GNUC__) || defined(_MSC_VER)))
             rnd1 = ((double)bits1 + 0.5) * 0x1.0p-52;
             rnd2 = ((double)bits2 + 0.5) * 0x1.0p-52;
             #   else

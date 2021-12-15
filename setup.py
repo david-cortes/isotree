@@ -49,8 +49,13 @@ class build_ext_subclass( build_ext ):
                     (self.compiler.compiler_type.lower()
                     in ["mingw32", "mingw64", "mingw", "msys", "msys2", "gcc", "g++"])
                 ):
-                    e.extra_compile_args += ['-O3', '-std=gnu++11']
+                    e.extra_compile_args += ['-O3', '-std=gnu++14']
                     e.define_macros += [("_FILE_OFFSET_BITS", 64)]
+                elif (
+                    (self.compiler.compiler_type.lower()
+                    in ["gcc", "g++"])
+                ):
+                    e.extra_compile_args += ['-O3', '-std=gnu++14']
                 else:
                     e.extra_compile_args += ['-O3', '-std=c++11']
                     # e.extra_compile_args += ['-O3', '-std=c++11', '-ggdb']
