@@ -36,7 +36,7 @@
 *          arXiv preprint arXiv:2111.11639 (2021).
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2019-2021, David Cortes
+*     Copyright (c) 2019-2022, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:

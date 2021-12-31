@@ -36,7 +36,7 @@
 *          arXiv preprint arXiv:2111.11639 (2021).
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2019-2021, David Cortes
+*     Copyright (c) 2019-2022, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -807,7 +807,7 @@ void simplify_hplane(IsoHPlane &hplane, WorkerMemory &workspace, InputData &inpu
 
 /* predict.cpp */
 template <class real_t, class sparse_ix>
-[[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+[[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno"), gnu::hot]]
 void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
                      bool is_col_major, size_t ld_numeric, size_t ld_categ,
                      real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
@@ -817,6 +817,7 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
                      double *restrict output_depths,   sparse_ix *restrict tree_num,
                      double *restrict per_tree_depths);
 template <class PredictionData, class sparse_ix>
+[[gnu::hot]]
 void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                                IsoForest             &model_outputs,
                                PredictionData        &prediction_data,

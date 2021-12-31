@@ -53,7 +53,7 @@ class build_ext_subclass( build_ext ):
                     e.define_macros += [("_FILE_OFFSET_BITS", 64)]
                 elif (
                     (self.compiler.compiler_type.lower()
-                    in ["gcc", "g++"])
+                    in ["gcc", "g++", "mingw32", "mingw64", "mingw", "msys", "msys2"])
                 ):
                     e.extra_compile_args += ['-O3', '-std=gnu++14']
                 else:
@@ -81,9 +81,9 @@ class build_ext_subclass( build_ext ):
                 # e.extra_compile_args = ["-std=c++11", "-fsanitize=address", "-static-libsan"]
                 # e.extra_link_args    = ["-fsanitize=address", "-static-libsan"]
 
-        # if is_clang:
-        #         e.extra_compile_args += ['-fopenmp=libomp']
-        #         e.extra_link_args += ['-fopenmp']
+                # if is_clang:
+                #     e.extra_compile_args += ['-fopenmp=libomp']
+                #     e.extra_link_args += ['-fopenmp']
 
         build_ext.build_extensions(self)
 

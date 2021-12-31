@@ -73,6 +73,25 @@ def _encode_categorical(cl, categories):
             return cl.cat.codes
     return pd.Categorical(cl, categories).codes
 
+def _process_nthreads(nthreads, warn_if_no_omp=False):
+    if nthreads is None:
+        nthreads = 1
+    elif nthreads < 0:
+        nthreads = multiprocessing.cpu_count() + 1 + nthreads
+        if nthreads < 1:
+            raise ValueError("Passed invalid 'nthreads'.")
+
+    if (warn_if_no_omp) and (nthreads > 1) and (not _get_has_openmp()):
+        msg_omp  = "Attempting to use more than 1 thread, but "
+        msg_omp += "package was built without multi-threading "
+        msg_omp += "support - see the project's GitHub page for "
+        msg_omp += "more information."
+        warnings.warn(msg_omp)
+
+    assert nthreads > 0
+    assert isinstance(nthreads, int)
+    return nthreads
+
 class IsolationForest:
     """
     Isolation Forest model
@@ -758,8 +777,6 @@ class IsolationForest:
             assert sample_size > 0
             if sample_size > 1:
                 assert isinstance(sample_size, int)
-            elif sample_size == 1:
-                sample_size = None
         if ncols_per_tree is not None:
             assert ncols_per_tree > 0
             if ncols_per_tree > 1:
@@ -772,7 +789,8 @@ class IsolationForest:
             assert max_depth > 0
             assert isinstance(max_depth, int)
             if (sample_size is not None) and (sample_size != "auto"):
-                assert max_depth < sample_size
+                if not (max_depth < sample_size):
+                    warnings.warn("Passed 'max_depth' greater than 'sample_size'. Will be ignored.")
         assert ndim >= 1
         assert isinstance(ndim, int)
         assert ntry >= 1
@@ -850,21 +868,6 @@ class IsolationForest:
 
         if penalize_range and scoring_metric in ["density", "adj_density"]:
             raise ValueError("'penalize_range' is incompatible with density scoring.")
-
-        if nthreads is None:
-            nthreads = 1
-        elif nthreads < 0:
-            nthreads = multiprocessing.cpu_count() + 1 + nthreads
-
-        assert nthreads > 0
-        assert isinstance(nthreads, int)
-
-        if (nthreads > 1) and (not _get_has_openmp()):
-            msg_omp  = "Attempting to use more than 1 thread, but "
-            msg_omp += "package was built without multi-threading "
-            msg_omp += "support - see the project's GitHub page for "
-            msg_omp += "more information."
-            warnings.warn(msg_omp)
 
         if categ_cols is not None:
             categ_cols = np.array(categ_cols).reshape(-1).astype(int)
@@ -1075,6 +1078,7 @@ class IsolationForest:
             This object.
         """
         self._init(categ_cols)
+        nthreads_use = _process_nthreads(self.nthreads, True)
         if (
                 self.sample_size is None
                 and (sample_weights is not None)
@@ -1098,6 +1102,8 @@ class IsolationForest:
                 raise ValueError("Sampling proportion amounts to a single row or less.")
         else:
             sample_size = self.sample_size
+        if sample_size > nrows:
+            sample_size = nrows
         if self.max_depth == "auto":
             max_depth = 0
             limit_depth = True
@@ -1106,6 +1112,9 @@ class IsolationForest:
             limit_depth = False
         else:
             max_depth = self.max_depth
+            limit_depth = False
+        if max_depth >= sample_size:
+            max_depth = 0
             limit_depth = False
 
         if self.ncols_per_tree is None:
@@ -1172,7 +1181,7 @@ class IsolationForest:
                                 ctypes.c_bool(self.build_imputer).value,
                                 ctypes.c_bool(False).value,
                                 ctypes.c_uint64(seed).value,
-                                ctypes.c_int(self.nthreads).value)
+                                ctypes.c_int(nthreads_use).value)
         self.is_fitted_ = True
         self._ntrees = self.ntrees
         return self
@@ -1263,7 +1272,13 @@ class IsolationForest:
             "imputed" (array-like(n_samples, n_columns)), according to whether each output type is present.
         """
         self._init(categ_cols)
-        if (self.sample_size is not None) and (self.sample_size != "auto"):
+        nthreads_use = _process_nthreads(self.nthreads, True)
+        if (
+            (self.sample_size is not None) and
+            (self.sample_size != "auto") and
+            (self.sample_size != 1) and
+            (self.sample_size != nrows)
+        ):
             raise ValueError("Cannot use 'fit_predict' when the sample size is limited.")
         if self.sample_with_replacement:
             raise ValueError("Cannot use 'fit_predict' or 'fit_transform' when sampling with replacement.")
@@ -1305,6 +1320,9 @@ class IsolationForest:
             max_depth = nrows - 1
         else:
             max_depth = self.max_depth
+            limit_depth = False
+        if max_depth >= nrows:
+            max_depth = 0
             limit_depth = False
 
         if self.ncols_per_tree is None:
@@ -1371,7 +1389,7 @@ class IsolationForest:
                                                                    ctypes.c_bool(output_imputed).value,
                                                                    ctypes.c_bool(self.all_perm).value,
                                                                    ctypes.c_uint64(seed).value,
-                                                                   ctypes.c_int(self.nthreads).value)
+                                                                   ctypes.c_int(nthreads_use).value)
         self.is_fitted_ = True
         self._ntrees = self.ntrees
 
@@ -1416,6 +1434,9 @@ class IsolationForest:
                 msg += ", ".join([str(cl) for cl in X.columns.values if cl not in cols_num and cl not in cols_cat][:3])
                 msg += "])"
                 raise ValueError(msg)
+
+            self.n_features_in_ = X.shape[1]
+            self.feature_names_in_ = np.array(X.columns.values)
 
             self._ncols_numeric = X_num.shape[1]
             self._ncols_categ   = X_cat.shape[1]
@@ -1465,6 +1486,8 @@ class IsolationForest:
         else:
             if len(X.shape) != 2:
                 raise ValueError("Input data must be two-dimensional.")
+
+            self.n_features_in_ = X.shape[1]
 
             X_cat = None
             if self.categ_cols is not None:
@@ -1547,7 +1570,6 @@ class IsolationForest:
         elif (self.sample_size is not None) and (self.sample_size != "auto"):
             if self.sample_size > nrows:
                 warnings.warn("Input data has fewer rows than sample_size, will forego sub-sampling.")
-                self.sample_size = None
 
         if X_cat is not None:
             if self.categ_cols is None:
@@ -2022,6 +2044,7 @@ class IsolationForest:
         """
         assert self.is_fitted_
         assert output in ["score", "avg_depth", "tree_num", "tree_depths"]
+        nthreads_use = _process_nthreads(self.nthreads)
         X_num, X_cat, nrows = self._process_data_new(X, prefer_row_major = True, keep_new_cat_levels = False)
         if (output in ["tree_num", "tree_depths"]) and (self.ndim == 1):
             if self.missing_action == "divide":
@@ -2035,7 +2058,7 @@ class IsolationForest:
                                             _get_num_dtype(X_num, None, None), _get_int_dtype(X_num),
                                             X_num, X_cat, self._is_extended_,
                                             ctypes.c_size_t(nrows).value,
-                                            ctypes.c_int(self.nthreads).value,
+                                            ctypes.c_int(nthreads_use).value,
                                             ctypes.c_bool(output == "score").value,
                                             ctypes.c_bool(output == "tree_num").value,
                                             ctypes.c_bool(output == "tree_depths").value
@@ -2119,6 +2142,7 @@ class IsolationForest:
         """
         assert self.is_fitted_
         assert output in ["dist", "avg_sep"]
+        nthreads_use = _process_nthreads(self.nthreads)
 
         if X_ref is None:
             nobs_group1 = 0
@@ -2140,7 +2164,7 @@ class IsolationForest:
         tmat, dmat, rmat = self._cpp_obj.dist(_get_num_dtype(X_num, None, None), _get_int_dtype(X_num),
                                               X_num, X_cat, self._is_extended_,
                                               ctypes.c_size_t(nrows).value,
-                                              ctypes.c_int(self.nthreads).value,
+                                              ctypes.c_int(nthreads_use).value,
                                               ctypes.c_bool(self.assume_full_distr).value,
                                               ctypes.c_bool(output == "dist").value,
                                               ctypes.c_bool(square_mat).value,
@@ -2189,6 +2213,7 @@ class IsolationForest:
             raise ValueError("Cannot impute missing values with model that was built with 'build_imputer' =  'False'.")
         if self.missing_action == "fail":
             raise ValueError("Cannot impute missing values when using 'missing_action' = 'fail'.")
+        nthreads_use = _process_nthreads(self.nthreads)
 
         X_num, X_cat, nrows = self._process_data_new(X, allow_csr = True, allow_csc = False, prefer_row_major = True, keep_new_cat_levels = False)
         if X.__class__.__name__ != "DataFrame":
@@ -2203,7 +2228,7 @@ class IsolationForest:
                                             X_num, X_cat,
                                             ctypes.c_bool(self._is_extended_).value,
                                             ctypes.c_size_t(nrows).value,
-                                            ctypes.c_int(self.nthreads).value)
+                                            ctypes.c_int(nthreads_use).value)
         return self._rearrange_imputed(X, X_num, X_cat)
 
     def fit_transform(self, X, y = None, column_weights = None, categ_cols = None):
@@ -2791,9 +2816,11 @@ class IsolationForest:
             column_names = [enclose_left + cl + enclose_right for cl in column_names]
             column_names_categ = [enclose_left + cl + enclose_right for cl in column_names_categ]
 
+        nthreads_use = _process_nthreads(self.nthreads)
+
         out = [s for s in self._cpp_obj.generate_sql(self.ndim > 1,
                                                      column_names, column_names_categ, categ_levels,
-                                                     output_tree_num, single_tree, tree, self.nthreads)]
+                                                     output_tree_num, single_tree, tree, nthreads_use)]
         if single_tree:
             return out[0]
         return out
@@ -3016,7 +3043,7 @@ class IsolationForest:
 
         model_info = {
             "ndim" : int(self.ndim),
-            "nthreads" : int(self.nthreads),
+            "nthreads" : _process_nthreads(self.nthreads),
             "build_imputer" : bool(self.build_imputer)
         }
 
@@ -3066,7 +3093,7 @@ class IsolationForest:
         self._cat_max_lev = np.array(metadata["data_info"]["categ_max"]).reshape(-1).astype(int) if (self.categ_cols is not None) else []
 
         self.ndim = metadata["model_info"]["ndim"]
-        self.nthreads = metadata["model_info"]["nthreads"]
+        self.nthreads = _process_nthreads(metadata["model_info"]["nthreads"])
         self.build_imputer = metadata["model_info"]["build_imputer"]
 
         self.sample_size = metadata["params"]["sample_size"]

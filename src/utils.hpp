@@ -36,7 +36,7 @@
 *          arXiv preprint arXiv:2111.11639 (2021).
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2019-2021, David Cortes
+*     Copyright (c) 2019-2022, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -152,7 +152,7 @@ double digamma(double x)
         y = 0.0;
     }
 
-    y = std::log(x)  -  (0.5/x)  -  y;
+    y = (-0.5/x) + std::log(x) - y;
     return y;
 }
 
@@ -162,13 +162,17 @@ double digamma(double x)
 double harmonic(size_t n)
 {
     if (n > THRESHOLD_EXACT_H)
-        return std::log((long double)n) + (long double)EULERS_GAMMA
-                + 0.5 * (1./(long double)n)
-                - 0.5 * (1./square((long double)n))
-                      * ( 1./6. -   (1./square((long double)n))
-                                  * (1./60. - (1./126.)*(1./square((long double)n))) );
+    {
+        long double temp = 1.0l / square((long double)n);
+        return  - 0.5l * temp * ( 1.0l/6.0l  -   temp * (1.0l/60.0l - (1.0l/126.0l)*temp) )
+                + 0.5l * (1.0l/(long double)n)
+                + std::log((long double)n) + (long double)EULERS_GAMMA;
+    }
+    
     else
+    {
         return harmonic_recursive((double)1, (double)(n + 1));
+    }
 }
 
 double harmonic_recursive(double a, double b)
@@ -207,12 +211,12 @@ double expected_avg_depth(long double approx_sample_size)
         return 0;
     else if (approx_sample_size < (long double)INT32_MAX)
         return 2. * (digamma(approx_sample_size + 1.) + EULERS_GAMMA - 1.);
-    else
-        return 2. * std::log(approx_sample_size) + 2.*((long double)EULERS_GAMMA - 1.)
-                + (1./approx_sample_size)
-                - (1./square(approx_sample_size))
-                   * ( 1./6. -   (1./square(approx_sample_size))
-                               * (1./60. - (1./126.)*(1./square(approx_sample_size))) );
+    else {
+        long double temp = 1.0l / square(approx_sample_size);
+        return 2.0l * std::log(approx_sample_size) + 2.0l*((long double)EULERS_GAMMA - 1.0l)
+               + (1.0l/approx_sample_size)
+               - temp * ( 1.0l/6.0l -   temp * (1.0l/60.0l - (1.0l/126.0l)*temp) );
+    }
 }
 
 /* https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree */
