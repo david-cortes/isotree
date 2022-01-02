@@ -581,6 +581,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 
     terminal_statistics:
     {
+        hplanes.back().hplane_left = 0;
+
         bool has_weights = !workspace.weights_arr.empty() || !workspace.weights_map.empty();
         if (has_weights)
         {

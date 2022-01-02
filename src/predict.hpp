@@ -335,19 +335,35 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
         depth_divisor = ntrees * (model_outputs_ext->exp_avg_depth);
     }
 
-    if (standardize)
-        #ifdef _WIN32
-        #pragma omp parallel for if(nrows > 100) schedule(static) num_threads(nthreads) \
-                shared(nrows, output_depths, depth_divisor)
-        #else
-        #pragma omp parallel for simd if(nrows > 100) schedule(static) num_threads(nthreads) \
-                shared(nrows, output_depths, depth_divisor)
+    bool is_density = (model_outputs != NULL && model_outputs->scoring_metric == Density) ||
+                      (model_outputs_ext != NULL && model_outputs_ext->scoring_metric == Density);
+
+    if (standardize && !is_density)
+    {
+        #ifndef _WIN32
+        #pragma omp simd
         #endif
-        for (size_t_for row = 0; row < (decltype(row))nrows; row++)
+        for (size_t row = 0; row < nrows; row++)
             output_depths[row] = std::exp2( - output_depths[row] / depth_divisor );
+    }
+    
     else
+    {
+        if (is_density) ntrees = -ntrees;
         for (size_t row = 0; row < nrows; row++)
             output_depths[row] /= ntrees;
+    }
+
+
+    if (per_tree_depths != NULL && is_density)
+    {
+        size_t ntrees = (model_outputs != NULL)? model_outputs->trees.size() : model_outputs_ext->hplanes.size();
+        #ifndef _WIN32
+        #pragma omp simd
+        #endif
+        for (size_t ix = 0; ix < nrows*ntrees; ix++)
+            per_tree_depths[ix] = std::exp(per_tree_depths[ix]);
+    }
 
 
     /* re-map tree numbers to start at zero (if predicting tree numbers) */
@@ -373,7 +389,8 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
     int    cval;
     while (true)
     {
-        if (tree[curr_lev].score > 0)
+        // if (tree[curr_lev].score > 0)
+        if (tree[curr_lev].tree_left == 0)
         {
             output_depth += tree[curr_lev].score;
             if (tree_num != NULL)
@@ -523,7 +540,8 @@ double traverse_itree(std::vector<IsoTree>     &tree,
 
     while (true)
     {
-        if (tree[curr_lev].score >= 0.)
+        // if (tree[curr_lev].score >= 0.)
+        if (tree[curr_lev].tree_left == 0)
         {
             if (tree_num != NULL)
                 tree_num[row] = curr_lev;
@@ -792,7 +810,8 @@ void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
 
     while(true)
     {
-        if (hplane[curr_lev].score > 0)
+        // if (hplane[curr_lev].score > 0)
+        if (hplane[curr_lev].hplane_left == 0)
         {
             output_depth += hplane[curr_lev].score;
             if (tree_num != NULL)
@@ -863,7 +882,8 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
 
     while(true)
     {
-        if (hplane[curr_lev].score > 0)
+        // if (hplane[curr_lev].score > 0)
+        if (hplane[curr_lev].hplane_left == 0)
         {
             output_depth += hplane[curr_lev].score;
             if (tree_num != NULL)

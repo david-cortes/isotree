@@ -1356,7 +1356,8 @@ cdef class isoforest_cpp_obj:
         return new_obj
 
     def get_node(self, size_t tree, size_t node, double[:] out):
-        if self.isoforest.trees[tree][node].score < 0:
+        # if self.isoforest.trees[tree][node].score < 0:
+        if self.isoforest.trees[tree][node].tree_left != 0:
 
             out[1] = <double>self.isoforest.trees[tree][node].col_num
             out[3] = <double>(self.isoforest.trees[tree][node].pct_tree_left >= .5)
@@ -1377,6 +1378,9 @@ cdef class isoforest_cpp_obj:
                         return [0]
         else:
             out[0] = 1
-            out[1] = self.isoforest.trees[tree][node].score
+            if self.isoforest.scoring_metric != Density:
+                out[1] = self.isoforest.trees[tree][node].score
+            else:
+                out[1] = -self.isoforest.trees[tree][node].score
 
         return None

@@ -1207,6 +1207,8 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
     /* if it reached the limit, calculate terminal statistics */
     terminal_statistics:
     {
+        trees.back().tree_left = 0;
+
         if (workspace.changed_weights)
         {
             if (sum_weight <= -HUGE_VAL)

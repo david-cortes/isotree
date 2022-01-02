@@ -77,18 +77,23 @@ Predict method for Isolation Forest
 \details{
 The standardized outlier score is calculated according to the original paper's formula:
 \eqn{  2^{ - \frac{\bar{d}}{c(n)}  }  }{2^(-avg(depth)/c(nobs))}, where
-\eqn{\bar{d}}{avg(depth)} is the average depth (or other calculated metric such as density, according to
-what was passed for `scoring_metric`) under each tree at which an observation
+\eqn{\bar{d}}{avg(depth)} is the average depth under each tree at which an observation
 becomes isolated (a remainder is extrapolated if the actual terminal node is not isolated),
 and \eqn{c(n)}{c(nobs)} is the expected isolation depth if observations were uniformly random
 (see references under \link{isolation.forest} for details). The actual calculation
 of \eqn{c(n)}{c(nobs)} however differs from the paper as this package uses more exact procedures
-for calculation of harmonic numbers when using `scoring_metric="depth` or `scoring_metric="adj_depth"`.
-For `scoring_metric="density"` and `scoring_metric="adj_density"`, \eqn{c(n)}{c(nobs)} is always equal to one.
+for calculation of harmonic numbers.
 
-The distribution of outlier scores should be centered around 0.5, unless using non-random splits (parameters
-`prob_pick_avg_gain`, `prob_pick_pooled_gain`)
-and/or range penalizations, or having distributions which are too skewed.
+For `scoring_metric="density"`, the calculation is different, as the standardized outlier scores in this
+case will be calculated as \eqn{-\log((\prod_{i=1}^{n} d_i)^{\frac{1}{n}})}{-log(geom_mean(d))} (just like
+for isolation-based metrics, larger values indicate more outlierness). In this case, the standardized outlier
+scores are unbounded, but they have a natural threshold of zero for determining inliers and outliers.
+
+The distribution of outlier scores for isolation-based metrics should be centered around 0.5, unless
+using non-random splits (parameters `prob_pick_avg_gain`, `prob_pick_pooled_gain`)
+and/or range penalizations, or having distributions which are too skewed. For `scoring_metric="density"`,
+most of the values should be negative, and while zero can be used as a natural score threshold,
+the scores are unlikely to be centered around zero.
 
 The more threads that are set for the model, the higher the memory requirement will be as each
 thread will allocate an array with one entry per row (outlierness) or combination (distance).

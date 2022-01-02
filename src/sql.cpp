@@ -107,7 +107,12 @@ std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest
                                                        categ_levels,
                                                        false, index1, false, 0,
                                                        nthreads);
-    std::string out = std::accumulate(tree_conds.begin(), tree_conds.end(), std::string("SELECT\nPOWER(2.0, -(0.0"),
+    std::string out = std::accumulate(tree_conds.begin(), tree_conds.end(),
+                                      ((model_outputs != NULL && model_outputs->scoring_metric != Density) ||
+                                       (model_outputs_ext != NULL && model_outputs_ext->scoring_metric != Density))?
+                                            std::string("SELECT\nPOWER(2.0, -(0.0")
+                                            :
+                                            std::string("SELECT\n(-(0.0"),
                                       [&tree_conds, &index1](std::string &a, std::string &b)
                                       {return a
                                                 + std::string(" + \n---BEGIN TREE ")
@@ -242,7 +247,8 @@ std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *mo
                 (model_outputs_ext == NULL)? (NULL) : &(model_outputs_ext->hplanes[tree]),
                 output_score,
                 0, index1, initial_str, all_node_rules[single_tree? 0 : tree],
-                conditions_left, conditions_right
+                conditions_left, conditions_right,
+                model_outputs, model_outputs_ext
             );
 
             /* Code below doesn't compile with MSVC (stuck with an OMP standard that's >20 years old) */
@@ -293,16 +299,23 @@ std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *mo
 
 void generate_tree_rules(std::vector<IsoTree> *trees, std::vector<IsoHPlane> *hplanes, bool output_score,
                          size_t curr_ix, bool index1, std::string &prev_cond, std::vector<std::string> &node_rules,
-                         std::vector<std::string> &conditions_left, std::vector<std::string> &conditions_right)
+                         std::vector<std::string> &conditions_left, std::vector<std::string> &conditions_right,
+                         const IsoForest *model_outputs, const ExtIsoForest *model_outputs_ext)
 {
-    if ((trees != NULL && (*trees)[curr_ix].score >= 0) ||
-        (hplanes != NULL && (*hplanes)[curr_ix].score >= 0))
+    // if ((trees != NULL && (*trees)[curr_ix].score >= 0) ||
+    //     (hplanes != NULL && (*hplanes)[curr_ix].score >= 0))
+    if ((trees != NULL && (*trees)[curr_ix].tree_left == 0) ||
+        (hplanes != NULL && (*hplanes)[curr_ix].hplane_left == 0))
     {
         node_rules.push_back(prev_cond
                                 + std::string("\tTHEN ")
                                 + (output_score?
                                     (std::to_string((trees != NULL)?
-                                        ((*trees)[curr_ix].score) : ((*hplanes)[curr_ix].score)))
+                                        ((model_outputs->scoring_metric != Density)?
+                                            (*trees)[curr_ix].score : (-(*trees)[curr_ix].score))
+                                            :
+                                        ((model_outputs_ext->scoring_metric != Density)?
+                                            (*hplanes)[curr_ix].score : (-(*hplanes)[curr_ix].score))))
                                         :
                                     (std::to_string(node_rules.size() + (size_t)index1)))
                                 + std::string("\n---end of terminal node ")
@@ -320,7 +333,7 @@ void generate_tree_rules(std::vector<IsoTree> *trees, std::vector<IsoHPlane> *hp
                         (trees != NULL)?
                             ((*trees)[curr_ix].tree_left) : ((*hplanes)[curr_ix].hplane_left),
                         index1, cond_left, node_rules,
-                        conditions_left, conditions_right);
+                        conditions_left, conditions_right, model_outputs, model_outputs_ext);
     cond_left.clear();
     std::string cond_right = prev_cond
                                 + ((curr_ix > 0)? std::string("\t\tAND (") : std::string("\t\t    ("))
@@ -330,7 +343,7 @@ void generate_tree_rules(std::vector<IsoTree> *trees, std::vector<IsoHPlane> *hp
                         (trees != NULL)?
                             ((*trees)[curr_ix].tree_right) : ((*hplanes)[curr_ix].hplane_right),
                         index1, cond_right, node_rules,
-                        conditions_left, conditions_right);
+                        conditions_left, conditions_right, model_outputs, model_outputs_ext);
 }
 
 
@@ -341,7 +354,8 @@ void extract_cond_isotree(IsoForest &model, IsoTree &tree,
 {
     cond_left = std::string("");
     cond_right = std::string("");
-    if (tree.score >= 0.)
+    // if (tree.score >= 0.)
+    if (tree.tree_left == 0)
         return;
 
     switch(tree.col_type)
@@ -510,7 +524,8 @@ void extract_cond_ext_isotree(ExtIsoForest &model, IsoHPlane &hplane,
 {
     cond_left = std::string("");
     cond_right = std::string("");
-    if (hplane.score >= 0.)
+    // if (hplane.score >= 0.)
+    if (hplane.hplane_left == 0)
         return;
 
     std::string hplane_conds = std::string("");

@@ -1726,7 +1726,8 @@ std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest
                                           bool index1, int nthreads);
 void generate_tree_rules(std::vector<IsoTree> *trees, std::vector<IsoHPlane> *hplanes, bool output_score,
                          size_t curr_ix, bool index1, std::string &prev_cond, std::vector<std::string> &node_rules,
-                         std::vector<std::string> &conditions_left, std::vector<std::string> &conditions_right);
+                         std::vector<std::string> &conditions_left, std::vector<std::string> &conditions_right,
+                         const IsoForest *model_outputs, const ExtIsoForest *model_outputs_ext);
 void extract_cond_isotree(IsoForest &model, IsoTree &tree,
                           std::string &cond_left, std::string &cond_right,
                           std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,

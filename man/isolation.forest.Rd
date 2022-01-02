@@ -83,7 +83,8 @@ or that the distributions in the data are too skewed for random uniform splits.}
 \item{ntrees}{Number of binary trees to build for the model. Recommended value in reference [1] is 100, while the
 default value in the author's code in reference [5] is 10. In general, the number of trees required for good results
 is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
-categories, (d) `ndim` is high, (e) `prob_pick_pooled_gain` is used.
+categories, (d) `ndim` is high, (e) `prob_pick_pooled_gain` is used, (f) `scoring_metric="density"`
+is used.
 
 Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
 model needs more trees and/or bigger samples to reach convergence (unless using non-random
@@ -379,21 +380,22 @@ Be aware that this option can make the distribution of outlier scores a bit diff
 \item{standardize_data}{Whether to standardize the features at each node before creating alinear combination of them as suggested
 in [4]. This is ignored when using `ndim=1`.}
 
-\item{scoring_metric}{Metric to use for determining outlier scores. Options are:\itemize{
-\item "depth": Will use isolation depth as proposed in reference [1]. This is typically the safest choice
-and plays well with all model types offered by this library.
-\item "density" : Will set scores for each terminal node as the ratio between the points in the sub-sample
+\item{scoring_metric}{Metric to use for determining outlier scores (see reference [13]). Options are:\itemize{
+\item "depth": Will set scores for each terminal node as the ratio between the points in the sub-sample
 that end up in that node and the fraction of the volume in the feature space which defines
-the node according to the splits that lead to it, with a maximum density value of
-\eqn{log_2(n)}{log2(n)}. If using `ndim=1`, for categorical variables, this is defined in terms
+the node according to the splits that lead to it.
+If using `ndim=1`, for categorical variables, this is defined in terms
 of number of categories that go towards each side of the split divided by number of categories
 in the observations that reached that node.
 
-The expected density for uniformly-random data and splits is equal to 1, and the outlier scores
-will be calculated using the same transformation as with `"depth"`.
+The density value for a given observation is calculated as the negative of the logarithm of
+the geometric mean from the per-tree densities, which unlike the standardized score produced
+from depth, is unbounded, but just like the standardized score form depth, has a natural
+threshold for definining outlierness, which in this case is zero is instead of 0.5.
 
-This might lead to better predictions in some datasets when doing splits by a pooled
-gain criterion.
+This might lead to better predictions when using `ndim=1`, particularly in the presence
+of categorical variables. Note however that using density requires more trees for convergence
+of scores (i.e. good results) compared to isolation-based metrics.
 
 This option is incompatible with `penalize_range`.
 \item "adj_depth" : Will use an adjusted isolation depth that takes into account the number of points that
@@ -419,9 +421,9 @@ around 1 and thus the expected isolation depth remaing the same as in the origin
 This might lead to better predictions when using `ndim=1`, particularly in the prescence
 of categorical variables.
 \item "adj_density": Will use the same metric from `"adj_depth"`, but applied multiplicatively instead
-of additively. The expected value for this adjusted density is also equal to one and
-thus the same transformation is used for calculating outlier scores as when using a
-depth-based metric.
+of additively. The expected value for this adjusted density is not strictly the same
+as for isolation, but using the expected isolation depth as standardizing criterion
+tends to produce similar standardized score distributions (centered around 0.5).
 }}
 
 \item{weigh_by_kurtosis}{Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected

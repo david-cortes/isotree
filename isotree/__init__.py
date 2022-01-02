@@ -208,7 +208,8 @@ class IsolationForest:
         Number of binary trees to build for the model. Recommended value in [1]_ is 100, while the default value in the
         author's code in [5]_ is 10. In general, the number of trees required for good results
         is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
-        categories, (d) `ndim` is high, (e) ``prob_pick_pooled_gain`` is used.
+        categories, (d) `ndim` is high, (e) ``prob_pick_pooled_gain`` is used, (f) ``scoring_metric="density"``
+        is used.
 
         Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
         model needs more trees and/or bigger samples to reach convergence (unless using non-random
@@ -506,7 +507,7 @@ class IsolationForest:
         Be aware that this option can make the distribution of outlier scores a bit different
         (i.e. not centered around 0.5).
     scoring_metric : str
-        Metric to use for determining outlier scores. Options are:
+        Metric to use for determining outlier scores (see reference [13]_). Options are:
 
         ``"depth"``
             Will use isolation depth as proposed in reference [1]_. This is typically the safest choice
@@ -514,16 +515,19 @@ class IsolationForest:
         ``"density"``
             Will set scores for each terminal node as the ratio between the points in the sub-sample
             that end up in that node and the fraction of the volume in the feature space which defines
-            the node according to the splits that lead to it, with a maximum density value of
-            :math:`log_2(n)`. If using ``ndim=1``, for categorical variables, this is defined in terms
+            the node according to the splits that lead to it.
+            If using ``ndim=1``, for categorical variables, this is defined in terms
             of number of categories that go towards each side of the split divided by number of categories
             in the observations that reached that node.
 
-            The expected density for uniformly-random data and splits is equal to 1, and the outlier scores
-            will be calculated using the same transformation as with ``"depth"``.
+            The density value for a given observation is calculated as the negative of the logarithm of
+            the geometric mean from the per-tree densities, which unlike the standardized score produced
+            from depth, is unbounded, but just like the standardized score form depth, has a natural
+            threshold for definining outlierness, which in this case is zero is instead of 0.5.
             
-            This might lead to better predictions in some datasets when doing splits by a pooled
-            gain criterion.
+            This might lead to better predictions when using ``ndim=1``, particularly in the presence
+            of categorical variables. Note however that using density requires more trees for convergence
+            of scores (i.e. good results) compared to isolation-based metrics.
 
             This option is incompatible with ``penalize_range``.
         ``"adj_depth"``
@@ -549,9 +553,9 @@ class IsolationForest:
             of categorical variables.
         ``"adj_density"``
             Will use the same metric from ``"adj_depth"``, but applied multiplicatively instead
-            of additively. The expected value for this adjusted density is also equal to one and
-            thus the same transformation is used for calculating outlier scores as when using a
-            depth-based metric.
+            of additively. The expected value for this adjusted density is not strictly the same
+            as for isolation, but using the expected isolation depth as standardizing criterion
+            tends to produce similar standardized score distributions (centered around 0.5).
     standardize_data : bool
         Whether to standardize the features at each node before creating alinear combination of them as suggested
         in [4]_. This is ignored when using ``ndim=1``.
@@ -1961,6 +1965,9 @@ class IsolationForest:
         based on whether it takes more or fewer splits than average to isolate observations. In the
         standardized outlier score metric, values closer to 1 indicate more outlierness, while values
         closer to 0.5 indicate average outlierness, and close to 0 more averageness (harder to isolate).
+        When using ``scoring_metric="density"``, the standardized outlier scores are instead unbounded,
+        with larger values indicating more outlierness and a natural threshold of zero for determining
+        inliers and outliers.
 
         Note
         ----
@@ -2721,6 +2728,11 @@ class IsolationForest:
         in a given terminal node (e.g. "X > 2" and "X > 1", the second of which is
         redundant).
 
+        Note
+        ----
+        If using ``scoring_metric="density"`` and ``output_tree_num=False``, the
+        outputs will correspond to the logarithm of the density rather than the density.
+
         Parameters
         ----------
         enclose : str
@@ -2855,7 +2867,8 @@ class IsolationForest:
               package.
             - The output returned from a compiled 'treelite' model when calling ``predict`` will be the
               average isolation depth, as it does not (yet?) support the standardized outlier score from
-              isolation forests.
+              isolation forests. If using ``scoring_metric="density"``, the output should match with the
+              standardized outlier score however.
             - If the model was fit to a DataFrame having a mixture of numerical and categorical columns, the
               resulting 'treelite' object will be built assuming all the numerical columns come before the
               categorical columns, regardless of which order they originally had in the data that was passed to

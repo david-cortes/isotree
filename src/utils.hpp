@@ -1512,20 +1512,7 @@ void DensityCalculator::pop()
 
 double DensityCalculator::calc_density(long double remainder, size_t sample_size)
 {
-    long double res = std::exp( std::log(remainder) - std::log((long double)sample_size) - this->multipliers.back() );
-    res = std::fmax(res, (long double)std::numeric_limits<double>::min());
-    return std::fmin(res, std::log2((long double)sample_size));
-    // return std::fmin(res, expected_avg_depth(sample_size));
-    // return res;
-    // return std::fmin(res, 2.0l*std::log2((long double)sample_size));
-    // if (res >= HUGE_VAL)
-    // {
-    //     res = HUGE_VAL;
-    //     do
-    //     {
-    //         res = std::nextafter(res, 0.0l);
-    //     } while ((double)res >= HUGE_VAL);
-    // }
+    return std::log(remainder) - std::log((long double)sample_size) - this->multipliers.back();
 }
 
 ldouble_safe DensityCalculator::calc_adj_depth()

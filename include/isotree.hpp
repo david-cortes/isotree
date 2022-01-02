@@ -320,18 +320,23 @@ typedef struct Imputer {
 *       Whether to standardize the features at each node before creating a linear combination of them as suggested
 *       in [4]. This is ignored when using 'ndim=1'.
 * - scoring_metric
-*       Metric to use for determining outlier scores.
-*       If passing 'Depth', will use isolation depth as proposed in reference [1]_. This is typically the safest choice
+*       Metric to use for determining outlier scores (see reference [13]).
+*       If passing 'Depth', will use isolation depth as proposed in reference [1]. This is typically the safest choice
 *       and plays well with all model types offered by this library.
 *       if passing 'Density', will set scores for each terminal node as the ratio between the points in the sub-sample
 *       that end up in that node and the fraction of the volume in the feature space which defines
-*       the node according to the splits that lead to it, with a maximum density value of
-*       'log2(n)' - when using 'ndim=1', for categorical variables, this is defined in terms
+*       the node according to the splits that lead to it.
+*       If using 'ndim=1', for categorical variables, this density is defined in terms
 *       of number of categories that go towards each side of the split divided by number of categories
-*       in the observations that reached that node. The expected density for uniformly-random data and
-*       splits under 'Density' is equal to 1, and the outlier scores will be calculated using the same 
-*       transformation as with 'Depth'. 'Density' might lead to better predictions in some datasets when
-*       doing splits by a pooled gain criterion, and is incompatible with 'penalize_range'.
+*       in the observations that reached that node.
+*       The density value for a given observation is calculated as the negative of the logarithm of
+*       the geometric mean from the per-tree densities, which unlike the standardized score produced
+*       from depth, is unbounded, but just like the standardized score form depth, has a natural
+*       threshold for definining outlierness, which in this case is zero is instead of 0.5.
+*       'Density' might lead to better predictions when using 'ndim=1', particularly in the presence
+*       of categorical variables. Note however that using density requires more trees for convergence
+*       of scores (i.e. good results) compared to isolation-based metrics.
+*       'Density' is incompatible with 'penalize_range'.
 *       If passing 'AdjDepth', will use an adjusted isolation depth that takes into account the number of points that
 *       go to each side of a given split vs. the fraction of the range of that feature that each
 *       side of the split occupies, by a metric as follows: 'd = 2/ (1 + 1/(2*p))'
@@ -348,9 +353,9 @@ typedef struct Imputer {
 *       'AdjDepth' might lead to better predictions when using 'ndim=1', particularly in the prescence
 *       of categorical variables.
 *       If passing 'AdjDensity', will use the same metric from 'AdjDepth', but applied multiplicatively instead
-*       of additively. The expected value for this adjusted density is also equal to one and
-*       thus the same transformation is used for calculating outlier scores as when using a
-*       depth-based metric.
+*       of additively. The expected value for this adjusted density is not strictly the same
+*       as for isolation, but using the expected isolation depth as standardizing criterion
+*       tends to produce similar standardized score distributions (centered around 0.5).
 * - standardize_dist
 *       If passing 'tmat' (see documentation for it), whether to standardize the resulting average separation
 *       depths in order to produce a distance metric or not, in the same way this is done for the outlier score.

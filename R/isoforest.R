@@ -133,7 +133,8 @@
 #' @param ntrees Number of binary trees to build for the model. Recommended value in reference [1] is 100, while the
 #' default value in the author's code in reference [5] is 10. In general, the number of trees required for good results
 #' is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
-#' categories, (d) `ndim` is high, (e) `prob_pick_pooled_gain` is used.
+#' categories, (d) `ndim` is high, (e) `prob_pick_pooled_gain` is used, (f) `scoring_metric="density"`
+#' is used.
 #' 
 #' Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
 #' model needs more trees and/or bigger samples to reach convergence (unless using non-random
@@ -405,21 +406,22 @@
 #' 
 #' Be aware that this option can make the distribution of outlier scores a bit different
 #' (i.e. not centered around 0.5).
-#' @param scoring_metric Metric to use for determining outlier scores. Options are:\itemize{
-#' \item "depth": Will use isolation depth as proposed in reference [1]. This is typically the safest choice
-#' and plays well with all model types offered by this library.
-#' \item "density" : Will set scores for each terminal node as the ratio between the points in the sub-sample
+#' @param scoring_metric Metric to use for determining outlier scores (see reference [13]). Options are:\itemize{
+#' \item "depth": Will set scores for each terminal node as the ratio between the points in the sub-sample
 #' that end up in that node and the fraction of the volume in the feature space which defines
-#' the node according to the splits that lead to it, with a maximum density value of
-#' \eqn{log_2(n)}{log2(n)}. If using `ndim=1`, for categorical variables, this is defined in terms
+#' the node according to the splits that lead to it.
+#' If using `ndim=1`, for categorical variables, this is defined in terms
 #' of number of categories that go towards each side of the split divided by number of categories
 #' in the observations that reached that node.
 #' 
-#' The expected density for uniformly-random data and splits is equal to 1, and the outlier scores
-#' will be calculated using the same transformation as with `"depth"`.
+#' The density value for a given observation is calculated as the negative of the logarithm of
+#' the geometric mean from the per-tree densities, which unlike the standardized score produced
+#' from depth, is unbounded, but just like the standardized score form depth, has a natural
+#' threshold for definining outlierness, which in this case is zero is instead of 0.5.
 #' 
-#' This might lead to better predictions in some datasets when doing splits by a pooled
-#' gain criterion.
+#' This might lead to better predictions when using `ndim=1`, particularly in the presence
+#' of categorical variables. Note however that using density requires more trees for convergence
+#' of scores (i.e. good results) compared to isolation-based metrics.
 #' 
 #' This option is incompatible with `penalize_range`.
 #' \item "adj_depth" : Will use an adjusted isolation depth that takes into account the number of points that
@@ -445,9 +447,9 @@
 #' This might lead to better predictions when using `ndim=1`, particularly in the prescence
 #' of categorical variables.
 #' \item "adj_density": Will use the same metric from `"adj_depth"`, but applied multiplicatively instead
-#' of additively. The expected value for this adjusted density is also equal to one and
-#' thus the same transformation is used for calculating outlier scores as when using a
-#' depth-based metric.
+#' of additively. The expected value for this adjusted density is not strictly the same
+#' as for isolation, but using the expected isolation depth as standardizing criterion
+#' tends to produce similar standardized score distributions (centered around 0.5).
 #' }
 #' @param standardize_data Whether to standardize the features at each node before creating alinear combination of them as suggested
 #' in [4]. This is ignored when using `ndim=1`.
@@ -1237,18 +1239,23 @@ isolation.forest <- function(data,
 #' collection through `gc()`.
 #' @details The standardized outlier score is calculated according to the original paper's formula:
 #' \eqn{  2^{ - \frac{\bar{d}}{c(n)}  }  }{2^(-avg(depth)/c(nobs))}, where
-#' \eqn{\bar{d}}{avg(depth)} is the average depth (or other calculated metric such as density, according to
-#' what was passed for `scoring_metric`) under each tree at which an observation
+#' \eqn{\bar{d}}{avg(depth)} is the average depth under each tree at which an observation
 #' becomes isolated (a remainder is extrapolated if the actual terminal node is not isolated),
 #' and \eqn{c(n)}{c(nobs)} is the expected isolation depth if observations were uniformly random
 #' (see references under \link{isolation.forest} for details). The actual calculation
 #' of \eqn{c(n)}{c(nobs)} however differs from the paper as this package uses more exact procedures
-#' for calculation of harmonic numbers when using `scoring_metric="depth` or `scoring_metric="adj_depth"`.
-#' For `scoring_metric="density"` and `scoring_metric="adj_density"`, \eqn{c(n)}{c(nobs)} is always equal to one.
+#' for calculation of harmonic numbers.
 #' 
-#' The distribution of outlier scores should be centered around 0.5, unless using non-random splits (parameters
-#' `prob_pick_avg_gain`, `prob_pick_pooled_gain`)
-#' and/or range penalizations, or having distributions which are too skewed.
+#' For `scoring_metric="density"`, the calculation is different, as the standardized outlier scores in this
+#' case will be calculated as \eqn{-\log((\prod_{i=1}^{n} d_i)^{\frac{1}{n}})}{-log(geom_mean(d))} (just like
+#' for isolation-based metrics, larger values indicate more outlierness). In this case, the standardized outlier
+#' scores are unbounded, but they have a natural threshold of zero for determining inliers and outliers.
+#' 
+#' The distribution of outlier scores for isolation-based metrics should be centered around 0.5, unless
+#' using non-random splits (parameters `prob_pick_avg_gain`, `prob_pick_pooled_gain`)
+#' and/or range penalizations, or having distributions which are too skewed. For `scoring_metric="density"`,
+#' most of the values should be negative, and while zero can be used as a natural score threshold,
+#' the scores are unlikely to be centered around zero.
 #' 
 #' The more threads that are set for the model, the higher the memory requirement will be as each
 #' thread will allocate an array with one entry per row (outlierness) or combination (distance).
@@ -1961,6 +1968,8 @@ isotree.import.model <- function(file) {
 #' with no simplification. Thus, there might be lots of redundant conditions
 #' in a given terminal node (e.g. "X > 2" and "X > 1", the second of which is
 #' redundant).
+#' \item If using `scoring_metric="density"` and `output_tree_num=FALSE`, the
+#' outputs will correspond to the logarithm of the density rather than the density.
 #' }
 #' @param model An Isolation Forest object as returned by \link{isolation.forest}.
 #' @param enclose With which symbols to enclose the column names in the select statement
