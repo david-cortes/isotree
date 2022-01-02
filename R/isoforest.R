@@ -52,6 +52,11 @@
 #' outlierness compared to numerical columns, one might want to experiment with `ndim=1`,
 #' `categ_split_type="single_categ"`, and `scoring_metric="density"`.
 #' 
+#' For datasets with a large number of rows and a relatively small `sample_size`, one might
+#' want to experiment with `ndim=1` plus `scoring_metric="boxed_density"` and larger `ntrees`.
+#' For small datasets, one might also want to experiment with `scoring_metric="adj_depth"` and
+#' `penalize_range=TRUE`.
+#' 
 #' @section Matching models from references:
 #' Shorthands for parameter combinations that match some of the references:\itemize{
 #' \item 'iForest' (reference [1]): `ndim=1`, `sample_size=256`, `max_depth=8`, `ntrees=100`, `missing_action="fail"`.
@@ -134,7 +139,7 @@
 #' default value in the author's code in reference [5] is 10. In general, the number of trees required for good results
 #' is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
 #' categories, (d) `ndim` is high, (e) `prob_pick_pooled_gain` is used, (f) `scoring_metric="density"`
-#' is used.
+#' or `scoring_metric="boxed_density"` are used.
 #' 
 #' Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
 #' model needs more trees and/or bigger samples to reach convergence (unless using non-random
@@ -407,49 +412,105 @@
 #' Be aware that this option can make the distribution of outlier scores a bit different
 #' (i.e. not centered around 0.5).
 #' @param scoring_metric Metric to use for determining outlier scores (see reference [13]). Options are:\itemize{
-#' \item "depth": Will set scores for each terminal node as the ratio between the points in the sub-sample
-#' that end up in that node and the fraction of the volume in the feature space which defines
-#' the node according to the splits that lead to it.
-#' If using `ndim=1`, for categorical variables, this is defined in terms
-#' of number of categories that go towards each side of the split divided by number of categories
-#' in the observations that reached that node.
-#' 
-#' The density value for a given observation is calculated as the negative of the logarithm of
-#' the geometric mean from the per-tree densities, which unlike the standardized score produced
-#' from depth, is unbounded, but just like the standardized score form depth, has a natural
-#' threshold for definining outlierness, which in this case is zero is instead of 0.5.
-#' 
-#' This might lead to better predictions when using `ndim=1`, particularly in the presence
-#' of categorical variables. Note however that using density requires more trees for convergence
-#' of scores (i.e. good results) compared to isolation-based metrics.
-#' 
-#' This option is incompatible with `penalize_range`.
-#' \item "adj_depth" : Will use an adjusted isolation depth that takes into account the number of points that
-#' go to each side of a given split vs. the fraction of the range of that feature that each
-#' side of the split occupies, by a metric as follows:
-#' 
-#' \eqn{d = \frac{2}{(1 + \frac{1}{2 p}}}{d = 2 / (1 + 1/(2*p))}
-#' 
-#' Where \eqn{p} is defined as:
-#' 
-#' \eqn{p = \frac{n_s}{n_t} / \frac{r_s}{r_t}}{p = (n_s / n_t) / (r_s / r_t)}
-#' 
-#' With \eqn{n_t} being the number of points that reach a given node, \eqn{n_s} the
-#' number of points that are sent to a given side of the split/branch at that node,
-#' \eqn{r_t} being the range (maximum minus minimum) of the splitting feature or
-#' linear combination among the points that reached the node, and \eqn{r_s} being the
-#' range of the same feature or linear combination among the points that are sent to this
-#' same side of the split/branch. This makes each split add a number between zero and two
-#' to the isolation depth, with this number's probabilistic distribution being centered
-#' around 1 and thus the expected isolation depth remaing the same as in the original
-#' `"depth"` metric, but having more variability around the extremes.
-#' 
-#' This might lead to better predictions when using `ndim=1`, particularly in the prescence
-#' of categorical variables.
-#' \item "adj_density": Will use the same metric from `"adj_depth"`, but applied multiplicatively instead
-#' of additively. The expected value for this adjusted density is not strictly the same
-#' as for isolation, but using the expected isolation depth as standardizing criterion
-#' tends to produce similar standardized score distributions (centered around 0.5).
+#'   \item "depth": Will use isolation depth as proposed in reference [1]. This is typically the safest choice
+#'   and plays well with all model types offered by this library.
+#'   
+#'   \item "density": Will set scores for each terminal node as the ratio between the fraction of points in the sub-sample
+#'   that end up in that node and the fraction of the volume in the feature space which defines
+#'   the node according to the splits that lead to it.
+#'   If using `ndim=1`, for categorical variables, this is defined in terms
+#'   of number of categories that go towards each side of the split divided by number of categories
+#'   in the observations that reached that node.
+#'   
+#'   The standardized outlier score from density for a given observation is calculated as the
+#'   negative of the logarithm of the geometric mean from the per-tree densities, which unlike
+#'   the standardized score produced from depth, is unbounded, but just like the standardized
+#'   score form depth, has a natural threshold for definining outlierness, which in this case
+#'   is zero is instead of 0.5. The non-standardized outlier score is calculated as the
+#'   geometric mean, while the per-tree scores are calculated as the density values.
+#'   
+#'   This might lead to better predictions when using `ndim=1`, particularly in the presence
+#'   of categorical variables. Note however that using density requires more trees for convergence
+#'   of scores (i.e. good results) compared to isolation-based metrics.
+#'   
+#'   This option is incompatible with `penalize_range`.
+#'   
+#'   \item "boxed_density": Will set the scores for each terminal node as the ratio between the volume of the boxed
+#'   feature space for the node as defined by the smallest and largest values from the split
+#'   conditions (bounded by the variable ranges in the sample) and the variable ranges in the
+#'   tree sample.
+#'   If using `ndim=1`, for categorical variables this is defined in terms of number of
+#'   categories.
+#'   If using `ndim=>1`, this is defined in terms of the maximum achievable value for the
+#'   splitting linear combination determined from the minimum and maximum values for each
+#'   variable among the points in the sample, and as such, it has a rather different meaning
+#'   compared to the score obtained with `ndim=1` - boxed density scores with `ndim>1`
+#'   typically provide very poor quality results and this metric is thus not recommended to
+#'   use in the extended model.
+#'   
+#'   The standardized outlier score from boxed density for a given observation is calculated
+#'   simply as the the average from the per-tree boxed densities. This metric
+#'   has a lower bound of zero and a theorical upper bound of one, but in practice the scores
+#'   tend to be very small numbers close to zero, and its distribution across
+#'   different datasets is rather unpredictable. In order to keep rankings comparable with
+#'   the rest of the metrics, the non-standardized outlier scores are calculated as the
+#'   negative of the average instead. The per-tree scores are calculated as the density values.
+#'   
+#'   This might lead to better predictions in datasets with many rows when using `ndim=1` and
+#'   a relatively small `sample_size`. Note that much more trees are required for convergence
+#'   of scores when using this metric. In some datasets, this metric might result in very bad
+#'   predictions, to the point that taking its inverse produces a much better ranking of outliers.
+#'   
+#'   This option is incompatible with `penalize_range`.
+#'   
+#'   \item "boxed_ratio": Will set the scores for each terminal node as the ratio between the fraction of points
+#'   in the sub-sample that end up in that node and the boxed density metric.
+#'   This was implemented for experimentation purposes only, and tends to produce poor quality
+#'   results.
+#'   
+#'   The standardized outlier score from boxed ratio is calculated as the negative of the
+#'   logarithm of the logarithm (twice) of the geometric mean, while the non-standardized
+#'   score is calculated as the logarithm of the geometric mean, and the per-tree scores
+#'   are calculated as the logarithm of the ratio.
+#'   
+#'   This option is incompatible with `penalize_range`.
+#'   
+#'   \item "adj_depth": Will use an adjusted isolation depth that takes into account the number of points that
+#'   go to each side of a given split vs. the fraction of the range of that feature that each
+#'   side of the split occupies, by a metric as follows:
+#'   
+#'       \eqn{d = \frac{2}{(1 + \frac{1}{2 p}}}{d = 2 / (1 + 1/(2*p))}
+#'   
+#'   Where \eqn{p} is defined as:
+#'   
+#'       \eqn{p = \frac{n_s}{n_t} / \frac{r_s}{r_t}}{p = (n_s / n_t) / (r_s / r_t)}
+#'   
+#'   With \eqn{n_t} being the number of points that reach a given node, \eqn{n_s} the
+#'   number of points that are sent to a given side of the split/branch at that node,
+#'   \eqn{r_t} being the range (maximum minus minimum) of the splitting feature or
+#'   linear combination among the points that reached the node, and \eqn{r_s} being the
+#'   range of the same feature or linear combination among the points that are sent to this
+#'   same side of the split/branch. This makes each split add a number between zero and two
+#'   to the isolation depth, with this number's probabilistic distribution being centered
+#'   around 1 and thus the expected isolation depth remaing the same as in the original
+#'   `"depth"` metric, but having more variability around the extremes.
+#'   
+#'   Scores (standardized, non-standardized, per-tree) are aggregated in the same way
+#'   as for `"depth"`.
+#'   
+#'   This might lead to better predictions when using `ndim=1`, particularly in the prescence
+#'   of categorical variables and for smaller datasets, and for smaller datasets, might make
+#'   sense to combine it with `penalize_range=TRUE`.
+#'   
+#'   \item "adj_density": Will use the same metric from `"adj_depth"`, but applied multiplicatively instead
+#'   of additively. The expected value for this adjusted density is not strictly the same
+#'   as for isolation, but using the expected isolation depth as standardizing criterion
+#'   tends to produce similar standardized score distributions (centered around 0.5).
+#'   
+#'   Scores (standardized, non-standardized, per-tree) are aggregated in the same way
+#'   as for `"depth"`.
+#'   
+#'   This option is incompatible with `penalize_range`.
 #' }
 #' @param standardize_data Whether to standardize the features at each node before creating alinear combination of them as suggested
 #' in [4]. This is ignored when using `ndim=1`.
@@ -784,7 +845,7 @@ isolation.forest <- function(data,
                              prob_pick_col_by_kurt = 0.0,
                              min_gain = 0, missing_action = ifelse(ndim > 1, "impute", "divide"),
                              new_categ_action = ifelse(ndim > 1, "impute", "weighted"),
-                             categ_split_type = "subset", all_perm = FALSE,
+                             categ_split_type = ifelse(ndim > 1, "subset", "single_categ"), all_perm = FALSE,
                              coef_by_prop = FALSE, recode_categ = FALSE,
                              weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
                              penalize_range = FALSE, standardize_data = TRUE,
@@ -844,7 +905,7 @@ isolation.forest <- function(data,
     allowed_coefs             <-  c("normal",       "uniform")
     allowed_depth_imp         <-  c("lower",        "higher",    "same")
     allowed_weigh_imp_rows    <-  c("inverse",      "prop",      "flat")
-    allowed_scoring_metric    <-  c("depth",        "adj_depth", "density", "adj_density")
+    allowed_scoring_metric    <-  c("depth",        "adj_depth", "density", "adj_density", "boxed_density", "boxed_ratio")
 
     max_depth  <-  check.max.depth(max_depth)
     
@@ -979,7 +1040,7 @@ isolation.forest <- function(data,
         stop("'weigh_by_kurtosis' is incompatible with by-node column weight criteria.")
     }
 
-    if (penalize_range && scoring_metric %in% c("density", "adj_density")) {
+    if (penalize_range && scoring_metric %in% c("density", "adj_density", "boxed_density", "boxed_ratio")) {
         stop("'penalize_range' is incompatible with density scoring.")
     }
     
@@ -1178,9 +1239,14 @@ isolation.forest <- function(data,
 #' when the number of trees or rows is large.
 #' @param type Type of prediction to output. Options are:
 #' \itemize{
-#'   \item `"score"` for the standardized outlier score, where values closer to 1 indicate more outlierness, while values
+#'   \item `"score"` for the standardized outlier score - for isolation-based metrics (the default), values
+#'   closer to 1 indicate more outlierness, while values
 #'   closer to 0.5 indicate average outlierness, and close to 0 more averageness (harder to isolate).
-#'   \item `"avg_depth"` for  the non-standardized average isolation depth.
+#'   For all scoring metrics, higher values indicate more outlierness.
+#'   \item `"avg_depth"` for  the non-standardized average isolation depth or density or log-density. For `scoring_metric="density"`,
+#'   will output the geometric mean instead. See the documentation for `scoring_metric` for more details
+#'   about the calculations for density-based metrics.
+#'   For all scoring metrics, higher values indicate less outlierness.
 #'   \item `"dist"` for approximate pairwise or between-points distances (must pass more than 1 row) - these are
 #'   standardized in the same way as outlierness, values closer to zero indicate nearer points,
 #'   closer to one further away points, and closer to 0.5 average distance.
@@ -1188,8 +1254,9 @@ isolation.forest <- function(data,
 #'   \item `"tree_num"` for the terminal node number for each tree - if choosing this option,
 #'   will return a list containing both the average isolation depth and the terminal node numbers, under entries
 #'   `avg_depth` and `tree_num`, respectively.
-#'   \item `"tree_depths"` for the non-standardized isolation depth or expected isolation depth for each tree
-#'   (note that they will not include range penalties from `penalize_range=TRUE`).
+#'   \item `"tree_depths"` for the non-standardized isolation depth or expected isolation depth or density
+#'   or log-density for each tree (note that they will not include range penalties from `penalize_range=TRUE`).
+#'   See the documentation for `scoring_metric` for more details about the calculations for density-based metrics.
 #'   \item `"impute"` for imputation of missing values in `newdata`.
 #' }
 #' @param square_mat When passing `type` = `"dist` or `"avg_sep"` with no `refdata`, whether to return a
@@ -1237,7 +1304,8 @@ isolation.forest <- function(data,
 #' can be dropped as follows: `model$cpp_obj$serialized <- NULL` (and an additional
 #' `model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE`). After that, one might want to force garbage
 #' collection through `gc()`.
-#' @details The standardized outlier score is calculated according to the original paper's formula:
+#' @details The standardized outlier score for isolation-based metrics is calculated according to the
+#' original paper's formula:
 #' \eqn{  2^{ - \frac{\bar{d}}{c(n)}  }  }{2^(-avg(depth)/c(nobs))}, where
 #' \eqn{\bar{d}}{avg(depth)} is the average depth under each tree at which an observation
 #' becomes isolated (a remainder is extrapolated if the actual terminal node is not isolated),
@@ -1246,10 +1314,8 @@ isolation.forest <- function(data,
 #' of \eqn{c(n)}{c(nobs)} however differs from the paper as this package uses more exact procedures
 #' for calculation of harmonic numbers.
 #' 
-#' For `scoring_metric="density"`, the calculation is different, as the standardized outlier scores in this
-#' case will be calculated as \eqn{-\log((\prod_{i=1}^{n} d_i)^{\frac{1}{n}})}{-log(geom_mean(d))} (just like
-#' for isolation-based metrics, larger values indicate more outlierness). In this case, the standardized outlier
-#' scores are unbounded, but they have a natural threshold of zero for determining inliers and outliers.
+#' For density-based matrics, see the documentation for `scoring_metric` in \link{isolation.forest} for
+#' details about the score calculations.
 #' 
 #' The distribution of outlier scores for isolation-based metrics should be centered around 0.5, unless
 #' using non-random splits (parameters `prob_pick_avg_gain`, `prob_pick_pooled_gain`)
@@ -1968,7 +2034,8 @@ isotree.import.model <- function(file) {
 #' with no simplification. Thus, there might be lots of redundant conditions
 #' in a given terminal node (e.g. "X > 2" and "X > 1", the second of which is
 #' redundant).
-#' \item If using `scoring_metric="density"` and `output_tree_num=FALSE`, the
+#' \item If using `scoring_metric="density"` or `scoring_metric="boxed_ratio"` plus
+#' `output_tree_num=FALSE`, the
 #' outputs will correspond to the logarithm of the density rather than the density.
 #' }
 #' @param model An Isolation Forest object as returned by \link{isolation.forest}.

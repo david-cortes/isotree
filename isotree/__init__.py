@@ -167,6 +167,11 @@ class IsolationForest:
     outlierness compared to numerical columns, one might want to experiment with ``ndim=1``,
     ``categ_split_type="single_categ"``, and ``scoring_metric="density"``.
 
+    For datasets with a large number of rows and a relatively small ``sample_size``, one might
+    want to experiment with ``ndim=1`` plus ``scoring_metric="boxed_density"`` and larger ``ntrees``.
+    For small datasets, one might also want to experiment with ``scoring_metric="adj_depth"`` and
+    ``penalize_range=True``.
+
     Note
     ----
     The default parameters will not scale to large datasets. In particular,
@@ -209,7 +214,7 @@ class IsolationForest:
         author's code in [5]_ is 10. In general, the number of trees required for good results
         is higher when (a) there are many columns, (b) there are categorical variables, (c) categorical variables have many
         categories, (d) `ndim` is high, (e) ``prob_pick_pooled_gain`` is used, (f) ``scoring_metric="density"``
-        is used.
+        or ``scoring_metric="boxed_density"`` are used.
 
         Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
         model needs more trees and/or bigger samples to reach convergence (unless using non-random
@@ -457,10 +462,13 @@ class IsolationForest:
         ``"auto"``:
             Will select "weighted" for the single-variable model and "impute" for the extended model.
         Ignored when passing 'categ_split_type' = 'single_categ'.
-    categ_split_type : str, one of "subset" or "single_categ"
+    categ_split_type : str, one of "auto", subset", or "single_categ"
         Whether to split categorical features by assigning sub-sets of them to each branch, or by assigning
         a single category to a branch and the rest to the other branch. For the extended model, whether to
         give each category a coefficient, or only one while the rest get zero.
+
+        If passing ``"auto"``, will select ``"subset"`` for the extended model and ``"single_categ"`` for
+        the single-variable model.
     all_perm : bool
         When doing categorical variable splits by pooled gain with ``ndim=1`` (regular model),
         whether to consider all possible permutations of variables to assign to each branch or not. If ``False``,
@@ -513,21 +521,63 @@ class IsolationForest:
             Will use isolation depth as proposed in reference [1]_. This is typically the safest choice
             and plays well with all model types offered by this library.
         ``"density"``
-            Will set scores for each terminal node as the ratio between the points in the sub-sample
+            Will set scores for each terminal node as the ratio between the fraction of points in the sub-sample
             that end up in that node and the fraction of the volume in the feature space which defines
             the node according to the splits that lead to it.
             If using ``ndim=1``, for categorical variables, this is defined in terms
             of number of categories that go towards each side of the split divided by number of categories
             in the observations that reached that node.
 
-            The density value for a given observation is calculated as the negative of the logarithm of
-            the geometric mean from the per-tree densities, which unlike the standardized score produced
-            from depth, is unbounded, but just like the standardized score form depth, has a natural
-            threshold for definining outlierness, which in this case is zero is instead of 0.5.
+            The standardized outlier score from density for a given observation is calculated as the
+            negative of the logarithm of the geometric mean from the per-tree densities, which unlike
+            the standardized score produced from depth, is unbounded, but just like the standardized
+            score form depth, has a natural threshold for definining outlierness, which in this case
+            is zero is instead of 0.5. The non-standardized outlier score is calculated as the
+            geometric mean, while the per-tree scores are calculated as the density values.
             
             This might lead to better predictions when using ``ndim=1``, particularly in the presence
             of categorical variables. Note however that using density requires more trees for convergence
             of scores (i.e. good results) compared to isolation-based metrics.
+
+            This option is incompatible with ``penalize_range``.
+        ``"boxed_density"``
+            Will set the scores for each terminal node as the ratio between the volume of the boxed
+            feature space for the node as defined by the smallest and largest values from the split
+            conditions (bounded by the variable ranges in the sample) and the variable ranges in the
+            tree sample.
+            If using ``ndim=1``, for categorical variables this is defined in terms of number of
+            categories.
+            If using ``ndim=>1``, this is defined in terms of the maximum achievable value for the
+            splitting linear combination determined from the minimum and maximum values for each
+            variable among the points in the sample, and as such, it has a rather different meaning
+            compared to the score obtained with ``ndim=1`` - boxed density scores with ``ndim>1``
+            typically provide very poor quality results and this metric is thus not recommended to
+            use in the extended model.
+
+            The standardized outlier score from boxed density for a given observation is calculated
+            simply as the the average from the per-tree boxed densities. This metric
+            has a lower bound of zero and a theorical upper bound of one, but in practice the scores
+            tend to be very small numbers close to zero, and its distribution across
+            different datasets is rather unpredictable. In order to keep rankings comparable with
+            the rest of the metrics, the non-standardized outlier scores are calculated as the
+            negative of the average instead. The per-tree scores are calculated as the density values.
+
+            This might lead to better predictions in datasets with many rows when using ``ndim=1`` and
+            a relatively small ``sample_size``. Note that much more trees are required for convergence
+            of scores when using this metric. In some datasets, this metric might result in very bad
+            predictions, to the point that taking its inverse produces a much better ranking of outliers.
+
+            This option is incompatible with ``penalize_range``.
+        ``"boxed_ratio"``
+            Will set the scores for each terminal node as the ratio between the fraction of points
+            in the sub-sample that end up in that node and the boxed density metric.
+            This was implemented for experimentation purposes only, and tends to produce poor quality
+            results.
+
+            The standardized outlier score from boxed ratio is calculated as the negative of the
+            logarithm of the logarithm (twice) of the geometric mean, while the non-standardized
+            score is calculated as the logarithm of the geometric mean, and the per-tree scores
+            are calculated as the logarithm of the ratio.
 
             This option is incompatible with ``penalize_range``.
         ``"adj_depth"``
@@ -549,13 +599,22 @@ class IsolationForest:
             around 1 and thus the expected isolation depth remaing the same as in the original
             ``"depth"`` metric, but having more variability around the extremes.
 
+            Scores (standardized, non-standardized, per-tree) are aggregated in the same way
+            as for ``"depth"``.
+
             This might lead to better predictions when using ``ndim=1``, particularly in the prescence
-            of categorical variables.
+            of categorical variables and for smaller datasets, and for smaller datasets, might make
+            sense to combine it with ``penalize_range=True``.
         ``"adj_density"``
             Will use the same metric from ``"adj_depth"``, but applied multiplicatively instead
             of additively. The expected value for this adjusted density is not strictly the same
             as for isolation, but using the expected isolation depth as standardizing criterion
             tends to produce similar standardized score distributions (centered around 0.5).
+
+            Scores (standardized, non-standardized, per-tree) are aggregated in the same way
+            as for ``"depth"``.
+
+            This option is incompatible with ``penalize_range``.
     standardize_data : bool
         Whether to standardize the features at each node before creating alinear combination of them as suggested
         in [4]_. This is ignored when using ``ndim=1``.
@@ -682,7 +741,7 @@ class IsolationForest:
                  prob_pick_col_by_range = 0.0, prob_pick_col_by_var = 0.0,
                  prob_pick_col_by_kurt = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
-                 categ_split_type = "subset", all_perm = False,
+                 categ_split_type = "auto", all_perm = False,
                  coef_by_prop = False, recode_categ = False,
                  weights_as_sample_prob = True, sample_with_replacement = False,
                  penalize_range = False, standardize_data = True,
@@ -768,7 +827,7 @@ class IsolationForest:
                  prob_pick_col_by_range = 0.0, prob_pick_col_by_var = 0.0,
                  prob_pick_col_by_kurt = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
-                 categ_split_type = "subset", all_perm = False,
+                 categ_split_type = "auto", all_perm = False,
                  coef_by_prop = False, recode_categ = True,
                  weights_as_sample_prob = True, sample_with_replacement = False,
                  penalize_range = True, standardize_data = True,
@@ -810,11 +869,11 @@ class IsolationForest:
 
         assert missing_action    in ["divide",        "impute",    "fail",   "auto"]
         assert new_categ_action  in ["weighted",      "smallest",  "random", "impute", "auto"]
-        assert categ_split_type  in ["single_categ",  "subset"]
+        assert categ_split_type  in ["single_categ",  "subset",    "auto"]
         assert coefs             in ["normal",        "uniform"]
         assert depth_imp         in ["lower",         "higher",    "same"]
         assert weigh_imp_rows    in ["inverse",       "prop",      "flat"]
-        assert scoring_metric    in ["depth",         "adj_depth", "density", "adj_density"]
+        assert scoring_metric    in ["depth",         "adj_depth", "density", "adj_density", "boxed_density", "boxed_ratio"]
 
         assert prob_pick_avg_gain     >= 0
         assert prob_pick_pooled_gain  >= 0
@@ -861,6 +920,11 @@ class IsolationForest:
         if (build_imputer) and (missing_action == "fail"):
             raise ValueError("Cannot impute missing values when passing 'missing_action' = 'fail'.")
 
+        if categ_split_type == "auto":
+            if ndim == 1:
+                categ_split_type = "single_categ"
+            else:
+                categ_split_type = "subset"
         if ndim == 1:
             if (categ_split_type != "single_categ") and (new_categ_action == "impute"):
                 raise ValueError("'new_categ_action' = 'impute' not supported in single-variable model.")
@@ -870,7 +934,7 @@ class IsolationForest:
             if (categ_split_type != "single_categ") and (new_categ_action == "weighted"):
                 raise ValueError("'new_categ_action' = 'weighted' not supported in extended model.")
 
-        if penalize_range and scoring_metric in ["density", "adj_density"]:
+        if penalize_range and scoring_metric in ["density", "adj_density", "boxed_density", "boxed_ratio"]:
             raise ValueError("'penalize_range' is incompatible with density scoring.")
 
         if categ_cols is not None:
@@ -894,7 +958,7 @@ class IsolationForest:
         self.min_gain                =  min_gain
         self.missing_action          =  missing_action
         self.new_categ_action        =  new_categ_action
-        self.categ_split_type        =  categ_split_type
+        self.categ_split_type_       =  categ_split_type
         self.coefs                   =  coefs
         self.depth_imp               =  depth_imp
         self.weigh_imp_rows          =  weigh_imp_rows
@@ -1029,8 +1093,14 @@ class IsolationForest:
         return self._cpp_obj.get_imputer()
 
     def _check_can_use_imputer(self, X_cat):
+        categ_split_type = self.categ_split_type
+        if categ_split_type == "auto":
+            if self.ndim == 1:
+                categ_split_type = "single_categ"
+            else:
+                categ_split_type = "subset"
         if (self.build_imputer) and (self.ndim == 1) and (X_cat is not None) and (X_cat.shape[1]):
-            if (self.categ_split_type != "single_categ") and (self.new_categ_action == "weighted"):
+            if (categ_split_type != "single_categ") and (self.new_categ_action == "weighted"):
                 raise ValueError("Cannot build imputer with 'ndim=1' + 'new_categ_action=weighted'.")
             if self.missing_action == "divide":
                 raise ValueError("Cannot build imputer with 'ndim=1' + 'missing_action=divide'.")
@@ -1176,7 +1246,7 @@ class IsolationForest:
                                 ctypes.c_double(self.prob_pick_col_by_kurt).value,
                                 ctypes.c_double(self.min_gain).value,
                                 self.missing_action,
-                                self.categ_split_type,
+                                self.categ_split_type_,
                                 self.new_categ_action,
                                 ctypes.c_bool(self.build_imputer).value,
                                 ctypes.c_size_t(self.min_imp_obs).value,
@@ -1384,7 +1454,7 @@ class IsolationForest:
                                                                    ctypes.c_double(self.prob_pick_col_by_kurt).value,
                                                                    ctypes.c_double(self.min_gain).value,
                                                                    self.missing_action,
-                                                                   self.categ_split_type,
+                                                                   self.categ_split_type_,
                                                                    self.new_categ_action,
                                                                    ctypes.c_bool(self.build_imputer).value,
                                                                    ctypes.c_size_t(self.min_imp_obs).value,
@@ -1671,7 +1741,7 @@ class IsolationForest:
                             (self.new_categ_action == "impute" and self.missing_action == "impute")
                                 or
                             (self.new_categ_action == "weighted" and
-                             self.categ_split_type != "single_categ"
+                             self.categ_split_type_ != "single_categ"
                              and self.missing_action == "divide")
                         ):
                             for cl in range(self._ncols_categ):
@@ -1958,13 +2028,15 @@ class IsolationForest:
 
     def predict(self, X, output = "score"):
         """
-        Predict outlierness based on average isolation depth
+        Predict outlierness based on average isolation depth or density
 
         Calculates the approximate depth that it takes to isolate an observation according to the
-        fitted model splits. Can output either the average depth, or a standardized outlier score
+        fitted model splits, or the average density of the branches in which observations fall.
+        Can output either the average depth/density, or a standardized outlier score
         based on whether it takes more or fewer splits than average to isolate observations. In the
-        standardized outlier score metric, values closer to 1 indicate more outlierness, while values
-        closer to 0.5 indicate average outlierness, and close to 0 more averageness (harder to isolate).
+        standardized outlier score for density-based metrics, values closer to 1 indicate more outlierness,
+        while values closer to 0.5 indicate average outlierness, and close to 0 more averageness
+        (harder to isolate).
         When using ``scoring_metric="density"``, the standardized outlier scores are instead unbounded,
         with larger values indicating more outlierness and a natural threshold of zero for determining
         inliers and outliers.
@@ -2031,17 +2103,23 @@ class IsolationForest:
             Desired type of output. Options are:
 
             ``"score"``:
-                Will output standardized outlier scores.
+                Will output standardized outlier scores. For all scoring metrics, higher values
+                indicate more outlierness.
 
             ``"avg_depth"``:
-                Will output unstandardized average isolation depths.
+                Will output unstandardized average isolation depths. For ``scoring_metric="density"``,
+                will output the geometric mean instead. See the documentation for ``scoring_metric``,
+                for more details about the calculation for other metrics.
+                For all scoring metrics, higher values indicate less outlierness.
 
             ``"tree_num"``:
                 Will output the index of the terminal node under each tree in the model.
 
             ``"tree_depths"``:
-                Will output non-standardized per-tree isolation depths (note that they will not
-                include range penalties from ``penalize_range=True``).
+                Will output non-standardized per-tree isolation depths or densities or log-densities
+                (note that they will not include range penalties from ``penalize_range=True``).
+                See the documentation for ``scoring_metric`` for details about the calculation
+                for each metrics.
 
         Returns
         -------
@@ -2056,7 +2134,7 @@ class IsolationForest:
         if (output in ["tree_num", "tree_depths"]) and (self.ndim == 1):
             if self.missing_action == "divide":
                 raise ValueError("Cannot output tree numbers/depths when using 'missing_action' = 'divide'.")
-            if (self._ncols_categ > 0) and (self.new_categ_action == "weighted") and (self.categ_split_type != "single_categ"):
+            if (self._ncols_categ > 0) and (self.new_categ_action == "weighted") and (self.categ_split_type_ != "single_categ"):
                 raise ValueError("Cannot output tree numbers/depths when using 'new_categ_action' = 'weighted'.")
             if (nrows == 1) and (output == "tree_num"):
                 warnings.warn("Predicting tree number is slow, not recommended to do for 1 row at a time.")
@@ -2422,7 +2500,7 @@ class IsolationForest:
                                ctypes.c_double(getattr(self, "prob_pick_col_by_kurt", 0.)).value,
                                ctypes.c_double(self.min_gain).value,
                                self.missing_action,
-                               self.categ_split_type,
+                               self.categ_split_type_,
                                self.new_categ_action,
                                ctypes.c_bool(self.build_imputer).value,
                                ctypes.c_size_t(self.min_imp_obs).value,
@@ -2730,8 +2808,9 @@ class IsolationForest:
 
         Note
         ----
-        If using ``scoring_metric="density"`` and ``output_tree_num=False``, the
-        outputs will correspond to the logarithm of the density rather than the density.
+        If using ``scoring_metric="density"`` or ``scoring_metric="boxed_ratio"`` plus
+        ``output_tree_num=False``, the outputs will correspond to the logarithm of the
+        density rather than the density.
 
         Parameters
         ----------
@@ -2895,7 +2974,7 @@ class IsolationForest:
         assert self.is_fitted_
 
         if (self._ncols_categ and
-            self.categ_split_type != "single_categ" and
+            self.categ_split_type_ != "single_categ" and
             self.new_categ_action not in ["smallest", "random"]
         ):
             raise ValueError("Cannot convert to 'treelite' with the current parameters for categorical columns.")
@@ -3074,7 +3153,7 @@ class IsolationForest:
             "min_gain" : float(self.min_gain),
             "missing_action" : self.missing_action,  ## is in c++
             "new_categ_action" : self.new_categ_action,  ## is in c++
-            "categ_split_type" : self.categ_split_type,  ## is in c++
+            "categ_split_type" : self.categ_split_type_,  ## is in c++
             "coefs" : self.coefs,
             "depth_imp" : self.depth_imp,
             "weigh_imp_rows" : self.weigh_imp_rows,
@@ -3133,6 +3212,7 @@ class IsolationForest:
         self.missing_action = metadata["params"]["missing_action"]
         self.new_categ_action = metadata["params"]["new_categ_action"]
         self.categ_split_type = metadata["params"]["categ_split_type"]
+        self.categ_split_type_ = self.categ_split_type
         self.coefs = metadata["params"]["coefs"]
         self.depth_imp = metadata["params"]["depth_imp"]
         self.weigh_imp_rows = metadata["params"]["weigh_imp_rows"]

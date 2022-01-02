@@ -26,9 +26,14 @@ when the number of trees or rows is large.}
 
 \item{type}{Type of prediction to output. Options are:
 \itemize{
-  \item `"score"` for the standardized outlier score, where values closer to 1 indicate more outlierness, while values
+  \item `"score"` for the standardized outlier score - for isolation-based metrics (the default), values
+  closer to 1 indicate more outlierness, while values
   closer to 0.5 indicate average outlierness, and close to 0 more averageness (harder to isolate).
-  \item `"avg_depth"` for  the non-standardized average isolation depth.
+  For all scoring metrics, higher values indicate more outlierness.
+  \item `"avg_depth"` for  the non-standardized average isolation depth or density or log-density. For `scoring_metric="density"`,
+  will output the geometric mean instead. See the documentation for `scoring_metric` for more details
+  about the calculations for density-based metrics.
+  For all scoring metrics, higher values indicate less outlierness.
   \item `"dist"` for approximate pairwise or between-points distances (must pass more than 1 row) - these are
   standardized in the same way as outlierness, values closer to zero indicate nearer points,
   closer to one further away points, and closer to 0.5 average distance.
@@ -36,8 +41,9 @@ when the number of trees or rows is large.}
   \item `"tree_num"` for the terminal node number for each tree - if choosing this option,
   will return a list containing both the average isolation depth and the terminal node numbers, under entries
   `avg_depth` and `tree_num`, respectively.
-  \item `"tree_depths"` for the non-standardized isolation depth or expected isolation depth for each tree
-  (note that they will not include range penalties from `penalize_range=TRUE`).
+  \item `"tree_depths"` for the non-standardized isolation depth or expected isolation depth or density
+  or log-density for each tree (note that they will not include range penalties from `penalize_range=TRUE`).
+  See the documentation for `scoring_metric` for more details about the calculations for density-based metrics.
   \item `"impute"` for imputation of missing values in `newdata`.
 }}
 
@@ -75,7 +81,8 @@ part of a square matrix
 Predict method for Isolation Forest
 }
 \details{
-The standardized outlier score is calculated according to the original paper's formula:
+The standardized outlier score for isolation-based metrics is calculated according to the
+original paper's formula:
 \eqn{  2^{ - \frac{\bar{d}}{c(n)}  }  }{2^(-avg(depth)/c(nobs))}, where
 \eqn{\bar{d}}{avg(depth)} is the average depth under each tree at which an observation
 becomes isolated (a remainder is extrapolated if the actual terminal node is not isolated),
@@ -84,10 +91,8 @@ and \eqn{c(n)}{c(nobs)} is the expected isolation depth if observations were uni
 of \eqn{c(n)}{c(nobs)} however differs from the paper as this package uses more exact procedures
 for calculation of harmonic numbers.
 
-For `scoring_metric="density"`, the calculation is different, as the standardized outlier scores in this
-case will be calculated as \eqn{-\log((\prod_{i=1}^{n} d_i)^{\frac{1}{n}})}{-log(geom_mean(d))} (just like
-for isolation-based metrics, larger values indicate more outlierness). In this case, the standardized outlier
-scores are unbounded, but they have a natural threshold of zero for determining inliers and outliers.
+For density-based matrics, see the documentation for `scoring_metric` in \link{isolation.forest} for
+details about the score calculations.
 
 The distribution of outlier scores for isolation-based metrics should be centered around 0.5, unless
 using non-random splits (parameters `prob_pick_avg_gain`, `prob_pick_pooled_gain`)

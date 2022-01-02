@@ -100,7 +100,8 @@ typedef enum  CategSplit     {SubSet=0,    SingleCateg=41}             CategSpli
 typedef enum  CoefType       {Uniform=61,  Normal=0}                   CoefType;       /* For extended model */
 typedef enum  UseDepthImp    {Lower=71,    Higher=0,       Same=72}    UseDepthImp;    /* For NA imputation */
 typedef enum  WeighImpRows   {Inverse=0,   Prop=81,        Flat=82}    WeighImpRows;   /* For NA imputation */
-typedef enum  ScoringMetric  {Depth=0, AdjDepth=91, Density=92, AdjDensity=93} ScoringMetric;
+typedef enum  ScoringMetric  {Depth=0,     Density=92,     BoxedDensity=94, BoxedRatio=95,
+                              AdjDepth=91, AdjDensity=93}              ScoringMetric;
 
 /* Notes about new categorical action:
 *  - For single-variable case, if using 'Smallest', can then pass data at prediction time
@@ -323,20 +324,55 @@ typedef struct Imputer {
 *       Metric to use for determining outlier scores (see reference [13]).
 *       If passing 'Depth', will use isolation depth as proposed in reference [1]. This is typically the safest choice
 *       and plays well with all model types offered by this library.
-*       if passing 'Density', will set scores for each terminal node as the ratio between the points in the sub-sample
+*       If passing 'Density', will set scores for each terminal node as the ratio between the fraction of points in the sub-sample
 *       that end up in that node and the fraction of the volume in the feature space which defines
 *       the node according to the splits that lead to it.
-*       If using 'ndim=1', for categorical variables, this density is defined in terms
+*       If using 'ndim=1', for categorical variables, 'Density' is defined in terms
 *       of number of categories that go towards each side of the split divided by number of categories
 *       in the observations that reached that node.
-*       The density value for a given observation is calculated as the negative of the logarithm of
-*       the geometric mean from the per-tree densities, which unlike the standardized score produced
-*       from depth, is unbounded, but just like the standardized score form depth, has a natural
-*       threshold for definining outlierness, which in this case is zero is instead of 0.5.
+*       The standardized outlier score from 'Density' for a given observation is calculated as the
+*       negative of the logarithm of the geometric mean from the per-tree densities, which unlike
+*       the standardized score produced from 'Depth', is unbounded, but just like the standardized
+*       score form 'Depth', has a natural threshold for definining outlierness, which in this case
+*       is zero is instead of 0.5. The non-standardized outlier score for 'Density' is calculated as the
+*       geometric mean, while the per-tree scores are calculated as the density values.
 *       'Density' might lead to better predictions when using 'ndim=1', particularly in the presence
-*       of categorical variables. Note however that using density requires more trees for convergence
+*       of categorical variables. Note however that using 'Density' requires more trees for convergence
 *       of scores (i.e. good results) compared to isolation-based metrics.
-*       'Density' is incompatible with 'penalize_range'.
+*       'Density' is incompatible with 'penalize_range=true'.
+*       If passing 'BoxedDensity', will set the scores for each terminal node as the ratio between the volume of the boxed
+*       feature space for the node as defined by the smallest and largest values from the split
+*       conditions (bounded by the variable ranges in the sample) and the variable ranges in the
+*       tree sample.
+*       If using 'ndim=1', for categorical variables 'BoxedDensity' is defined in terms of number of
+*       categories.
+*       If using 'ndim=>1', 'BoxedDensity' is defined in terms of the maximum achievable value for the
+*       splitting linear combination determined from the minimum and maximum values for each
+*       variable among the points in the sample, and as such, it has a rather different meaning
+*       compared to the score obtained with 'ndim=1' - 'BoxedDensity' scores with 'ndim>1'
+*       typically provide very poor quality results and this metric is thus not recommended to
+*       use in the extended model.
+*       The standardized outlier score from 'BoxedDensity' for a given observation is calculated
+*       simply as the the average from the per-tree boxed densities. 'BoxedDensity'
+*       has a lower bound of zero and a theorical upper bound of one, but in practice the scores
+*       tend to be very small numbers close to zero, and its distribution across
+*       different datasets is rather unpredictable. In order to keep rankings comparable with
+*       the rest of the metrics, the non-standardized outlier scores from 'BoxedDensity' are calculated as the
+*       negative of the average instead. The per-tree scores for 'BoxedDensity' are calculated as the density values.
+*       'BoxedDensity' might lead to better predictions in datasets with many rows when using 'ndim=1' and
+*       a relatively small 'sample_size'. Note that much more trees are required for convergence
+*       of scores when using 'BoxedDensity'. In some datasets, 'BoxedDensity' might result in very bad
+*       predictions, to the point that taking its inverse produces a much better ranking of outliers.
+*       'BoxedDensity' is incompatible with 'penalize_range=true'.
+*       If passing 'BoxedRatio', will set the scores for each terminal node as the ratio between the fraction of points
+*       in the sub-sample that end up in that node and the boxed density metric.
+*       'BoxedRatio' was implemented for experimentation purposes only, and tends to produce poor quality
+*       results.
+*       The standardized outlier score from 'BoxedRatio' is calculated as the negative of the
+*       logarithm of the logarithm (twice) of the geometric mean, while the non-standardized
+*       score is calculated as the logarithm of the geometric mean, and the per-tree scores
+*       are calculated as the logarithm of the ratio.
+*       'BoxedRatio' is incompatible with 'penalize_range=true'.
 *       If passing 'AdjDepth', will use an adjusted isolation depth that takes into account the number of points that
 *       go to each side of a given split vs. the fraction of the range of that feature that each
 *       side of the split occupies, by a metric as follows: 'd = 2/ (1 + 1/(2*p))'
@@ -350,12 +386,18 @@ typedef struct Imputer {
 *       to the isolation depth, with this number's probabilistic distribution being centered
 *       around 1 and thus the expected isolation depth remaing the same as in the original
 *       'Depth' metric, but having more variability around the extremes.
+*       Scores (standardized, non-standardized, per-tree) for 'AdjDepth' are aggregated in the same way
+*       as for 'Depth'.
 *       'AdjDepth' might lead to better predictions when using 'ndim=1', particularly in the prescence
-*       of categorical variables.
+*       of categorical variables and for smaller datasets, and for smaller datasets, might make
+*       sense to combine it with 'penalize_range=true'.
 *       If passing 'AdjDensity', will use the same metric from 'AdjDepth', but applied multiplicatively instead
-*       of additively. The expected value for this adjusted density is not strictly the same
+*       of additively. The expected value for 'AdjDepth' is not strictly the same
 *       as for isolation, but using the expected isolation depth as standardizing criterion
 *       tends to produce similar standardized score distributions (centered around 0.5).
+*       Scores (standardized, non-standardized, per-tree) from 'AdjDensity' are aggregated in the same way
+*       as for 'Depth'.
+*       'AdjDepth' is incompatible with 'penalize_range=true'.
 * - standardize_dist
 *       If passing 'tmat' (see documentation for it), whether to standardize the resulting average separation
 *       depths in order to produce a distance metric or not, in the same way this is done for the outlier score.

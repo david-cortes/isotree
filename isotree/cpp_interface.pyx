@@ -79,48 +79,50 @@ cdef extern from "headers_joined.hpp":
     void cy_tick_off_interrupt_switch()
 
     ctypedef enum NewCategAction:
-        Weighted
-        Smallest
-        Random
+        Weighted = 0
+        Smallest = 11
+        Random = 12
 
     ctypedef enum MissingAction:
-        Divide
-        Impute
-        Fail
+        Divide = 21
+        Impute = 22
+        Fail = 0
 
     ctypedef enum ColType:
-        Numeric
-        Categorical
-        NotUsed
+        Numeric = 31
+        Categorical = 32
+        NotUsed = 0
 
     ctypedef enum CategSplit:
-        SubSet
-        SingleCateg
+        SubSet = 0
+        SingleCateg = 41
 
     ctypedef enum GainCriterion:
-        Averaged
-        Pooled
-        NoCrit
+        Averaged = 51
+        Pooled = 52
+        NoCrit = 0
 
     ctypedef enum CoefType:
-        Uniform
-        Normal
+        Uniform = 61
+        Normal = 0
 
     ctypedef enum UseDepthImp:
-        Lower
-        Higher
-        Same
+        Lower = 71
+        Higher = 0
+        Same = 72
 
     ctypedef enum WeighImpRows:
-        Inverse
-        Prop
-        Flat
+        Inverse = 0
+        Prop = 81
+        Flat = 82
 
     ctypedef enum ScoringMetric:
-        Depth
-        AdjDepth
-        Density
-        AdjDensity
+        Depth = 0
+        Density = 92
+        BoxedDensity = 94
+        BoxedRatio = 95
+        AdjDepth = 91
+        AdjDensity = 93
 
     ctypedef struct IsoTree:
         ColType       col_type
@@ -717,6 +719,10 @@ cdef class isoforest_cpp_obj:
             scoring_metric_C  =  Density
         elif scoring_metric == "adj_density":
             scoring_metric_C  =  AdjDensity
+        elif scoring_metric == "boxed_density":
+            scoring_metric_C  =  BoxedDensity
+        elif scoring_metric == "boxed_ratio":
+            scoring_metric_C  =  BoxedRatio
 
         cdef np.ndarray[double, ndim = 1]  tmat    =  np.empty(0, dtype = ctypes.c_double)
         cdef np.ndarray[double, ndim = 2]  dmat    =  np.empty((0, 0), dtype = ctypes.c_double)
@@ -1378,7 +1384,10 @@ cdef class isoforest_cpp_obj:
                         return [0]
         else:
             out[0] = 1
-            if self.isoforest.scoring_metric != Density:
+            if ((self.isoforest.scoring_metric != Density) and
+                (self.isoforest.scoring_metric != BoxedDensity) and
+                (self.isoforest.scoring_metric != BoxedRatio)
+            ):
                 out[1] = self.isoforest.trees[tree][node].score
             else:
                 out[1] = -self.isoforest.trees[tree][node].score

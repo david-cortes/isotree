@@ -97,7 +97,8 @@ them differently).
 with no simplification. Thus, there might be lots of redundant conditions
 in a given terminal node (e.g. "X > 2" and "X > 1", the second of which is
 redundant).
-\item If using `scoring_metric="density"` and `output_tree_num=FALSE`, the
+\item If using `scoring_metric="density"` or `scoring_metric="boxed_ratio"` plus
+`output_tree_num=FALSE`, the
 outputs will correspond to the logarithm of the density rather than the density.
 }
 }

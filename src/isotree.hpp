@@ -273,7 +273,8 @@ typedef enum  CategSplit     {SubSet=0,    SingleCateg=41}             CategSpli
 typedef enum  CoefType       {Uniform=61,  Normal=0}                   CoefType;       /* For extended model */
 typedef enum  UseDepthImp    {Lower=71,    Higher=0,       Same=72}    UseDepthImp;    /* For NA imputation */
 typedef enum  WeighImpRows   {Inverse=0,   Prop=81,        Flat=82}    WeighImpRows;   /* For NA imputation */
-typedef enum  ScoringMetric  {Depth=0, AdjDepth=91, Density=92, AdjDensity=93} ScoringMetric;
+typedef enum  ScoringMetric  {Depth=0,     Density=92,     BoxedDensity=94, BoxedRatio=95,
+                              AdjDepth=91, AdjDensity=93}              ScoringMetric;
 
 /* These are only used internally */
 typedef enum  GainCriterion  {Averaged=51, Pooled=52,      NoCrit=0}   Criterion;      /* For guided splits */
@@ -494,38 +495,6 @@ struct ImputedData {
 
 };
 
-class DensityCalculator
-{
-public:
-    std::vector<ldouble_safe> multipliers;
-    double xmin;
-    double xmax;
-    std::vector<size_t> counts;
-    int n_present;
-    int n_left;
-    void initialize(size_t max_depth, int max_categ, bool reserve_counts, ScoringMetric scoring_metric);
-    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
-    void push_density(double xmin, double xmax, double split_point);
-    void push_density(size_t counts[], int ncat);
-    void push_density(int n_left, int n_present);
-    void push_density(int n_present);
-    void push_density();
-    void push_adj(double xmin, double xmax, double split_point, double pct_tree_left, ScoringMetric scoring_metric);
-    void push_adj(signed char *restrict categ_present, size_t *restrict counts, int ncat, ScoringMetric scoring_metric);
-    void push_adj(size_t *restrict counts, int ncat, int chosen_cat, ScoringMetric scoring_metric);
-    void push_adj(double pct_tree_left, ScoringMetric scoring_metric);
-    void pop();
-    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
-    double calc_density(long double remainder, size_t sample_size);
-    ldouble_safe calc_adj_depth();
-    double calc_adj_density();
-    void save_range(double xmin, double xmax);
-    void restore_range(double &restrict xmin, double &restrict xmax);
-    void save_counts(size_t *restrict cat_counts, int ncat);
-    void save_n_present_and_left(signed char *restrict split_left, int ncat);
-    void save_n_present(size_t *restrict cat_counts, int ncat);
-};
-
 /*  This class provides efficient methods for sampling columns at random,
     given that at a given node a column might no longer be splittable,
     and when that happens, it also makes it non-splittable in any children
@@ -558,10 +527,84 @@ public:
     bool sample_col(size_t &col); /* when passing through all columns */
     void drop_col(size_t col, size_t nobs_left);
     void drop_col(size_t col);
+    void drop_from_tail(size_t col);
     void shuffle_remainder(RNG_engine &rnd_generator);
     bool has_weights();
     size_t get_remaining_cols();
     ColumnSampler() = default;
+};
+
+class DensityCalculator
+{
+public:
+    std::vector<ldouble_safe> multipliers;
+    double xmin;
+    double xmax;
+    std::vector<size_t> counts;
+    int n_present;
+    int n_left;
+    std::vector<double> box_low;
+    std::vector<double> box_high;
+    std::vector<double> queue_box;
+    std::vector<int> ncat;
+    std::vector<int> queue_ncat;
+    ldouble_safe sum_log_width;
+    std::vector<double> vals_ext_box;
+    std::vector<double> queue_ext_box;
+    
+    void initialize(size_t max_depth, int max_categ, bool reserve_counts, ScoringMetric scoring_metric);
+    template <class InputData>
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    void initialize_bdens(const InputData &input_data,
+                          const ModelParams &model_params,
+                          std::vector<size_t> &ix_arr,
+                          ColumnSampler &col_sampler);
+    template <class InputData>
+    void initialize_bdens_ext(const InputData &input_data,
+                              const ModelParams &model_params,
+                              std::vector<size_t> &ix_arr,
+                              ColumnSampler &col_sampler,
+                              bool col_sampler_is_fresh);
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    void push_density(double xmin, double xmax, double split_point);
+    void push_density(size_t counts[], int ncat);
+    void push_density(int n_left, int n_present);
+    void push_density(int n_present);
+    void push_density();
+    void push_adj(double xmin, double xmax, double split_point, double pct_tree_left, ScoringMetric scoring_metric);
+    void push_adj(signed char *restrict categ_present, size_t *restrict counts, int ncat, ScoringMetric scoring_metric);
+    void push_adj(size_t *restrict counts, int ncat, int chosen_cat, ScoringMetric scoring_metric);
+    void push_adj(double pct_tree_left, ScoringMetric scoring_metric);
+    void push_bdens(double split_point, size_t col);
+    void push_bdens(int ncat_branch_left, size_t col);
+    void push_bdens(const std::vector<signed char> &cat_split, size_t col);
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    void push_bdens_ext(const IsoHPlane &hplane, const ModelParams &model_params);
+    void pop();
+    void pop_bdens(size_t col);
+    void pop_bdens_cat(size_t col);
+    void pop_bdens_ext();
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    double calc_density(long double remainder, size_t sample_size);
+    ldouble_safe calc_adj_depth();
+    double calc_adj_density();
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    ldouble_safe calc_bdens_log();
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    double calc_bdens();
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    double calc_bratio(long double remainder, size_t sample_size);
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    ldouble_safe calc_bdens_log_ext();
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    double calc_bdens_ext();
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    double calc_bratio_ext(long double remainder, size_t sample_size);
+    void save_range(double xmin, double xmax);
+    void restore_range(double &restrict xmin, double &restrict xmax);
+    void save_counts(size_t *restrict cat_counts, int ncat);
+    void save_n_present_and_left(signed char *restrict split_left, int ncat);
+    void save_n_present(size_t *restrict cat_counts, int ncat);
 };
 
 class SingleNodeColumnSampler

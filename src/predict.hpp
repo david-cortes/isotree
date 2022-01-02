@@ -335,25 +335,76 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
         depth_divisor = ntrees * (model_outputs_ext->exp_avg_depth);
     }
 
+    
+    /* for density and boxed_ratio, each tree will have 'log(d)'' instead of 'd' */
     bool is_density = (model_outputs != NULL && model_outputs->scoring_metric == Density) ||
                       (model_outputs_ext != NULL && model_outputs_ext->scoring_metric == Density);
+    bool is_bratio  = (model_outputs != NULL && model_outputs->scoring_metric == BoxedRatio) ||
+                      (model_outputs_ext != NULL && model_outputs_ext->scoring_metric == BoxedRatio);
+    bool is_bdens   = (model_outputs != NULL && model_outputs->scoring_metric == BoxedDensity) ||
+                      (model_outputs_ext != NULL && model_outputs_ext->scoring_metric == BoxedDensity);
 
-    if (standardize && !is_density)
+    if (standardize)
     {
-        #ifndef _WIN32
-        #pragma omp simd
-        #endif
-        for (size_t row = 0; row < nrows; row++)
-            output_depths[row] = std::exp2( - output_depths[row] / depth_divisor );
+        if (is_density)
+        {
+            ntrees = -ntrees;
+            for (size_t row = 0; row < nrows; row++)
+                output_depths[row] /= ntrees;
+        }
+
+        else if (is_bdens)
+        {
+            for (size_t row = 0; row < nrows; row++)
+                output_depths[row] /= ntrees;
+        }
+
+        else if (is_bratio)
+        {
+            #ifndef _WIN32
+            #pragma omp simd
+            #endif
+            for (size_t row = 0; row < nrows; row++)
+                output_depths[row] = -std::log(output_depths[row] / ntrees);
+        }
+
+        else
+        {
+            #ifndef _WIN32
+            #pragma omp simd
+            #endif
+            for (size_t row = 0; row < nrows; row++)
+                output_depths[row] = std::exp2( - output_depths[row] / depth_divisor );
+        }
     }
-    
+
     else
     {
-        if (is_density) ntrees = -ntrees;
-        for (size_t row = 0; row < nrows; row++)
-            output_depths[row] /= ntrees;
-    }
+        if (is_density)
+        {
+            #ifndef _WIN32
+            #pragma omp simd
+            #endif
+            for (size_t row = 0; row < nrows; row++)
+                output_depths[row] = std::exp(output_depths[row] / ntrees);
+        }
 
+        else if (is_bdens)
+        {
+            ntrees = -ntrees;
+            #ifndef _WIN32
+            #pragma omp simd
+            #endif
+            for (size_t row = 0; row < nrows; row++)
+                output_depths[row] /= ntrees;
+        }
+
+        else
+        {
+            for (size_t row = 0; row < nrows; row++)
+                output_depths[row] /= ntrees;
+        }
+    }
 
     if (per_tree_depths != NULL && is_density)
     {
@@ -681,7 +732,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                             case SubSet:
                             {
 
-                                if (!tree[curr_lev].cat_split.size())
+                                if (tree[curr_lev].cat_split.empty())
                                 {
                                     if (cval <= 1)
                                     {

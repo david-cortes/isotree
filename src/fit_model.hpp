@@ -182,20 +182,55 @@
 *       Metric to use for determining outlier scores (see reference [13]).
 *       If passing 'Depth', will use isolation depth as proposed in reference [1]. This is typically the safest choice
 *       and plays well with all model types offered by this library.
-*       if passing 'Density', will set scores for each terminal node as the ratio between the points in the sub-sample
+*       If passing 'Density', will set scores for each terminal node as the ratio between the fraction of points in the sub-sample
 *       that end up in that node and the fraction of the volume in the feature space which defines
 *       the node according to the splits that lead to it.
-*       If using 'ndim=1', for categorical variables, this density is defined in terms
+*       If using 'ndim=1', for categorical variables, 'Density' is defined in terms
 *       of number of categories that go towards each side of the split divided by number of categories
 *       in the observations that reached that node.
-*       The density value for a given observation is calculated as the negative of the logarithm of
-*       the geometric mean from the per-tree densities, which unlike the standardized score produced
-*       from depth, is unbounded, but just like the standardized score form depth, has a natural
-*       threshold for definining outlierness, which in this case is zero is instead of 0.5.
+*       The standardized outlier score from 'Density' for a given observation is calculated as the
+*       negative of the logarithm of the geometric mean from the per-tree densities, which unlike
+*       the standardized score produced from 'Depth', is unbounded, but just like the standardized
+*       score form 'Depth', has a natural threshold for definining outlierness, which in this case
+*       is zero is instead of 0.5. The non-standardized outlier score for 'Density' is calculated as the
+*       geometric mean, while the per-tree scores are calculated as the density values.
 *       'Density' might lead to better predictions when using 'ndim=1', particularly in the presence
-*       of categorical variables. Note however that using density requires more trees for convergence
+*       of categorical variables. Note however that using 'Density' requires more trees for convergence
 *       of scores (i.e. good results) compared to isolation-based metrics.
-*       'Density' is incompatible with 'penalize_range'.
+*       'Density' is incompatible with 'penalize_range=true'.
+*       If passing 'BoxedDensity', will set the scores for each terminal node as the ratio between the volume of the boxed
+*       feature space for the node as defined by the smallest and largest values from the split
+*       conditions (bounded by the variable ranges in the sample) and the variable ranges in the
+*       tree sample.
+*       If using 'ndim=1', for categorical variables 'BoxedDensity' is defined in terms of number of
+*       categories.
+*       If using 'ndim=>1', 'BoxedDensity' is defined in terms of the maximum achievable value for the
+*       splitting linear combination determined from the minimum and maximum values for each
+*       variable among the points in the sample, and as such, it has a rather different meaning
+*       compared to the score obtained with 'ndim=1' - 'BoxedDensity' scores with 'ndim>1'
+*       typically provide very poor quality results and this metric is thus not recommended to
+*       use in the extended model.
+*       The standardized outlier score from 'BoxedDensity' for a given observation is calculated
+*       simply as the the average from the per-tree boxed densities. 'BoxedDensity'
+*       has a lower bound of zero and a theorical upper bound of one, but in practice the scores
+*       tend to be very small numbers close to zero, and its distribution across
+*       different datasets is rather unpredictable. In order to keep rankings comparable with
+*       the rest of the metrics, the non-standardized outlier scores from 'BoxedDensity' are calculated as the
+*       negative of the average instead. The per-tree scores for 'BoxedDensity' are calculated as the density values.
+*       'BoxedDensity' might lead to better predictions in datasets with many rows when using 'ndim=1' and
+*       a relatively small 'sample_size'. Note that much more trees are required for convergence
+*       of scores when using 'BoxedDensity'. In some datasets, 'BoxedDensity' might result in very bad
+*       predictions, to the point that taking its inverse produces a much better ranking of outliers.
+*       'BoxedDensity' is incompatible with 'penalize_range=true'.
+*       If passing 'BoxedRatio', will set the scores for each terminal node as the ratio between the fraction of points
+*       in the sub-sample that end up in that node and the boxed density metric.
+*       'BoxedRatio' was implemented for experimentation purposes only, and tends to produce poor quality
+*       results.
+*       The standardized outlier score from 'BoxedRatio' is calculated as the negative of the
+*       logarithm of the logarithm (twice) of the geometric mean, while the non-standardized
+*       score is calculated as the logarithm of the geometric mean, and the per-tree scores
+*       are calculated as the logarithm of the ratio.
+*       'BoxedRatio' is incompatible with 'penalize_range=true'.
 *       If passing 'AdjDepth', will use an adjusted isolation depth that takes into account the number of points that
 *       go to each side of a given split vs. the fraction of the range of that feature that each
 *       side of the split occupies, by a metric as follows: 'd = 2/ (1 + 1/(2*p))'
@@ -209,12 +244,18 @@
 *       to the isolation depth, with this number's probabilistic distribution being centered
 *       around 1 and thus the expected isolation depth remaing the same as in the original
 *       'Depth' metric, but having more variability around the extremes.
+*       Scores (standardized, non-standardized, per-tree) for 'AdjDepth' are aggregated in the same way
+*       as for 'Depth'.
 *       'AdjDepth' might lead to better predictions when using 'ndim=1', particularly in the prescence
-*       of categorical variables.
+*       of categorical variables and for smaller datasets, and for smaller datasets, might make
+*       sense to combine it with 'penalize_range=true'.
 *       If passing 'AdjDensity', will use the same metric from 'AdjDepth', but applied multiplicatively instead
-*       of additively. The expected value for this adjusted density is not strictly the same
+*       of additively. The expected value for 'AdjDepth' is not strictly the same
 *       as for isolation, but using the expected isolation depth as standardizing criterion
 *       tends to produce similar standardized score distributions (centered around 0.5).
+*       Scores (standardized, non-standardized, per-tree) from 'AdjDensity' are aggregated in the same way
+*       as for 'Depth'.
+*       'AdjDepth' is incompatible with 'penalize_range=true'.
 * - standardize_dist
 *       If passing 'tmat' (see documentation for it), whether to standardize the resulting average separation
 *       depths in order to produce a distance metric or not, in the same way this is done for the outlier score.
@@ -505,7 +546,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         throw std::runtime_error("'weigh_by_kurt' and 'prob_pick_col_by_kurt' cannot be used together.\n");
     if (ndim == 0 && model_outputs == NULL)
         throw std::runtime_error("Must pass 'ndim>0' in the extended model.\n");
-    if (penalize_range && (scoring_metric == Density || scoring_metric == AdjDensity))
+    if (penalize_range && (scoring_metric == Density || scoring_metric == AdjDensity || scoring_metric == BoxedDensity || scoring_metric == BoxedRatio))
         throw std::runtime_error("'penalize_range' is incompatible with density scoring.\n");
 
 
@@ -605,7 +646,11 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         model_outputs->cat_split_type = cat_split_type;
         model_outputs->missing_action = missing_action;
         model_outputs->scoring_metric = scoring_metric;
-        if (model_outputs->scoring_metric != Density)
+        if (
+            model_outputs->scoring_metric != Density &&
+            model_outputs->scoring_metric != BoxedDensity &&
+            model_outputs->scoring_metric != BoxedRatio
+        )
             model_outputs->exp_avg_depth  = expected_avg_depth(sample_size);
         else
             model_outputs->exp_avg_depth  = 1;
@@ -622,7 +667,11 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         model_outputs_ext->cat_split_type = cat_split_type;
         model_outputs_ext->missing_action = missing_action;
         model_outputs_ext->scoring_metric = scoring_metric;
-        if (model_outputs_ext->scoring_metric != Density)
+        if (
+            model_outputs_ext->scoring_metric != Density &&
+            model_outputs_ext->scoring_metric != BoxedDensity &&
+            model_outputs_ext->scoring_metric != BoxedRatio
+        )
             model_outputs_ext->exp_avg_depth  = expected_avg_depth(sample_size);
         else
             model_outputs_ext->exp_avg_depth  = 1;
@@ -1118,7 +1167,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                              (tree_root == NULL && model_params.ndim >= input_data.ncols_tot)
                                 ||
                              (model_params.prob_pick_col_by_range + model_params.prob_pick_col_by_var
-                              + model_params.prob_pick_col_by_kurt >= 1);;
+                              + model_params.prob_pick_col_by_kurt >= 1);
     if (input_data.preinitialized_col_sampler == NULL)
     {
         if (input_data.col_weights != NULL && !avoid_col_weights && !model_params.weigh_by_kurt)
@@ -1574,22 +1623,46 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         }
     }
 
-    if (input_data.preinitialized_col_sampler == NULL)
+    bool col_sampler_is_fresh = true;
+    if (input_data.preinitialized_col_sampler == NULL) {
         workspace.col_sampler.initialize(input_data.ncols_tot);
-    else
+    }
+    else {
         workspace.col_sampler = *((ColumnSampler*)input_data.preinitialized_col_sampler);
+        col_sampler_is_fresh = false;
+    }
     /* TODO: this can be done more efficiently when sub-sampling columns */
     workspace.col_sampler.leave_m_cols(model_params.ncols_per_tree, workspace.rnd_generator);
+    if (model_params.ncols_per_tree < input_data.ncols_tot) col_sampler_is_fresh = false;
     workspace.try_all = false;
     if (hplane_root != NULL && model_params.ndim >= input_data.ncols_tot)
         workspace.try_all = true;
 
-    if (model_params.scoring_metric != Depth)
+    if (
+        model_params.scoring_metric != Depth &&
+        model_params.scoring_metric != BoxedDensity &&
+        model_params.scoring_metric != BoxedRatio
+    )
     {
         workspace.density_calculator.initialize(model_params.max_depth,
                                                 input_data.ncols_categ? input_data.max_categ : 0,
                                                 tree_root != NULL && input_data.ncols_categ,
                                                 model_params.scoring_metric);
+    }
+
+    else if (model_params.scoring_metric == BoxedDensity || model_params.scoring_metric == BoxedRatio)
+    {
+        if (tree_root != NULL)
+            workspace.density_calculator.initialize_bdens(input_data,
+                                                          model_params,
+                                                          workspace.ix_arr,
+                                                          workspace.col_sampler);
+        else
+            workspace.density_calculator.initialize_bdens_ext(input_data,
+                                                              model_params,
+                                                              workspace.ix_arr,
+                                                              workspace.col_sampler,
+                                                              col_sampler_is_fresh);
     }
 
     if (tree_root != NULL)

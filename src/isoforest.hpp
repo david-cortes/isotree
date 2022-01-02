@@ -466,7 +466,11 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                             trees.back().range_high = workspace.xmax - workspace.xmin + trees.back().num_split;
                         }
 
-                        if (model_params.scoring_metric != Depth)
+                        if (
+                            model_params.scoring_metric != Depth &&
+                            model_params.scoring_metric != BoxedDensity &&
+                            model_params.scoring_metric != BoxedRatio
+                        )
                             workspace.density_calculator.save_range(workspace.xmin, workspace.xmax);
                     }
 
@@ -492,7 +496,11 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                             }
                         }
 
-                        if (model_params.scoring_metric != Depth)
+                        if (
+                            model_params.scoring_metric != Depth &&
+                            model_params.scoring_metric != BoxedDensity &&
+                            model_params.scoring_metric != BoxedRatio
+                        )
                         {
                             if (model_params.scoring_metric == Density)
                             {
@@ -948,7 +956,11 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         }
 
         /* Depending on the scoring metric, might need to calculate fractions of data and volume */
-        if (model_params.scoring_metric != Depth)
+        if (
+            model_params.scoring_metric != Depth &&
+            model_params.scoring_metric != BoxedDensity &&
+            model_params.scoring_metric != BoxedRatio
+        )
         {
             switch (trees.back().col_type)
             {
@@ -1099,6 +1111,50 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             }
         }
 
+        else if (model_params.scoring_metric == BoxedDensity || model_params.scoring_metric == BoxedRatio)
+        {
+            switch (trees.back().col_type)
+            {
+                case Numeric:
+                {
+                    workspace.density_calculator.push_bdens(trees.back().num_split, trees.back().col_num);
+                    break;
+                }
+
+                case Categorical:
+                {
+                    switch (model_params.cat_split_type)
+                    {
+                        case SingleCateg:
+                        {
+                            workspace.density_calculator.push_bdens((int)1, trees.back().col_num);
+                            break;
+                        }
+
+                        case SubSet:
+                        {
+                            if (trees.back().cat_split.empty())
+                            {
+                                workspace.density_calculator.push_bdens((int)1, trees.back().col_num);
+                            }
+
+                            else
+                            {
+                                workspace.density_calculator.push_bdens(trees.back().cat_split, trees.back().col_num);
+                            }
+                            break;
+                        }
+                    }
+                    break;
+                }
+
+                default:
+                {
+                    assert(0);
+                }
+            }
+        }
+
         /* Branch where to assign new categories can be pre-determined in this case */
         if (
             trees.back().col_type       == Categorical &&
@@ -1138,7 +1194,17 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
         /* right branch */
         recursion_state->restore_state(workspace);
-        if (model_params.scoring_metric != Depth) workspace.density_calculator.pop();
+        if (model_params.scoring_metric == BoxedDensity || model_params.scoring_metric == BoxedRatio) {
+            if (trees[tree_from].col_type == Numeric) {
+                workspace.density_calculator.pop_bdens(trees[tree_from].col_num);
+            }
+            else {
+                workspace.density_calculator.pop_bdens_cat(trees[tree_from].col_num);
+            }
+        }
+        else if (model_params.scoring_metric != Depth) {
+            workspace.density_calculator.pop();
+        }
         if (model_params.missing_action != Fail)
         {
             switch(model_params.missing_action)
@@ -1248,6 +1314,21 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             case AdjDensity:
             {
                 trees.back().score = workspace.density_calculator.calc_adj_density();
+                break;
+            }
+
+            case BoxedDensity:
+            {
+                trees.back().score = workspace.density_calculator.calc_bdens();
+                break;
+            }
+
+            case BoxedRatio:
+            {
+                if (!workspace.changed_weights)
+                    trees.back().score = workspace.density_calculator.calc_bratio(workspace.end - workspace.st + 1, model_params.sample_size);
+                else
+                    trees.back().score = workspace.density_calculator.calc_bratio(sum_weight, model_params.sample_size);
                 break;
             }
         }

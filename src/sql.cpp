@@ -107,12 +107,23 @@ std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest
                                                        categ_levels,
                                                        false, index1, false, 0,
                                                        nthreads);
+    bool is_density = (model_outputs != NULL && model_outputs->scoring_metric == Density) ||
+                      (model_outputs_ext != NULL && model_outputs_ext->scoring_metric == Density);
+    bool is_bdens   = (model_outputs != NULL && model_outputs->scoring_metric == BoxedDensity) ||
+                      (model_outputs_ext != NULL && model_outputs_ext->scoring_metric == BoxedDensity);
+    bool is_bratio  = (model_outputs != NULL && model_outputs->scoring_metric == BoxedRatio) ||
+                      (model_outputs_ext != NULL && model_outputs_ext->scoring_metric == BoxedRatio);
     std::string out = std::accumulate(tree_conds.begin(), tree_conds.end(),
-                                      ((model_outputs != NULL && model_outputs->scoring_metric != Density) ||
-                                       (model_outputs_ext != NULL && model_outputs_ext->scoring_metric != Density))?
-                                            std::string("SELECT\nPOWER(2.0, -(0.0")
-                                            :
-                                            std::string("SELECT\n(-(0.0"),
+                                      is_density?
+                                          std::string("SELECT\n(-(0.0")
+                                          :
+                                          (is_bdens?
+                                               std::string("SELECT\n((0.0")
+                                               :
+                                               (is_bratio?
+                                                    std::string("SELECT\n(-LOG(0.0")
+                                                    :
+                                                    std::string("SELECT\nPOWER(2.0, -(0.0"))),
                                       [&tree_conds, &index1](std::string &a, std::string &b)
                                       {return a
                                                 + std::string(" + \n---BEGIN TREE ")
@@ -311,10 +322,10 @@ void generate_tree_rules(std::vector<IsoTree> *trees, std::vector<IsoHPlane> *hp
                                 + std::string("\tTHEN ")
                                 + (output_score?
                                     (std::to_string((trees != NULL)?
-                                        ((model_outputs->scoring_metric != Density)?
+                                        ((model_outputs->scoring_metric != Density && model_outputs->scoring_metric != BoxedRatio)?
                                             (*trees)[curr_ix].score : (-(*trees)[curr_ix].score))
                                             :
-                                        ((model_outputs_ext->scoring_metric != Density)?
+                                        ((model_outputs_ext->scoring_metric != Density && model_outputs_ext->scoring_metric != BoxedRatio)?
                                             (*hplanes)[curr_ix].score : (-(*hplanes)[curr_ix].score))))
                                         :
                                     (std::to_string(node_rules.size() + (size_t)index1)))

@@ -341,6 +341,14 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     {
         scoring_metric_C  =  AdjDensity;
     }
+    else if (Rcpp::as<std::string>(scoring_metric) == "boxed_density")
+    {
+        scoring_metric_C  =  BoxedDensity;
+    }
+    else if (Rcpp::as<std::string>(scoring_metric) == "boxed_ratio")
+    {
+        scoring_metric_C  =  BoxedRatio;
+    }
 
     Rcpp::NumericVector  tmat    =  Rcpp::NumericVector();
     Rcpp::NumericMatrix  dmat    =  Rcpp::NumericMatrix();
