@@ -343,10 +343,12 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
                       (model_outputs_ext != NULL && model_outputs_ext->scoring_metric == BoxedRatio);
     bool is_bdens   = (model_outputs != NULL && model_outputs->scoring_metric == BoxedDensity) ||
                       (model_outputs_ext != NULL && model_outputs_ext->scoring_metric == BoxedDensity);
+    bool is_bdens2  = (model_outputs != NULL && model_outputs->scoring_metric == BoxedDensity2) ||
+                      (model_outputs_ext != NULL && model_outputs_ext->scoring_metric == BoxedDensity2);
 
     if (standardize)
     {
-        if (is_density)
+        if (is_density || is_bdens2)
         {
             ntrees = -ntrees;
             for (size_t row = 0; row < nrows; row++)
@@ -355,17 +357,17 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
 
         else if (is_bdens)
         {
-            for (size_t row = 0; row < nrows; row++)
-                output_depths[row] /= ntrees;
-        }
-
-        else if (is_bratio)
-        {
             #ifndef _WIN32
             #pragma omp simd
             #endif
             for (size_t row = 0; row < nrows; row++)
-                output_depths[row] = -std::log(output_depths[row] / ntrees);
+                output_depths[row] = -std::exp(output_depths[row] / ntrees);
+        }
+
+        else if (is_bratio)
+        {
+            for (size_t row = 0; row < nrows; row++)
+                output_depths[row] = output_depths[row] / ntrees;
         }
 
         else
@@ -380,7 +382,7 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
 
     else
     {
-        if (is_density)
+        if (is_density || is_bdens || is_bdens2)
         {
             #ifndef _WIN32
             #pragma omp simd
@@ -389,12 +391,9 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
                 output_depths[row] = std::exp(output_depths[row] / ntrees);
         }
 
-        else if (is_bdens)
+        else if (is_bratio)
         {
             ntrees = -ntrees;
-            #ifndef _WIN32
-            #pragma omp simd
-            #endif
             for (size_t row = 0; row < nrows; row++)
                 output_depths[row] /= ntrees;
         }
@@ -406,7 +405,7 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
         }
     }
 
-    if (per_tree_depths != NULL && is_density)
+    if (per_tree_depths != NULL && (is_density || is_bdens || is_bdens2))
     {
         size_t ntrees = (model_outputs != NULL)? model_outputs->trees.size() : model_outputs_ext->hplanes.size();
         #ifndef _WIN32

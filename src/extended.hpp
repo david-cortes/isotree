@@ -141,9 +141,20 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         )
     {
         workspace.col_criterion = ByRange;
-        calc_ranges_all_cols(input_data, workspace, model_params, workspace.node_col_weights.data(),
-                             NULL,
-                             NULL);
+        if (curr_depth == 0 &&
+            (model_params.scoring_metric == BoxedDensity ||
+             model_params.scoring_metric == BoxedDensity2 ||
+             model_params.scoring_metric == BoxedRatio)
+        ) {
+            for (size_t col = 0; col < input_data.ncols_numeric; col++)
+                workspace.node_col_weights[col] = workspace.density_calculator.box_high[col]
+                                                   - workspace.density_calculator.box_low[col];
+        }
+        else {
+            calc_ranges_all_cols(input_data, workspace, model_params, workspace.node_col_weights.data(),
+                                 NULL,
+                                 NULL);
+        }
         workspace.has_saved_stats = false;
     }
 
@@ -352,6 +363,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
             if (
                 model_params.scoring_metric != Depth &&
                 model_params.scoring_metric != BoxedDensity &&
+                model_params.scoring_metric != BoxedDensity2 &&
                 model_params.scoring_metric != BoxedRatio
             )
             {
@@ -508,7 +520,9 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
             workspace.density_calculator.push_density(workspace.xmin, workspace.xmax, hplanes.back().split_point);
         }
 
-        else if (model_params.scoring_metric == BoxedDensity || model_params.scoring_metric == BoxedRatio)
+        else if (model_params.scoring_metric == BoxedDensity ||
+                 model_params.scoring_metric == BoxedDensity2 ||
+                 model_params.scoring_metric == BoxedRatio)
         {
             workspace.density_calculator.push_bdens_ext(hplanes.back(), model_params);
         }
@@ -577,7 +591,10 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     hplanes.emplace_back();
 
     if (impute_nodes != NULL) impute_nodes->emplace_back(hplane_from);
-    if (model_params.scoring_metric == BoxedDensity || model_params.scoring_metric == BoxedRatio)
+    if (model_params.scoring_metric == BoxedDensity ||
+        model_params.scoring_metric == BoxedDensity2 ||
+        model_params.scoring_metric == BoxedRatio
+    )
         workspace.density_calculator.pop_bdens_ext();
     else if (model_params.scoring_metric != Depth)
         workspace.density_calculator.pop();
@@ -588,6 +605,11 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                            model_params,
                            impute_nodes,
                            curr_depth + 1);
+    if (model_params.scoring_metric == BoxedDensity ||
+        model_params.scoring_metric == BoxedDensity2 ||
+        model_params.scoring_metric == BoxedRatio
+    )
+        workspace.density_calculator.pop_bdens_ext_right();
 
     return;
 
@@ -638,20 +660,30 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                 break;
             }
 
-            case BoxedDensity:
+            case BoxedRatio:
             {
-                hplanes.back().score = workspace.density_calculator.calc_bdens_ext();
+                hplanes.back().score = workspace.density_calculator.calc_bratio_ext();
                 break;
             }
 
-            case BoxedRatio:
+            case BoxedDensity:
             {
                 if (!has_weights)
-                    hplanes.back().score = workspace.density_calculator.calc_bratio_ext(workspace.end - workspace.st + 1, model_params.sample_size);
+                    hplanes.back().score = workspace.density_calculator.calc_bdens_ext(workspace.end - workspace.st + 1, model_params.sample_size);
                 else
-                    hplanes.back().score = workspace.density_calculator.calc_bratio_ext(sum_weight, model_params.sample_size);
+                    hplanes.back().score = workspace.density_calculator.calc_bdens_ext(sum_weight, model_params.sample_size);
                 break;
             }
+
+            case BoxedDensity2:
+            {
+                if (!has_weights)
+                    hplanes.back().score = workspace.density_calculator.calc_bdens_ext(workspace.end - workspace.st + 1, model_params.sample_size);
+                else
+                    hplanes.back().score = workspace.density_calculator.calc_bdens_ext(sum_weight, model_params.sample_size);
+                break;
+            }
+
         }
 
         /* don't leave any vector initialized */

@@ -111,8 +111,11 @@ std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest
                       (model_outputs_ext != NULL && model_outputs_ext->scoring_metric == Density);
     bool is_bdens   = (model_outputs != NULL && model_outputs->scoring_metric == BoxedDensity) ||
                       (model_outputs_ext != NULL && model_outputs_ext->scoring_metric == BoxedDensity);
+    bool is_bdens2  = (model_outputs != NULL && model_outputs->scoring_metric == BoxedDensity) ||
+                      (model_outputs_ext != NULL && model_outputs_ext->scoring_metric == BoxedDensity);
     bool is_bratio  = (model_outputs != NULL && model_outputs->scoring_metric == BoxedRatio) ||
                       (model_outputs_ext != NULL && model_outputs_ext->scoring_metric == BoxedRatio);
+    is_density = is_density || is_bdens2;
     std::string out = std::accumulate(tree_conds.begin(), tree_conds.end(),
                                       is_density?
                                           std::string("SELECT\n(-(0.0")
@@ -121,7 +124,7 @@ std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest
                                                std::string("SELECT\n((0.0")
                                                :
                                                (is_bratio?
-                                                    std::string("SELECT\n(-LOG(0.0")
+                                                    std::string("SELECT\n((0.0")
                                                     :
                                                     std::string("SELECT\nPOWER(2.0, -(0.0"))),
                                       [&tree_conds, &index1](std::string &a, std::string &b)
@@ -204,7 +207,7 @@ std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *mo
     size_t_for loop_end = ntrees_use;
     if (single_tree)
     {
-        loop_st = tree_num;
+        loop_st = tree_num - index1;
         loop_end = loop_st + 1;
     }
 

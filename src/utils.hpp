@@ -1351,7 +1351,7 @@ void SingleNodeColumnSampler::restore(const SingleNodeColumnSampler &other)
 
 void DensityCalculator::initialize(size_t max_depth, int max_categ, bool reserve_counts, ScoringMetric scoring_metric)
 {
-    this->multipliers.reserve(max_depth+1);
+    this->multipliers.reserve(max_depth+3);
     this->multipliers.clear();
     if (scoring_metric != AdjDensity)
         this->multipliers.push_back(0);
@@ -1372,9 +1372,10 @@ void DensityCalculator::initialize_bdens(const InputData &input_data,
 {
     if (input_data.ncols_numeric)
     {
-        this->queue_box.reserve(model_params.max_depth);
+        this->queue_box.reserve(model_params.max_depth+3);
         this->box_low.resize(input_data.ncols_numeric);
         this->box_high.resize(input_data.ncols_numeric);
+        this->ranges.resize(input_data.ncols_numeric);
     }
     this->sum_log_width = 0;
     bool unsplittable = false;
@@ -1409,12 +1410,16 @@ void DensityCalculator::initialize_bdens(const InputData &input_data,
 
             if (unsplittable)
             {
-                this->box_low[col] = std::numeric_limits<double>::min();
-                this->box_high[col] = std::numeric_limits<double>::min();
+                this->box_low[col] = 0;
+                this->box_high[col] = 0;
+                this->ranges[col] = 0;
                 col_sampler.drop_col(col);
             }
 
             this->sum_log_width += std::log(std::fmax(box_high[col] - box_low[col], std::numeric_limits<double>::min()));
+
+            this->ranges[col] = (ldouble_safe)this->box_high[col] - (ldouble_safe)this->box_low[col];
+            this->ranges[col] = std::fmax(this->ranges[col], 0.0l);
         }
 
         else
@@ -1437,6 +1442,8 @@ void DensityCalculator::initialize_bdens(const InputData &input_data,
             }
         }
     }
+
+    this->ncat_orig = this->ncat;
 }
 
 template <class InputData>
@@ -1448,16 +1455,21 @@ void DensityCalculator::initialize_bdens_ext(const InputData &input_data,
 {
     this->box_low.resize(input_data.ncols_numeric);
     this->box_high.resize(input_data.ncols_numeric);
-    this->vals_ext_box.reserve(model_params.max_depth);
-    this->queue_ext_box.reserve(model_params.max_depth);
+    this->vals_ext_box.reserve(model_params.max_depth + 3);
+    this->queue_ext_box.reserve(model_params.max_depth + 3);
     bool unsplittable = false;
 
-    if (!input_data.ncols_categ)
+    /* TODO: find out if there's an optimal point for choosing one or the other loop
+       when using 'leave_m_cols' and when using 'prob_pick_col_by_range'. */
+    // if (!input_data.ncols_categ || model_params.ncols_per_tree < input_data.ncols_numeric)
+    if (input_data.ncols_numeric)
     {
         col_sampler.prepare_full_pass();
         size_t col;
         while (col_sampler.sample_col(col))
         {
+            if (col >= input_data.ncols_numeric)
+                continue;
             if (input_data.Xc_indptr != NULL)
             {
                 get_range((size_t*)ix_arr.data(), (size_t)0, ix_arr.size()-(size_t)1, col,
@@ -1480,13 +1492,14 @@ void DensityCalculator::initialize_bdens_ext(const InputData &input_data,
         }
     }
 
-    else
+    else if (input_data.ncols_numeric)
     {
         size_t n_unsplittable = 0;
         std::vector<size_t> unsplittable_cols;
         if (col_sampler_is_fresh && !col_sampler.has_weights())
             unsplittable_cols.reserve(input_data.ncols_numeric);
 
+        /* TODO: this will do unnecessary calculations when using 'leave_m_cols' */
         for (size_t col = 0; col < input_data.ncols_numeric; col++)
         {
             if (input_data.Xc_indptr != NULL)
@@ -1563,7 +1576,7 @@ void DensityCalculator::push_density(double xmin, double xmax, double split_poin
     mult_right = std::isnan(mult_right)? 0 : mult_right;
 
     ldouble_safe curr = this->multipliers.back();
-    this->multipliers.back() = curr + mult_right;
+    this->multipliers.push_back(curr + mult_right);
     this->multipliers.push_back(curr + mult_left);
 }
 
@@ -1591,6 +1604,7 @@ void DensityCalculator::push_density(int n_present)
 /* For binary categorical splits */
 void DensityCalculator::push_density()
 {
+    this->multipliers.push_back(0);
     this->multipliers.push_back(0);
 }
 
@@ -1628,13 +1642,13 @@ void DensityCalculator::push_adj(double xmin, double xmax, double split_point, d
     ldouble_safe curr = this->multipliers.back();
     if (scoring_metric == AdjDepth)
     {
-        this->multipliers.back() = curr + chunk_right;
+        this->multipliers.push_back(curr + chunk_right);
         this->multipliers.push_back(curr + chunk_left);
     }
 
     else 
     {
-        this->multipliers.back() = std::fmax(curr * chunk_right, (ldouble_safe)std::numeric_limits<double>::epsilon());
+        this->multipliers.push_back(std::fmax(curr * chunk_right, (ldouble_safe)std::numeric_limits<double>::epsilon()));
         this->multipliers.push_back(std::fmax(curr * chunk_left, (ldouble_safe)std::numeric_limits<double>::epsilon()));
     }
 }
@@ -1731,8 +1745,8 @@ void DensityCalculator::push_bdens_ext(const IsoHPlane &hplane, const ModelParam
                 {
                     case SingleCateg:
                     {
-                        xlow += std::fmin(hplane.fill_new[col_cat], 0);
-                        xhigh += std::fmax(hplane.fill_new[col_cat], 0);
+                        xlow += std::fmin(hplane.fill_new[col_cat], 0.);
+                        xhigh += std::fmax(hplane.fill_new[col_cat], 0.);
                         break;
                     }
 
@@ -1753,15 +1767,38 @@ void DensityCalculator::push_bdens_ext(const IsoHPlane &hplane, const ModelParam
         }
     }
 
-    double log_range_sample = std::log(std::fmax(xhigh - xlow, std::numeric_limits<double>::min()));
-    double log_range_left = std::log(std::fmax(hplane.split_point - xlow, std::numeric_limits<double>::min()));
-    double log_range_right = std::log(std::fmax(xhigh - hplane.split_point, std::numeric_limits<double>::min()));
+    double chunk_left;
+    double chunk_right;
+    double xdiff = xhigh - xlow;
 
-    this->vals_ext_box.push_back(log_range_left - log_range_sample);
-    this->queue_ext_box.push_back(log_range_right - log_range_sample);
+    if (model_params.scoring_metric != BoxedDensity)
+    {
+        chunk_left = (hplane.split_point - xlow) / xdiff;
+        chunk_right = (xhigh - hplane.split_point) / xdiff;
+        chunk_left = std::fmin(chunk_left, std::numeric_limits<double>::min());
+        chunk_left = std::fmax(chunk_left, 1.-std::numeric_limits<double>::epsilon());
+        chunk_right = std::fmin(chunk_right, std::numeric_limits<double>::min());
+        chunk_right = std::fmax(chunk_right, 1.-std::numeric_limits<double>::epsilon());
+    }
+
+    else
+    {
+        chunk_left = xdiff / (hplane.split_point - xlow);
+        chunk_right = xdiff / (xhigh - hplane.split_point);
+        chunk_left = std::fmin(chunk_left, 1.);
+        chunk_right = std::fmin(chunk_right, 1.);
+    }
+
+    this->queue_ext_box.push_back(std::log(chunk_right) + this->vals_ext_box.back());
+    this->vals_ext_box.push_back(std::log(chunk_left) + this->vals_ext_box.back());
 }
 
 void DensityCalculator::pop()
+{
+    this->multipliers.pop_back();
+}
+
+void DensityCalculator::pop_right()
 {
     this->multipliers.pop_back();
 }
@@ -1770,15 +1807,29 @@ void DensityCalculator::pop_bdens(size_t col)
 {
     double old_high = this->queue_box.back();
     this->queue_box.pop_back();
+    this->queue_box.push_back(this->box_low[col]);
     this->box_low[col] = this->box_high[col];
     this->box_high[col] = old_high;
+}
+
+void DensityCalculator::pop_bdens_right(size_t col)
+{
+    double old_low = this->queue_box.back();
+    this->queue_box.pop_back();
+    this->box_low[col] = old_low;
 }
 
 void DensityCalculator::pop_bdens_cat(size_t col)
 {
     int old_ncat = this->queue_ncat.back();
-    this->queue_ncat.pop_back();
     this->ncat[col] = old_ncat - this->ncat[col];
+}
+
+void DensityCalculator::pop_bdens_cat_right(size_t col)
+{
+    int old_ncat = this->queue_ncat.back();
+    this->queue_ncat.pop_back();
+    this->ncat[col] = old_ncat;
 }
 
 void DensityCalculator::pop_bdens_ext()
@@ -1786,6 +1837,11 @@ void DensityCalculator::pop_bdens_ext()
     this->vals_ext_box.pop_back();
     this->vals_ext_box.push_back(this->queue_ext_box.back());
     this->queue_ext_box.pop_back();
+}
+
+void DensityCalculator::pop_bdens_ext_right()
+{
+    this->vals_ext_box.pop_back();
 }
 
 /* this outputs the logarithm of the density */
@@ -1806,43 +1862,88 @@ double DensityCalculator::calc_adj_density()
 }
 
 /* this outputs the logarithm of the density */
-ldouble_safe DensityCalculator::calc_bdens_log()
+ldouble_safe DensityCalculator::calc_bratio_inv_log()
 {
     ldouble_safe sum_log_switdh = 0;
-    for (size_t col = 0; col < this->box_low.size(); col++)
-        sum_log_switdh += std::log(std::fmax(this->box_high[col] - this->box_low[col], std::numeric_limits<double>::min()));
+    ldouble_safe ratio_col;
+    for (size_t col = 0; col < this->ranges.size(); col++)
+    {
+        if (!this->ranges[col]) continue;
+        ratio_col = this->ranges[col] / ((ldouble_safe)this->box_high[col] - (ldouble_safe)this->box_low[col]);
+        ratio_col = std::fmax(ratio_col, 1.0l);
+        sum_log_switdh += std::log(ratio_col);
+    }
+
     for (size_t col = 0; col < this->ncat.size(); col++)
-        sum_log_switdh += std::log(this->ncat[col]);
-    return sum_log_switdh - this->sum_log_width;
+    {
+        if (this->ncat_orig[col] <= 1) continue;
+        sum_log_switdh += std::log((double)this->ncat_orig[col] / (double)this->ncat[col]);
+    }
+
+    return sum_log_switdh;
+}
+
+ldouble_safe DensityCalculator::calc_bratio_log()
+{
+    ldouble_safe sum_log_switdh = 0;
+    ldouble_safe ratio_col;
+    for (size_t col = 0; col < this->ranges.size(); col++)
+    {
+        if (!this->ranges[col]) continue;
+        ratio_col = ((ldouble_safe)this->box_high[col] - (ldouble_safe)this->box_low[col]) / this->ranges[col];
+        ratio_col = std::fmax(ratio_col, (ldouble_safe)std::numeric_limits<double>::min());
+        ratio_col = std::fmin(ratio_col, (ldouble_safe)(1. - std::numeric_limits<double>::epsilon()));
+        sum_log_switdh += std::log(ratio_col);
+    }
+
+    for (size_t col = 0; col < this->ncat.size(); col++)
+    {
+        if (this->ncat_orig[col] <= 1) continue;
+        sum_log_switdh += std::log((double)this->ncat[col] / (double)this->ncat_orig[col]);
+    }
+
+    return sum_log_switdh;
 }
 
 /* this does NOT output the logarithm of the density */
-double DensityCalculator::calc_bdens()
+double DensityCalculator::calc_bratio()
 {
-    return std::exp(this->calc_bdens_log());
+    return std::exp(this->calc_bratio_log());
+}
+
+const double MIN_DENS = std::log(std::numeric_limits<double>::min());
+
+/* this outputs the logarithm of the density */
+double DensityCalculator::calc_bdens(long double remainder, size_t sample_size)
+{
+    double out = std::log(remainder) - std::log((long double)sample_size) - this->calc_bratio_inv_log();
+    return std::fmax(out, MIN_DENS);
 }
 
 /* this outputs the logarithm of the density */
-double DensityCalculator::calc_bratio(long double remainder, size_t sample_size)
+double DensityCalculator::calc_bdens2(long double remainder, size_t sample_size)
 {
-    return std::log(remainder) - std::log((long double)sample_size) - this->calc_bdens_log();
+    double out = std::log(remainder) - std::log((long double)sample_size) - this->calc_bratio_log();
+    return std::fmax(out, MIN_DENS);
 }
 
 /* this outputs the logarithm of the density */
-ldouble_safe DensityCalculator::calc_bdens_log_ext()
+ldouble_safe DensityCalculator::calc_bratio_log_ext()
 {
-    return std::accumulate(this->vals_ext_box.begin(), this->vals_ext_box.end(), 0.0l);
+    return this->vals_ext_box.back();
 }
 
-double DensityCalculator::calc_bdens_ext()
+double DensityCalculator::calc_bratio_ext()
 {
-    return std::exp(this->calc_bdens_log_ext());
+    double out = std::exp(this->calc_bratio_log_ext());
+    return std::fmax(out, std::numeric_limits<double>::min());
 }
 
 /* this outputs the logarithm of the density */
-double DensityCalculator::calc_bratio_ext(long double remainder, size_t sample_size)
+double DensityCalculator::calc_bdens_ext(long double remainder, size_t sample_size)
 {
-    return std::log(remainder) - std::log((long double)sample_size) - this->calc_bdens_log_ext();
+    double out = std::log(remainder) - std::log((long double)sample_size) - this->calc_bratio_log_ext();
+    return std::fmax(out, MIN_DENS);
 }
 
 void DensityCalculator::save_range(double xmin, double xmax)

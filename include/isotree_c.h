@@ -119,7 +119,7 @@ typedef enum  CategSplit     {SubSet=0,    SingleCateg=41}             CategSpli
 typedef enum  CoefType       {Uniform=61,  Normal=0}                   CoefType;       /* For extended model */
 typedef enum  UseDepthImp    {Lower=71,    Higher=0,       Same=72}    UseDepthImp;    /* For NA imputation */
 typedef enum  WeighImpRows   {Inverse=0,   Prop=81,        Flat=82}    WeighImpRows;   /* For NA imputation */
-typedef enum  ScoringMetric  {Depth=0,     Density=92,     BoxedDensity=94, BoxedVolume=95,
+typedef enum  ScoringMetric  {Depth=0,     Density=92,     BoxedDensity=94, BoxedDensity2=96, BoxedRatio=95,
                               AdjDepth=91, AdjDensity=93}              ScoringMetric;
 #endif
 

@@ -273,7 +273,7 @@ typedef enum  CategSplit     {SubSet=0,    SingleCateg=41}             CategSpli
 typedef enum  CoefType       {Uniform=61,  Normal=0}                   CoefType;       /* For extended model */
 typedef enum  UseDepthImp    {Lower=71,    Higher=0,       Same=72}    UseDepthImp;    /* For NA imputation */
 typedef enum  WeighImpRows   {Inverse=0,   Prop=81,        Flat=82}    WeighImpRows;   /* For NA imputation */
-typedef enum  ScoringMetric  {Depth=0,     Density=92,     BoxedDensity=94, BoxedRatio=95,
+typedef enum  ScoringMetric  {Depth=0,     Density=92,     BoxedDensity=94, BoxedDensity2=96, BoxedRatio=95,
                               AdjDepth=91, AdjDensity=93}              ScoringMetric;
 
 /* These are only used internally */
@@ -546,8 +546,10 @@ public:
     std::vector<double> box_low;
     std::vector<double> box_high;
     std::vector<double> queue_box;
+    std::vector<ldouble_safe> ranges;
     std::vector<int> ncat;
     std::vector<int> queue_ncat;
+    std::vector<int> ncat_orig;
     ldouble_safe sum_log_width;
     std::vector<double> vals_ext_box;
     std::vector<double> queue_ext_box;
@@ -581,25 +583,33 @@ public:
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
     void push_bdens_ext(const IsoHPlane &hplane, const ModelParams &model_params);
     void pop();
+    void pop_right();
     void pop_bdens(size_t col);
+    void pop_bdens_right(size_t col);
     void pop_bdens_cat(size_t col);
+    void pop_bdens_cat_right(size_t col);
     void pop_bdens_ext();
+    void pop_bdens_ext_right();
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
     double calc_density(long double remainder, size_t sample_size);
     ldouble_safe calc_adj_depth();
     double calc_adj_density();
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
-    ldouble_safe calc_bdens_log();
+    ldouble_safe calc_bratio_log();
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
-    double calc_bdens();
+    ldouble_safe calc_bratio_inv_log();
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
-    double calc_bratio(long double remainder, size_t sample_size);
+    double calc_bratio();
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
-    ldouble_safe calc_bdens_log_ext();
+    double calc_bdens(long double remainder, size_t sample_size);
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
-    double calc_bdens_ext();
+    double calc_bdens2(long double remainder, size_t sample_size);
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
-    double calc_bratio_ext(long double remainder, size_t sample_size);
+    ldouble_safe calc_bratio_log_ext();
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    double calc_bratio_ext();
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    double calc_bdens_ext(long double remainder, size_t sample_size);
     void save_range(double xmin, double xmax);
     void restore_range(double &restrict xmin, double &restrict xmax);
     void save_counts(size_t *restrict cat_counts, int ncat);
@@ -1779,5 +1789,4 @@ void extract_cond_ext_isotree(ExtIsoForest &model, IsoHPlane &hplane,
                               std::string &cond_left, std::string &cond_right,
                               std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
                               std::vector<std::vector<std::string>> &categ_levels);
-
 #endif /* ISOTREE_H */

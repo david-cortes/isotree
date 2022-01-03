@@ -198,39 +198,6 @@
 *       of categorical variables. Note however that using 'Density' requires more trees for convergence
 *       of scores (i.e. good results) compared to isolation-based metrics.
 *       'Density' is incompatible with 'penalize_range=true'.
-*       If passing 'BoxedDensity', will set the scores for each terminal node as the ratio between the volume of the boxed
-*       feature space for the node as defined by the smallest and largest values from the split
-*       conditions (bounded by the variable ranges in the sample) and the variable ranges in the
-*       tree sample.
-*       If using 'ndim=1', for categorical variables 'BoxedDensity' is defined in terms of number of
-*       categories.
-*       If using 'ndim=>1', 'BoxedDensity' is defined in terms of the maximum achievable value for the
-*       splitting linear combination determined from the minimum and maximum values for each
-*       variable among the points in the sample, and as such, it has a rather different meaning
-*       compared to the score obtained with 'ndim=1' - 'BoxedDensity' scores with 'ndim>1'
-*       typically provide very poor quality results and this metric is thus not recommended to
-*       use in the extended model.
-*       The standardized outlier score from 'BoxedDensity' for a given observation is calculated
-*       simply as the the average from the per-tree boxed densities. 'BoxedDensity'
-*       has a lower bound of zero and a theorical upper bound of one, but in practice the scores
-*       tend to be very small numbers close to zero, and its distribution across
-*       different datasets is rather unpredictable. In order to keep rankings comparable with
-*       the rest of the metrics, the non-standardized outlier scores from 'BoxedDensity' are calculated as the
-*       negative of the average instead. The per-tree scores for 'BoxedDensity' are calculated as the density values.
-*       'BoxedDensity' might lead to better predictions in datasets with many rows when using 'ndim=1' and
-*       a relatively small 'sample_size'. Note that much more trees are required for convergence
-*       of scores when using 'BoxedDensity'. In some datasets, 'BoxedDensity' might result in very bad
-*       predictions, to the point that taking its inverse produces a much better ranking of outliers.
-*       'BoxedDensity' is incompatible with 'penalize_range=true'.
-*       If passing 'BoxedRatio', will set the scores for each terminal node as the ratio between the fraction of points
-*       in the sub-sample that end up in that node and the boxed density metric.
-*       'BoxedRatio' was implemented for experimentation purposes only, and tends to produce poor quality
-*       results.
-*       The standardized outlier score from 'BoxedRatio' is calculated as the negative of the
-*       logarithm of the logarithm (twice) of the geometric mean, while the non-standardized
-*       score is calculated as the logarithm of the geometric mean, and the per-tree scores
-*       are calculated as the logarithm of the ratio.
-*       'BoxedRatio' is incompatible with 'penalize_range=true'.
 *       If passing 'AdjDepth', will use an adjusted isolation depth that takes into account the number of points that
 *       go to each side of a given split vs. the fraction of the range of that feature that each
 *       side of the split occupies, by a metric as follows: 'd = 2/ (1 + 1/(2*p))'
@@ -256,6 +223,52 @@
 *       Scores (standardized, non-standardized, per-tree) from 'AdjDensity' are aggregated in the same way
 *       as for 'Depth'.
 *       'AdjDepth' is incompatible with 'penalize_range=true'.
+*       If passing 'BoxedRatio', will set the scores for each terminal node as the ratio between the volume of the boxed
+*       feature space for the node as defined by the smallest and largest values from the split
+*       conditions for each column (bounded by the variable ranges in the sample) and the
+*       variable ranges in the tree sample.
+*       If using 'ndim=1', for categorical variables 'BoxedRatio' is defined in terms of number of categories.
+*       If using 'ndim=>1', 'BoxedRatio' is defined in terms of the maximum achievable value for the
+*       splitting linear combination determined from the minimum and maximum values for each
+*       variable among the points in the sample, and as such, it has a rather different meaning
+*       compared to the score obtained with 'ndim=1' - 'BoxedRatio' scores with 'ndim>1'
+*       typically provide very poor quality results and this metric is thus not recommended to
+*       use in the extended model. With 'ndim>1', 'BoxedRatio' also has a tendency of producing too small
+*       values which round to zero.
+*       The standardized outlier score from 'BoxedRatio' for a given observation is calculated
+*       simply as the the average from the per-tree boxed ratios. 'BoxedRatio' metric
+*       has a lower bound of zero and a theorical upper bound of one, but in practice the scores
+*       tend to be very small numbers close to zero, and its distribution across
+*       different datasets is rather unpredictable. In order to keep rankings comparable with
+*       the rest of the metrics, the non-standardized outlier scores for 'BoxedRatio' are calculated as the
+*       negative of the average instead. The per-tree 'BoxedRatio' scores are calculated as the ratios.
+*       For better numerical precision, 'BoxedRatio' is implemented in a rather computationally
+*       inefficient way, and using it might increase fitting times significantly, particularly
+*       when the number of columns in the data is large.
+*       'BoxedRatio' might lead to better predictions in datasets with many rows when using 'ndim=1'
+*       and a relatively small 'sample_size'. Note that more trees are required for convergence
+*       of scores when using 'BoxedRatio'. In some datasets, 'BoxedRatio' metric might result in very bad
+*       predictions, to the point that taking its inverse produces a much better ranking of outliers.
+*       'BoxedRatio' option is incompatible with 'penalize_range'.
+*       If passing 'BoxedDensity2', will set the score as the ratio between the fraction of points within the sample that
+*       end up in a given terminal node and the 'BoxedRatio' metric.
+*       Aggregation of scores (standardized, non-standardized, per-tree) for 'BoxedDensity2' is done in the same
+*       way as for 'Density', and it also has a natural threshold at zero for determining
+*       outliers and inliers.
+*       'BoxedDensity2' is typically usable with 'ndim>1', but tends to produce much bigger values
+*       compared to 'ndim=1'.
+*       Albeit unintuitively, in many datasets, one can usually get better results with metric
+*       'BoxedDensity' instead.
+*       'BoxedDensity2' incompatible with 'penalize_range'.
+*       If passing 'BoxedDensity', will set the score as the ratio between the fraction of points within the sample that
+*       end up in a  given terminal node and the ratio between the boxed volume of the feature
+*       space in the sample and the boxed volume of a node given by the split conditions (inverse
+*       as in 'BoxedDensity2'). This metric does not have any theoretical or intuitive
+*       justification behind its existence, and it is perhaps ilogical to use it as a
+*       scoring metric, but tends to produce good results in some datasets.
+*       The standardized outlier scores for 'BoxedDensity' are defined as the negative of the geometric mean,
+*       while the non-standardized scores are the geometric mean, and the per-tree scores are simply the 'density' values.
+*       'BoxedDensity' option is incompatible with 'penalize_range'.
 * - standardize_dist
 *       If passing 'tmat' (see documentation for it), whether to standardize the resulting average separation
 *       depths in order to produce a distance metric or not, in the same way this is done for the outlier score.
@@ -546,7 +559,13 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         throw std::runtime_error("'weigh_by_kurt' and 'prob_pick_col_by_kurt' cannot be used together.\n");
     if (ndim == 0 && model_outputs == NULL)
         throw std::runtime_error("Must pass 'ndim>0' in the extended model.\n");
-    if (penalize_range && (scoring_metric == Density || scoring_metric == AdjDensity || scoring_metric == BoxedDensity || scoring_metric == BoxedRatio))
+    if (penalize_range &&
+        (scoring_metric == Density ||
+         scoring_metric == AdjDensity ||
+         scoring_metric == BoxedDensity ||
+         scoring_metric == BoxedRatio ||
+         scoring_metric == BoxedDensity2)
+    )
         throw std::runtime_error("'penalize_range' is incompatible with density scoring.\n");
 
 
@@ -649,6 +668,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         if (
             model_outputs->scoring_metric != Density &&
             model_outputs->scoring_metric != BoxedDensity &&
+            model_outputs->scoring_metric != BoxedDensity2 &&
             model_outputs->scoring_metric != BoxedRatio
         )
             model_outputs->exp_avg_depth  = expected_avg_depth(sample_size);
@@ -670,6 +690,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         if (
             model_outputs_ext->scoring_metric != Density &&
             model_outputs_ext->scoring_metric != BoxedDensity &&
+            model_outputs_ext->scoring_metric != BoxedDensity2 &&
             model_outputs_ext->scoring_metric != BoxedRatio
         )
             model_outputs_ext->exp_avg_depth  = expected_avg_depth(sample_size);
@@ -1641,6 +1662,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     if (
         model_params.scoring_metric != Depth &&
         model_params.scoring_metric != BoxedDensity &&
+        model_params.scoring_metric != BoxedDensity2 &&
         model_params.scoring_metric != BoxedRatio
     )
     {
@@ -1650,7 +1672,9 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                                                 model_params.scoring_metric);
     }
 
-    else if (model_params.scoring_metric == BoxedDensity || model_params.scoring_metric == BoxedRatio)
+    else if (model_params.scoring_metric == BoxedDensity ||
+             model_params.scoring_metric == BoxedDensity2 ||
+             model_params.scoring_metric == BoxedRatio)
     {
         if (tree_root != NULL)
             workspace.density_calculator.initialize_bdens(input_data,

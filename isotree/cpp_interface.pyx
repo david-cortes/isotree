@@ -120,6 +120,7 @@ cdef extern from "headers_joined.hpp":
         Depth = 0
         Density = 92
         BoxedDensity = 94
+        BoxedDensity2 = 96
         BoxedRatio = 95
         AdjDepth = 91
         AdjDensity = 93
@@ -721,6 +722,8 @@ cdef class isoforest_cpp_obj:
             scoring_metric_C  =  AdjDensity
         elif scoring_metric == "boxed_density":
             scoring_metric_C  =  BoxedDensity
+        elif scoring_metric == "boxed_density2":
+            scoring_metric_C  =  BoxedDensity2
         elif scoring_metric == "boxed_ratio":
             scoring_metric_C  =  BoxedRatio
 
@@ -1386,7 +1389,7 @@ cdef class isoforest_cpp_obj:
             out[0] = 1
             if ((self.isoforest.scoring_metric != Density) and
                 (self.isoforest.scoring_metric != BoxedDensity) and
-                (self.isoforest.scoring_metric != BoxedRatio)
+                (self.isoforest.scoring_metric != BoxedDensity2)
             ):
                 out[1] = self.isoforest.trees[tree][node].score
             else:
