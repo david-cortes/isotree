@@ -1457,6 +1457,7 @@ void DensityCalculator::initialize_bdens_ext(const InputData &input_data,
     this->box_high.resize(input_data.ncols_numeric);
     this->vals_ext_box.reserve(model_params.max_depth + 3);
     this->queue_ext_box.reserve(model_params.max_depth + 3);
+    this->vals_ext_box.push_back(0);
     bool unsplittable = false;
 
     /* TODO: find out if there's an optimal point for choosing one or the other loop
