@@ -84,6 +84,7 @@ struct IsoTree_Params {
     bool   penalize_range = false;
     bool   standardize_data = true;
     ScoringMetric scoring_metric = Depth;
+    bool   fast_bratio = true;
     bool   weigh_by_kurt = false;
     double prob_pick_by_gain_pl = 0.;
     double prob_pick_by_gain_avg = 0.;
@@ -140,6 +141,7 @@ void set_isotree_parameters
     uint8_t*   penalize_range,
     uint8_t*   standardize_data,
     uint8_t*   scoring_metric,
+    uint8_t*   fast_bratio,
     uint8_t*   weigh_by_kurt,
     double*    prob_pick_by_gain_pl,
     double*    prob_pick_by_gain_avg,
@@ -178,6 +180,7 @@ void set_isotree_parameters
     if (penalize_range) params->penalize_range = *penalize_range;
     if (standardize_data) params->standardize_data = *standardize_data;
     if (scoring_metric) params->scoring_metric = (ScoringMetric)*scoring_metric;
+    if (fast_bratio) params->fast_bratio = *fast_bratio;
     if (weigh_by_kurt) params->weigh_by_kurt = *weigh_by_kurt;
     if (prob_pick_by_gain_avg) params->prob_pick_by_gain_avg = *prob_pick_by_gain_avg;
     if (prob_pick_by_gain_pl) params->prob_pick_by_gain_pl = *prob_pick_by_gain_pl;
@@ -215,6 +218,7 @@ void get_isotree_parameters
     uint8_t*   penalize_range,
     uint8_t*   standardize_data,
     uint8_t*   scoring_metric,
+    uint8_t*   fast_bratio,
     uint8_t*   weigh_by_kurt,
     double*    prob_pick_by_gain_pl,
     double*    prob_pick_by_gain_avg,
@@ -253,6 +257,7 @@ void get_isotree_parameters
     if (penalize_range) *penalize_range = params->penalize_range;
     if (standardize_data) *standardize_data = params->standardize_data;
     if (scoring_metric) *scoring_metric = params->scoring_metric;
+    if (fast_bratio) *fast_bratio = params->fast_bratio;
     if (weigh_by_kurt) *weigh_by_kurt = params->weigh_by_kurt;
     if (prob_pick_by_gain_avg) *prob_pick_by_gain_avg = params->prob_pick_by_gain_avg;
     if (prob_pick_by_gain_pl) *prob_pick_by_gain_pl = params->prob_pick_by_gain_pl;
@@ -312,7 +317,7 @@ void* isotree_fit
                 params->sample_size, params->ntrees,
                 params->max_depth, params->ncols_per_tree,
                 params->limit_depth, params->penalize_range,
-                params->standardize_data, params->scoring_metric, params->weigh_by_kurt,
+                params->standardize_data, params->scoring_metric, params->fast_bratio, params->weigh_by_kurt,
                 params->prob_pick_by_gain_pl, params->prob_pick_by_gain_avg,
                 params->prob_pick_col_by_range, params->prob_pick_col_by_var,
                 params->prob_pick_col_by_kurt,

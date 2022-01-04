@@ -226,6 +226,10 @@ class IsolationForest:
 
         Note that, when using ``ndim>1`` plus ``standardize_data=True``, the variables are standardized at
         each step as suggested in [4]_, which makes the models slightly different than in [3]_.
+
+        In general, when the data has categorical variables, models with ``ndim=1`` plus
+        ``categ_split_type=="single_categ"`` tend to produce better results, while models ``ndim>1``
+        tend to produce results for numerical-only data.
     ntry : int
         When using ``prob_pick_pooled_gain`` and/or ``prob_pick_avg_gain``, how many variables (with ``ndim=1``)
         or linear combinations (with ``ndim>1``) to try for determining the best one according to gain.
@@ -596,9 +600,10 @@ class IsolationForest:
             the rest of the metrics, the non-standardized outlier scores are calculated as the
             negative of the average instead. The per-tree scores are calculated as the ratios.
 
-            For better numerical precision, this metric is implemented in a rather computationally
-            inefficient way, and using it might increase fitting times significantly, particularly
-            when the number of columns in the data is large.
+            This metric can be calculated in a fast-but-not-so-precise way, and in a low-but-precise
+            way, which is controlled by parameter ``fast_bratio``. Usually, both should give the
+            same results, but in some fatasets, the fast way can lead to numerical inaccuracies
+            due to roundoffs very close to zero.
 
             This metric might lead to better predictions in datasets with many rows when using ``ndim=1``
             and a relatively small ``sample_size``. Note that more trees are required for convergence
@@ -620,6 +625,8 @@ class IsolationForest:
             Albeit unintuitively, in many datasets, one can usually get better results with metric
             ``"boxed_density"`` instead.
 
+            The calculation of this metric is also controlled by ``fast_bratio``.
+
             This option is incompatible with ``penalize_range``.
         ``"boxed_density"``
             Will set the score as the ratio between the fraction of points within the sample that
@@ -633,7 +640,20 @@ class IsolationForest:
             of this metric, while the non-standardized scores are the geometric mean, and the
             per-tree scores are simply the 'density' values.
 
+            The calculation of this metric is also controlled by ``fast_bratio``.
+
             This option is incompatible with ``penalize_range``.
+    fast_bratio : bool
+        When using "boxed" metrics for scoring, whether to calculate them in a fast way through
+        cumulative sum of logarithms of ratios after each split, or in a slower way as sum of
+        logarithms of a single ratio per column for each terminal node.
+
+        Usually, both methods should give the same results, but in some datasets, particularly
+        when variables have too small or too large ranges, the first method can be prone to
+        numerical inaccuracies due to roundoff close to zero.
+
+        Note that this does not affect calculations for models with 'ndim>1', since given the
+        split types, the calculation for them is different.
     standardize_data : bool
         Whether to standardize the features at each node before creating alinear combination of them as suggested
         in [4]_. This is ignored when using ``ndim=1``.
@@ -764,7 +784,7 @@ class IsolationForest:
                  coef_by_prop = False, recode_categ = False,
                  weights_as_sample_prob = True, sample_with_replacement = False,
                  penalize_range = False, standardize_data = True,
-                 scoring_metric = "depth", weigh_by_kurtosis = False,
+                 scoring_metric = "depth", fast_bratio = True, weigh_by_kurtosis = False,
                  coefs = "normal", assume_full_distr = True,
                  build_imputer = False, min_imp_obs = 3,
                  depth_imp = "higher", weigh_imp_rows = "inverse",
@@ -795,6 +815,7 @@ class IsolationForest:
         self.penalize_range = penalize_range
         self.standardize_data = standardize_data
         self.scoring_metric = scoring_metric
+        self.fast_bratio = fast_bratio
         self.weigh_by_kurtosis = weigh_by_kurtosis
         self.coefs = coefs
         self.assume_full_distr = assume_full_distr
@@ -833,7 +854,8 @@ class IsolationForest:
                  weights_as_sample_prob = self.weights_as_sample_prob,
                  sample_with_replacement = self.sample_with_replacement if (self.bootstrap is None) else self.bootstrap,
                  penalize_range = self.penalize_range, standardize_data = self.standardize_data,
-                 scoring_metric = self.scoring_metric, weigh_by_kurtosis = self.weigh_by_kurtosis,
+                 scoring_metric = self.scoring_metric, fast_bratio = self.fast_bratio,
+                 weigh_by_kurtosis = self.weigh_by_kurtosis,
                  coefs = self.coefs, assume_full_distr = self.assume_full_distr,
                  build_imputer = self.build_imputer, min_imp_obs = self.min_imp_obs,
                  depth_imp = self.depth_imp, weigh_imp_rows = self.weigh_imp_rows,
@@ -850,7 +872,7 @@ class IsolationForest:
                  coef_by_prop = False, recode_categ = True,
                  weights_as_sample_prob = True, sample_with_replacement = False,
                  penalize_range = True, standardize_data = True,
-                 scoring_metric = "depth", weigh_by_kurtosis = False,
+                 scoring_metric = "depth", fast_bratio = True, weigh_by_kurtosis = False,
                  coefs = "normal", assume_full_distr = True,
                  build_imputer = False, min_imp_obs = 3,
                  depth_imp = "higher", weigh_imp_rows = "inverse",
@@ -987,6 +1009,7 @@ class IsolationForest:
         self.random_seed             =  random_seed
         self.nthreads                =  nthreads
 
+        self.fast_bratio             =  bool(fast_bratio)
         self.all_perm                =  bool(all_perm)
         self.recode_categ            =  bool(recode_categ)
         self.coef_by_prop            =  bool(coef_by_prop)
@@ -1253,6 +1276,7 @@ class IsolationForest:
                                 ctypes.c_bool(self.penalize_range).value,
                                 ctypes.c_bool(self.standardize_data).value,
                                 self.scoring_metric,
+                                ctypes.c_bool(self.fast_bratio).value,
                                 ctypes.c_bool(False).value,
                                 ctypes.c_bool(False).value,
                                 ctypes.c_bool(False).value,
@@ -1461,6 +1485,7 @@ class IsolationForest:
                                                                    ctypes.c_bool(self.penalize_range).value,
                                                                    ctypes.c_bool(self.standardize_data).value,
                                                                    self.scoring_metric,
+                                                                   ctypes.c_bool(self.fast_bratio).value,
                                                                    ctypes.c_bool(output_distance is not None).value,
                                                                    ctypes.c_bool(output_distance == "dist").value,
                                                                    ctypes.c_bool(square_mat).value,
@@ -2390,10 +2415,13 @@ class IsolationForest:
 
         Note
         ----
-        If constructing trees with different sample sizes, the outlier scores will not be centered around
-        0.5 and might have a very skewed distribution. The standardizing constant for the scores will be
-        taken according to the sample size passed in the construction argument (if that is ``None`` or
-        ``"auto"``, will then set it as the sample size of the first tree).
+        If constructing trees with different sample sizes, the outlier scores with depth-based metrics
+        will not be centered around 0.5 and might have a very skewed distribution. The standardizing
+        constant for the scores will be taken according to the sample size passed in the construction
+        argument (if that is ``None`` or ``"auto"``, will then set it as the sample size of the first tree).
+
+        If trees are going to be fit to samples of different sizes, it's strongly recommended to use
+        density-based scoring metrics instead.
 
         Note
         ----
@@ -3186,6 +3214,7 @@ class IsolationForest:
             "penalize_range" : self.penalize_range,
             "standardize_data" : self.standardize_data,
             "scoring_metric" : self.scoring_metric,
+            "fast_bratio" : self.fast_bratio,
             "weigh_by_kurtosis" : self.weigh_by_kurtosis,
             "assume_full_distr" : self.assume_full_distr,
         }
@@ -3251,6 +3280,10 @@ class IsolationForest:
             self.scoring_metric = metadata["params"]["scoring_metric"]
         except:
             self.scoring_metric = "depth"
+        try:
+            self.fast_bratio = metadata["params"]["fast_bratio"]
+        except:
+            self.fast_bratio = True
         self.weigh_by_kurtosis = metadata["params"]["weigh_by_kurtosis"]
         self.assume_full_distr = metadata["params"]["assume_full_distr"]
 

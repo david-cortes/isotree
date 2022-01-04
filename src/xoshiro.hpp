@@ -11,12 +11,19 @@ worldwide. This software is distributed without any warranty.
 See <http://creativecommons.org/publicdomain/zero/1.0/>. */
 #include <cstdint>
 #include <cstring>
+#if (__cplusplus  >= 202002L)
+#include <bit>
+#endif
 using std::uint32_t;
 using std::uint64_t;
 using std::memcpy;
 
 namespace Xoshiro {
 
+#if (__cplusplus  >= 202002L)
+#define rotl64(x, k) std::rotl(x, k)
+#define rotl32(x, k) std::rotl(x, k)
+#else
 [[gnu::hot]]
 static inline uint64_t rotl64(const uint64_t x, const int k) {
     return (x << k) | (x >> (64 - k));
@@ -26,6 +33,7 @@ static inline uint64_t rotl64(const uint64_t x, const int k) {
 static inline uint32_t rotl32(const uint32_t x, const int k) {
     return (x << k) | (x >> (32 - k));
 }
+#endif
 
 /* these are in order to avoid gcc warnings about 'strict aliasing rules' */
 static inline uint32_t extract_32bits_from64_left(const uint64_t x)

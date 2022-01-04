@@ -30,6 +30,7 @@ isolation.forest(
   penalize_range = FALSE,
   standardize_data = TRUE,
   scoring_metric = "depth",
+  fast_bratio = TRUE,
   weigh_by_kurtosis = FALSE,
   coefs = "normal",
   assume_full_distr = TRUE,
@@ -100,7 +101,11 @@ are referred hereafter as the extended model (as in reference [3]).
 If passing `NULL`, will assume it means using the full number of columns in the data.
 
 Note that, when using `ndim>1` plus `standardize_data=TRUE`, the variables are standardized at each step
-as suggested in [4], which makes the models slightly different than in [3].}
+as suggested in [4], which makes the models slightly different than in [3].
+
+In general, when the data has categorical variables, models with `ndim=1` plus
+`categ_split_type=="single_categ"` tend to produce better results, while models `ndim>1`
+tend to produce results for numerical-only data.}
 
 \item{ntry}{When using `prob_pick_pooled_gain` and/or `prob_pick_avg_gain`, how many variables (with `ndim=1`)
 or linear combinations (with `ndim>1`) to try for determining the best one according to gain.
@@ -462,9 +467,10 @@ in [4]. This is ignored when using `ndim=1`.}
   the rest of the metrics, the non-standardized outlier scores are calculated as the
   negative of the average instead. The per-tree scores are calculated as the ratios.
   
-  For better numerical precision, this metric is implemented in a rather computationally
-  inefficient way, and using it might increase fitting times significantly, particularly
-  when the number of columns in the data is large.
+  This metric can be calculated in a fast-but-not-so-precise way, and in a low-but-precise
+  way, which is controlled by parameter `fast_bratio`. Usually, both should give the
+  same results, but in some fatasets, the fast way can lead to numerical inaccuracies
+  due to roundoffs very close to zero.
   
   This metric might lead to better predictions in datasets with many rows when using `ndim=1`
   and a relatively small `sample_size`. Note that more trees are required for convergence
@@ -485,6 +491,8 @@ in [4]. This is ignored when using `ndim=1`.}
   Albeit unintuitively, in many datasets, one can usually get better results with metric
   `"boxed_density"` instead.
   
+  The calculation of this metric is also controlled by `fast_bratio`.
+  
   This option is incompatible with `penalize_range`.
   \item "boxed_density": Will set the score as the ratio between the fraction of points within the sample that
   end up in a  given terminal node and the ratio between the boxed volume of the feature
@@ -497,8 +505,21 @@ in [4]. This is ignored when using `ndim=1`.}
   of this metric, while the non-standardized scores are the geometric mean, and the
   per-tree scores are simply the 'density' values.
   
+  The calculation of this metric is also controlled by `fast_bratio`.
+  
   This option is incompatible with `penalize_range`.
 }}
+
+\item{fast_bratio}{When using "boxed" metrics for scoring, whether to calculate them in a fast way through
+cumulative sum of logarithms of ratios after each split, or in a slower way as sum of
+logarithms of a single ratio per column for each terminal node.
+
+Usually, both methods should give the same results, but in some datasets, particularly
+when variables have too small or too large ranges, the first method can be prone to
+numerical inaccuracies due to roundoff close to zero.
+
+Note that this does not affect calculations for models with `ndim>1`, since given the
+split types, the calculation for them is different.}
 
 \item{weigh_by_kurtosis}{Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
 for each tree as briefly proposed in reference [1]. Note that this is only done at the beginning of each tree

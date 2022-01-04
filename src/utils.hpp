@@ -101,7 +101,7 @@
         return tab64[((uint64_t)((value - (value >> 1))*0x07EDD5E59A4E28C2)) >> 58] + 1;
     }
 #else /* other architectures - might be much slower */
-    #if __cplusplus  >= 202002L
+    #if (__cplusplus  >= 202002L)
     #include <bit>
     size_t log2ceil(size_t value)
     {
@@ -152,7 +152,7 @@ double digamma(double x)
         y = 0.0;
     }
 
-    y = (-0.5/x) + std::log(x) - y;
+    y = (-0.5/x) - y + std::log(x);
     return y;
 }
 
@@ -1370,6 +1370,13 @@ void DensityCalculator::initialize_bdens(const InputData &input_data,
                                          std::vector<size_t> &ix_arr,
                                          ColumnSampler &col_sampler)
 {
+    this->fast_bratio = model_params.fast_bratio;
+    if (this->fast_bratio)
+    {
+        this->multipliers.reserve(model_params.max_depth + 3);
+        this->multipliers.push_back(0);
+    }
+
     if (input_data.ncols_numeric)
     {
         this->queue_box.reserve(model_params.max_depth+3);
@@ -1700,22 +1707,84 @@ void DensityCalculator::push_adj(double pct_tree_left, ScoringMetric scoring_met
 
 void DensityCalculator::push_bdens(double split_point, size_t col)
 {
+    if (this->fast_bratio)
+        this->push_bdens_fast_route(split_point, col);
+    else
+        this->push_bdens_internal(split_point, col);
+}
+
+void DensityCalculator::push_bdens_internal(double split_point, size_t col)
+{
     this->queue_box.push_back(this->box_high[col]);
     this->box_high[col] = split_point;
 }
 
+void DensityCalculator::push_bdens_fast_route(double split_point, size_t col)
+{
+    ldouble_safe curr_range = (ldouble_safe)this->box_high[col] - (ldouble_safe)this->box_low[col];
+    ldouble_safe fraction_left  =  ((ldouble_safe)split_point - (ldouble_safe)this->box_low[col]) / curr_range;
+    ldouble_safe fraction_right = ((ldouble_safe)this->box_high[col] - (ldouble_safe)split_point) / curr_range;
+    fraction_left   = std::fmax(fraction_left, (ldouble_safe)std::numeric_limits<double>::min());
+    fraction_left   = std::fmin(fraction_left, (ldouble_safe)(1. - std::numeric_limits<double>::epsilon()));
+    fraction_left   = std::log(fraction_left);
+    fraction_left  += this->multipliers.back();
+    fraction_right  = std::fmax(fraction_right, (ldouble_safe)std::numeric_limits<double>::min());
+    fraction_right  = std::fmin(fraction_right, (ldouble_safe)(1. - std::numeric_limits<double>::epsilon()));
+    fraction_right  = std::log(fraction_right);
+    fraction_right += this->multipliers.back();
+    this->multipliers.push_back(fraction_right);
+    this->multipliers.push_back(fraction_left);
+
+    this->push_bdens_internal(split_point, col);
+}
+
 void DensityCalculator::push_bdens(int ncat_branch_left, size_t col)
+{
+    if (this->fast_bratio)
+        this->push_bdens_fast_route(ncat_branch_left, col);
+    else
+        this->push_bdens_internal(ncat_branch_left, col);
+}
+
+void DensityCalculator::push_bdens_internal(int ncat_branch_left, size_t col)
 {
     this->queue_ncat.push_back(this->ncat[col]);
     this->ncat[col] = ncat_branch_left;
 }
 
+void DensityCalculator::push_bdens_fast_route(int ncat_branch_left, size_t col)
+{
+    double fraction_left = std::log((double)ncat_branch_left / this->ncat[col]);
+    double fraction_right = std::log((double)(this->ncat[col] - ncat_branch_left) / this->ncat[col]);
+    ldouble_safe curr = this->multipliers.back();
+    this->multipliers.push_back(curr + fraction_right);
+    this->multipliers.push_back(curr + fraction_left);
+
+    this->push_bdens_internal(ncat_branch_left, col);
+}
+
 void DensityCalculator::push_bdens(const std::vector<signed char> &cat_split, size_t col)
+{
+    if (this->fast_bratio)
+        this->push_bdens_fast_route(cat_split, col);
+    else
+        this->push_bdens_internal(cat_split, col);
+}
+
+void DensityCalculator::push_bdens_internal(const std::vector<signed char> &cat_split, size_t col)
 {
     int ncat_branch_left = 0;
     for (auto el : cat_split)
         ncat_branch_left += el == 1;
-    this->push_bdens(ncat_branch_left, col);
+    this->push_bdens_internal(ncat_branch_left, col);
+}
+
+void DensityCalculator::push_bdens_fast_route(const std::vector<signed char> &cat_split, size_t col)
+{
+    int ncat_branch_left = 0;
+    for (auto el : cat_split)
+        ncat_branch_left += el == 1;
+    this->push_bdens_fast_route(ncat_branch_left, col);
 }
 
 void DensityCalculator::push_bdens_ext(const IsoHPlane &hplane, const ModelParams &model_params)
@@ -1806,6 +1875,14 @@ void DensityCalculator::pop_right()
 
 void DensityCalculator::pop_bdens(size_t col)
 {
+    if (this->fast_bratio)
+        this->pop_bdens_fast_route(col);
+    else
+        this->pop_bdens_internal(col);
+}
+
+void DensityCalculator::pop_bdens_internal(size_t col)
+{
     double old_high = this->queue_box.back();
     this->queue_box.pop_back();
     this->queue_box.push_back(this->box_low[col]);
@@ -1813,24 +1890,72 @@ void DensityCalculator::pop_bdens(size_t col)
     this->box_high[col] = old_high;
 }
 
+void DensityCalculator::pop_bdens_fast_route(size_t col)
+{
+    this->multipliers.pop_back();
+    this->pop_bdens_internal(col);
+}
+
 void DensityCalculator::pop_bdens_right(size_t col)
+{
+    if (this->fast_bratio)
+        this->pop_bdens_right_fast_route(col);
+    else
+        this->pop_bdens_right_internal(col);
+}
+
+void DensityCalculator::pop_bdens_right_internal(size_t col)
 {
     double old_low = this->queue_box.back();
     this->queue_box.pop_back();
     this->box_low[col] = old_low;
 }
 
+void DensityCalculator::pop_bdens_right_fast_route(size_t col)
+{
+    this->multipliers.pop_back();
+    this->pop_bdens_right_internal(col);
+}
+
 void DensityCalculator::pop_bdens_cat(size_t col)
+{
+    if (this->fast_bratio)
+        this->pop_bdens_cat_fast_route(col);
+    else
+        this->pop_bdens_cat_internal(col);
+}
+
+void DensityCalculator::pop_bdens_cat_internal(size_t col)
 {
     int old_ncat = this->queue_ncat.back();
     this->ncat[col] = old_ncat - this->ncat[col];
 }
 
+void DensityCalculator::pop_bdens_cat_fast_route(size_t col)
+{
+    this->multipliers.pop_back();
+    this->pop_bdens_cat_internal(col);
+}
+
 void DensityCalculator::pop_bdens_cat_right(size_t col)
+{
+    if (this->fast_bratio)
+        this->pop_bdens_cat_right_fast_route(col);
+    else
+        this->pop_bdens_cat_right_internal(col);
+}
+
+void DensityCalculator::pop_bdens_cat_right_internal(size_t col)
 {
     int old_ncat = this->queue_ncat.back();
     this->queue_ncat.pop_back();
     this->ncat[col] = old_ncat;
+}
+
+void DensityCalculator::pop_bdens_cat_right_fast_route(size_t col)
+{
+    this->multipliers.pop_back();
+    this->pop_bdens_cat_right_internal(col);
 }
 
 void DensityCalculator::pop_bdens_ext()
@@ -1865,6 +1990,9 @@ double DensityCalculator::calc_adj_density()
 /* this outputs the logarithm of the density */
 ldouble_safe DensityCalculator::calc_bratio_inv_log()
 {
+    if (!this->multipliers.empty())
+        return -this->multipliers.back();
+
     ldouble_safe sum_log_switdh = 0;
     ldouble_safe ratio_col;
     for (size_t col = 0; col < this->ranges.size(); col++)
@@ -1886,6 +2014,9 @@ ldouble_safe DensityCalculator::calc_bratio_inv_log()
 
 ldouble_safe DensityCalculator::calc_bratio_log()
 {
+    if (!this->multipliers.empty())
+        return this->multipliers.back();
+
     ldouble_safe sum_log_switdh = 0;
     ldouble_safe ratio_col;
     for (size_t col = 0; col < this->ranges.size(); col++)

@@ -825,6 +825,7 @@ export.metadata <- function(model) {
         penalize_range = model$params$penalize_range,
         standardize_data = model$params$standardize_data,
         scoring_metric = model$params$scoring_metric,
+        fast_bratio = model$params$fast_bratio,
         weigh_by_kurtosis = model$params$weigh_by_kurtosis,
         assume_full_distr = model$params$assume_full_distr
     )
@@ -852,6 +853,7 @@ take.metadata <- function(metadata) {
             penalize_range = metadata$params$penalize_range,
             standardize_data = metadata$params$standardize_data,
             scoring_metric = metadata$params$scoring_metric,
+            fast_bratio = metadata$params$fast_bratio,
             weigh_by_kurtosis = metadata$params$weigh_by_kurtosis,
             coefs = metadata$params$coefs, assume_full_distr = metadata$params$assume_full_distr,
             build_imputer = metadata$model_info$build_imputer, min_imp_obs = metadata$params$min_imp_obs,
@@ -880,6 +882,7 @@ take.metadata <- function(metadata) {
     this$params$prob_pick_col_by_var    <-  coerce.null(this$params$prob_pick_col_by_var,   0.0)
     this$params$prob_pick_col_by_kurt   <-  coerce.null(this$params$prob_pick_col_by_kurt,  0.0)
     this$params$scoring_metric          <-  coerce.null(this$params$scoring_metric, "depth")
+    this$params$fast_bratio             <-  coerce.null(this$params$fast_bratio, TRUE)
 
     if (!NROW(this$metadata$standardize_data))
         this$metadata$standardize_data <- TRUE

@@ -153,6 +153,10 @@
 #' 
 #' Note that, when using `ndim>1` plus `standardize_data=TRUE`, the variables are standardized at each step
 #' as suggested in [4], which makes the models slightly different than in [3].
+#' 
+#' In general, when the data has categorical variables, models with `ndim=1` plus
+#' `categ_split_type=="single_categ"` tend to produce better results, while models `ndim>1`
+#' tend to produce results for numerical-only data.
 #' @param ntry When using `prob_pick_pooled_gain` and/or `prob_pick_avg_gain`, how many variables (with `ndim=1`)
 #' or linear combinations (with `ndim>1`) to try for determining the best one according to gain.
 #' 
@@ -491,9 +495,10 @@
 #'   the rest of the metrics, the non-standardized outlier scores are calculated as the
 #'   negative of the average instead. The per-tree scores are calculated as the ratios.
 #'   
-#'   For better numerical precision, this metric is implemented in a rather computationally
-#'   inefficient way, and using it might increase fitting times significantly, particularly
-#'   when the number of columns in the data is large.
+#'   This metric can be calculated in a fast-but-not-so-precise way, and in a low-but-precise
+#'   way, which is controlled by parameter `fast_bratio`. Usually, both should give the
+#'   same results, but in some fatasets, the fast way can lead to numerical inaccuracies
+#'   due to roundoffs very close to zero.
 #'   
 #'   This metric might lead to better predictions in datasets with many rows when using `ndim=1`
 #'   and a relatively small `sample_size`. Note that more trees are required for convergence
@@ -514,6 +519,8 @@
 #'   Albeit unintuitively, in many datasets, one can usually get better results with metric
 #'   `"boxed_density"` instead.
 #'   
+#'   The calculation of this metric is also controlled by `fast_bratio`.
+#'   
 #'   This option is incompatible with `penalize_range`.
 #'   \item "boxed_density": Will set the score as the ratio between the fraction of points within the sample that
 #'   end up in a  given terminal node and the ratio between the boxed volume of the feature
@@ -526,8 +533,20 @@
 #'   of this metric, while the non-standardized scores are the geometric mean, and the
 #'   per-tree scores are simply the 'density' values.
 #'   
+#'   The calculation of this metric is also controlled by `fast_bratio`.
+#'   
 #'   This option is incompatible with `penalize_range`.
 #' }
+#' @param fast_bratio When using "boxed" metrics for scoring, whether to calculate them in a fast way through
+#' cumulative sum of logarithms of ratios after each split, or in a slower way as sum of
+#' logarithms of a single ratio per column for each terminal node.
+#' 
+#' Usually, both methods should give the same results, but in some datasets, particularly
+#' when variables have too small or too large ranges, the first method can be prone to
+#' numerical inaccuracies due to roundoff close to zero.
+#' 
+#' Note that this does not affect calculations for models with `ndim>1`, since given the
+#' split types, the calculation for them is different.
 #' @param standardize_data Whether to standardize the features at each node before creating alinear combination of them as suggested
 #' in [4]. This is ignored when using `ndim=1`.
 #' @param weigh_by_kurtosis Whether to weigh each column according to the kurtosis obtained in the sub-sample that is selected
@@ -866,7 +885,7 @@ isolation.forest <- function(data,
                              coef_by_prop = FALSE, recode_categ = FALSE,
                              weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
                              penalize_range = FALSE, standardize_data = TRUE,
-                             scoring_metric = "depth", weigh_by_kurtosis = FALSE,
+                             scoring_metric = "depth", fast_bratio = TRUE, weigh_by_kurtosis = FALSE,
                              coefs = "normal", assume_full_distr = TRUE,
                              build_imputer = FALSE, output_imputations = FALSE, min_imp_obs = 3,
                              depth_imp = "higher", weigh_imp_rows = "inverse",
@@ -941,6 +960,7 @@ isolation.forest <- function(data,
     check.is.prob(prob_pick_col_by_var)
     check.is.prob(prob_pick_col_by_kurt)
     
+    check.is.bool(fast_bratio)
     check.is.bool(all_perm)
     check.is.bool(recode_categ)
     check.is.bool(coef_by_prop)
@@ -1091,6 +1111,7 @@ isolation.forest <- function(data,
     prob_pick_col_by_kurt    <-  as.numeric(prob_pick_col_by_kurt)
     min_gain                 <-  as.numeric(min_gain)
     
+    fast_bratio              <-  as.logical(fast_bratio)
     all_perm                 <-  as.logical(all_perm)
     coef_by_prop             <-  as.logical(coef_by_prop)
     weights_as_sample_prob   <-  as.logical(weights_as_sample_prob)
@@ -1132,7 +1153,8 @@ isolation.forest <- function(data,
                              pdata$nrows, pdata$ncols_num, pdata$ncols_cat, ndim, ntry,
                              coefs, coef_by_prop, sample_with_replacement, weights_as_sample_prob,
                              sample_size, ntrees,  max_depth, ncols_per_tree, FALSE,
-                             penalize_range, standardize_data, scoring_metric,
+                             penalize_range, standardize_data,
+                             scoring_metric, fast_bratio,
                              output_dist, TRUE, square_dist,
                              output_score, TRUE, weigh_by_kurtosis,
                              prob_pick_pooled_gain, prob_pick_avg_gain,
@@ -1174,6 +1196,7 @@ isolation.forest <- function(data,
             penalize_range = penalize_range,
             standardize_data = standardize_data,
             scoring_metric = scoring_metric,
+            fast_bratio = fast_bratio,
             weigh_by_kurtosis = weigh_by_kurtosis,
             coefs = coefs, assume_full_distr = assume_full_distr,
             build_imputer = build_imputer, min_imp_obs = min_imp_obs,
@@ -1590,9 +1613,12 @@ summary.isolation_forest <- function(object, ...) {
 #' If passing `NULL`, each column will have a uniform weight. If used along with kurtosis weights, the
 #' effect is multiplicative.
 #' @return The same `model` object now modified, as invisible.
-#' @details If constructing trees with different sample sizes, the outlier scores will not be centered around
-#' 0.5 and might have a very skewed distribution. The standardizing constant for the scores will be
-#' taken according to the sample size passed in the model construction argument.
+#' @details If constructing trees with different sample sizes, the outlier scores with depth-based metrics
+#' will not be centered around 0.5 and might have a very skewed distribution. The standardizing
+#' constant for the scores will be taken according to the sample size passed in the model construction argument.
+#' 
+#' If trees are going to be fit to samples of different sizes, it's strongly recommended to use
+#' density-based scoring metrics instead.
 #' 
 #' Be aware that, if an out-of-memory error occurs, the resulting object might be rendered unusable
 #' (might crash when calling certain functions).
@@ -1655,6 +1681,10 @@ isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights 
     if (NROW(model$cpp_obj$imp_ser))
         imp_ser    <- model$cpp_obj$imp_ser
 
+    fast_bratio <- model$params$fast_bratio
+    if (is.null(fast_bratio))
+        fast_bratio <- TRUE
+
     fit_tree(model$cpp_obj$ptr, serialized, imp_ser,
              pdata$X_num, pdata$X_cat, unname(ncat),
              pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
@@ -1664,7 +1694,7 @@ isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights 
              model$params$coefs, model$params$coef_by_prop,
              model$params$max_depth, model$params$ncols_per_tree,
              FALSE, model$params$penalize_range, model$params$standardize_data,
-             model$params$weigh_by_kurtosis,
+             fast_bratio, model$params$weigh_by_kurtosis,
              model$params$prob_pick_pooled_gain, model$params$prob_pick_avg_gain,
              coerce.null(model$params$prob_pick_col_by_range, 0.0),
              coerce.null(model$params$prob_pick_col_by_var, 0.0),

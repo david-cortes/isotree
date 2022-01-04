@@ -242,9 +242,10 @@
 *       different datasets is rather unpredictable. In order to keep rankings comparable with
 *       the rest of the metrics, the non-standardized outlier scores for 'BoxedRatio' are calculated as the
 *       negative of the average instead. The per-tree 'BoxedRatio' scores are calculated as the ratios.
-*       For better numerical precision, 'BoxedRatio' is implemented in a rather computationally
-*       inefficient way, and using it might increase fitting times significantly, particularly
-*       when the number of columns in the data is large.
+*       'BoxedRatio' can be calculated in a fast-but-not-so-precise way, and in a low-but-precise
+*       way, which is controlled by parameter 'fast_bratio'. Usually, both should give the
+*       same results, but in some fatasets, the fast way can lead to numerical inaccuracies
+*       due to roundoffs very close to zero.
 *       'BoxedRatio' might lead to better predictions in datasets with many rows when using 'ndim=1'
 *       and a relatively small 'sample_size'. Note that more trees are required for convergence
 *       of scores when using 'BoxedRatio'. In some datasets, 'BoxedRatio' metric might result in very bad
@@ -259,6 +260,7 @@
 *       compared to 'ndim=1'.
 *       Albeit unintuitively, in many datasets, one can usually get better results with metric
 *       'BoxedDensity' instead.
+*       The calculation of 'BoxedDensity2' is also controlled by 'fast_bratio'.
 *       'BoxedDensity2' incompatible with 'penalize_range'.
 *       If passing 'BoxedDensity', will set the score as the ratio between the fraction of points within the sample that
 *       end up in a  given terminal node and the ratio between the boxed volume of the feature
@@ -268,7 +270,17 @@
 *       scoring metric, but tends to produce good results in some datasets.
 *       The standardized outlier scores for 'BoxedDensity' are defined as the negative of the geometric mean,
 *       while the non-standardized scores are the geometric mean, and the per-tree scores are simply the 'density' values.
+*       The calculation of 'BoxedDensity' is also controlled by 'fast_bratio'.
 *       'BoxedDensity' option is incompatible with 'penalize_range'.
+* - fast_bratio
+*       When using "boxed" metrics for scoring, whether to calculate them in a fast way through
+*       cumulative sum of logarithms of ratios after each split, or in a slower way as sum of
+*       logarithms of a single ratio per column for each terminal node.
+*       Usually, both methods should give the same results, but in some datasets, particularly
+*       when variables have too small or too large ranges, the first method can be prone to
+*       numerical inaccuracies due to roundoff close to zero.
+*       Note that this does not affect calculations for models with 'ndim>1', since given the
+*       split types, the calculation for them is different.
 * - standardize_dist
 *       If passing 'tmat' (see documentation for it), whether to standardize the resulting average separation
 *       depths in order to produce a distance metric or not, in the same way this is done for the outlier score.
@@ -534,7 +546,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 size_t nrows, size_t sample_size, size_t ntrees,
                 size_t max_depth, size_t ncols_per_tree,
                 bool   limit_depth, bool penalize_range, bool standardize_data,
-                ScoringMetric scoring_metric,
+                ScoringMetric scoring_metric, bool fast_bratio,
                 bool   standardize_dist, double tmat[],
                 double output_depths[], bool standardize_depth,
                 real_t col_weights[], bool weigh_by_kurt,
@@ -601,7 +613,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 prob_pick_col_by_range, prob_pick_col_by_var,
                                 prob_pick_col_by_kurt,
                                 min_gain, cat_split_type, new_cat_action, missing_action,
-                                scoring_metric, all_perm,
+                                scoring_metric, fast_bratio, all_perm,
                                 (model_outputs != NULL)? 0 : ndim, ntry,
                                 coef_type, coef_by_prop, calc_dist, (bool)(output_depths != NULL), impute_at_fit,
                                 depth_imp, weigh_imp_rows, min_imp_obs};
@@ -964,7 +976,10 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - penalize_range
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
-* - penalize_range
+* - standardize_data
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
+* - fast_bratio
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
 * - col_weights
@@ -1033,6 +1048,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              real_t sample_weights[], size_t nrows,
              size_t max_depth,     size_t ncols_per_tree,
              bool   limit_depth,   bool penalize_range, bool standardize_data,
+             bool   fast_bratio,
              real_t col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
              double prob_pick_col_by_range, double prob_pick_col_by_var,
@@ -1080,7 +1096,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                 prob_pick_col_by_kurt,
                                 min_gain, cat_split_type, new_cat_action, missing_action,
                                 (model_outputs != NULL)? model_outputs->scoring_metric : model_outputs_ext->scoring_metric,
-                                all_perm,
+                                fast_bratio, all_perm,
                                 (model_outputs != NULL)? 0 : ndim, ntry,
                                 coef_type, coef_by_prop, false, false, false, depth_imp, weigh_imp_rows, min_imp_obs};
 

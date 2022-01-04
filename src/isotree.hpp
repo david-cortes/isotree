@@ -453,6 +453,7 @@ typedef struct {
     NewCategAction  new_cat_action;
     MissingAction   missing_action;
     ScoringMetric   scoring_metric;
+    bool            fast_bratio;
     bool            all_perm;
 
     size_t ndim;        /* only for extended model */
@@ -546,6 +547,7 @@ public:
     std::vector<double> box_low;
     std::vector<double> box_high;
     std::vector<double> queue_box;
+    bool fast_bratio;
     std::vector<ldouble_safe> ranges;
     std::vector<int> ncat;
     std::vector<int> queue_ncat;
@@ -581,6 +583,15 @@ public:
     void push_bdens(int ncat_branch_left, size_t col);
     void push_bdens(const std::vector<signed char> &cat_split, size_t col);
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    void push_bdens_fast_route(double split_point, size_t col);
+    void push_bdens_internal(double split_point, size_t col);
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    void push_bdens_fast_route(int ncat_branch_left, size_t col);
+    void push_bdens_internal(int ncat_branch_left, size_t col);
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    void push_bdens_fast_route(const std::vector<signed char> &cat_split, size_t col);
+    void push_bdens_internal(const std::vector<signed char> &cat_split, size_t col);
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
     void push_bdens_ext(const IsoHPlane &hplane, const ModelParams &model_params);
     void pop();
     void pop_right();
@@ -588,6 +599,14 @@ public:
     void pop_bdens_right(size_t col);
     void pop_bdens_cat(size_t col);
     void pop_bdens_cat_right(size_t col);
+    void pop_bdens_fast_route(size_t col);
+    void pop_bdens_internal(size_t col);
+    void pop_bdens_right_fast_route(size_t col);
+    void pop_bdens_right_internal(size_t col);
+    void pop_bdens_cat_fast_route(size_t col);
+    void pop_bdens_cat_internal(size_t col);
+    void pop_bdens_cat_right_fast_route(size_t col);
+    void pop_bdens_cat_right_internal(size_t col);
     void pop_bdens_ext();
     void pop_bdens_ext_right();
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
@@ -794,7 +813,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 size_t nrows, size_t sample_size, size_t ntrees,
                 size_t max_depth, size_t ncols_per_tree,
                 bool   limit_depth, bool penalize_range, bool standardize_data,
-                ScoringMetric scoring_metric,
+                ScoringMetric scoring_metric, bool fast_bratio,
                 bool   standardize_dist, double tmat[],
                 double output_depths[], bool standardize_depth,
                 real_t col_weights[], bool weigh_by_kurt,
@@ -815,6 +834,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              real_t sample_weights[], size_t nrows,
              size_t max_depth,     size_t ncols_per_tree,
              bool   limit_depth,   bool penalize_range, bool standardize_data,
+             bool   fast_bratio,
              real_t col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
              double prob_pick_col_by_range, double prob_pick_col_by_var,

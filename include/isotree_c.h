@@ -155,6 +155,7 @@ typedef struct isotree_parameters {
     bool   limit_depth; /* default=true [if 'true' then 'max_depth' is ignored] */
     bool   penalize_range; /* default=false */
     bool   standardize_data; /* default=true */
+    bool   fast_bratio; /* default=true, only for 'scoring_metric' with 'Boxed' */
     ScoringMetric scoring_metric; /* default=Depth */
     bool   weigh_by_kurt; /* default=false */
     double prob_pick_by_gain_pl; /* default=0 */
@@ -240,7 +241,7 @@ static inline isotree_parameters get_default_isotree_parameters()
 {
     return (isotree_parameters) {
         -1, 1, 3, 1, Normal, false, true, 0, 500, 0, 0, true, false,
-        true, Depth, false, 0., 0., 0., 0., 0., 0., Impute, SubSet, Weighted,
+        true, Depth, true, false, 0., 0., 0., 0., 0., 0., Impute, SubSet, Weighted,
         false, false, false, 3, Higher, Inverse
     };
 }
@@ -286,6 +287,7 @@ void set_isotree_parameters
     isotree_bool*   penalize_range,
     isotree_bool*   standardize_data,
     ScoringMetric_t* scoring_metric,
+    isotree_bool*    fast_bratio,
     isotree_bool*   weigh_by_kurt,
     double*    prob_pick_by_gain_pl,
     double*    prob_pick_by_gain_avg,
@@ -325,6 +327,7 @@ void get_isotree_parameters
     isotree_bool*   penalize_range,
     isotree_bool*   standardize_data,
     ScoringMetric_t scoring_metric,
+    isotree_bool*   fast_bratio,
     isotree_bool*   weigh_by_kurt,
     double*    prob_pick_by_gain_pl,
     double*    prob_pick_by_gain_avg,
@@ -355,7 +358,8 @@ static inline isotree_parameters_t allocate_isotree_parameters(isotree_parameter
     uint8_t coef_type = parameters.coef_type, with_replacement = parameters.with_replacement,
             weight_as_sample = parameters.weight_as_sample, limit_depth = parameters.limit_depth,
             penalize_range = parameters.penalize_range, standardize_data = parameters.standardize_data,
-            scoring_metric = parameters.scoring_metric, weigh_by_kurt = parameters.weigh_by_kurt,
+            scoring_metric = parameters.scoring_metric, fast_bratio = parameters.fast_bratio,
+            weigh_by_kurt = parameters.weigh_by_kurt,
             missing_action = parameters.missing_action, cat_split_type = parameters.cat_split_type,
             new_cat_action = parameters.new_cat_action, coef_by_prop = parameters.coef_by_prop,
             all_perm = parameters.all_perm, build_imputer = parameters.build_imputer,
@@ -365,7 +369,7 @@ static inline isotree_parameters_t allocate_isotree_parameters(isotree_parameter
         &parameters.ndim, &parameters.ntry, &coef_type, &with_replacement,
         &weight_as_sample, &parameters.sample_size, &parameters.ntrees, &parameters.max_depth,
         &parameters.ncols_per_tree, &limit_depth, &penalize_range, &standardize_data,
-        &scoring_metric, &weigh_by_kurt,
+        &scoring_metric, &fast_bratio, &weigh_by_kurt,
         &parameters.prob_pick_by_gain_pl, &parameters.prob_pick_by_gain_avg,
         &parameters.prob_pick_col_by_range, &parameters.prob_pick_col_by_var,
         &parameters.prob_pick_col_by_kurt,

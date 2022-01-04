@@ -58,6 +58,10 @@
 */
 #include "isotree.hpp"
 
+/* FIXME / TODO: are gain calculations correct when using ndim=1 with median impute?
+   if they are incorrect, is at least the split produced the same regardless? */
+
+
 #define pw1(x) ((x))
 #define pw2(x) ((x) * (x))
 #define pw3(x) ((x) * (x) * (x))
