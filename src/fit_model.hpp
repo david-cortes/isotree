@@ -319,7 +319,10 @@
 *       with randomized column selection proportional to some other per-node metric.
 *       If passing 'missing_action=fail' and the data has infinite values, columns with rows
 *       having infinite values will get a weight of zero. If passing a different value for missing
-*      action, infinite values will be ignored in the kurtosis calculation.
+*       action, infinite values will be ignored in the kurtosis calculation.
+*       If using 'missing_action=Impute', the calculation of kurtosis will not use imputed values
+*       in order not to favor columns with missing values (which would increase kurtosis by all having
+*       the same central value).
 * - prob_pick_by_gain_pl
 *       This parameter indicates the probability of choosing the threshold on which to split a variable
 *       (with 'ndim=1') or a linear combination of variables (when using 'ndim>1') as the threshold
@@ -423,6 +426,9 @@
 *       If passing a 'missing_action' different than 'fail', infinite values will be ignored for the
 *       variance calculation. Otherwise, all columns with infinite values will have the same probability
 *       and will be chosen before columns with non-infinite values.
+*       If using 'missing_action=Impute', the calculation of kurtosis will not use imputed values
+*       in order not to favor columns with missing values (which would increase kurtosis by all having
+*       the same central value).
 *       Be aware that kurtosis can be a rather slow metric to calculate.
 * - min_gain
 *       Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
@@ -431,15 +437,17 @@
 *       This can be used as a more sophisticated depth control when using pooled gain (note that 'max_depth'
 *       still applies on top of this heuristic).
 * - missing_action
-*       How to handle missing data at both fitting and prediction time. Options are a) "Divide" (for the single-variable
+*       How to handle missing data at both fitting and prediction time. Options are a) 'Divide' (for the single-variable
 *       model only, recommended), which will follow both branches and combine the result with the weight given by the fraction of
-*       the data that went to each branch when fitting the model, b) "Impute", which will assign observations to the
-*       branch with the most observations in the single-variable model, or fill in missing values with the median
-*       of each column of the sample from which the split was made in the extended model (recommended), c) "Fail" which will assume
-*       there are no missing values and will trigger undefined behavior if it encounters any. In the extended model, infinite
-*       values will be treated as missing. Note that passing "fail" might crash the process if there turn out to be
-*       missing values, but will otherwise produce faster fitting and prediction times along with decreased model object sizes.
-*       Models from [1], [2], [3], [4] correspond to "Fail" here.
+*       the data that went to each branch when fitting the model, b) 'Impute', which will assign observations to the
+*       branch with the most observations in the single-variable model (but imputed values will also be used for
+*       gain calculations), or fill in missing values with the median of each column of the sample from which the
+*       split was made in the extended model (recommended) (but note that the calculation of medians does not take 
+*       into account sample weights), c) 'Fail' which will assume that there are no missing values and will trigger
+*       undefined behavior if it encounters any. In the extended model, infinite values will be treated as missing.
+*       Note that passing 'Fail' might crash the process if there turn out to be missing values, but will otherwise
+*       produce faster fitting and prediction times along with decreased model object sizes.
+*       Models from [1], [2], [3], [4] correspond to 'Fail' here.
 * - cat_split_type
 *       Whether to split categorical features by assigning sub-sets of them to each branch, or by assigning
 *       a single category to a branch and the rest to the other branch. For the extended model, whether to
@@ -1214,8 +1222,8 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
 
     /* set expected tree size and add root node */
     {
-        size_t exp_nodes = 2 * model_params.sample_size;
-        if (model_params.sample_size >= (SIZE_MAX / (size_t)2))
+        size_t exp_nodes = mult2(model_params.sample_size);
+        if (model_params.sample_size >= div2(SIZE_MAX))
             exp_nodes = SIZE_MAX;
         else if (model_params.max_depth <= (size_t)30)
             exp_nodes = std::min(exp_nodes, pow2(model_params.max_depth));
@@ -1483,6 +1491,16 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
             workspace.this_split_categ.resize(input_data.max_categ);
         }
 
+    }
+
+    /* Other potentially necessary buffers */
+    if (
+        tree_root != NULL && model_params.missing_action == Impute &&
+        (model_params.prob_pick_by_gain_avg || model_params.prob_pick_by_gain_pl) &&
+        input_data.Xc_indptr == NULL && input_data.ncols_numeric && workspace.imputed_x_buffer.empty()
+    )
+    {
+        workspace.imputed_x_buffer.resize(input_data.nrows);
     }
 
     /* weigh columns by kurtosis in the sample if required */

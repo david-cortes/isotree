@@ -58,6 +58,8 @@
 */
 #include "isotree.hpp"
 
+/* FIXME / TODO: here the calculations of medians do not take weights into account */
+
 #define SD_MIN 1e-10
 /* https://www.johndcook.com/blog/standard_deviation/ */
 
@@ -142,7 +144,7 @@ void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict 
 }
 
 template <class real_t_, class mapping>
-void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x, mapping w,
+void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x, mapping &w,
                                MissingAction missing_action, double &restrict x_sd, double &restrict x_mean)
 {
     long double cnt = 0;
@@ -174,7 +176,7 @@ void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *
 }
 
 template <class real_t_, class mapping>
-double calc_mean_only_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x, mapping w)
+double calc_mean_only_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x, mapping &w)
 {
     double cnt = 0;
     double w_this;
@@ -337,7 +339,7 @@ double calc_mean_only(size_t *restrict ix_arr, size_t st, size_t end, size_t col
 template <class real_t_, class sparse_ix, class mapping>
 void calc_mean_and_sd_weighted(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                                real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
-                               double &restrict x_sd, double &restrict x_mean, mapping w)
+                               double &restrict x_sd, double &restrict x_mean, mapping &w)
 {
     /* ix_arr must be already sorted beforehand */
     if (Xc_indptr[col_num] == Xc_indptr[col_num + 1])
@@ -421,7 +423,7 @@ void calc_mean_and_sd_weighted(size_t *restrict ix_arr, size_t st, size_t end, s
 template <class real_t_, class sparse_ix, class mapping>
 double calc_mean_only_weighted(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                                real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
-                               mapping w)
+                               mapping &w)
 {
     /* ix_arr must be already sorted beforehand */
     if (Xc_indptr[col_num] == Xc_indptr[col_num + 1])
@@ -555,7 +557,7 @@ template <class real_t_, class mapping>
 void add_linear_comb_weighted(size_t ix_arr[], size_t st, size_t end, double *restrict res,
                               real_t_ *restrict x, double &coef, double x_sd, double x_mean, double &restrict fill_val,
                               MissingAction missing_action, double *restrict buffer_arr,
-                              size_t *restrict buffer_NAs, bool first_run, mapping w)
+                              size_t *restrict buffer_NAs, bool first_run, mapping &w)
 {
     /* TODO: here don't need the buffer for NAs */
 
@@ -868,7 +870,7 @@ template <class real_t_, class sparse_ix, class mapping>
 void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num, double *restrict res,
                               real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                               double &restrict coef, double x_sd, double x_mean, double &restrict fill_val, MissingAction missing_action,
-                              double *restrict buffer_arr, size_t *restrict buffer_NAs, bool first_run, mapping w)
+                              double *restrict buffer_arr, size_t *restrict buffer_NAs, bool first_run, mapping &w)
 {
     /* TODO: there's likely a better way of doing this directly with sparse inputs.
        Think about some way of doing it efficiently. */
@@ -1124,7 +1126,7 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, do
                               int x[], int ncat, double *restrict cat_coef, double single_cat_coef, int chosen_cat,
                               double &restrict fill_val, double &restrict fill_new, size_t *restrict buffer_pos,
                               NewCategAction new_cat_action, MissingAction missing_action, CategSplit cat_split_type,
-                              bool first_run, mapping w)
+                              bool first_run, mapping &w)
 {
     double *restrict res_write = res - st;
     /* TODO: this buffer should be allocated externally */

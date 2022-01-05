@@ -3191,7 +3191,7 @@ size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, int x[])
     return st_non_na;
 }
 
-size_t center_NAs(size_t *restrict ix_arr, size_t st_left, size_t st, size_t curr_pos)
+size_t center_NAs(size_t ix_arr[], size_t st_left, size_t st, size_t curr_pos)
 {
     size_t temp;
     for (size_t row = st_left; row < st; row++)
@@ -3202,6 +3202,66 @@ size_t center_NAs(size_t *restrict ix_arr, size_t st_left, size_t st, size_t cur
     }
 
     return curr_pos;
+}
+
+/* FIXME / TODO: this calculation would not take weight into account */
+/* Here:
+   - 'ix_arr' should be partitioned putting the NAs and Infs at the beginning: [st_orig, st)
+   - the rest of the range [st, end] should be sorted in ascending order
+   The output should have a filled-in 'x' with median values, plus a re-sorted 'ix_arr'
+   taking into account that now the median values are in the middle. */
+template <class real_t>
+void fill_NAs_with_median(size_t *restrict ix_arr, size_t st_orig, size_t st, size_t end, real_t *restrict x,
+                          double *restrict buffer_imputed_x, double *restrict xmedian)
+{
+    size_t tot = end - st + 1;
+    size_t idx_half = st + div2(tot);
+    bool is_odd = (tot % 2) != 0;
+    
+    if (is_odd)
+    {
+        *xmedian = x[ix_arr[idx_half]];
+        idx_half--;
+    }
+
+    else
+    {
+        idx_half--;
+        double xlow = x[ix_arr[idx_half]];
+        double xhigh = x[ix_arr[idx_half+(size_t)1]];
+        *xmedian = xlow + (xhigh-xlow)/2.;
+    }
+
+    for (size_t ix = st_orig; ix < st; ix++)
+        buffer_imputed_x[ix_arr[ix]] = (*xmedian);
+    for (size_t ix = st; ix <= end; ix++)
+        buffer_imputed_x[ix_arr[ix]] = x[ix_arr[ix]];
+
+    /* 'ix_arr' can be resorted in-place, but the logic is a bit complex */
+    /* step 1: move all NAs to their place by swapping them with the lower-half
+       in ascending order (after this, the lower half will be unordered).
+       along the way, copy the indices that claim the places where earlier
+       there were missing values. these copied indices will be sorted in
+       descending order at the end, as they were inserted in reverse order. */
+    size_t end_pointer = idx_half;
+    size_t n_move = std::min(st-st_orig, idx_half-st+1);
+    size_t temp;
+    for (size_t ix = st_orig; ix < st_orig + n_move; ix++)
+    {
+        temp = ix_arr[end_pointer];
+        ix_arr[end_pointer] = ix_arr[ix];
+        ix_arr[ix] = temp;
+        end_pointer--;
+    }
+
+    /* step 2: reverse the indices that were moved to the beginning so
+       as to maintain the sorting order */
+    std::reverse(ix_arr + st_orig, ix_arr + st_orig + n_move);
+    /* step 3: rotate the total number of elements by the number of moved elements */
+    size_t n_unmoved = (idx_half - st + 1) - n_move;
+    std::rotate(ix_arr + st_orig,
+                ix_arr + st_orig + n_move,
+                ix_arr + st_orig + n_move + n_unmoved);
 }
 
 template <class real_t, class sparse_ix>

@@ -56,6 +56,7 @@ class build_ext_subclass( build_ext ):
                     in ["gcc", "g++", "mingw32", "mingw64", "mingw", "msys", "msys2"])
                 ):
                     e.extra_compile_args += ['-O3', '-std=gnu++14']
+                    # e.extra_compile_args += ['-O3', '-std=c++11', '-ggdb']
                 else:
                     e.extra_compile_args += ['-O3', '-std=c++11']
                     # e.extra_compile_args += ['-O3', '-std=c++11', '-ggdb']

@@ -408,6 +408,10 @@ class IsolationForest:
         kurtosis calculation. Otherwise, all columns with infinite values will have the same probability
         and will be chosen before columns with non-infinite values.
 
+        If using ``missing_action="impute"``, the calculation of kurtosis will not use imputed values
+        in order not to favor columns with missing values (which would increase kurtosis by all having
+        the same central value).
+
         Be aware that kurtosis can be a rather slow metric to calculate.
     min_gain : float > 0
         Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
@@ -425,7 +429,9 @@ class IsolationForest:
         ``"impute"``:
             Will assign observations to the branch with the most observations in the single-variable model, or fill in
             missing values with the median of each column of the sample from which the split was made in the extended
-            model (recommended for the extended model).
+            model (recommended for the extended model) (but note that the calculation of medians does not take
+            into account sample weights).
+            When using ``ndim=1``, gain calculations will use median-imputed values for missing data.
         ``"fail"``:
             Will assume there are no missing values and will trigger undefined behavior if it encounters any.
         ``"auto"``:
@@ -679,6 +685,10 @@ class IsolationForest:
         If passing ``missing_action="fail"`` and the data has infinite values, columns with rows
         having infinite values will get a weight of zero. If passing a different value for missing
         action, infinite values will be ignored in the kurtosis calculation.
+
+        If using ``missing_action="impute"``, the calculation of kurtosis will not use imputed values
+        in order not to favor columns with missing values (which would increase kurtosis by all having
+        the same central value).
     coefs : str, one of "normal" or "uniform"
         For the extended model, whether to sample random coefficients according to a normal distribution :math:`\\sim \\text{Normal}(0, 1)`
         (as proposed in [4]_) or according to a uniform distribution :math:`\\sim \\text{Unif}(-1, +1)` as proposed in [3]_. Ignored for the

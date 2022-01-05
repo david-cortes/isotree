@@ -331,6 +331,10 @@
 #' kurtosis calculation. Otherwise, all columns with infinite values will have the same probability
 #' and will be chosen before columns with non-infinite values.
 #' 
+#' If using `missing_action="impute"`, the calculation of kurtosis will not use imputed values
+#' in order not to favor columns with missing values (which would increase kurtosis by all having
+#' the same central value).
+#' 
 #' Be aware that kurtosis can be a rather slow metric to calculate.
 #' @param min_gain Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
 #' are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
@@ -344,7 +348,9 @@
 #'   the result with the weight given by the fraction of the data that went to each branch when fitting the model.
 #'   \item `"impute"`, which will assign observations to the branch with the most observations in the single-variable model,
 #'   or fill in missing values with the median of each column of the sample from which the split was made in the extended
-#'   model (recommended for it).
+#'   model (recommended for it) (but note that the calculation of medians does not take
+#'   into account sample weights).
+#'   When using `ndim=1`, gain calculations will use median-imputed values for missing data.
 #'   \item `"fail"`, which will assume there are no missing values and will trigger undefined behavior if it encounters any.
 #' }
 #' In the extended model, infinite values will be treated as missing.
@@ -570,6 +576,10 @@
 #' If passing `missing_action="fail"` and the data has infinite values, columns with rows
 #' having infinite values will get a weight of zero. If passing a different value for missing
 #' action, infinite values will be ignored in the kurtosis calculation.
+#' 
+#' If using `missing_action="impute"`, the calculation of kurtosis will not use imputed values
+#' in order not to favor columns with missing values (which would increase kurtosis by all having
+#' the same central value).
 #' @param coefs For the extended model, whether to sample random coefficients according to a normal distribution `~ N(0, 1)`
 #' (as proposed in reference [4]) or according to a uniform distribution `~ Unif(-1, +1)` as proposed in reference [3].
 #' Ignored for the single-variable model. Note that, for categorical variables, the coefficients will be sampled ~ N (0,1)
