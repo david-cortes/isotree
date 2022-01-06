@@ -295,7 +295,9 @@ public:
     UniformUnitInterval(A a, B b) {}
     
     template <class XoshiroRNG>
+    #ifndef _FOR_R
     [[gnu::hot, gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    #endif
     double operator()(XoshiroRNG &rng)
     {
         #if SIZE_MAX >= UINT64_MAX
@@ -340,7 +342,9 @@ public:
     UniformMinusOneToOne(A a, B b) {}
 
     template <class XoshiroRNG>
+    #ifndef _FOR_R
     [[gnu::hot, gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    #endif
     double operator()(XoshiroRNG &rng)
     {
         #if SIZE_MAX >= UINT64_MAX
@@ -393,7 +397,9 @@ public:
     StandardNormalDistr(A a, B b) : has_reserve(false) {}
 
     template <class XoshiroRNG>
+    #ifndef _FOR_R
     [[gnu::hot, gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    #endif
     double operator()(XoshiroRNG &rng)
     {
         double res;
