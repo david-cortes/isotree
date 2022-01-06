@@ -1,4 +1,4 @@
 PKG_CPPFLAGS  =  -D_FILE_OFFSET_BITS=64 -D_FOR_R -D_USE_XOSHIRO -D_USE_ROBIN_MAP
-PKG_CXXFLAGS  =  $(SHLIB_OPENMP_CXXFLAGS) -fno-trapping-math fno-math-errno
+PKG_CXXFLAGS  =  $(SHLIB_OPENMP_CXXFLAGS) -fno-trapping-math -fno-math-errno
 PKG_LIBS      =  $(SHLIB_OPENMP_CXXFLAGS)
 CXX_STD       =  CXX11
