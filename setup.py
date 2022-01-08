@@ -36,8 +36,6 @@ class build_ext_subclass( build_ext ):
             self.add_no_trapping_math()
             if not is_windows:
                 self.add_link_time_optimization()
-            elif self.compiler.compiler_type.lower() in ["mingw32", "mingw64", "mingw", "msys", "msys2", "gcc", "g++"]:
-                self.add_ld64()
 
             for e in self.extensions:
                 
@@ -122,13 +120,6 @@ class build_ext_subclass( build_ext ):
             for e in self.extensions:
                 e.extra_compile_args.append(arg_fntm)
                 e.extra_link_args.append(arg_fntm)
-
-    def add_ld64(self):
-        arg_ld64 = "-mlong-double-64"
-        if self.test_supports_compile_arg(arg_ld64):
-            for e in self.extensions:
-                e.extra_compile_args.append(arg_ld64)
-                e.extra_link_args.append(arg_ld64)
 
     def add_openmp_linkage(self):
         arg_omp1 = "-fopenmp"

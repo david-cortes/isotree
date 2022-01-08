@@ -71,27 +71,6 @@ if (WIN32)
     endif()
 endif()
 
-# See bug with long doubles in MinGW: https://sourceforge.net/p/mingw-w64/bugs/909/
-if (WIN32 AND (MSYS OR MINGW OR GCC))
-    if (NOT (${CMAKE_CXX_FLAGS_RELEASE} MATCHES "-mlong-double-64"))
-        set(OLD_FLAGS ${CMAKE_REQUIRED_FLAGS})
-        set(CMAKE_REQUIRED_FLAGS "-mlong-double-64")
-        check_cxx_source_compiles(
-            "
-            int main(int argc, char **argv)
-            {
-                return 0;
-            }
-            "
-            SUPPORTS_LD64
-        )
-        set(CMAKE_REQUIRED_FLAGS ${OLD_FLAGS})
-        if (SUPPORTS_LD64)
-            set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -mlong-double-64")
-        endif()
-    endif()
-endif()
-
 # Compiler optimizations
 check_cxx_source_compiles(
     "
