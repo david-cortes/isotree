@@ -272,7 +272,7 @@
 #' When using `ndim>1`, this denotes the probability of choosing columns to create a hyperplane with a probability proportional to the range spanned by each column within a node.
 #' 
 #' This option is not compatible with categorical data. If passing column weights, the
-#' effect will be multiplicative. This option is not compatible with `weigh_by_kurtosis`.
+#' effect will be multiplicative.
 #' 
 #' Be aware that the data is not standardized in any way for the range calculations, thus the scales
 #' of features will make a large difference under this option, which might not make it suitable for
@@ -304,8 +304,7 @@
 #' Be aware that this calculated variance is not standardized in any way, so the scales of
 #' features will make a large difference under this option.
 #' 
-#' If passing column weights, the effect will be multiplicative. This option is not compatible
-#' with `weigh_by_kurtosis`.
+#' If passing column weights, the effect will be multiplicative.
 #' 
 #' If passing a `missing_action` different than "fail", infinite values will be ignored for the
 #' variance calculation. Otherwise, all columns with infinite values will have the same probability
@@ -349,20 +348,25 @@
 #'   \item `"impute"`, which will assign observations to the branch with the most observations in the single-variable model,
 #'   or fill in missing values with the median of each column of the sample from which the split was made in the extended
 #'   model (recommended for it) (but note that the calculation of medians does not take
-#'   into account sample weights).
-#'   When using `ndim=1`, gain calculations will use median-imputed values for missing data.
+#'   into account sample weights when using `weights_as_sample_prob=FALSE`).
+#'   When using `ndim=1`, gain calculations will use median-imputed values for missing data under this option.
 #'   \item `"fail"`, which will assume there are no missing values and will trigger undefined behavior if it encounters any.
 #' }
 #' In the extended model, infinite values will be treated as missing.
 #' Passing `"fail"` will produce faster fitting and prediction
-#' times along with decreased model object sizes. Models from references [1], [2], [3], [4] correspond to `"fail"` here.
+#' times along with decreased model object sizes.
+#' 
+#' Models from references [1], [2], [3], [4] correspond to `"fail"` here.
+#' 
+#' Typically, models with `ndim>1` are less affected by missing data that models with `ndim=1`.
 #' @param new_categ_action What to do after splitting a categorical feature when new data that reaches that split has categories that
 #' the sub-sample from which the split was done did not have. Options are
 #' \itemize{
 #'   \item `"weighted"` (for the single-variable model only, recommended), which will follow both branches and combine
 #'   the result with weight given by the fraction of the data that went to each branch when fitting the model.
 #'   \item `"impute"` (for the extended model only, recommended) which will assign them the median value for that column
-#'   that was added to the linear combination of features.
+#'   that was added to the linear combination of features (but note that this median calculation does not use sample weights when
+#'   using `weights_as_sample_prob=FALSE`).
 #'   \item `"smallest"`, which in the single-variable case will assign all observations with unseen categories in the split
 #'   to the branch that had fewer observations when fitting the model, and in the extended case will assign them the coefficient
 #'   of the least common category.
@@ -398,13 +402,15 @@
 #' they have no observations, but if the categorical variables are already of type `factor` with only
 #' the levels that are present, it can be skipped for slightly faster fitting times. You'll likely
 #' want to pass `FALSE` here if merging several models into one through \link{isotree.append.trees}.
-#' @param weights_as_sample_prob If passing `sample_weights` argument, whether to consider those weights as row
+#' @param weights_as_sample_prob If passing sample (row) weights when fitting the model, whether to consider those weights as row
 #' sampling weights (i.e. the higher the weights, the more likely the observation will end up included
 #' in each tree sub-sample), or as distribution density weights (i.e. putting a weight of two is the same
-#' as if the row appeared twice, thus higher weight makes it less of an outlier). Note that sampling weight
-#' is only used when sub-sampling data for each tree, which is not the default in this implementation.
+#' as if the row appeared twice, thus higher weight makes it less of an outlier, but does not give it a
+#' higher chance of being sampled if the data uses sub-sampling).
 #' @param sample_with_replacement Whether to sample rows with replacement or not (not recommended).
 #' Note that distance calculations, if desired, don't work when there are duplicate rows.
+#' 
+#' This option is not compatible with `output_score`, `output_dist`, `output_imputations`.
 #' @param penalize_range Whether to penalize (add -1 to the terminal depth) observations at prediction time that have a value
 #' of the chosen split variable (linear combination in extended model) that falls outside of a pre-determined
 #' reasonable range in the data being split (given by `2 * range` in data and centered around the split point),
@@ -570,8 +576,8 @@
 #' This is intended as a cheap feature selector, while the parameter `prob_pick_col_by_kurt`
 #' provides the option to do this at each node in the tree for a different overall type of model.
 #' 
-#' If passing column weights, the effect will be multiplicative. This option is not compatible
-#' with randomized column selection proportional to some other per-node metric.
+#' If passing column weights or using weighted column choices proportional to some other metric
+#' (`prob_pick_col_by_range`, `prob_pick_col_by_var`), the effect will be multiplicative.
 #' 
 #' If passing `missing_action="fail"` and the data has infinite values, columns with rows
 #' having infinite values will get a weight of zero. If passing a different value for missing
@@ -905,7 +911,9 @@ isolation.forest <- function(data,
     ### validate inputs
     if (NROW(data) < 3L)
         stop("Input data has too few rows.")
-    if (is.null(sample_size) || output_score || output_dist || output_imputations) {
+    if (output_score || output_dist || output_imputations) {
+        if (sample_with_replacement)
+            stop("Cannot use 'sample_with_replacement' when producing scores/distances/imputations while fitting.")
         if (!is.null(sample_size) && sample_size != NROW(data))
             warning("'sample_size' is set to the maximum when producing scores while fitting a model.")
         sample_size <- NROW(data)
@@ -1048,10 +1056,7 @@ isolation.forest <- function(data,
         
     if ((output_score || output_dist || output_imputations) & (sample_size != NROW(data)))
         stop("Cannot calculate scores/distances/imputations when sub-sampling data ('sample_size').")
-    
-    if ((output_score || output_dist) & sample_with_replacement)
-        stop("Cannot calculate scores/distances when sampling data with replacement.")
-    
+        
     if (output_dist & !is.null(sample_weights))
         stop("Sample weights not supported when calculating distances while the model is being fit.")
     
@@ -1084,8 +1089,8 @@ isolation.forest <- function(data,
         }
     }
 
-    if (weigh_by_kurtosis && (prob_pick_col_by_range || prob_pick_col_by_var || prob_pick_col_by_kurt)) {
-        stop("'weigh_by_kurtosis' is incompatible with by-node column weight criteria.")
+    if (weigh_by_kurtosis && prob_pick_col_by_kurt) {
+        stop("'weigh_by_kurtosis' is incompatible with 'prob_pick_col_by_kurt'.")
     }
 
     if (penalize_range && scoring_metric %in% c("density", "adj_density", "boxed_density", "boxed_density2", "boxed_ratio")) {

@@ -1946,7 +1946,7 @@ void deserialization_pipeline(Model &model, itype &in)
 
         else
         {
-            throw std::runtime_error("Unexpected error.\n");
+            unexpected_error();
         }
     }
 
@@ -2190,7 +2190,7 @@ void incremental_serialize_string(const Model &model, std::string &old_bytes)
     if (old_bytes.size() > new_size)
         throw std::runtime_error("'old_bytes' is not a subset of 'model'.\n");
     if (!new_size)
-        throw std::runtime_error("Unexpected error.\n");
+        unexpected_error();
     old_bytes.resize(new_size);
     char *out = &old_bytes[0];
     re_serialization_pipeline(model, out);
@@ -2525,7 +2525,7 @@ void read_bytes_size_t(void *ptr, const size_t n_els, itype &in, const PlatformS
 
         default:
         {
-            throw std::runtime_error("Unexpected error.\n");
+            unexpected_error();
         }
     }
 }
@@ -3505,7 +3505,7 @@ void deserialize_model
 
     else
     {
-        throw std::runtime_error("Unexpected error.\n");
+        unexpected_error();
     }
 }
 

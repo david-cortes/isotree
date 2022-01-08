@@ -272,10 +272,11 @@ typedef struct Imputer {
 *       Whether to sample rows with replacement or not (not recommended). Note that distance calculations,
 *       if desired, don't work well with duplicate rows.
 * - weight_as_sample
-*       If passing 'sample_weights', whether to consider those weights as row sampling weights (i.e. the higher
-*       the weights, the more likely the observation will end up included in each tree sub-sample), or as distribution
-*       density weights (i.e. putting a weight of two is the same as if the row appeared twice, thus higher weight makes it
-*       less of an outlier). Note that sampling weight is only used when sub-sampling data for each tree.
+*       If passing sample (row) weights when fitting the model, whether to consider those weights as row
+*       sampling weights (i.e. the higher the weights, the more likely the observation will end up included
+*       in each tree sub-sample), or as distribution density weights (i.e. putting a weight of two is the same
+*       as if the row appeared twice, thus higher weight makes it less of an outlier, but does not give it a
+*       higher chance of being sampled if the data uses sub-sampling).
 * - nrows
 *       Number of rows in 'numeric_data', 'Xc', 'categ_data'.
 * - sample_size
@@ -457,8 +458,8 @@ typedef struct Imputer {
 *       numerical by assigning to each category a random number ~ Unif(0, 1).
 *       This is intended as a cheap feature selector, while the parameter 'prob_pick_col_by_kurt'
 *       provides the option to do this at each node in the tree for a different overall type of model.
-*       If passing column weights, the effect will be multiplicative. This option is not compatible
-*       with randomized column selection proportional to some other per-node metric.
+*       If passing column weights or weighted column choices ('prob_pick_col_by_range', 'prob_pick_col_by_var'),
+*       the effect will be multiplicative. This option is not compatible with 'prob_pick_col_by_kurt'.
 *       If passing 'missing_action=fail' and the data has infinite values, columns with rows
 *       having infinite values will get a weight of zero. If passing a different value for missing
 *       action, infinite values will be ignored in the kurtosis calculation.
@@ -522,7 +523,7 @@ typedef struct Imputer {
 *       When using 'ndim>1', this denotes the probability of choosing columns to create a hyperplane with a
 *       probability proportional to the range spanned by each column within a node.
 *       This option is not compatible with categorical data. If passing column weights, the
-*       effect will be multiplicative. This option is not compatible with 'weigh_by_kurtosis'.
+*       effect will be multiplicative.
 *       Be aware that the data is not standardized in any way for the range calculations, thus the scales
 *       of features will make a large difference under this option, which might not make it suitable for
 *       all types of data.
@@ -547,8 +548,7 @@ typedef struct Imputer {
 *       calculation used for dense inputs, and as such, the results might differ slightly.
 *       Be aware that this calculated variance is not standardized in any way, so the scales of
 *       features will make a large difference under this option.
-*       If passing column weights, the effect will be multiplicative. This option is not compatible
-*       with 'weigh_by_kurtosis'.
+*       If passing column weights, the effect will be multiplicative.
 *       If passing a 'missing_action' different than 'fail', infinite values will be ignored for the
 *       variance calculation. Otherwise, all columns with infinite values will have the same probability
 *       and will be chosen before columns with non-infinite values.
@@ -585,8 +585,10 @@ typedef struct Imputer {
 *       branch with the most observations in the single-variable model (but imputed values will also be used for
 *       gain calculations), or fill in missing values with the median of each column of the sample from which the
 *       split was made in the extended model (recommended) (but note that the calculation of medians does not take 
-*       into account sample weights), c) 'Fail' which will assume that there are no missing values and will trigger
-*       undefined behavior if it encounters any. In the extended model, infinite values will be treated as missing.
+*       into account sample weights when using 'weights_as_sample_prob=false', and note that when using a gain
+*       criterion for splits with 'ndim=1', it will use the imputed values in the calculation), c) 'Fail' which will
+*       assume that there are no missing values and will trigger undefined behavior if it encounters any.
+*       In the extended model, infinite values will be treated as missing.
 *       Note that passing 'Fail' might crash the process if there turn out to be missing values, but will otherwise
 *       produce faster fitting and prediction times along with decreased model object sizes.
 *       Models from [1], [2], [3], [4] correspond to 'Fail' here.
@@ -599,11 +601,12 @@ typedef struct Imputer {
 *       the sub-sample from which the split was done did not have. Options are a) "Weighted" (recommended), which
 *       in the single-variable model will follow both branches and combine the result with weight given by the fraction of the
 *       data that went to each branch when fitting the model, and in the extended model will assign
-*       them the median value for that column that was added to the linear combination of features, b) "Smallest", which will
-*       assign all observations with unseen categories in the split to the branch that had fewer observations when
-*       fitting the model, c) "Random", which will assing a branch (coefficient in the extended model) at random for
-*       each category beforehand, even if no observations had that category when fitting the model. Ignored when
-*       passing 'cat_split_type' = 'SingleCateg'.
+*       them the median value for that column that was added to the linear combination of features (but note that
+*       this median calculation does not use sample weights when using 'weights_as_sample_prob=false'),
+*       b) "Smallest", which will assign all observations with unseen categories in the split to the branch that
+*       had fewer observations when fitting the model, c) "Random", which will assing a branch (coefficient in the
+*       extended model) at random for each category beforehand, even if no observations had that category when
+*       fitting the model. Ignored when passing 'cat_split_type' = 'SingleCateg'.
 * - all_perm
 *       When doing categorical variable splits by pooled gain with 'ndim=1' (regular model),
 *       whether to consider all possible permutations of variables to assign to each branch or not. If 'false',

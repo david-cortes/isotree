@@ -228,7 +228,7 @@ proportional to the range spanned by each column within a node as proposed in re
 When using `ndim>1`, this denotes the probability of choosing columns to create a hyperplane with a probability proportional to the range spanned by each column within a node.
 
 This option is not compatible with categorical data. If passing column weights, the
-effect will be multiplicative. This option is not compatible with `weigh_by_kurtosis`.
+effect will be multiplicative.
 
 Be aware that the data is not standardized in any way for the range calculations, thus the scales
 of features will make a large difference under this option, which might not make it suitable for
@@ -261,8 +261,7 @@ calculation used for dense inputs, and as such, the results might differ slightl
 Be aware that this calculated variance is not standardized in any way, so the scales of
 features will make a large difference under this option.
 
-If passing column weights, the effect will be multiplicative. This option is not compatible
-with `weigh_by_kurtosis`.
+If passing column weights, the effect will be multiplicative.
 
 If passing a `missing_action` different than "fail", infinite values will be ignored for the
 variance calculation. Otherwise, all columns with infinite values will have the same probability
@@ -309,13 +308,17 @@ still applies on top of this heuristic).}
   \item `"impute"`, which will assign observations to the branch with the most observations in the single-variable model,
   or fill in missing values with the median of each column of the sample from which the split was made in the extended
   model (recommended for it) (but note that the calculation of medians does not take
-  into account sample weights).
-  When using `ndim=1`, gain calculations will use median-imputed values for missing data.
+  into account sample weights when using `weights_as_sample_prob=FALSE`).
+  When using `ndim=1`, gain calculations will use median-imputed values for missing data under this option.
   \item `"fail"`, which will assume there are no missing values and will trigger undefined behavior if it encounters any.
 }
 In the extended model, infinite values will be treated as missing.
 Passing `"fail"` will produce faster fitting and prediction
-times along with decreased model object sizes. Models from references [1], [2], [3], [4] correspond to `"fail"` here.}
+times along with decreased model object sizes.
+
+Models from references [1], [2], [3], [4] correspond to `"fail"` here.
+
+Typically, models with `ndim>1` are less affected by missing data that models with `ndim=1`.}
 
 \item{new_categ_action}{What to do after splitting a categorical feature when new data that reaches that split has categories that
 the sub-sample from which the split was done did not have. Options are
@@ -323,7 +326,8 @@ the sub-sample from which the split was done did not have. Options are
   \item `"weighted"` (for the single-variable model only, recommended), which will follow both branches and combine
   the result with weight given by the fraction of the data that went to each branch when fitting the model.
   \item `"impute"` (for the extended model only, recommended) which will assign them the median value for that column
-  that was added to the linear combination of features.
+  that was added to the linear combination of features (but note that this median calculation does not use sample weights when
+  using `weights_as_sample_prob=FALSE`).
   \item `"smallest"`, which in the single-variable case will assign all observations with unseen categories in the split
   to the branch that had fewer observations when fitting the model, and in the extended case will assign them the coefficient
   of the least common category.
@@ -364,14 +368,16 @@ they have no observations, but if the categorical variables are already of type 
 the levels that are present, it can be skipped for slightly faster fitting times. You'll likely
 want to pass `FALSE` here if merging several models into one through \link{isotree.append.trees}.}
 
-\item{weights_as_sample_prob}{If passing `sample_weights` argument, whether to consider those weights as row
+\item{weights_as_sample_prob}{If passing sample (row) weights when fitting the model, whether to consider those weights as row
 sampling weights (i.e. the higher the weights, the more likely the observation will end up included
 in each tree sub-sample), or as distribution density weights (i.e. putting a weight of two is the same
-as if the row appeared twice, thus higher weight makes it less of an outlier). Note that sampling weight
-is only used when sub-sampling data for each tree, which is not the default in this implementation.}
+as if the row appeared twice, thus higher weight makes it less of an outlier, but does not give it a
+higher chance of being sampled if the data uses sub-sampling).}
 
 \item{sample_with_replacement}{Whether to sample rows with replacement or not (not recommended).
-Note that distance calculations, if desired, don't work when there are duplicate rows.}
+Note that distance calculations, if desired, don't work when there are duplicate rows.
+
+This option is not compatible with `output_score`, `output_dist`, `output_imputations`.}
 
 \item{penalize_range}{Whether to penalize (add -1 to the terminal depth) observations at prediction time that have a value
 of the chosen split variable (linear combination in extended model) that falls outside of a pre-determined
@@ -542,8 +548,8 @@ when viewed as a 1-d distribution, and can bring a large improvement in some dat
 This is intended as a cheap feature selector, while the parameter `prob_pick_col_by_kurt`
 provides the option to do this at each node in the tree for a different overall type of model.
 
-If passing column weights, the effect will be multiplicative. This option is not compatible
-with randomized column selection proportional to some other per-node metric.
+If passing column weights or using weighted column choices proportional to some other metric
+(`prob_pick_col_by_range`, `prob_pick_col_by_var`), the effect will be multiplicative.
 
 If passing `missing_action="fail"` and the data has infinite values, columns with rows
 having infinite values will get a weight of zero. If passing a different value for missing

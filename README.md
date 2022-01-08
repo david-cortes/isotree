@@ -152,7 +152,7 @@ See [external repository with wrapper](https://github.com/ankane/isotree).
 
 # Sample usage
 
-**Warning: default parameters in this implementation are very different from default parameters in others such as SciKit-Learn's, and these defaults won't scale to large datasets (see documentation for details).**
+**Warning: default parameters in this implementation are very different from default parameters in others such as Scikit-Learn's, and these defaults won't scale to large datasets (see documentation for details).**
 
 * Python:
 

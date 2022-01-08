@@ -145,8 +145,7 @@ void IsolationForest::fit(double X[], size_t nrows, size_t ncols)
         this->depth_imp, this->weigh_imp_rows, false,
         this->random_seed, this->nthreads
     );
-    if (retcode != EXIT_SUCCESS)
-        throw std::runtime_error("Unexpected error.\n");
+    if (retcode != EXIT_SUCCESS) unexpected_error();
     this->is_fitted = true;
 }
 
@@ -183,8 +182,7 @@ void IsolationForest::fit(double numeric_data[],   size_t ncols_numeric,  size_t
         this->depth_imp, this->weigh_imp_rows, false,
         this->random_seed, this->nthreads
     );
-    if (retcode != EXIT_SUCCESS)
-        throw std::runtime_error("Unexpected error.\n");
+    if (retcode != EXIT_SUCCESS) unexpected_error();
     this->is_fitted = true;
 }
 
@@ -222,8 +220,7 @@ void IsolationForest::fit(double Xc[], int Xc_ind[], int Xc_indptr[],
         this->depth_imp, this->weigh_imp_rows, false,
         this->random_seed, this->nthreads
     );
-    if (retcode != EXIT_SUCCESS)
-        throw std::runtime_error("Unexpected error.\n");
+    if (retcode != EXIT_SUCCESS) unexpected_error();
     this->is_fitted = true;
 }
 
@@ -540,9 +537,6 @@ void IsolationForest::check_params()
         if (this->missing_action == Divide)
             throw std::runtime_error("'missing_action' = 'Divide' not supported in extended model.\n");
     }
-
-    if (this->ndim == 1 && this->weigh_by_kurt && (this->prob_pick_by_gain_avg + this->prob_pick_by_gain_pl) >= 1)
-        throw std::runtime_error("'weigh_by_kurt' is incompatible with deterministic column choices.\n");
 
     if (this->coef_type != Uniform && this->coef_type != Normal)
         throw std::runtime_error("Invalid 'coef_type'.\n");

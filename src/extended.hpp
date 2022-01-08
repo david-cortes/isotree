@@ -126,8 +126,11 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     }
 
     /* pick column selection method also according to criteria */
-    if (workspace.criterion != NoCrit &&
-        model_params.ndim >= workspace.col_sampler.get_remaining_cols()
+    if (
+        (workspace.criterion != NoCrit &&
+         std::max(workspace.ntry, (size_t)1) >= workspace.col_sampler.get_remaining_cols())
+            ||
+        (workspace.col_sampler.get_remaining_cols() <= model_params.ndim)
     ) {
         workspace.prob_split_type = 0;
     }
@@ -141,20 +144,51 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         )
     {
         workspace.col_criterion = ByRange;
-        if (curr_depth == 0 &&
-            (model_params.scoring_metric == BoxedDensity ||
-             model_params.scoring_metric == BoxedDensity2 ||
-             model_params.scoring_metric == BoxedRatio)
-        ) {
+        if (curr_depth == 0 && is_boxed_metric(model_params.scoring_metric))
+        {
             for (size_t col = 0; col < input_data.ncols_numeric; col++)
                 workspace.node_col_weights[col] = workspace.density_calculator.box_high[col]
                                                    - workspace.density_calculator.box_low[col];
+            add_col_weights_to_ranges:
+            if (workspace.tree_kurtoses != NULL)
+            {
+                for (size_t col = 0; col < input_data.ncols_numeric; col++)
+                {
+                    if (workspace.node_col_weights[col] <= 0) continue;
+                    workspace.node_col_weights[col] *= workspace.tree_kurtoses[col];
+                    workspace.node_col_weights[col]  = std::fmax(workspace.node_col_weights[col], 1e-100);
+                }
+            }
+            else if (input_data.col_weights != NULL)
+            {
+                for (size_t col = 0; col < input_data.ncols_numeric; col++)
+                {
+                    if (workspace.node_col_weights[col] <= 0) continue;
+                    workspace.node_col_weights[col] *= input_data.col_weights[col];
+                    workspace.node_col_weights[col]  = std::fmax(workspace.node_col_weights[col], 1e-100);
+                }
+            }
         }
-        else {
+        
+        else if (curr_depth == 0 &&
+                 model_params.sample_size == input_data.nrows &&
+                 !model_params.with_replacement &&
+                 input_data.range_low != NULL &&
+                 (model_params.ncols_per_tree == 0 || model_params.ncols_per_tree == input_data.ncols_tot))
+        {
+            for (size_t col = 0; col < input_data.ncols_numeric; col++)
+                workspace.node_col_weights[col] = input_data.range_high[col]
+                                                   - input_data.range_low[col];
+            goto add_col_weights_to_ranges;
+        }
+        
+        else
+        {
             calc_ranges_all_cols(input_data, workspace, model_params, workspace.node_col_weights.data(),
                                  NULL,
                                  NULL);
         }
+        
         workspace.has_saved_stats = false;
     }
 
@@ -291,6 +325,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
             get_split_range(workspace, input_data, model_params);
             if (workspace.unsplittable)
             {
+                if (workspace.col_criterion != Uniformly) /* <- used 'node_col_sampler' */
+                    unexpected_error();
                 workspace.col_sampler.drop_col(workspace.col_chosen
                                                  +
                                                ((workspace.col_type == Numeric)?
@@ -360,12 +396,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
             if (model_params.missing_action != Fail)
                 hplanes.back().fill_val.assign(workspace.ext_fill_val.begin(), workspace.ext_fill_val.begin() + workspace.ntaken);
 
-            if (
-                model_params.scoring_metric != Depth &&
-                model_params.scoring_metric != BoxedDensity &&
-                model_params.scoring_metric != BoxedDensity2 &&
-                model_params.scoring_metric != BoxedRatio
-            )
+            if (model_params.scoring_metric != Depth && !is_boxed_metric(model_params.scoring_metric))
             {
                 workspace.density_calculator.save_range(workspace.xmin, workspace.xmax);
             }
@@ -520,9 +551,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
             workspace.density_calculator.push_density(workspace.xmin, workspace.xmax, hplanes.back().split_point);
         }
 
-        else if (model_params.scoring_metric == BoxedDensity ||
-                 model_params.scoring_metric == BoxedDensity2 ||
-                 model_params.scoring_metric == BoxedRatio)
+        else if (is_boxed_metric(model_params.scoring_metric))
         {
             workspace.density_calculator.push_bdens_ext(hplanes.back(), model_params);
         }
@@ -591,13 +620,12 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     hplanes.emplace_back();
 
     if (impute_nodes != NULL) impute_nodes->emplace_back(hplane_from);
-    if (model_params.scoring_metric == BoxedDensity ||
-        model_params.scoring_metric == BoxedDensity2 ||
-        model_params.scoring_metric == BoxedRatio
-    )
+    if (is_boxed_metric(model_params.scoring_metric)) {
         workspace.density_calculator.pop_bdens_ext();
-    else if (model_params.scoring_metric != Depth)
+    }
+    else if (model_params.scoring_metric != Depth) {
         workspace.density_calculator.pop();
+    }
     workspace.st = workspace.split_ix;
     split_hplane_recursive(hplanes,
                            workspace,
@@ -605,11 +633,12 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                            model_params,
                            impute_nodes,
                            curr_depth + 1);
-    if (model_params.scoring_metric == BoxedDensity ||
-        model_params.scoring_metric == BoxedDensity2 ||
-        model_params.scoring_metric == BoxedRatio
-    )
+    if (is_boxed_metric(model_params.scoring_metric)) {
         workspace.density_calculator.pop_bdens_ext_right();
+    }
+    else if (model_params.scoring_metric != Depth) {
+        workspace.density_calculator.pop_right();
+    }
 
     return;
 

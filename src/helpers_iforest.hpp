@@ -421,38 +421,18 @@ std::vector<double> calc_kurtosis_all_data(InputData &input_data, ModelParams &m
         }
     }
 
-    for (auto &w : kurt_weights) w = std::fmax(1e-8, -1. + w);
+    for (auto &w : kurt_weights) w = (w == -HUGE_VAL)? 0. : std::fmax(1e-8, -1. + w);
     if (input_data.col_weights != NULL)
     {
         for (size_t col = 0; col < input_data.ncols_tot; col++)
+        {
+            if (kurt_weights[col] <= 0) continue;
             kurt_weights[col] *= input_data.col_weights[col];
+            kurt_weights[col] = std::fmax(kurt_weights[col], 1e-100);
+        }
     }
 
     return kurt_weights;
-}
-
-template <class InputData>
-void calc_ranges_all_data(InputData &input_data, ModelParams &model_params,
-                          double *restrict xmin, double *restrict xmax, bool &any_unsplittable)
-{
-    bool unsplittable;
-    for (size_t col = 0; col < input_data.ncols_numeric; col++)
-    {
-        if (input_data.Xc_indptr == NULL)
-        {
-            get_range(input_data.numeric_data + col * input_data.nrows, input_data.nrows,
-                      model_params.missing_action, xmin[col], xmax[col], unsplittable);
-        }
-
-        else
-        {
-            get_range(col, input_data.nrows,
-                      input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                      model_params.missing_action, xmin[col], xmax[col], unsplittable);
-        }
-
-        any_unsplittable = any_unsplittable || unsplittable;
-    }
 }
 
 template <class InputData, class WorkerMemory>
@@ -466,10 +446,19 @@ void calc_ranges_all_cols(InputData &input_data, WorkerMemory &workspace, ModelP
 
         if (workspace.unsplittable) {
             workspace.col_sampler.drop_col(workspace.col_chosen);
+            ranges[workspace.col_chosen] = 0;
+            if (saved_xmin != NULL) {
+                saved_xmin[workspace.col_chosen] = 0;
+                saved_xmax[workspace.col_chosen] = 0;
+            }
         }
         else {
             ranges[workspace.col_chosen] = workspace.xmax - workspace.xmin;
-            if (input_data.col_weights != NULL) {
+            if (workspace.tree_kurtoses != NULL) {
+                ranges[workspace.col_chosen] *= workspace.tree_kurtoses[workspace.col_chosen];
+                ranges[workspace.col_chosen] = std::fmax(ranges[workspace.col_chosen], 1e-100);
+            }
+            else if (input_data.col_weights != NULL) {
                 ranges[workspace.col_chosen] *= input_data.col_weights[workspace.col_chosen];
                 ranges[workspace.col_chosen] = std::fmax(ranges[workspace.col_chosen], 1e-100);
             }
@@ -499,6 +488,12 @@ void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPara
             if (workspace.unsplittable)
             {
                 workspace.col_sampler.drop_col(workspace.col_chosen);
+                variances[workspace.col_chosen] = 0;
+                if (saved_xmin != NULL)
+                {
+                    saved_xmin[workspace.col_chosen] = 0;
+                    saved_xmax[workspace.col_chosen] = 0;
+                }
                 continue;
             }
 
@@ -612,7 +607,9 @@ void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPara
         if (xsd)
         {
             variances[workspace.col_chosen] = square(xsd);
-            if (input_data.col_weights != NULL)
+            if (workspace.tree_kurtoses != NULL)
+                variances[workspace.col_chosen] *= workspace.tree_kurtoses[workspace.col_chosen];
+            else if (input_data.col_weights != NULL)
                 variances[workspace.col_chosen] *= input_data.col_weights[workspace.col_chosen];
             variances[workspace.col_chosen] = std::fmax(variances[workspace.col_chosen], 1e-100);
         }
@@ -620,6 +617,7 @@ void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPara
         else
         {
             workspace.col_sampler.drop_col(workspace.col_chosen);
+            variances[workspace.col_chosen] = 0;
         }
     }
 }
@@ -631,18 +629,20 @@ void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPar
     workspace.col_sampler.prepare_full_pass();
     while (workspace.col_sampler.sample_col(workspace.col_chosen))
     {
-        get_split_range(workspace, input_data, model_params);
-
-        if (workspace.unsplittable)
-        {
-            workspace.col_sampler.drop_col(workspace.col_chosen);
-            continue;
-        }
-
         if (saved_xmin != NULL)
         {
-            saved_xmin[workspace.col_chosen] = workspace.xmin;
-            saved_xmax[workspace.col_chosen] = workspace.xmax;
+            get_split_range(workspace, input_data, model_params);
+            if (workspace.unsplittable)
+            {
+                workspace.col_sampler.drop_col(workspace.col_chosen);
+                continue;
+            }
+
+            if (saved_xmin != NULL)
+            {
+                saved_xmin[workspace.col_chosen] = workspace.xmin;
+                saved_xmax[workspace.col_chosen] = workspace.xmax;
+            }
         }
 
         if (workspace.col_chosen < input_data.ncols_numeric)
@@ -742,11 +742,22 @@ void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPar
             }
         }
 
-        kurtosis[workspace.col_chosen] = std::fmax(1e-8, -1. + kurtosis[workspace.col_chosen]);
-        if (input_data.col_weights != NULL)
+        if (kurtosis[workspace.col_chosen] == -HUGE_VAL)
+            workspace.col_sampler.drop_col(workspace.col_chosen);
+
+        kurtosis[workspace.col_chosen] = (kurtosis[workspace.col_chosen] == -HUGE_VAL)?
+                                            0. : std::fmax(1e-8, -1. + kurtosis[workspace.col_chosen]);
+        if (input_data.col_weights != NULL && kurtosis[workspace.col_chosen] > 0)
         {
             kurtosis[workspace.col_chosen] *= input_data.col_weights[workspace.col_chosen];
             kurtosis[workspace.col_chosen] = std::fmax(kurtosis[workspace.col_chosen], 1e-100);
         }
     }
+}
+
+bool is_boxed_metric(const ScoringMetric scoring_metric)
+{
+    return scoring_metric == BoxedDensity ||
+           scoring_metric == BoxedDensity2 ||
+           scoring_metric == BoxedRatio;
 }

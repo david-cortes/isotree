@@ -152,7 +152,7 @@ double digamma(double x)
         y = 0.0;
     }
 
-    y = (-0.5/x) - y + std::log(x);
+    y = ((-0.5/x) - y) + std::log(x);
     return y;
 }
 
@@ -1083,6 +1083,7 @@ bool SingleNodeColumnSampler::initialize
         for (size_t col = 0; col < this->curr_pos; col++) {
             this->mapped_indices[col] = this->col_indices[col];
             this->used_weights[col] = weights[this->col_indices[col]];
+            if (!weights[this->col_indices[col]]) this->n_left--;
         }
 
         this->tree_weights.resize(0);
@@ -1134,8 +1135,10 @@ bool SingleNodeColumnSampler::initialize
         }
 
         this->cumw = 0;
-        for (size_t col = 0; col < this->curr_pos; col++)
+        for (size_t col = 0; col < this->curr_pos; col++) {
             this->cumw += weights[this->col_indices[col]];
+            if (!weights[this->col_indices[col]]) this->n_left--;
+        }
 
         if (std::isnan(this->cumw))
             throw std::runtime_error("NAs encountered. Try using a different value for 'missing_action'.\n");
@@ -1202,17 +1205,20 @@ bool SingleNodeColumnSampler::sample_col(size_t &col_chosen, RNG_engine &rnd_gen
         /* due to the way this is calculated, there can be large roundoff errors and even negatives */
         if (this->cumw <= 0)
         {
+            this->cumw = 0;
             for (size_t col = 0; col < this->curr_pos; col++)
-                this->weights_orig[this->col_indices[col]] = this->weights_own[this->col_indices[col]]? 1 : 0;
+                this->cumw += this->weights_orig[this->col_indices[col]];
+            if (this->cumw <= 0)
+                unexpected_error();
         }
 
         /* if there are no infinites, choose a column according to weight */
         ldouble_safe chosen = std::uniform_real_distribution<ldouble_safe>((ldouble_safe)0, this->cumw)(rnd_generator);
-        ldouble_safe cumw = 0;
+        ldouble_safe cumw_ = 0;
         for (size_t col = 0; col < this->curr_pos; col++)
         {
-            cumw += this->weights_orig[this->col_indices[col]];
-            if (cumw >= chosen)
+            cumw_ += this->weights_orig[this->col_indices[col]];
+            if (cumw_ >= chosen)
             {
                 col_chosen = this->col_indices[col];
                 this->cumw -= this->weights_orig[col_chosen];
@@ -1377,14 +1383,51 @@ void DensityCalculator::initialize_bdens(const InputData &input_data,
         this->multipliers.push_back(0);
     }
 
+    if (input_data.range_low != NULL || input_data.ncat_ != NULL)
+    {
+        if (input_data.ncols_numeric)
+        {
+            this->queue_box.reserve(model_params.max_depth+3);
+            this->box_low.assign(input_data.range_low, input_data.range_low + input_data.ncols_numeric);
+            this->box_high.assign(input_data.range_high, input_data.range_high + input_data.ncols_numeric);
+        }
+
+        if (input_data.ncols_categ)
+        {
+            this->queue_ncat.reserve(model_params.max_depth+2);
+            this->ncat.assign(input_data.ncat_, input_data.ncat_ + input_data.ncols_categ);
+        }
+
+        if (!this->fast_bratio)
+        {
+            if (input_data.ncols_numeric)
+            {
+                this->ranges.resize(input_data.ncols_numeric);
+                for (size_t col = 0; col < input_data.ncols_numeric; col++)
+                    this->ranges[col] = this->box_high[col] - this->box_low[col];
+            }
+
+            if (input_data.ncols_categ)
+            {
+                this->ncat_orig = this->ncat;
+            }
+        }
+
+        return;
+    }
+
     if (input_data.ncols_numeric)
     {
         this->queue_box.reserve(model_params.max_depth+3);
         this->box_low.resize(input_data.ncols_numeric);
         this->box_high.resize(input_data.ncols_numeric);
-        this->ranges.resize(input_data.ncols_numeric);
+        if (!this->fast_bratio)
+            this->ranges.resize(input_data.ncols_numeric);
     }
-    this->sum_log_width = 0;
+    if (input_data.ncols_categ)
+    {
+        this->queue_ncat.reserve(model_params.max_depth+2);
+    }
     bool unsplittable = false;
     
     size_t npresent = 0;
@@ -1419,14 +1462,16 @@ void DensityCalculator::initialize_bdens(const InputData &input_data,
             {
                 this->box_low[col] = 0;
                 this->box_high[col] = 0;
-                this->ranges[col] = 0;
+                if (!this->fast_bratio)
+                    this->ranges[col] = 0;
                 col_sampler.drop_col(col);
             }
 
-            this->sum_log_width += std::log(std::fmax(box_high[col] - box_low[col], std::numeric_limits<double>::min()));
-
-            this->ranges[col] = (ldouble_safe)this->box_high[col] - (ldouble_safe)this->box_low[col];
-            this->ranges[col] = std::fmax(this->ranges[col], 0.0l);
+            if (!this->fast_bratio)
+            {
+                this->ranges[col] = (ldouble_safe)this->box_high[col] - (ldouble_safe)this->box_low[col];
+                this->ranges[col] = std::fmax(this->ranges[col], (ldouble_safe)0);
+            }
         }
 
         else
@@ -1445,12 +1490,12 @@ void DensityCalculator::initialize_bdens(const InputData &input_data,
             else
             {
                 this->ncat[col - input_data.ncols_numeric] = npresent;
-                this->sum_log_width += std::log((int)npresent);
             }
         }
     }
 
-    this->ncat_orig = this->ncat;
+    if (!this->fast_bratio)
+        this->ncat_orig = this->ncat;
 }
 
 template <class InputData>
@@ -1460,15 +1505,24 @@ void DensityCalculator::initialize_bdens_ext(const InputData &input_data,
                                              ColumnSampler &col_sampler,
                                              bool col_sampler_is_fresh)
 {
-    this->box_low.resize(input_data.ncols_numeric);
-    this->box_high.resize(input_data.ncols_numeric);
     this->vals_ext_box.reserve(model_params.max_depth + 3);
     this->queue_ext_box.reserve(model_params.max_depth + 3);
     this->vals_ext_box.push_back(0);
+
+    if (input_data.range_low != NULL)
+    {
+        this->box_low.assign(input_data.range_low, input_data.range_low + input_data.ncols_numeric);
+        this->box_high.assign(input_data.range_high, input_data.range_high + input_data.ncols_numeric);
+        return;
+    }
+
+    this->box_low.resize(input_data.ncols_numeric);
+    this->box_high.resize(input_data.ncols_numeric);
     bool unsplittable = false;
 
     /* TODO: find out if there's an optimal point for choosing one or the other loop
-       when using 'leave_m_cols' and when using 'prob_pick_col_by_range'. */
+       when using 'leave_m_cols' and when using 'prob_pick_col_by_range', then fill in the
+       lines that are commented out. */
     // if (!input_data.ncols_categ || model_params.ncols_per_tree < input_data.ncols_numeric)
     if (input_data.ncols_numeric)
     {
@@ -1500,60 +1554,60 @@ void DensityCalculator::initialize_bdens_ext(const InputData &input_data,
         }
     }
 
-    else if (input_data.ncols_numeric)
-    {
-        size_t n_unsplittable = 0;
-        std::vector<size_t> unsplittable_cols;
-        if (col_sampler_is_fresh && !col_sampler.has_weights())
-            unsplittable_cols.reserve(input_data.ncols_numeric);
+    // else if (input_data.ncols_numeric)
+    // {
+    //     size_t n_unsplittable = 0;
+    //     std::vector<size_t> unsplittable_cols;
+    //     if (col_sampler_is_fresh && !col_sampler.has_weights())
+    //         unsplittable_cols.reserve(input_data.ncols_numeric);
 
-        /* TODO: this will do unnecessary calculations when using 'leave_m_cols' */
-        for (size_t col = 0; col < input_data.ncols_numeric; col++)
-        {
-            if (input_data.Xc_indptr != NULL)
-            {
-                get_range((size_t*)ix_arr.data(), (size_t)0, ix_arr.size()-(size_t)1, col,
-                          input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
-                          model_params.missing_action, this->box_low[col], this->box_high[col], unsplittable);
-            }
+    //     /* TODO: this will do unnecessary calculations when using 'leave_m_cols' */
+    //     for (size_t col = 0; col < input_data.ncols_numeric; col++)
+    //     {
+    //         if (input_data.Xc_indptr != NULL)
+    //         {
+    //             get_range((size_t*)ix_arr.data(), (size_t)0, ix_arr.size()-(size_t)1, col,
+    //                       input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
+    //                       model_params.missing_action, this->box_low[col], this->box_high[col], unsplittable);
+    //         }
 
-            else
-            {
-                get_range((size_t*)ix_arr.data(), input_data.numeric_data + input_data.nrows * col, (size_t)0, ix_arr.size()-(size_t)1,
-                          model_params.missing_action, this->box_low[col], this->box_high[col], unsplittable);
-            }
+    //         else
+    //         {
+    //             get_range((size_t*)ix_arr.data(), input_data.numeric_data + input_data.nrows * col, (size_t)0, ix_arr.size()-(size_t)1,
+    //                       model_params.missing_action, this->box_low[col], this->box_high[col], unsplittable);
+    //         }
 
-            if (unsplittable)
-            {
-                this->box_low[col] = 0;
-                this->box_high[col] = 0;
-                n_unsplittable++;
-                if (col_sampler.has_weights())
-                    col_sampler.drop_col(col);
-                else if (col_sampler_is_fresh)
-                    unsplittable_cols.push_back(col);
-            }
-        }
+    //         if (unsplittable)
+    //         {
+    //             this->box_low[col] = 0;
+    //             this->box_high[col] = 0;
+    //             n_unsplittable++;
+    //             if (col_sampler.has_weights())
+    //                 col_sampler.drop_col(col);
+    //             else if (col_sampler_is_fresh)
+    //                 unsplittable_cols.push_back(col);
+    //         }
+    //     }
 
-        if (n_unsplittable && col_sampler_is_fresh && !col_sampler.has_weights())
-        {
-            #if (__cplusplus >= 202002L)
-            for (auto col : unsplittable_cols | std::views::reverse)
-                col_sampler.drop_from_tail(col);
-            #else
-            for (size_t inv_col = 0; inv_col < unsplittable_cols.size(); inv_col++)
-            {
-                size_t col = unsplittable_cols.size() - inv_col - 1;
-                col_sampler.drop_from_tail(unsplittable_cols[col]);
-            }
-            #endif
-        }
+    //     if (n_unsplittable && col_sampler_is_fresh && !col_sampler.has_weights())
+    //     {
+    //         #if (__cplusplus >= 202002L)
+    //         for (auto col : unsplittable_cols | std::views::reverse)
+    //             col_sampler.drop_from_tail(col);
+    //         #else
+    //         for (size_t inv_col = 0; inv_col < unsplittable_cols.size(); inv_col++)
+    //         {
+    //             size_t col = unsplittable_cols.size() - inv_col - 1;
+    //             col_sampler.drop_from_tail(unsplittable_cols[col]);
+    //         }
+    //         #endif
+    //     }
 
-        else if (n_unsplittable > model_params.sample_size / 16 && !col_sampler_is_fresh && !col_sampler.has_weights())
-        {
-            /* TODO */
-        }
-    }
+    //     else if (n_unsplittable > model_params.sample_size / 16 && !col_sampler_is_fresh && !col_sampler.has_weights())
+    //     {
+    //         /* TODO */
+    //     }
+    // }
 }
 
 void DensityCalculator::push_density(double xmin, double xmax, double split_point)
@@ -3084,12 +3138,219 @@ void get_categs(size_t *restrict ix_arr, int x[], size_t st, size_t end, int nca
     unsplittable = npresent < 2;
 }
 
+template <class real_t>
+bool check_more_than_two_unique_values(size_t ix_arr[], size_t st, size_t end, real_t x[], MissingAction missing_action)
+{
+    if (end - st <= 1) return false;
+
+    if (missing_action == Fail)
+    {
+        real_t x0 = x[ix_arr[st]];
+        for (size_t ix = st+1; ix <= end; ix++)
+        {
+            if (x[ix_arr[ix]] != x0) return true;
+        }
+    }
+
+    else
+    {
+        real_t x0;
+        size_t ix;
+        for (ix = st; ix <= end; ix++)
+        {
+            if (!is_na_or_inf(x[ix_arr[ix]]))
+            {
+                x0 = x[ix_arr[ix]];
+                ix++;
+                break;
+            }
+        }
+
+        for (; ix <= end; ix++)
+        {
+            if (!is_na_or_inf(x[ix_arr[ix]]) && x[ix_arr[ix]] != x0)
+                return true;
+        }
+    }
+
+    return false;
+}
+
+bool check_more_than_two_unique_values(size_t ix_arr[], size_t st, size_t end, int x[], MissingAction missing_action)
+{
+    if (end - st <= 1) return false;
+
+    if (missing_action == Fail)
+    {
+        int x0 = x[ix_arr[st]];
+        for (size_t ix = st+1; ix <= end; ix++)
+        {
+            if (x[ix_arr[ix]] != x0) return true;
+        }
+    }
+
+    else
+    {
+        int x0;
+        size_t ix;
+        for (ix = st; ix <= end; ix++)
+        {
+            if (x[ix_arr[ix]] >= 0)
+            {
+                x0 = x[ix_arr[ix]];
+                ix++;
+                break;
+            }
+        }
+
+        for (; ix <= end; ix++)
+        {
+            if (x[ix_arr[ix]] >= 0 && x[ix_arr[ix]] != x0)
+                return true;
+        }
+    }
+
+    return false;
+}
+
+template <class real_t, class sparse_ix>
+bool check_more_than_two_unique_values(size_t *restrict ix_arr, size_t st, size_t end, size_t col,
+                                       sparse_ix *restrict Xc_indptr, sparse_ix *restrict Xc_ind, real_t *restrict Xc,
+                                       MissingAction missing_action)
+{
+    if (end - st <= 1) return false;
+    if (Xc_indptr[col+1] == Xc_indptr[col]) return false;
+    bool has_zeros = (end - st + 1) > (size_t)(Xc_indptr[col+1] - Xc_indptr[col]);
+    if (has_zeros && !is_na_or_inf(Xc[Xc_indptr[col]]) && Xc[Xc_indptr[col]] != 0) return true;
+
+    size_t st_col  = Xc_indptr[col];
+    size_t end_col = Xc_indptr[col + 1] - 1;
+    size_t curr_pos = st_col;
+    size_t ind_end_col = Xc_ind[end_col];
+
+    /* 'ix_arr' should be sorted beforehand */
+    /* TODO: refactor this */
+    real_t x0 = 0;
+    size_t *row;
+    for (row = std::lower_bound(ix_arr + st, ix_arr + end + 1, Xc_ind[st_col]);
+         row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
+        )
+    {
+        if (Xc_ind[curr_pos] == (sparse_ix)(*row))
+        {
+            if (is_na_or_inf(Xc[curr_pos]) || (has_zeros && Xc[curr_pos] == 0))
+            {
+                if (row == ix_arr + end || curr_pos == end_col) return false;
+                curr_pos = std::lower_bound(Xc_ind + curr_pos, Xc_ind + end_col + 1, *(++row)) - Xc_ind;
+            }
+
+            x0 = Xc[curr_pos];
+            if (has_zeros) return true;
+            else if (x0 == 0) has_zeros = true;
+            if (row == ix_arr + end || curr_pos == end_col) return false;
+            curr_pos = std::lower_bound(Xc_ind + curr_pos, Xc_ind + end_col + 1, *(++row)) - Xc_ind;
+            break;
+        }
+
+        else
+        {
+            if (Xc_ind[curr_pos] > (sparse_ix)(*row))
+                row = std::lower_bound(row + 1, ix_arr + end + 1, Xc_ind[curr_pos]);
+            else
+                curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
+        }
+    }
+
+    for (;
+         row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
+        )
+    {
+        if (Xc_ind[curr_pos] == (sparse_ix)(*row))
+        {
+            if (is_na_or_inf(Xc[curr_pos]) || (has_zeros && Xc[curr_pos] == 0))
+            {
+                if (row == ix_arr + end || curr_pos == end_col) break;
+                curr_pos = std::lower_bound(Xc_ind + curr_pos, Xc_ind + end_col + 1, *(++row)) - Xc_ind;
+            }
+
+            else if (Xc[curr_pos] != x0)
+            {
+                return true;
+            }
+
+            if (row == ix_arr + end || curr_pos == end_col) break;
+            curr_pos = std::lower_bound(Xc_ind + curr_pos, Xc_ind + end_col + 1, *(++row)) - Xc_ind;
+        }
+
+        else
+        {
+            if (Xc_ind[curr_pos] > (sparse_ix)(*row))
+                row = std::lower_bound(row + 1, ix_arr + end + 1, Xc_ind[curr_pos]);
+            else
+                curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
+        }
+    }
+
+    return false;
+}
+
+template <class real_t, class sparse_ix>
+bool check_more_than_two_unique_values(size_t nrows, size_t col,
+                                       sparse_ix *restrict Xc_indptr, sparse_ix *restrict Xc_ind, real_t *restrict Xc,
+                                       MissingAction missing_action)
+{
+    if (nrows <= 1) return false;
+    if (Xc_indptr[col+1] == Xc_indptr[col]) return false;
+    bool has_zeros = nrows > (size_t)(Xc_indptr[col+1] - Xc_indptr[col]);
+    if (has_zeros && !is_na_or_inf(Xc[Xc_indptr[col]]) && Xc[Xc_indptr[col]] != 0) return true;
+
+    real_t x0 = 0;
+    sparse_ix ix;
+    for (ix = Xc_indptr[col]; ix < Xc_indptr[col+1]; ix++)
+    {
+        if (!is_na_or_inf(Xc[ix]))
+        {
+            if (has_zeros && Xc[ix] == 0) continue;
+            if (has_zeros) return true;
+            else if (Xc[ix] == 0) has_zeros = true;
+            x0 = Xc[ix];
+            ix++;
+            break;
+        }
+    }
+
+    for (ix = Xc_indptr[col]; ix < Xc_indptr[col+1]; ix++)
+    {
+        if (!is_na_or_inf(Xc[ix]))
+        {
+            if (has_zeros && Xc[ix] == 0) continue;
+            if (Xc[ix] != x0) return true;
+        }
+    }
+
+    return false;
+}
+
 void count_categs(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat, size_t *restrict counts)
 {
     std::fill(counts, counts + ncat, (size_t)0);
     for (size_t row = st; row <= end; row++)
         if (x[ix_arr[row]] >= 0)
             counts[x[ix_arr[row]]]++;
+}
+
+int count_ncateg_in_col(const int x[], const size_t n, const int ncat, unsigned char buffer[])
+{
+    memset(buffer, 0, ncat*sizeof(char));
+    for (size_t ix = 0; ix < n; ix++)
+    {
+        if (x[ix] >= 0) buffer[x[ix]] = true;
+    }
+
+    int ncat_present = 0;
+    for (int cat = 0; cat < ncat; cat++)
+        ncat_present += buffer[cat];
+    return ncat_present;
 }
 
 ldouble_safe calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,

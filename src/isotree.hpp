@@ -237,7 +237,7 @@ using std::isnan;
 
 /* MinGW has issues processing long doubles in parallel.
    See https://sourceforge.net/p/mingw-w64/bugs/909/ */
-#if (defined(_WIN32) || defined(_WIN64)) && (defined(__GNUC__) || defined(__GNUG__))
+#if (defined(_WIN32) || defined(_WIN64)) && defined(_OPENMP) && (defined(__GNUC__) || defined(__GNUG__)) && !(defined(__clang__) || defined(__INTEL_COMPILER))
     typedef double ldouble_safe;
 #else
     typedef long double ldouble_safe;
@@ -414,6 +414,10 @@ struct InputData {
     std::vector<char>   has_missing;         /* only used when producing missing imputations on-the-fly */
     size_t              n_missing;           /* only used when producing missing imputations on-the-fly */
     void*       preinitialized_col_sampler;  /* only when using column weights */
+    double*     range_low;   /* only when calculating variable ranges or boxed densities with no sub-sampling */
+    double*     range_high;  /* only when calculating variable ranges or boxed densities with no sub-sampling */
+    int*        ncat_;       /* only when calculating boxed densities with no sub-sampling */
+    std::vector<double> all_kurtoses; /* only when using 'prob_pick_col_by_kurtosis' or mixing 'weigh_by_kurt' with 'prob_pick_col*' with no sub-sampling */
 };
 
 
@@ -552,7 +556,6 @@ public:
     std::vector<int> ncat;
     std::vector<int> queue_ncat;
     std::vector<int> ncat_orig;
-    ldouble_safe sum_log_width;
     std::vector<double> vals_ext_box;
     std::vector<double> queue_ext_box;
     
@@ -753,6 +756,7 @@ struct WorkerMemory {
     std::vector<double>  saved_stat1;
     std::vector<double>  saved_stat2;
     bool                 has_saved_stats;
+    double*              tree_kurtoses;  /* only when mixing 'weight_by_kurt' with 'prob_pick_col*' */
 
     /* for the extended model */
     size_t   ntry;
@@ -936,6 +940,7 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                                double *restrict      tree_depth,
                                size_t                row);
 template <class PredictionData, class sparse_ix, class ImputedData>
+[[gnu::hot]]
 double traverse_itree(std::vector<IsoTree>     &tree,
                       IsoForest                &model_outputs,
                       PredictionData           &prediction_data,
@@ -947,6 +952,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                       double *restrict         tree_depth,
                       size_t                   curr_lev);
 template <class PredictionData, class sparse_ix>
+[[gnu::hot]]
 void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
                           ExtIsoForest            &model_outputs,
                           PredictionData          &prediction_data,
@@ -955,6 +961,7 @@ void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
                           double *restrict        tree_depth,
                           size_t                  row);
 template <class PredictionData, class sparse_ix, class ImputedData>
+[[gnu::hot]]
 void traverse_hplane(std::vector<IsoHPlane>   &hplane,
                      ExtIsoForest             &model_outputs,
                      PredictionData           &prediction_data,
@@ -1144,6 +1151,7 @@ void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPara
 template <class InputData, class WorkerMemory>
 void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelParams &model_params,
                         double *restrict kurtosis, double *restrict saved_xmin, double *restrict saved_xmax);
+bool is_boxed_metric(const ScoringMetric scoring_metric);
 
 
 /* utils.cpp */
@@ -1217,7 +1225,19 @@ void get_range(size_t col_num, size_t nrows,
                MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable);
 void get_categs(size_t *restrict ix_arr, int x[], size_t st, size_t end, int ncat,
                 MissingAction missing_action, signed char categs[], size_t &restrict npresent, bool &unsplittable);
+template <class real_t>
+bool check_more_than_two_unique_values(size_t ix_arr[], size_t st, size_t end, real_t x[], MissingAction missing_action);
+bool check_more_than_two_unique_values(size_t ix_arr[], size_t st, size_t end, int x[], MissingAction missing_action);
+template <class real_t, class sparse_ix>
+bool check_more_than_two_unique_values(size_t *restrict ix_arr, size_t st, size_t end, size_t col,
+                                       sparse_ix *restrict Xc_indptr, sparse_ix *restrict Xc_ind, real_t *restrict Xc,
+                                       MissingAction missing_action);
+template <class real_t, class sparse_ix>
+bool check_more_than_two_unique_values(size_t nrows, size_t col,
+                                       sparse_ix *restrict Xc_indptr, sparse_ix *restrict Xc_ind, real_t *restrict Xc,
+                                       MissingAction missing_action);
 void count_categs(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat, size_t *restrict counts);
+int count_ncateg_in_col(const int x[], const size_t n, const int ncat, unsigned char buffer[]);
 ldouble_safe calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
                                    std::vector<double> &weights_arr, hashed_map<size_t, double> &weights_map);
 extern bool interrupt_switch;

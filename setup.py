@@ -34,8 +34,10 @@ class build_ext_subclass( build_ext ):
             self.add_restrict_qualifier()
             self.add_no_math_errno()
             self.add_no_trapping_math()
-            if sys.platform[:3].lower() != "win":
+            if not is_windows:
                 self.add_link_time_optimization()
+            elif self.compiler.compiler_type.lower() in ["mingw32", "mingw64", "mingw", "msys", "msys2", "gcc", "g++"]:
+                self.add_ld64()
 
             for e in self.extensions:
                 
@@ -63,6 +65,8 @@ class build_ext_subclass( build_ext ):
 
                 if (os.path.exists("src/robinmap/include/tsl")):
                     e.define_macros += [("_USE_ROBIN_MAP", None)]
+
+
 
                 # e.extra_compile_args = ['-fopenmp', '-O3', '-march=native', '-std=c++11']
                 # e.extra_link_args    = ['-fopenmp']
@@ -118,6 +122,13 @@ class build_ext_subclass( build_ext ):
             for e in self.extensions:
                 e.extra_compile_args.append(arg_fntm)
                 e.extra_link_args.append(arg_fntm)
+
+    def add_ld64(self):
+        arg_ld64 = "-mlong-double-64"
+        if self.test_supports_compile_arg(arg_ld64):
+            for e in self.extensions:
+                e.extra_compile_args.append(arg_ld64)
+                e.extra_link_args.append(arg_ld64)
 
     def add_openmp_linkage(self):
         arg_omp1 = "-fopenmp"
@@ -213,7 +224,7 @@ class build_ext_subclass( build_ext ):
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.5.4',
+    version = '0.5.5',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',

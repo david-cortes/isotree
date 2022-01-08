@@ -63,6 +63,10 @@
    significantly if there is a large number of missing values, which would lead to prefer
    splitting on columns with mostly missing values. */
 
+/* TODO: this kurtosis caps the minimum values to zero, but the minimum achievable value is 1,
+   see how are imprecise results used outside of the function in the different kind of calculations
+   that use kurtosis and maybe change the logic. */
+
 #define pw1(x) ((x))
 #define pw2(x) ((x) * (x))
 #define pw3(x) ((x) * (x) * (x))
@@ -95,8 +99,14 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], Missing
             M2  +=  diff;
         }
 
+        if (!is_na_or_inf(M2) && M2 <= 0)
+        {
+            if (!check_more_than_two_unique_values(ix_arr, st, end, x, missing_action))
+                return -HUGE_VAL;
+        }
+
         out = ( M4 / M2 ) * ( (ldouble_safe)(end - st + 1) / M2 );
-        return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+        return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
     }
 
     else
@@ -121,8 +131,15 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], Missing
             }
         }
 
+        if (cnt == 0) return -HUGE_VAL;
+        if (!is_na_or_inf(M2) && M2 <= 0)
+        {
+            if (!check_more_than_two_unique_values(ix_arr, st, end, x, missing_action))
+                return -HUGE_VAL;
+        }
+
         out = ( M4 / M2 ) * ( (ldouble_safe)cnt / M2 );
-        return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+        return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
     }
 }
 
@@ -153,7 +170,7 @@ double calc_kurtosis(real_t x[], size_t n, MissingAction missing_action)
         }
 
         out = ( M4 / M2 ) * ( (ldouble_safe)n / M2 );
-        return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+        return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
     }
 
     else
@@ -178,8 +195,10 @@ double calc_kurtosis(real_t x[], size_t n, MissingAction missing_action)
             }
         }
 
+        if (cnt == 0) return -HUGE_VAL;
+
         out = ( M4 / M2 ) * ( (ldouble_safe)cnt / M2 );
-        return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+        return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
     }
 }
 
@@ -195,7 +214,7 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, real_t x[]
     ldouble_safe n = 0;
     ldouble_safe out;
     ldouble_safe n_prev = 0.;
-    double w_this;
+    ldouble_safe w_this;
 
     for (size_t row = st; row <= end; row++)
     {
@@ -217,8 +236,15 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, real_t x[]
         }
     }
 
+    if (n <= 0) return -HUGE_VAL;
+    if (!is_na_or_inf(M2) && M2 <= std::numeric_limits<double>::epsilon())
+    {
+        if (!check_more_than_two_unique_values(ix_arr, st, end, x, missing_action))
+            return -HUGE_VAL;
+    }
+
     out = ( M4 / M2 ) * ( n / M2 );
-    return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+    return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
 }
 
 template <class real_t>
@@ -231,7 +257,7 @@ double calc_kurtosis_weighted(real_t *restrict x, size_t n_, MissingAction missi
     ldouble_safe n = 0;
     ldouble_safe out;
     ldouble_safe n_prev = 0.;
-    double w_this;
+    ldouble_safe w_this;
 
     for (size_t row = 0; row < n_; row++)
     {
@@ -244,7 +270,7 @@ double calc_kurtosis_weighted(real_t *restrict x, size_t n_, MissingAction missi
             delta_div  =  delta / n;
             delta_s    =  delta_div * delta_div;
             diff       =  delta * (delta_div * n_prev);
-            n_prev   =  n;
+            n_prev     =  n;
 
             m   +=  w_this * (delta_div);
             M4  +=  w_this * (diff * delta_s * (n * n - 3 * n + 3) + 6 * delta_s * M2 - 4 * delta_div * M3);
@@ -253,8 +279,10 @@ double calc_kurtosis_weighted(real_t *restrict x, size_t n_, MissingAction missi
         }
     }
 
+    if (n <= 0) return -HUGE_VAL;
+
     out = ( M4 / M2 ) * ( n / M2 );
-    return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+    return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
 }
 
 
@@ -268,15 +296,16 @@ double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
 {
     /* ix_arr must be already sorted beforehand */
     if (Xc_indptr[col_num] == Xc_indptr[col_num + 1])
-        return 0;
+        return -HUGE_VAL;
 
     ldouble_safe s1 = 0;
     ldouble_safe s2 = 0;
     ldouble_safe s3 = 0;
     ldouble_safe s4 = 0;
+    ldouble_safe x_sq;
     size_t cnt = end - st + 1;
 
-    if (cnt <= 1) return 0;
+    if (cnt <= 1) return -HUGE_VAL;
     
     size_t st_col  = Xc_indptr[col_num];
     size_t end_col = Xc_indptr[col_num + 1] - 1;
@@ -284,7 +313,7 @@ double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
     size_t ind_end_col = Xc_ind[end_col];
     size_t *ptr_st = std::lower_bound(ix_arr + st, ix_arr + end + 1, Xc_ind[st_col]);
 
-    real_t xval;
+    ldouble_safe xval;
 
     if (missing_action != Fail)
     {
@@ -302,10 +331,18 @@ double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
 
                 else
                 {
-                    s1 += pw1(xval);
-                    s2 += pw2(xval);
-                    s3 += pw3(xval);
-                    s4 += pw4(xval);
+                    /* TODO: is it safe to use FMA here? some calculations rely on assuming that
+                       some of these 's' are larger than the others. Would this procedure be guaranteed
+                       to preserve such differences if done with a mixture of sums and FMAs? */
+                    x_sq = square(xval);
+                    s1 += xval;
+                    s2  = std::fma(xval, xval, s2);
+                    s3  = std::fma(x_sq, xval, s3);
+                    s4  = std::fma(x_sq, x_sq, s4);
+                    // s1 += pw1(xval);
+                    // s2 += pw2(xval);
+                    // s3 += pw3(xval);
+                    // s4 += pw4(xval);
                 }
 
                 if (row == ix_arr + end || curr_pos == end_col) break;
@@ -320,6 +357,8 @@ double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
                     curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
             }
         }
+
+        if (cnt <= (end - st + 1) - (Xc_indptr[col_num+1] - Xc_indptr[col_num])) return -HUGE_VAL;
     }
 
     else
@@ -331,10 +370,15 @@ double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
             if (Xc_ind[curr_pos] == (sparse_ix)(*row))
             {
                 xval = Xc[curr_pos];
-                s1 += pw1(xval);
-                s2 += pw2(xval);
-                s3 += pw3(xval);
-                s4 += pw4(xval);
+                x_sq = square(xval);
+                s1 += xval;
+                s2  = std::fma(xval, xval, s2);
+                s3  = std::fma(x_sq, xval, s3);
+                s4  = std::fma(x_sq, x_sq, s4);
+                // s1 += pw1(xval);
+                // s2 += pw2(xval);
+                // s3 += pw3(xval);
+                // s4 += pw4(xval);
 
                 if (row == ix_arr + end || curr_pos == end_col) break;
                 curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *(++row)) - Xc_ind;
@@ -350,13 +394,21 @@ double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
         }
     }
 
-    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return 0;
+    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return -HUGE_VAL;
     ldouble_safe cnt_l = (ldouble_safe) cnt;
     ldouble_safe sn = s1 / cnt_l;
     ldouble_safe v  = s2 / cnt_l - pw2(sn);
+    if (std::isnan(v)) return -HUGE_VAL;
+    if (
+        v <= std::numeric_limits<double>::epsilon() &&
+        !check_more_than_two_unique_values(ix_arr, st, end, col_num,
+                                           Xc_indptr, Xc_ind, Xc,
+                                           missing_action)
+    )
+        return -HUGE_VAL;
     if (v <= 0) return 0.;
     ldouble_safe out =  (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt_l * pw4(sn)) / (cnt_l * pw2(v));
-    return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+    return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
 }
 
 template <class real_t, class sparse_ix>
@@ -365,17 +417,18 @@ double calc_kurtosis(size_t col_num, size_t nrows,
                      MissingAction missing_action)
 {
     if (Xc_indptr[col_num] == Xc_indptr[col_num + 1])
-        return 0;
+        return -HUGE_VAL;
 
     ldouble_safe s1 = 0;
     ldouble_safe s2 = 0;
     ldouble_safe s3 = 0;
     ldouble_safe s4 = 0;
+    ldouble_safe x_sq;
     size_t cnt = nrows;
 
-    if (cnt <= 1) return 0;
+    if (cnt <= 1) return -HUGE_VAL;
 
-    real_t xval;
+    ldouble_safe xval;
 
     if (missing_action != Fail)
     {
@@ -389,12 +442,19 @@ double calc_kurtosis(size_t col_num, size_t nrows,
 
             else
             {
-                s1 += pw1(xval);
-                s2 += pw2(xval);
-                s3 += pw3(xval);
-                s4 += pw4(xval);
+                x_sq = square(xval);
+                s1 += xval;
+                s2  = std::fma(xval, xval, s2);
+                s3  = std::fma(x_sq, xval, s3);
+                s4  = std::fma(x_sq, x_sq, s4);
+                // s1 += pw1(xval);
+                // s2 += pw2(xval);
+                // s3 += pw3(xval);
+                // s4 += pw4(xval);
             }
         }
+
+        if (cnt <= (nrows) - (Xc_indptr[col_num+1] - Xc_indptr[col_num])) return -HUGE_VAL;
     }
 
     else
@@ -402,20 +462,33 @@ double calc_kurtosis(size_t col_num, size_t nrows,
         for (auto ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num+1]; ix++)
         {
             xval = Xc[ix];
-            s1 += pw1(xval);
-            s2 += pw2(xval);
-            s3 += pw3(xval);
-            s4 += pw4(xval);
+            x_sq = square(xval);
+            s1 += xval;
+            s2  = std::fma(xval, xval, s2);
+            s3  = std::fma(x_sq, xval, s3);
+            s4  = std::fma(x_sq, x_sq, s4);
+            // s1 += pw1(xval);
+            // s2 += pw2(xval);
+            // s3 += pw3(xval);
+            // s4 += pw4(xval);
         }
     }
 
-    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return 0;
+    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return -HUGE_VAL;
     ldouble_safe cnt_l = (ldouble_safe) cnt;
     ldouble_safe sn = s1 / cnt_l;
     ldouble_safe v  = s2 / cnt_l - pw2(sn);
+    if (std::isnan(v)) return -HUGE_VAL;
+    if (
+        v <= std::numeric_limits<double>::epsilon() &&
+        !check_more_than_two_unique_values(nrows, col_num,
+                                           Xc_indptr, Xc_ind, Xc,
+                                           missing_action)
+    )
+        return -HUGE_VAL;
     if (v <= 0) return 0.;
     ldouble_safe out =  (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt_l * pw4(sn)) / (cnt_l * pw2(v));
-    return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+    return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
 }
 
 
@@ -426,18 +499,19 @@ double calc_kurtosis_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
 {
     /* ix_arr must be already sorted beforehand */
     if (Xc_indptr[col_num] == Xc_indptr[col_num + 1])
-        return 0;
+        return -HUGE_VAL;
 
     ldouble_safe s1 = 0;
     ldouble_safe s2 = 0;
     ldouble_safe s3 = 0;
     ldouble_safe s4 = 0;
-    double w_this;
+    ldouble_safe x_sq;
+    ldouble_safe w_this;
     ldouble_safe cnt = 0;
     for (size_t row = st; row <= end; row++)
         cnt += w[ix_arr[row]];
 
-    if (cnt <= 1) return 0;
+    if (cnt <= 0) return -HUGE_VAL;
     
     size_t st_col  = Xc_indptr[col_num];
     size_t end_col = Xc_indptr[col_num + 1] - 1;
@@ -445,7 +519,7 @@ double calc_kurtosis_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
     size_t ind_end_col = Xc_ind[end_col];
     size_t *ptr_st = std::lower_bound(ix_arr + st, ix_arr + end + 1, Xc_ind[st_col]);
 
-    real_t xval;
+    ldouble_safe xval;
 
     if (missing_action != Fail)
     {
@@ -465,10 +539,15 @@ double calc_kurtosis_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
 
                 else
                 {
-                    s1 += w_this * pw1(xval);
-                    s2 += w_this * pw2(xval);
-                    s3 += w_this * pw3(xval);
-                    s4 += w_this * pw4(xval);
+                    x_sq = xval * xval;
+                    s1 = std::fma(w_this, xval, s1);
+                    s2 = std::fma(w_this, x_sq, s2);
+                    s3 = std::fma(w_this, x_sq*xval, s3);
+                    s4 = std::fma(w_this, x_sq*x_sq, s4);
+                    // s1 += w_this * pw1(xval);
+                    // s2 += w_this * pw2(xval);
+                    // s3 += w_this * pw3(xval);
+                    // s4 += w_this * pw4(xval);
                 }
 
                 if (row == ix_arr + end || curr_pos == end_col) break;
@@ -483,6 +562,8 @@ double calc_kurtosis_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
                     curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
             }
         }
+
+        if (cnt <= 0) return -HUGE_VAL;
     }
 
     else
@@ -496,10 +577,15 @@ double calc_kurtosis_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
                 w_this = w[*row];
                 xval = Xc[curr_pos];
                 
-                s1 += w_this * pw1(xval);
-                s2 += w_this * pw2(xval);
-                s3 += w_this * pw3(xval);
-                s4 += w_this * pw4(xval);
+                x_sq = xval * xval;
+                s1 = std::fma(w_this, xval, s1);
+                s2 = std::fma(w_this, x_sq, s2);
+                s3 = std::fma(w_this, x_sq*xval, s3);
+                s4 = std::fma(w_this, x_sq*x_sq, s4);
+                // s1 += w_this * pw1(xval);
+                // s2 += w_this * pw2(xval);
+                // s3 += w_this * pw3(xval);
+                // s4 += w_this * pw4(xval);
 
                 if (row == ix_arr + end || curr_pos == end_col) break;
                 curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *(++row)) - Xc_ind;
@@ -515,12 +601,20 @@ double calc_kurtosis_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
         }
     }
 
-    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return 0;
+    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return -HUGE_VAL;
     ldouble_safe sn = s1 / cnt;
     ldouble_safe v  = s2 / cnt - pw2(sn);
+    if (std::isnan(v)) return -HUGE_VAL;
+    if (
+        v <= std::numeric_limits<double>::epsilon() &&
+        !check_more_than_two_unique_values(ix_arr, st, end, col_num,
+                                           Xc_indptr, Xc_ind, Xc,
+                                           missing_action)
+    )
+        return -HUGE_VAL;
     if (v <= 0) return 0.;
     ldouble_safe out =  (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt * pw4(sn)) / (cnt * pw2(v));
-    return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+    return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
 }
 
 template <class real_t, class sparse_ix>
@@ -529,20 +623,21 @@ double calc_kurtosis_weighted(size_t col_num, size_t nrows,
                               MissingAction missing_action, real_t *restrict w)
 {
     if (Xc_indptr[col_num] == Xc_indptr[col_num + 1])
-        return 0;
+        return -HUGE_VAL;
 
     ldouble_safe s1 = 0;
     ldouble_safe s2 = 0;
     ldouble_safe s3 = 0;
     ldouble_safe s4 = 0;
-    double w_this;
+    ldouble_safe x_sq;
+    ldouble_safe w_this;
     ldouble_safe cnt = nrows - (Xc_indptr[col_num + 1] - Xc_indptr[col_num]);
     for (auto ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num + 1]; ix++)
         cnt += w[Xc_ind[ix]];
 
-    if (cnt <= 1) return 0;
+    if (cnt <= 0) return -HUGE_VAL;
     
-    real_t xval;
+    ldouble_safe xval;
 
     if (missing_action != Fail)
     {
@@ -558,12 +653,19 @@ double calc_kurtosis_weighted(size_t col_num, size_t nrows,
 
             else
             {
-                s1 += w_this * pw1(xval);
-                s2 += w_this * pw2(xval);
-                s3 += w_this * pw3(xval);
-                s4 += w_this * pw4(xval);
+                x_sq = xval * xval;
+                s1 = std::fma(w_this, xval, s1);
+                s2 = std::fma(w_this, x_sq, s2);
+                s3 = std::fma(w_this, x_sq*xval, s3);
+                s4 = std::fma(w_this, x_sq*x_sq, s4);
+                // s1 += w_this * pw1(xval);
+                // s2 += w_this * pw2(xval);
+                // s3 += w_this * pw3(xval);
+                // s4 += w_this * pw4(xval);
             }
         }
+
+        if (cnt <= 0) return -HUGE_VAL;
     }
 
     else
@@ -573,19 +675,32 @@ double calc_kurtosis_weighted(size_t col_num, size_t nrows,
             w_this = w[Xc_ind[ix]];
             xval = Xc[ix];
 
-            s1 += w_this * pw1(xval);
-            s2 += w_this * pw2(xval);
-            s3 += w_this * pw3(xval);
-            s4 += w_this * pw4(xval);
+            x_sq = xval * xval;
+            s1 = std::fma(w_this, xval, s1);
+            s2 = std::fma(w_this, x_sq, s2);
+            s3 = std::fma(w_this, x_sq*xval, s3);
+            s4 = std::fma(w_this, x_sq*x_sq, s4);
+            // s1 += w_this * pw1(xval);
+            // s2 += w_this * pw2(xval);
+            // s3 += w_this * pw3(xval);
+            // s4 += w_this * pw4(xval);
         }
     }
 
-    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return 0;
+    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return -HUGE_VAL;
     ldouble_safe sn = s1 / cnt;
     ldouble_safe v  = s2 / cnt - pw2(sn);
-    if (v <= 0) return 0.;
+    if (std::isnan(v)) return -HUGE_VAL;
+    if (
+        v <= std::numeric_limits<double>::epsilon() &&
+        !check_more_than_two_unique_values(nrows, col_num,
+                                           Xc_indptr, Xc_ind, Xc,
+                                           missing_action)
+    )
+        return -HUGE_VAL;
+    if (v <= 0) return -HUGE_VAL;
     ldouble_safe out =  (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt * pw4(sn)) / (cnt * pw2(v));
-    return (!is_na_or_inf(out) && out > 0.)? out : 0.;
+    return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
 }
 
 
@@ -605,7 +720,7 @@ double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[]
     double sum_kurt = 0;
 
     cnt -= buffer_cnt[ncat];
-    if (cnt <= 1) return 0;
+    if (cnt <= 1) return -HUGE_VAL;
     long double cnt_l = (long double) cnt;
     for (int cat = 0; cat < ncat; cat++)
         buffer_prob[cat] = buffer_cnt[cat] / cnt_l;
@@ -616,7 +731,9 @@ double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[]
         {
             ldouble_safe temp_v;
             ldouble_safe s1, s2, s3, s4;
-            long double coef;
+            ldouble_safe coef;
+            ldouble_safe coef2;
+            ldouble_safe w_this;
             UniformUnitInterval runif(0, 1);
             size_t ntry = 50;
             for (size_t iternum = 0; iternum < 50; iternum++)
@@ -625,10 +742,16 @@ double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[]
                 for (int cat = 0; cat < ncat; cat++)
                 {
                     coef = runif(rnd_generator);
-                    s1 += buffer_prob[cat] * pw1(coef);
-                    s2 += buffer_prob[cat] * pw2(coef);
-                    s3 += buffer_prob[cat] * pw3(coef);
-                    s4 += buffer_prob[cat] * pw4(coef);
+                    coef2 = coef * coef;
+                    w_this = buffer_prob[cat];
+                    s1 = std::fma(w_this, coef, s1);
+                    s2 = std::fma(w_this, coef2, s2);
+                    s3 = std::fma(w_this, coef2*coef, s3);
+                    s4 = std::fma(w_this, coef2*coef2, s4);
+                    // s1 += buffer_prob[cat] * pw1(coef);
+                    // s2 += buffer_prob[cat] * pw2(coef);
+                    // s3 += buffer_prob[cat] * pw3(coef);
+                    // s4 += buffer_prob[cat] * pw4(coef);
                 }
                 temp_v = s2 - pw2(s1);
                 if (temp_v <= 0)
@@ -637,9 +760,11 @@ double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[]
                     sum_kurt += (s4 - 4 * s3 * pw1(s1) + 6 * s2 * pw2(s1) - 4 * s1 * pw3(s1) + pw4(s1)) / pw2(temp_v);
             }
             if (!ntry)
-                return 0;
+                return -HUGE_VAL;
+            else if (is_na_or_inf(sum_kurt))
+                return -HUGE_VAL;
             else
-                return ((!is_na_or_inf(sum_kurt) && sum_kurt > 0.)? sum_kurt : 0.) / (long double)ntry;
+                return std::fmax(sum_kurt, 0.) / (double)ntry;
         }
 
         case SingleCateg:
@@ -655,9 +780,11 @@ double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[]
                     sum_kurt += (p - 4 * p * pw1(p) + 6 * p * pw2(p) - 4 * p * pw3(p) + pw4(p)) / pw2(p - pw2(p));
             }
             if (ncat_present <= 1)
-                return 0;
+                return -HUGE_VAL;
+            else if (is_na_or_inf(sum_kurt))
+                return -HUGE_VAL;
             else
-                return ((!is_na_or_inf(sum_kurt) && sum_kurt > 0.)? sum_kurt : 0.) / (double) ncat_present;
+                return std::fmax(sum_kurt, 0.) / (double)ncat_present;
         }
     }
 
@@ -736,10 +863,10 @@ double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, in
 {
     double sum_kurt = 0;
 
-    ldouble_safe cnt = std::accumulate(buffer_cnt.begin(), buffer_cnt.end(), (ldouble_safe)0.);
+    ldouble_safe cnt = std::accumulate(buffer_cnt.begin(), buffer_cnt.end(), (ldouble_safe)0);
 
     cnt -= buffer_cnt[ncat];
-    if (cnt <= 1) return 0;
+    if (cnt <= 1) return -HUGE_VAL;
     for (int cat = 0; cat < ncat; cat++)
         buffer_prob[cat] = buffer_cnt[cat] / cnt;
 
@@ -747,9 +874,10 @@ double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, in
     {
         case SubSet:
         {
-            long double temp_v;
+            ldouble_safe temp_v;
             ldouble_safe s1, s2, s3, s4;
-            ldouble_safe coef;
+            ldouble_safe coef, coef2;
+            ldouble_safe w_this;
             UniformUnitInterval runif(0, 1);
             size_t ntry = 50;
             for (size_t iternum = 0; iternum < 50; iternum++)
@@ -758,10 +886,16 @@ double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, in
                 for (int cat = 0; cat < ncat; cat++)
                 {
                     coef = runif(rnd_generator);
-                    s1 += buffer_prob[cat] * pw1(coef);
-                    s2 += buffer_prob[cat] * pw2(coef);
-                    s3 += buffer_prob[cat] * pw3(coef);
-                    s4 += buffer_prob[cat] * pw4(coef);
+                    coef2 = coef * coef;
+                    w_this = buffer_prob[cat];
+                    s1 = std::fma(w_this, coef, s1);
+                    s2 = std::fma(w_this, coef2, s2);
+                    s3 = std::fma(w_this, coef2*coef, s3);
+                    s4 = std::fma(w_this, coef2*coef2, s4);
+                    // s1 += buffer_prob[cat] * pw1(coef);
+                    // s2 += buffer_prob[cat] * pw2(coef);
+                    // s3 += buffer_prob[cat] * pw3(coef);
+                    // s4 += buffer_prob[cat] * pw4(coef);
                 }
                 temp_v = s2 - pw2(s1);
                 if (temp_v <= 0)
@@ -770,9 +904,11 @@ double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, in
                     sum_kurt += (s4 - 4 * s3 * pw1(s1) + 6 * s2 * pw2(s1) - 4 * s1 * pw3(s1) + pw4(s1)) / pw2(temp_v);
             }
             if (!ntry)
-                return 0;
+                return -HUGE_VAL;
+            else if (is_na_or_inf(sum_kurt))
+                return -HUGE_VAL;
             else
-                return ((!is_na_or_inf(sum_kurt) && sum_kurt > 0.)? sum_kurt : 0.) / (long double)ntry;
+                return std::fmax(sum_kurt, 0.) / (double)ntry;
         }
 
         case SingleCateg:
@@ -788,9 +924,11 @@ double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, in
                     sum_kurt += (p - 4 * p * pw1(p) + 6 * p * pw2(p) - 4 * p * pw3(p) + pw4(p)) / pw2(p - pw2(p));
             }
             if (ncat_present <= 1)
-                return 0;
+                return -HUGE_VAL;
+            else if (is_na_or_inf(sum_kurt))
+                return -HUGE_VAL;
             else
-                return ((!is_na_or_inf(sum_kurt) && sum_kurt > 0.)? sum_kurt : 0.) / (double) ncat_present;
+                return std::fmax(sum_kurt, 0.) / (double)ncat_present;
         }
     }
 
@@ -802,7 +940,7 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, int x[], i
                               MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator, mapping &w)
 {
     std::vector<ldouble_safe> buffer_cnt(ncat+1, 0.);
-    double w_this;
+    ldouble_safe w_this;
 
     for (size_t row = st; row <= end; row++)
     {
@@ -824,7 +962,7 @@ double calc_kurtosis_weighted(size_t nrows, int x[], int ncat, double *restrict 
                               RNG_engine &rnd_generator, real_t *restrict w)
 {
     std::vector<ldouble_safe> buffer_cnt(ncat+1, 0.);
-    double w_this;
+    ldouble_safe w_this;
 
     for (size_t row = 0; row < nrows; row++)
     {

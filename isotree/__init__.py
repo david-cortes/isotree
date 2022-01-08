@@ -347,7 +347,7 @@ class IsolationForest:
         probability proportional to the range spanned by each column within a node.
 
         This option is not compatible with categorical data. If passing column weights, the
-        effect will be multiplicative. This option is not compatible with ``weigh_by_kurtosis``.
+        effect will be multiplicative.
 
         Be aware that the data is not standardized in any way for the range calculations, thus the scales
         of features will make a large difference under this option, which might not make it suitable for
@@ -380,8 +380,7 @@ class IsolationForest:
         Be aware that this calculated variance is not standardized in any way, so the scales of
         features will make a large difference under this option.
 
-        If passing column weights, the effect will be multiplicative. This option is not compatible
-        with ``weigh_by_kurtosis``.
+        If passing column weights, the effect will be multiplicative.
 
         If passing a ``missing_action`` different than "fail", infinite values will be ignored for the
         variance calculation. Otherwise, all columns with infinite values will have the same probability
@@ -430,8 +429,8 @@ class IsolationForest:
             Will assign observations to the branch with the most observations in the single-variable model, or fill in
             missing values with the median of each column of the sample from which the split was made in the extended
             model (recommended for the extended model) (but note that the calculation of medians does not take
-            into account sample weights).
-            When using ``ndim=1``, gain calculations will use median-imputed values for missing data.
+            into account sample weights when using ``weights_as_sample_prob=False``).
+            When using ``ndim=1``, gain calculations will use median-imputed values for missing data under this option.
         ``"fail"``:
             Will assume there are no missing values and will trigger undefined behavior if it encounters any.
         ``"auto"``:
@@ -440,7 +439,10 @@ class IsolationForest:
         In the extended model, infinite values will be treated as missing.
         Passing "fail" will produce faster fitting and prediction times along with decreased
         model object sizes.
+
         Models from [1]_, [2]_, [3]_, [4]_ correspond to "fail" here.
+
+        Typically, models with 'ndim>1' are less affected by missing data that models with 'ndim=1'.
     new_categ_action : str, one of "weighted" (single-variable only), "impute" (extended only), "smallest", "random"
         What to do after splitting a categorical feature when new data that reaches that split has categories that
         the sub-sample from which the split was done did not have. Options are:
@@ -450,7 +452,8 @@ class IsolationForest:
             by the fraction of the data that went to each branch when fitting the model.
         ``"impute"``:
             (For the extended model only, recommended) Will assign them the median value for that column that was added to the linear
-            combination of features.
+            combination of features (but note that this median calculation does not use sample weights when
+            using ``weights_as_sample_prob=False``).
         ``"smallest"``:
             In the single-variable case will assign all observations with unseen categories in the split to the branch that had
             fewer observations when fitting the model, and in the extended case will assign them the coefficient of the least
@@ -502,11 +505,13 @@ class IsolationForest:
         If passing sample (row) weights when fitting the model, whether to consider those weights as row
         sampling weights (i.e. the higher the weights, the more likely the observation will end up included
         in each tree sub-sample), or as distribution density weights (i.e. putting a weight of two is the same
-        as if the row appeared twice, thus higher weight makes it less of an outlier). Note that sampling weight
-        is only used when sub-sampling data for each tree, which is not the default in this implementation.
+        as if the row appeared twice, thus higher weight makes it less of an outlier, but does not give it a
+        higher chance of being sampled if the data uses sub-sampling).
     sample_with_replacement : bool
         Whether to sample rows with replacement or not (not recommended). Note that distance calculations,
         if desired, don't work well with duplicate rows.
+
+        Note that it is not possible to call ``fit_predict`` or ``fit_transform`` when using this option.
     penalize_range : bool
         Whether to penalize (add -1 to the terminal depth) observations at prediction time that have a value
         of the chosen split variable (linear combination in extended model) that falls outside of a pre-determined
@@ -679,8 +684,8 @@ class IsolationForest:
         This is intended as a cheap feature selector, while the parameter ``prob_pick_col_by_kurt``
         provides the option to do this at each node in the tree for a different overall type of model.
 
-        If passing column weights, the effect will be multiplicative. This option is not compatible
-        with randomized column selection proportional to some other per-node metric.
+        If passing column weights or using weighted column choices proportional to some other metric
+        (``prob_pick_col_by_range``, ``prob_pick_col_by_var``), the effect will be multiplicative.
 
         If passing ``missing_action="fail"`` and the data has infinite values, columns with rows
         having infinite values will get a weight of zero. If passing a different value for missing
@@ -946,8 +951,8 @@ class IsolationForest:
             prob_pick_col_by_var    /= s
             prob_pick_col_by_kurt   /= s
 
-        if weigh_by_kurtosis and (prob_pick_col_by_range or prob_pick_col_by_var or prob_pick_col_by_kurt):
-            raise ValueError("'weigh_by_kurtosis' is incompatible with by-node column weight criteria.")
+        if weigh_by_kurtosis and prob_pick_col_by_kurt:
+            raise ValueError("'weigh_by_kurtosis' is incompatible with 'prob_pick_col_by_kurt'.")
 
         if (ndim == 1) and ((sample_size is None) or (sample_size == "auto")) and ((prob_pick_avg_gain >= 1) or (prob_pick_pooled_gain >= 1)) and (not sample_with_replacement):
             msg  = "Passed parameters for deterministic single-variable splits"
