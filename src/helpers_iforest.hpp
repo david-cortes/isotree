@@ -226,7 +226,7 @@ void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_
             std::fill(tree_mapping.begin(), tree_mapping.end(), (size_t)0);
             curr_term = 0;
             for (size_t node = 0; node < model_outputs->trees[tree].size(); node++)
-                if (model_outputs->trees[tree][node].score >= 0)
+                if (model_outputs->trees[tree][node].tree_left == 0)
                     tree_mapping[node] = curr_term++;
 
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(tree_num, tree_mapping, tree, prediction_data)
@@ -248,7 +248,7 @@ void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_
             std::fill(tree_mapping.begin(), tree_mapping.end(), (size_t)0);
             curr_term = 0;
             for (size_t node = 0; node < model_outputs_ext->hplanes[tree].size(); node++)
-                if (model_outputs_ext->hplanes[tree][node].score >= 0)
+                if (model_outputs_ext->hplanes[tree][node].hplane_left == 0)
                     tree_mapping[node] = curr_term++;
             
             #pragma omp parallel for schedule(static) num_threads(nthreads) shared(tree_num, tree_mapping, tree, prediction_data)
