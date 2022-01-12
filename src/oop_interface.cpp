@@ -259,7 +259,7 @@ void IsolationForest::predict(double numeric_data[], int categ_data[], bool is_c
         (!this->model.trees.empty())? &this->model : nullptr,
         (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
         output_depths, tree_num, per_tree_depths,
-        (!this>indexer.indices.empty())? &this->indexer : nullptr);
+        (!this->indexer.indices.empty())? &this->indexer : nullptr);
 }
 
 void IsolationForest::predict(double X_sparse[], int X_ind[], int X_indptr[], bool is_csc,
@@ -280,7 +280,7 @@ void IsolationForest::predict(double X_sparse[], int X_ind[], int X_indptr[], bo
         (!this->model.trees.empty())? &this->model : nullptr,
         (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
         output_depths, tree_num, per_tree_depths,
-        (!this>indexer.indices.empty())? &this->indexer : nullptr);
+        (!this->indexer.indices.empty())? &this->indexer : nullptr);
 }
 
 std::vector<double> IsolationForest::predict_distance(double X[], size_t nrows,

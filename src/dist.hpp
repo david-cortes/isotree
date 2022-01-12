@@ -1016,7 +1016,7 @@ void calc_similarity_from_indexer
                 shared(model_outputs, model_outputs_ext, nthreads, indexer, nrows, ncomb, terminal_indices, \
                        sum_separations, thread_argsorted_nodes, thread_sorted_nodes, tmat, \
                        threw_exception, ex)
-        for (size_t_for tree = 0; tree < ntrees; tree++)
+        for (size_t_for tree = 0; tree < (decltype(tree))ntrees; tree++)
         {
             if (interrupt_switch || threw_exception) continue;
 
@@ -1228,7 +1228,7 @@ void calc_similarity_from_indexer
                 shared(model_outputs, model_outputs_ext, nthreads, indexer, nrows, ncomb, terminal_indices, \
                        sum_separations, thread_argsorted_nodes, thread_sorted_nodes, thread_doubly_argsorted, rmat, n_to, n_from, \
                        threw_exception, ex)
-        for (size_t_for tree = 0; tree < ntrees; tree++)
+        for (size_t_for tree = 0; tree < (decltype(tree))ntrees; tree++)
         {
             if (interrupt_switch || threw_exception) continue;
 
