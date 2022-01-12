@@ -140,8 +140,8 @@ std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest
    return
        out
         + std::string(") / ")
-        + std::to_string((long double)ntrees * ((model_outputs != NULL)?
-                                                (model_outputs->exp_avg_depth) : (model_outputs_ext->exp_avg_depth)))
+        + std::to_string((ldouble_safe)ntrees * ((model_outputs != NULL)?
+                                                 (model_outputs->exp_avg_depth) : (model_outputs_ext->exp_avg_depth)))
         + std::string(") AS ")
         + select_as
         + std::string("\nFROM ")

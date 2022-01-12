@@ -67,7 +67,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                            size_t                   curr_depth)
 {
     if (interrupt_switch) return;
-    long double sum_weight = -HUGE_VAL;
+    ldouble_safe sum_weight = -HUGE_VAL;
 
     /* calculate imputation statistics if desired */
     if (impute_nodes != NULL)
@@ -351,7 +351,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         if (model_params.ntry < workspace.col_sampler.get_remaining_cols() && workspace.col_criterion == Uniformly)
         {
             if (input_data.ncols_tot < 1e5 ||
-                ((long double)model_params.ntry / (long double)workspace.col_sampler.get_remaining_cols()) > .25
+                ((ldouble_safe)model_params.ntry / (ldouble_safe)workspace.col_sampler.get_remaining_cols()) > .25
                 )
             {
                 col_is_taken.resize(input_data.ncols_tot, false);

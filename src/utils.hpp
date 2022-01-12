@@ -163,10 +163,10 @@ double harmonic(size_t n)
 {
     if (n > THRESHOLD_EXACT_H)
     {
-        long double temp = 1.0l / square((long double)n);
-        return  - 0.5l * temp * ( 1.0l/6.0l  -   temp * (1.0l/60.0l - (1.0l/126.0l)*temp) )
-                + 0.5l * (1.0l/(long double)n)
-                + std::log((long double)n) + (long double)EULERS_GAMMA;
+        ldouble_safe temp = (ldouble_safe)1 / square((ldouble_safe)n);
+        return  - (ldouble_safe)0.5 * temp * ( (ldouble_safe)1/(ldouble_safe)6  -   temp * ((ldouble_safe)1/(ldouble_safe)60 - ((ldouble_safe)1/(ldouble_safe)126)*temp) )
+                + (ldouble_safe)0.5 * ((ldouble_safe)1/(ldouble_safe)n)
+                + std::log((ldouble_safe)n) + (ldouble_safe)EULERS_GAMMA;
     }
     
     else
@@ -205,17 +205,17 @@ double expected_avg_depth(size_t sample_size)
 }
 
 /* Note: H(x) = psi(x+1) + gamma */
-double expected_avg_depth(long double approx_sample_size)
+double expected_avg_depth(ldouble_safe approx_sample_size)
 {
     if (approx_sample_size <= 1)
         return 0;
-    else if (approx_sample_size < (long double)INT32_MAX)
+    else if (approx_sample_size < (ldouble_safe)INT32_MAX)
         return 2. * (digamma(approx_sample_size + 1.) + EULERS_GAMMA - 1.);
     else {
-        long double temp = 1.0l / square(approx_sample_size);
-        return 2.0l * std::log(approx_sample_size) + 2.0l*((long double)EULERS_GAMMA - 1.0l)
-               + (1.0l/approx_sample_size)
-               - temp * ( 1.0l/6.0l -   temp * (1.0l/60.0l - (1.0l/126.0l)*temp) );
+        ldouble_safe temp = (ldouble_safe)1 / square(approx_sample_size);
+        return (ldouble_safe)2 * std::log(approx_sample_size) + (ldouble_safe)2*((ldouble_safe)EULERS_GAMMA - (ldouble_safe)1)
+               + ((ldouble_safe)1/approx_sample_size)
+               - temp * ( (ldouble_safe)1/(ldouble_safe)6 -   temp * ((ldouble_safe)1/(ldouble_safe)60 - ((ldouble_safe)1/(ldouble_safe)126)*temp) );
     }
 }
 
@@ -285,12 +285,12 @@ double expected_separation_depth_hotstart(double curr, size_t n_curr, size_t n_f
 }
 
 /* linear interpolation */
-double expected_separation_depth(long double n)
+double expected_separation_depth(ldouble_safe n)
 {
     if (n >= THRESHOLD_EXACT_S)
         return 3;
     double s_l = expected_separation_depth((size_t) std::floor(n));
-    long double u = std::ceil(n);
+    ldouble_safe u = std::ceil(n);
     double s_u = s_l + (-s_l * u + 3. * u - 4.) / (u * (u - 1.));
     double diff = n - std::floor(n);
     return s_l + diff * s_u;
@@ -588,7 +588,7 @@ void sample_random_rows(std::vector<size_t> &restrict ix_arr, size_t nrows, bool
             size_t candidate;
 
             /* if the sample size is relatively large, use a temporary boolean vector */
-            if (((long double)ntake / (long double)nrows) > (1. / 50.))
+            if (((ldouble_safe)ntake / (ldouble_safe)nrows) > (1. / 50.))
             {
 
                 if (is_repeated.empty())
@@ -791,7 +791,7 @@ void ColumnSampler::leave_m_cols(size_t m, RNG_engine &rnd_generator)
             }
         }
 
-        else if ((long double)m >= (long double)(3./4.) * (long double)this->n_cols)
+        else if ((ldouble_safe)m >= (ldouble_safe)(3./4.) * (ldouble_safe)this->n_cols)
         {
             for (this->curr_pos = this->n_cols-1; this->curr_pos > this->n_cols - m; this->curr_pos--)
             {
@@ -1737,7 +1737,7 @@ void DensityCalculator::push_adj(signed char *restrict categ_present, size_t *re
         }
     }
 
-    double pct_tree_left = (long double)cnt_left / (long double)cnt;
+    double pct_tree_left = (ldouble_safe)cnt_left / (ldouble_safe)cnt;
     this->push_adj(0., (double)cnt_cat, (double)cnt_cat_left, pct_tree_left, scoring_metric);
 }
 
@@ -1753,7 +1753,7 @@ void DensityCalculator::push_adj(size_t *restrict counts, int ncat, int chosen_c
         cnt_cat += counts[cat] > 0;
     }
 
-    double pct_tree_left = (long double)counts[chosen_cat] / (long double)cnt;
+    double pct_tree_left = (ldouble_safe)counts[chosen_cat] / (ldouble_safe)cnt;
     this->push_adj(0., (double)cnt_cat, 1., pct_tree_left, scoring_metric);
 }
 
@@ -2029,9 +2029,9 @@ void DensityCalculator::pop_bdens_ext_right()
 }
 
 /* this outputs the logarithm of the density */
-double DensityCalculator::calc_density(long double remainder, size_t sample_size)
+double DensityCalculator::calc_density(ldouble_safe remainder, size_t sample_size)
 {
-    return std::log(remainder) - std::log((long double)sample_size) - this->multipliers.back();
+    return std::log(remainder) - std::log((ldouble_safe)sample_size) - this->multipliers.back();
 }
 
 ldouble_safe DensityCalculator::calc_adj_depth()
@@ -2057,7 +2057,7 @@ ldouble_safe DensityCalculator::calc_bratio_inv_log()
     {
         if (!this->ranges[col]) continue;
         ratio_col = this->ranges[col] / ((ldouble_safe)this->box_high[col] - (ldouble_safe)this->box_low[col]);
-        ratio_col = std::fmax(ratio_col, 1.0l);
+        ratio_col = std::fmax(ratio_col, (ldouble_safe)1);
         sum_log_switdh += std::log(ratio_col);
     }
 
@@ -2104,16 +2104,16 @@ double DensityCalculator::calc_bratio()
 const double MIN_DENS = std::log(std::numeric_limits<double>::min());
 
 /* this outputs the logarithm of the density */
-double DensityCalculator::calc_bdens(long double remainder, size_t sample_size)
+double DensityCalculator::calc_bdens(ldouble_safe remainder, size_t sample_size)
 {
-    double out = std::log(remainder) - std::log((long double)sample_size) - this->calc_bratio_inv_log();
+    double out = std::log(remainder) - std::log((ldouble_safe)sample_size) - this->calc_bratio_inv_log();
     return std::fmax(out, MIN_DENS);
 }
 
 /* this outputs the logarithm of the density */
-double DensityCalculator::calc_bdens2(long double remainder, size_t sample_size)
+double DensityCalculator::calc_bdens2(ldouble_safe remainder, size_t sample_size)
 {
-    double out = std::log(remainder) - std::log((long double)sample_size) - this->calc_bratio_log();
+    double out = std::log(remainder) - std::log((ldouble_safe)sample_size) - this->calc_bratio_log();
     return std::fmax(out, MIN_DENS);
 }
 
@@ -2130,9 +2130,9 @@ double DensityCalculator::calc_bratio_ext()
 }
 
 /* this outputs the logarithm of the density */
-double DensityCalculator::calc_bdens_ext(long double remainder, size_t sample_size)
+double DensityCalculator::calc_bdens_ext(ldouble_safe remainder, size_t sample_size)
 {
-    double out = std::log(remainder) - std::log((long double)sample_size) - this->calc_bratio_log_ext();
+    double out = std::log(remainder) - std::log((ldouble_safe)sample_size) - this->calc_bratio_log_ext();
     return std::fmax(out, MIN_DENS);
 }
 

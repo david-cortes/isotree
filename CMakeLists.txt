@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.12.4)
-project (isotree VERSION 0.5.6)
+project (isotree VERSION 0.5.7)
 set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -29,6 +29,14 @@ if (USE_XOSHIRO)
     add_compile_definitions(_USE_XOSHIRO)
 else()
     message(STATUS "Using the compiler's default random engine")
+endif()
+
+## set to ON to avoid using 'long double' type, which
+## can be slow in some setups
+option(AVOID_LONG_DOUBLE "Avoid using 'long double' type" OFF)
+if (AVOID_LONG_DOUBLE)
+    message(STATUS "Avoiding usage of 'long double' type.")
+    add_compile_definitions(AVOID_LONG_DOUBLE)
 endif()
 
 ## https://cliutils.gitlab.io/modern-cmake/chapters/packages/OpenMP.html

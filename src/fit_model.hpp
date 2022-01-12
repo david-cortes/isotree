@@ -1523,7 +1523,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     workspace.changed_weights = false;
     if (hplane_root == NULL) workspace.weights_map.clear();
 
-    long double weight_scaling = 0;
+    ldouble_safe weight_scaling = 0;
     if (input_data.sample_weights != NULL && !input_data.weight_as_sample)
     {
         workspace.changed_weights = true;
@@ -1543,7 +1543,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
             {
                 for (const size_t ix : workspace.ix_arr)
                     weight_scaling += input_data.sample_weights[ix];
-                weight_scaling = (long double)model_params.sample_size / weight_scaling;
+                weight_scaling = (ldouble_safe)model_params.sample_size / weight_scaling;
                 workspace.weights_map.reserve(workspace.ix_arr.size());
                 for (const size_t ix : workspace.ix_arr)
                     workspace.weights_map[ix] = input_data.sample_weights[ix] * weight_scaling;
@@ -1557,10 +1557,10 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                     workspace.weights_arr.assign(input_data.sample_weights, input_data.sample_weights + input_data.nrows);
                     weight_scaling = std::accumulate(workspace.ix_arr.begin(),
                                                      workspace.ix_arr.end(),
-                                                     (long double)0,
-                                                     [&input_data](const long double a, const size_t b){return a + (long double)input_data.sample_weights[b];}
+                                                     (ldouble_safe)0,
+                                                     [&input_data](const ldouble_safe a, const size_t b){return a + (ldouble_safe)input_data.sample_weights[b];}
                                                      );
-                    weight_scaling = (long double)model_params.sample_size / weight_scaling;
+                    weight_scaling = (ldouble_safe)model_params.sample_size / weight_scaling;
                     for (double &w : workspace.weights_arr)
                         w *= weight_scaling;
                 }
@@ -1572,7 +1572,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                         weight_scaling += input_data.sample_weights[ix];
                         workspace.weights_arr[ix] = input_data.sample_weights[ix];
                     }
-                    weight_scaling = (long double)model_params.sample_size / weight_scaling;
+                    weight_scaling = (ldouble_safe)model_params.sample_size / weight_scaling;
                     for (double &w : workspace.weights_arr)
                         w *= weight_scaling;
                 }

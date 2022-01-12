@@ -192,7 +192,7 @@ void add_separation_step(WorkerMemory &workspace, InputData &input_data, double 
 }
 
 template <class InputData, class WorkerMemory>
-void add_remainder_separation_steps(WorkerMemory &workspace, InputData &input_data, long double sum_weight)
+void add_remainder_separation_steps(WorkerMemory &workspace, InputData &input_data, ldouble_safe sum_weight)
 {
     if ((workspace.end - workspace.st) > 0 && (!workspace.changed_weights || sum_weight > 0))
     {

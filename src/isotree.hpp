@@ -126,6 +126,18 @@ using std::size_t;
 using std::memset;
 using std::memcpy;
 
+/* MinGW has issues processing long doubles in parallel.
+   See https://sourceforge.net/p/mingw-w64/bugs/909/ */
+#if (defined(_WIN32) || defined(_WIN64)) && defined(_OPENMP)
+    typedef double ldouble_safe;
+#else
+    #ifdef AVOID_LONG_DOUBLE
+        typedef double ldouble_safe;
+    #else
+        typedef long double ldouble_safe;
+    #endif
+#endif
+
 #if defined(__GNUC__)  || defined(__clang__) || defined(_MSC_VER)
     #define unexpected_error() throw std::runtime_error(\
         std::string("Unexpected error in ") + \
@@ -242,14 +254,6 @@ using std::isnan;
     #endif
 #else
     #define size_t_for size_t
-#endif
-
-/* MinGW has issues processing long doubles in parallel.
-   See https://sourceforge.net/p/mingw-w64/bugs/909/ */
-#if (defined(_WIN32) || defined(_WIN64)) && defined(_OPENMP) && (defined(__GNUC__) || defined(__GNUG__)) && !(defined(__clang__) || defined(__INTEL_COMPILER))
-    typedef double ldouble_safe;
-#else
-    typedef long double ldouble_safe;
 #endif
 
 #if defined(_FOR_R) || defined(_FOR_PYTHON) || !defined(_WIN32)
@@ -501,12 +505,12 @@ typedef struct {
 
 template <class sparse_ix=size_t>
 struct ImputedData {
-    std::vector<long double>  num_sum;
-    std::vector<long double>  num_weight;
-    std::vector<std::vector<long double>> cat_sum;
-    std::vector<long double>  cat_weight;
-    std::vector<long double>  sp_num_sum;
-    std::vector<long double>  sp_num_weight;
+    std::vector<ldouble_safe>  num_sum;
+    std::vector<ldouble_safe>  num_weight;
+    std::vector<std::vector<ldouble_safe>> cat_sum;
+    std::vector<ldouble_safe>  cat_weight;
+    std::vector<ldouble_safe>  sp_num_sum;
+    std::vector<ldouble_safe>  sp_num_weight;
 
     std::vector<size_t>     missing_num;
     std::vector<size_t>     missing_cat;
@@ -652,7 +656,7 @@ public:
     #ifndef _FOR_R
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
     #endif
-    double calc_density(long double remainder, size_t sample_size);
+    double calc_density(ldouble_safe remainder, size_t sample_size);
     ldouble_safe calc_adj_depth();
     double calc_adj_density();
     #ifndef _FOR_R
@@ -670,11 +674,11 @@ public:
     #ifndef _FOR_R
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
     #endif
-    double calc_bdens(long double remainder, size_t sample_size);
+    double calc_bdens(ldouble_safe remainder, size_t sample_size);
     #ifndef _FOR_R
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
     #endif
-    double calc_bdens2(long double remainder, size_t sample_size);
+    double calc_bdens2(ldouble_safe remainder, size_t sample_size);
     #ifndef _FOR_R
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
     #endif
@@ -686,7 +690,7 @@ public:
     #ifndef _FOR_R
     [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
     #endif
-    double calc_bdens_ext(long double remainder, size_t sample_size);
+    double calc_bdens_ext(ldouble_safe remainder, size_t sample_size);
     void save_range(double xmin, double xmax);
     void restore_range(double &restrict xmin, double &restrict xmax);
     void save_counts(size_t *restrict cat_counts, int ncat);
@@ -1198,7 +1202,7 @@ void set_col_as_taken(std::vector<bool> &col_is_taken, hashed_set<size_t> &col_i
 template <class InputData, class WorkerMemory>
 void add_separation_step(WorkerMemory &workspace, InputData &input_data, double remainder);
 template <class InputData, class WorkerMemory>
-void add_remainder_separation_steps(WorkerMemory &workspace, InputData &input_data, long double sum_weight);
+void add_remainder_separation_steps(WorkerMemory &workspace, InputData &input_data, ldouble_safe sum_weight);
 template <class PredictionData, class sparse_ix>
 void remap_terminal_trees(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                           PredictionData &prediction_data, sparse_ix *restrict tree_num, int nthreads);
@@ -1232,10 +1236,10 @@ double expected_avg_depth(size_t sample_size);
 #ifndef _FOR_R
 [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
 #endif
-double expected_avg_depth(long double approx_sample_size);
+double expected_avg_depth(ldouble_safe approx_sample_size);
 double expected_separation_depth(size_t n);
 double expected_separation_depth_hotstart(double curr, size_t n_curr, size_t n_final);
-double expected_separation_depth(long double n);
+double expected_separation_depth(ldouble_safe n);
 void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n, double counter[], double exp_remainder);
 void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
                            double *restrict counter, double *restrict weights, double exp_remainder);
@@ -1455,7 +1459,7 @@ double expected_sd_cat(number *restrict counts, double *restrict p, size_t n, si
 template <class number>
 double expected_sd_cat_single(number *restrict counts, double *restrict p, size_t n, size_t *restrict pos, size_t cat_exclude, number cnt);
 template <class number>
-double expected_sd_cat_internal(int ncat, number *restrict buffer_cnt, long double cnt_l,
+double expected_sd_cat_internal(int ncat, number *restrict buffer_cnt, ldouble_safe cnt_l,
                                 size_t *restrict buffer_pos, double *restrict buffer_prob);
 double expected_sd_cat(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat,
                        MissingAction missing_action,
@@ -1466,8 +1470,8 @@ double expected_sd_cat_weighted(size_t *restrict ix_arr, size_t st, size_t end, 
                                 double *restrict buffer_cnt, size_t *restrict buffer_pos, double *restrict buffer_prob);
 template <class number>
 double categ_gain(number cnt_left, number cnt_right,
-                  long double s_left, long double s_right,
-                  long double base_info, long double cnt);
+                  ldouble_safe s_left, ldouble_safe s_right,
+                  ldouble_safe base_info, ldouble_safe cnt);
 template <class real_t, class real_t_>
 double find_split_rel_gain_t(real_t_ *restrict x, size_t n, double &restrict split_point);
 template <class real_t_>
@@ -1483,13 +1487,13 @@ double find_split_rel_gain_weighted(real_t_ *restrict x, real_t_ xmean, size_t *
 template <class real_t, class real_t_=double>
 real_t calc_sd_right_to_left(real_t_ *restrict x, size_t n, double *restrict sd_arr);
 template <class real_t_>
-long double calc_sd_right_to_left_weighted(real_t_ *restrict x, size_t n, double *restrict sd_arr,
-                                           double *restrict w, long double &cumw, size_t *restrict sorted_ix);
+ldouble_safe calc_sd_right_to_left_weighted(real_t_ *restrict x, size_t n, double *restrict sd_arr,
+                                           double *restrict w, ldouble_safe &cumw, size_t *restrict sorted_ix);
 template <class real_t, class real_t_>
 real_t calc_sd_right_to_left(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr);
 template <class real_t_, class mapping>
-long double calc_sd_right_to_left_weighted(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end,
-                                           double *restrict sd_arr, mapping &w, long double &cumw);
+ldouble_safe calc_sd_right_to_left_weighted(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end,
+                                           double *restrict sd_arr, mapping &w, ldouble_safe &cumw);
 template <class real_t, class real_t_>
 double find_split_std_gain_t(real_t_ *restrict x, size_t n, double *restrict sd_arr,
                              GainCriterion criterion, double min_gain, double &restrict split_point);

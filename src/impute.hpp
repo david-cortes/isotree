@@ -284,7 +284,7 @@ void initialize_imputer(Imputer &imputer, InputData &input_data, size_t ntrees, 
                                            input_data.numeric_data[row + offset] : 0;
                 cnt -= is_na_or_inf(input_data.numeric_data[row + offset]);
             }
-            imputer.col_means[col] /= (long double) cnt;
+            imputer.col_means[col] /= (ldouble_safe) cnt;
         }
     }
 
@@ -300,7 +300,7 @@ void initialize_imputer(Imputer &imputer, InputData &input_data, size_t ntrees, 
                                            input_data.Xc[ix] : 0;
                 cnt -= is_na_or_inf(input_data.Xc[ix]);
             }
-            imputer.col_means[col] /= (long double) cnt;
+            imputer.col_means[col] /= (ldouble_safe) cnt;
         }
     }
 
@@ -383,7 +383,7 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
                         if (!is_na_or_inf(xnum))
                         {
                             cnt++;
-                            imputer.num_sum[col] += (xnum - imputer.num_sum[col]) / (long double)cnt;
+                            imputer.num_sum[col] += (xnum - imputer.num_sum[col]) / (ldouble_safe)cnt;
                         }
                     }
                     imputer.num_weight[col] = (double) cnt;
@@ -412,7 +412,7 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
 
         else
         {
-            long double prod_sum, corr, val, diff;
+            ldouble_safe prod_sum, corr, val, diff;
             if (input_data.numeric_data != NULL)
             {
                  for (size_t col = 0; col < input_data.ncols_numeric; col++)

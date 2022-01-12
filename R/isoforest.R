@@ -156,7 +156,7 @@
 #' 
 #' In general, when the data has categorical variables, models with `ndim=1` plus
 #' `categ_split_type=="single_categ"` tend to produce better results, while models `ndim>1`
-#' tend to produce results for numerical-only data.
+#' tend to produce better results for numerical-only data, especially in the presence of missing values.
 #' @param ntry When using `prob_pick_pooled_gain` and/or `prob_pick_avg_gain`, how many variables (with `ndim=1`)
 #' or linear combinations (with `ndim>1`) to try for determining the best one according to gain.
 #' 
@@ -223,9 +223,6 @@
 #' every single tree will have the exact same splits.
 #' 
 #' Be aware that `penalize_range` can also have a large impact when using `prob_pick_pooled_gain`.
-#' 
-#' Be aware also that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable
-#' model, every single tree will have the exact same splits.
 #' 
 #' Under this option, models are likely to produce better results when increasing `max_depth`.
 #' Alternatively, one can also control the depth through `min_gain` (for which one might want to
@@ -384,7 +381,7 @@
 #' @param categ_split_type Whether to split categorical features by assigning sub-sets of them to each branch (by passing `"subset"` there),
 #' or by assigning a single category to a branch and the rest to the other branch (by passing `"single_categ"` here). For the extended model,
 #' whether to give each category a coefficient (`"subset"`), or only one while the rest get zero (`"single_categ"`).
-#' @param all_perm When doing categorical variable splits by pooled gain with `ndim=1` (regular model),
+#' @param all_perm When doing categorical variable splits by pooled gain with `ndim=1` (single-variable model),
 #' whether to consider all possible permutations of variables to assign to each branch or not. If `FALSE`,
 #' will sort the categories by their frequency and make a grouping in this sorted order. Note that the
 #' number of combinations evaluated (if `TRUE`) is the factorial of the number of present categories in
@@ -395,7 +392,7 @@
 #' @param coef_by_prop In the extended model, whether to sort the randomly-generated coefficients for categories
 #' according to their relative frequency in the tree node. This might provide better results when using
 #' categorical variables with too many categories, but is not recommended, and not reflective of
-#' real "categorical-ness". Ignored for the regular model (`ndim=1`) and/or when not using categorical
+#' real "categorical-ness". Ignored for the single-variable model (`ndim=1`) and/or when not using categorical
 #' variables.
 #' @param recode_categ Whether to re-encode categorical variables even in case they are already passed
 #' as factors. This is recommended as it will eliminate potentially redundant categorical levels if
@@ -439,7 +436,7 @@
 #'   The standardized outlier score from density for a given observation is calculated as the
 #'   negative of the logarithm of the geometric mean from the per-tree densities, which unlike
 #'   the standardized score produced from depth, is unbounded, but just like the standardized
-#'   score form depth, has a natural threshold for definining outlierness, which in this case
+#'   score from depth, has a natural threshold for definining outlierness, which in this case
 #'   is zero is instead of 0.5. The non-standardized outlier score is calculated as the
 #'   geometric mean, while the per-tree scores are calculated as the density values.
 #'   
@@ -641,6 +638,9 @@
 #' 
 #' This is not supported when using sub-sampling, and if sub-sampling is specified, will override it
 #' using the full number of rows.
+#' 
+#' Note that it might be much faster to calculate distances through a fitted model object with
+#' \link{isotree.build.indexer} instead or calculating them while fitting like this.
 #' @param square_dist If passing `output_dist` = `TRUE`, whether to return a full square matrix or
 #' just the upper-triangular part, in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 #' p(i, j) = ((i - 1) * (n - i/2) + j - i).

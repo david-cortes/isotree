@@ -256,7 +256,7 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
         #elif SIZE_MAX == UINT64_MAX
         size_t lim_rows = (size_t)UINT32_MAX - (size_t)1;
         #else
-        size_t lim_rows = (size_t)std::ceil(std::sqrt((long double)SIZE_MAX));
+        size_t lim_rows = (size_t)std::ceil(std::sqrt((ldouble_safe)SIZE_MAX));
         #endif
         if (nrows > lim_rows)
             throw std::runtime_error("Number of rows implies too large distance matrix (integer overflow).");
@@ -393,10 +393,10 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
        obtain the average separation depth. */
     if (trees[curr_tree].tree_left == 0)
     {
-        long double rem = (long double) trees[curr_tree].remainder;
+        ldouble_safe rem = (ldouble_safe) trees[curr_tree].remainder;
         if (!workspace.weights_arr.size())
         {
-            rem += (long double)(workspace.end - workspace.st + 1);
+            rem += (ldouble_safe)(workspace.end - workspace.st + 1);
             if (workspace.tmat_sep.size())
                 increase_comb_counter(workspace.ix_arr.data(), workspace.st, workspace.end,
                                       prediction_data.nrows, workspace.tmat_sep.data(),
@@ -413,9 +413,9 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
             {
                 rem += std::accumulate(workspace.ix_arr.begin() + workspace.st,
                                        workspace.ix_arr.begin() + workspace.end,
-                                       (long double) 0.,
-                                       [&workspace](long double curr, size_t ix)
-                                                      {return curr + (long double)workspace.weights_arr[ix];}
+                                       (ldouble_safe) 0.,
+                                       [&workspace](ldouble_safe curr, size_t ix)
+                                                      {return curr + (ldouble_safe)workspace.weights_arr[ix];}
                                       );
             }
 
@@ -649,15 +649,15 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
             increase_comb_counter(workspace.ix_arr.data(), workspace.st, workspace.end,
                                   prediction_data.nrows, workspace.tmat_sep.data(),
                                   workspace.assume_full_distr? 3. : 
-                                  expected_separation_depth((long double) hplanes[curr_tree].remainder
-                                                              + (long double)(workspace.end - workspace.st + 1))
+                                  expected_separation_depth((ldouble_safe) hplanes[curr_tree].remainder
+                                                              + (ldouble_safe)(workspace.end - workspace.st + 1))
                                   );
         else
             increase_comb_counter_in_groups(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.n_from,
                                             prediction_data.nrows, workspace.rmat.data(),
                                             workspace.assume_full_distr? 3. : 
-                                            expected_separation_depth((long double) hplanes[curr_tree].remainder
-                                                                        + (long double)(workspace.end - workspace.st + 1))
+                                            expected_separation_depth((ldouble_safe) hplanes[curr_tree].remainder
+                                                                        + (ldouble_safe)(workspace.end - workspace.st + 1))
                                             );
         return;
     }
@@ -1113,7 +1113,7 @@ void calc_similarity_from_indexer
                                                       [&terminal_indices_this](const size_t &a, const size_t &b)
                                                       {return a < (size_t)terminal_indices_this[b];});
                         size_t n_this = std::distance(curr_begin, new_begin);
-                        long double sep_this
+                        ldouble_safe sep_this
                             =
                         n_this
                             +
@@ -1315,7 +1315,7 @@ void calc_similarity_from_indexer
                                                           {return a < (size_t)terminal_indices_this[b];});
                             size_t n_this = std::distance(curr_begin, new_begin);
                             if (!n_this) unexpected_error();
-                            long double sep_this
+                            ldouble_safe sep_this
                                 =
                             n_this
                                 +

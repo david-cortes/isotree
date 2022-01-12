@@ -721,7 +721,7 @@ double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[]
 
     cnt -= buffer_cnt[ncat];
     if (cnt <= 1) return -HUGE_VAL;
-    long double cnt_l = (long double) cnt;
+    ldouble_safe cnt_l = (ldouble_safe) cnt;
     for (int cat = 0; cat < ncat; cat++)
         buffer_prob[cat] = buffer_cnt[cat] / cnt_l;
 
@@ -982,14 +982,14 @@ double expected_sd_cat(double p[], size_t n, size_t pos[])
 {
     if (n <= 1) return 0;
 
-    long double cum_var = -square(p[pos[0]]) / 3.0 - p[pos[0]] * p[pos[1]] / 2.0 + p[pos[0]] / 3.0  - square(p[pos[1]]) / 3.0 + p[pos[1]] / 3.0;
+    ldouble_safe cum_var = -square(p[pos[0]]) / 3.0 - p[pos[0]] * p[pos[1]] / 2.0 + p[pos[0]] / 3.0  - square(p[pos[1]]) / 3.0 + p[pos[1]] / 3.0;
     for (size_t cat1 = 2; cat1 < n; cat1++)
     {
         cum_var += p[pos[cat1]] / 3.0 - square(p[pos[cat1]]) / 3.0;
         for (size_t cat2 = 0; cat2 < cat1; cat2++)
             cum_var -= p[pos[cat1]] * p[pos[cat2]] / 2.0;
     }
-    return std::sqrt(std::fmax(cum_var, 0.0l));
+    return std::sqrt(std::fmax(cum_var, (ldouble_safe)0));
 }
 
 template <class number>
@@ -998,9 +998,9 @@ double expected_sd_cat(number *restrict counts, double *restrict p, size_t n, si
     if (n <= 1) return 0;
 
     number tot = std::accumulate(pos, pos + n, (number)0, [&counts](number tot, const size_t ix){return tot + counts[ix];});
-    long double cnt_div = (long double) tot;
+    ldouble_safe cnt_div = (ldouble_safe) tot;
     for (size_t cat = 0; cat < n; cat++)
-        p[pos[cat]] = (long double)counts[pos[cat]] / cnt_div;
+        p[pos[cat]] = (ldouble_safe)counts[pos[cat]] / cnt_div;
 
     return expected_sd_cat(p, n, pos);
 }
@@ -1016,9 +1016,9 @@ double expected_sd_cat_single(number *restrict counts, double *restrict p, size_
 
     size_t ix_exclude = pos[cat_exclude];
 
-    long double cnt_div = (long double) (cnt - counts[ix_exclude]);
+    ldouble_safe cnt_div = (ldouble_safe) (cnt - counts[ix_exclude]);
     for (size_t cat = 0; cat < n; cat++)
-        p[pos[cat]] = (long double)counts[pos[cat]] / cnt_div;
+        p[pos[cat]] = (ldouble_safe)counts[pos[cat]] / cnt_div;
 
     ldouble_safe cum_var;
     if (cat_exclude != 1)
@@ -1036,11 +1036,11 @@ double expected_sd_cat_single(number *restrict counts, double *restrict p, size_
         }
 
     }
-    return std::sqrt(std::fmax(cum_var, 0.0l));
+    return std::sqrt(std::fmax(cum_var, (ldouble_safe)0));
 }
 
 template <class number>
-double expected_sd_cat_internal(int ncat, number *restrict buffer_cnt, long double cnt_l,
+double expected_sd_cat_internal(int ncat, number *restrict buffer_cnt, ldouble_safe cnt_l,
                                 size_t *restrict buffer_pos, double *restrict buffer_prob)
 {
     /* move zero-valued to the beginning */
@@ -1053,7 +1053,7 @@ double expected_sd_cat_internal(int ncat, number *restrict buffer_cnt, long doub
         if (buffer_cnt[cat])
         {
             ncat_present++;
-            buffer_prob[cat] = (long double) buffer_cnt[cat] / cnt_l;
+            buffer_prob[cat] = (ldouble_safe) buffer_cnt[cat] / cnt_l;
         }
 
         else
@@ -1155,13 +1155,13 @@ double expected_sd_cat_weighted(size_t *restrict ix_arr, size_t st, size_t end, 
    similar scale when considering standardized gain. */
 template <class number>
 double categ_gain(number cnt_left, number cnt_right,
-                  long double s_left, long double s_right,
-                  long double base_info, long double cnt)
+                  ldouble_safe s_left, ldouble_safe s_right,
+                  ldouble_safe base_info, ldouble_safe cnt)
 {
     return (
             base_info -
-            (((cnt_left  <= 1)? 0 : ((long double)cnt_left  * std::log((long double)cnt_left)))  - s_left) -
-            (((cnt_right <= 1)? 0 : ((long double)cnt_right * std::log((long double)cnt_right))) - s_right)
+            (((cnt_left  <= 1)? 0 : ((ldouble_safe)cnt_left  * std::log((ldouble_safe)cnt_left)))  - s_left) -
+            (((cnt_right <= 1)? 0 : ((ldouble_safe)cnt_right * std::log((ldouble_safe)cnt_right))) - s_right)
             ) / cnt;
 }
 
@@ -1418,8 +1418,8 @@ real_t calc_sd_right_to_left(real_t_ *restrict x, size_t n, double *restrict sd_
 }
 
 template <class real_t_>
-long double calc_sd_right_to_left_weighted(real_t_ *restrict x, size_t n, double *restrict sd_arr,
-                                           double *restrict w, long double &cumw, size_t *restrict sorted_ix)
+ldouble_safe calc_sd_right_to_left_weighted(real_t_ *restrict x, size_t n, double *restrict sd_arr,
+                                           double *restrict w, ldouble_safe &cumw, size_t *restrict sorted_ix)
 {
     ldouble_safe running_mean = 0;
     ldouble_safe running_ssq = 0;
@@ -1463,8 +1463,8 @@ real_t calc_sd_right_to_left(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[]
 }
 
 template <class real_t_, class mapping>
-long double calc_sd_right_to_left_weighted(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end,
-                                           double *restrict sd_arr, mapping &w, long double &cumw)
+ldouble_safe calc_sd_right_to_left_weighted(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end,
+                                           double *restrict sd_arr, mapping &w, ldouble_safe &cumw)
 {
     ldouble_safe running_mean = 0;
     ldouble_safe running_ssq = 0;
@@ -1540,7 +1540,7 @@ double find_split_std_gain_weighted(real_t *restrict x, size_t n, double *restri
                                     GainCriterion criterion, double min_gain, double &restrict split_point,
                                     double *restrict w, size_t *restrict sorted_ix)
 {
-    long double cumw;
+    ldouble_safe cumw;
     double full_sd = calc_sd_right_to_left_weighted(x, n, sd_arr, w, cumw, sorted_ix);
     ldouble_safe running_mean = 0;
     ldouble_safe running_ssq = 0;
@@ -1627,13 +1627,13 @@ template <class real_t, class mapping>
 double find_split_std_gain_weighted(real_t *restrict x, real_t xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
                                     GainCriterion criterion, double min_gain, double &restrict split_point, size_t &restrict split_ix, mapping &w)
 {
-    long double cumw;
+    ldouble_safe cumw;
     double full_sd = calc_sd_right_to_left_weighted(x, xmean, ix_arr, st, end, sd_arr, w, cumw);
     ldouble_safe running_mean = 0;
     ldouble_safe running_ssq = 0;
     ldouble_safe mean_prev = x[ix_arr[st]] - xmean;
     double best_gain = -HUGE_VAL;
-    long double currw = 0;
+    ldouble_safe currw = 0;
     double this_sd, this_gain;
     double w_this;
     split_ix = st;
@@ -2068,7 +2068,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
         case SingleCateg:
         {
             size_t cnt = end - st + 1;
-            long double cnt_l = (long double) cnt;
+            ldouble_safe cnt_l = (ldouble_safe) cnt;
             size_t ncat_present = 0;
 
             switch(criterion)
@@ -2082,7 +2082,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                         if (buffer_cnt[cat])
                         {
                             ncat_present++;
-                            buffer_prob[cat] = (long double) buffer_cnt[cat] / cnt_l;
+                            buffer_prob[cat] = (ldouble_safe) buffer_cnt[cat] / cnt_l;
                         }
 
                         else
@@ -2134,11 +2134,11 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                     
                     if (ncat_present <= 1) return -HUGE_VAL;
 
-                    long double cnt_left = (long double)((end - st + 1) - cnt_max);
+                    ldouble_safe cnt_left = (ldouble_safe)((end - st + 1) - cnt_max);
                     this_gain = (
-                                    (long double)cnt * std::log((long double)cnt)
+                                    (ldouble_safe)cnt * std::log((ldouble_safe)cnt)
                                         - cnt_left * std::log(cnt_left)
-                                        - (long double)cnt_max * std::log((long double)cnt_max)
+                                        - (ldouble_safe)cnt_max * std::log((ldouble_safe)cnt_max)
                                 ) / cnt;
                     best_gain = (this_gain > min_gain)? this_gain : best_gain;
                     break;
@@ -2161,7 +2161,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
             /* set split as: (1):left (0):right (-1):not_present */
             memset(buffer_split, 0, ncat * sizeof(signed char));
 
-            long double cnt = (long double)(end - st + 1);
+            ldouble_safe cnt = (ldouble_safe)(end - st + 1);
 
             switch(criterion)
             {
@@ -2173,7 +2173,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                     {
                         if (buffer_cnt[buffer_pos[cat]])
                         {
-                            buffer_prob[buffer_pos[cat]] = (long double)buffer_cnt[buffer_pos[cat]] / cnt;
+                            buffer_prob[buffer_pos[cat]] = (ldouble_safe)buffer_cnt[buffer_pos[cat]] / cnt;
                         }
 
                         else
@@ -2218,7 +2218,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                         if (buffer_cnt[buffer_pos[cat]])
                         {
                             s += (buffer_cnt[buffer_pos[cat]] <= 1)?
-                                  0 : ((long double) buffer_cnt[buffer_pos[cat]] * std::log((long double)buffer_cnt[buffer_pos[cat]]));
+                                  0 : ((ldouble_safe) buffer_cnt[buffer_pos[cat]] * std::log((ldouble_safe)buffer_cnt[buffer_pos[cat]]));
                         }
 
                         else
@@ -2231,7 +2231,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                     if ((int)st_pos >= (ncat-1)) return -HUGE_VAL;
 
                     /* calculate base info */
-                    long double base_info = cnt * std::log(cnt) - s;
+                    ldouble_safe base_info = cnt * std::log(cnt) - s;
 
                     if (all_perm)
                     {
@@ -2251,16 +2251,16 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                                 {
                                     cnt_left += buffer_cnt[buffer_pos[pos]];
                                     s_left   += (buffer_cnt[buffer_pos[pos]] <= 1)?
-                                                 0 : ((long double) buffer_cnt[buffer_pos[pos]]
-                                                       * std::log((long double) buffer_cnt[buffer_pos[pos]]));
+                                                 0 : ((ldouble_safe) buffer_cnt[buffer_pos[pos]]
+                                                       * std::log((ldouble_safe) buffer_cnt[buffer_pos[pos]]));
                                 }
 
                                 else
                                 {
                                     cnt_right += buffer_cnt[buffer_pos[pos]];
                                     s_right   += (buffer_cnt[buffer_pos[pos]] <= 1)?
-                                                  0 : ((long double) buffer_cnt[buffer_pos[pos]]
-                                                        * std::log((long double) buffer_cnt[buffer_pos[pos]]));
+                                                  0 : ((ldouble_safe) buffer_cnt[buffer_pos[pos]]
+                                                        * std::log((ldouble_safe) buffer_cnt[buffer_pos[pos]]));
                                 }
                             }
 
@@ -2294,9 +2294,9 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                         {
                             buffer_split[buffer_pos[pos]] = 1;
                             s_left    += (buffer_cnt[buffer_pos[pos]] <= 1)?
-                                          0 : ((long double)buffer_cnt[buffer_pos[pos]] * std::log((long double)buffer_cnt[buffer_pos[pos]]));
+                                          0 : ((ldouble_safe)buffer_cnt[buffer_pos[pos]] * std::log((ldouble_safe)buffer_cnt[buffer_pos[pos]]));
                             s_right   -= (buffer_cnt[buffer_pos[pos]] <= 1)?
-                                          0 : ((long double)buffer_cnt[buffer_pos[pos]] * std::log((long double)buffer_cnt[buffer_pos[pos]]));
+                                          0 : ((ldouble_safe)buffer_cnt[buffer_pos[pos]] * std::log((ldouble_safe)buffer_cnt[buffer_pos[pos]]));
                             cnt_left  += buffer_cnt[buffer_pos[pos]];
                             cnt_right -= buffer_cnt[buffer_pos[pos]];
 
@@ -2449,7 +2449,7 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                 {
                     /* here it will always pick the largest one */
                     size_t ncat_present = 0;
-                    long double cnt_max = 0;
+                    ldouble_safe cnt_max = 0;
                     for (int cat = 0; cat < ncat; cat++)
                     {
                         if (buffer_cnt[cat])
@@ -2465,14 +2465,14 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                     
                     if (ncat_present <= 1) return -HUGE_VAL;
 
-                    long double cnt_left = (long double)(cnt - cnt_max);
+                    ldouble_safe cnt_left = (ldouble_safe)(cnt - cnt_max);
 
                     /* TODO: think of a better way of dealing with numbers between zero and one */
                     this_gain = (
-                                    std::fmax(1.0l, cnt) * std::log(std::fmax(1.0l, cnt))
-                                        - std::fmax(1.0l, cnt_left) * std::log(std::fmax(1.0l, cnt_left))
-                                        - std::fmax(1.0l, cnt_max) * std::log(std::fmax(1.0l, cnt_max))
-                                ) / std::fmax(1.0l, cnt);
+                                    std::fmax((ldouble_safe)1, cnt) * std::log(std::fmax((ldouble_safe)1, cnt))
+                                        - std::fmax((ldouble_safe)1, cnt_left) * std::log(std::fmax((ldouble_safe)1, cnt_left))
+                                        - std::fmax((ldouble_safe)1, cnt_max) * std::log(std::fmax((ldouble_safe)1, cnt_max))
+                                ) / std::fmax((ldouble_safe)1, cnt);
                     best_gain = (this_gain > min_gain)? this_gain : best_gain;
                     break;
                 }
@@ -2505,7 +2505,7 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                     {
                         if (buffer_cnt[buffer_pos[cat]])
                         {
-                            buffer_prob[buffer_pos[cat]] = (long double)buffer_cnt[buffer_pos[cat]] / cnt;
+                            buffer_prob[buffer_pos[cat]] = (ldouble_safe)buffer_cnt[buffer_pos[cat]] / cnt;
                         }
 
                         else
@@ -2551,7 +2551,9 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                         if (buffer_cnt[buffer_pos[cat]])
                         {
                             s += (buffer_cnt[buffer_pos[cat]] <= 1)?
-                                  0.0l : ((long double) buffer_cnt[buffer_pos[cat]] * std::log((long double)buffer_cnt[buffer_pos[cat]]));
+                                  (ldouble_safe)0
+                                      :
+                                  ((ldouble_safe) buffer_cnt[buffer_pos[cat]] * std::log((ldouble_safe)buffer_cnt[buffer_pos[cat]]));
                         }
 
                         else
@@ -2564,7 +2566,7 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                     if ((int)st_pos >= (ncat-1)) return -HUGE_VAL;
 
                     /* calculate base info */
-                    long double base_info = std::fmax(1.0l, cnt) * std::log(std::fmax(10l, cnt)) - s;
+                    ldouble_safe base_info = std::fmax((ldouble_safe)1, cnt) * std::log(std::fmax((ldouble_safe)1, cnt)) - s;
 
                     if (all_perm)
                     {
@@ -2584,16 +2586,20 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                                 {
                                     cnt_left += buffer_cnt[buffer_pos[pos]];
                                     s_left   += (buffer_cnt[buffer_pos[pos]] <= 1)?
-                                                 0.0l : ((long double) buffer_cnt[buffer_pos[pos]]
-                                                          * std::log((long double) buffer_cnt[buffer_pos[pos]]));
+                                                 (ldouble_safe)0
+                                                    :
+                                                 ((ldouble_safe) buffer_cnt[buffer_pos[pos]]
+                                                          * std::log((ldouble_safe) buffer_cnt[buffer_pos[pos]]));
                                 }
 
                                 else
                                 {
                                     cnt_right += buffer_cnt[buffer_pos[pos]];
                                     s_right   += (buffer_cnt[buffer_pos[pos]] <= 1)?
-                                                  0.0l : ((long double) buffer_cnt[buffer_pos[pos]]
-                                                           * std::log((long double) buffer_cnt[buffer_pos[pos]]));
+                                                  (ldouble_safe)0
+                                                     :
+                                                  ((ldouble_safe) buffer_cnt[buffer_pos[pos]]
+                                                           * std::log((ldouble_safe) buffer_cnt[buffer_pos[pos]]));
                                 }
                             }
 
@@ -2627,9 +2633,13 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                         {
                             buffer_split[buffer_pos[pos]] = 1;
                             s_left    += (buffer_cnt[buffer_pos[pos]] <= 1)?
-                                          0.0l : ((long double)buffer_cnt[buffer_pos[pos]] * std::log((long double)   buffer_cnt[buffer_pos[pos]]));
+                                          (ldouble_safe)0
+                                             :
+                                          ((ldouble_safe)buffer_cnt[buffer_pos[pos]] * std::log((ldouble_safe)   buffer_cnt[buffer_pos[pos]]));
                             s_right   -= (buffer_cnt[buffer_pos[pos]] <= 1)?
-                                          0.0l : ((long double)buffer_cnt[buffer_pos[pos]] * std::log((long double)   buffer_cnt[buffer_pos[pos]]));
+                                          (ldouble_safe)0
+                                             :
+                                          ((ldouble_safe)buffer_cnt[buffer_pos[pos]] * std::log((ldouble_safe)   buffer_cnt[buffer_pos[pos]]));
                             cnt_left  += buffer_cnt[buffer_pos[pos]];
                             cnt_right -= buffer_cnt[buffer_pos[pos]];
 

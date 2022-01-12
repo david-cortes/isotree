@@ -67,7 +67,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                             size_t                   curr_depth)
 {
     if (interrupt_switch) return;
-    long double sum_weight = -HUGE_VAL;
+    ldouble_safe sum_weight = -HUGE_VAL;
     size_t hplane_from = hplanes.size() - 1;
     std::unique_ptr<RecursionState> recursion_state;
     std::vector<bool> col_is_taken;
@@ -169,7 +169,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                 }
             }
         }
-        
+
         else if (curr_depth == 0 &&
                  model_params.sample_size == input_data.nrows &&
                  !model_params.with_replacement &&
@@ -181,7 +181,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                                                    - input_data.range_low[col];
             goto add_col_weights_to_ranges;
         }
-        
+
         else
         {
             calc_ranges_all_cols(input_data, workspace, model_params, workspace.node_col_weights.data(),
@@ -272,7 +272,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         if (workspace.col_criterion == Uniformly)
         {
             if (input_data.ncols_tot < 1e5 ||
-                ((long double)model_params.ndim / (long double)workspace.col_sampler.get_remaining_cols()) > .25
+                ((ldouble_safe)model_params.ndim / (ldouble_safe)workspace.col_sampler.get_remaining_cols()) > .25
                 )
             {
                 if (!col_is_taken.size())

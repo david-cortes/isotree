@@ -64,6 +64,9 @@ class build_ext_subclass( build_ext ):
                 if (os.path.exists("src/robinmap/include/tsl")):
                     e.define_macros += [("_USE_ROBIN_MAP", None)]
 
+                if is_windows:
+                    e.define_macros += [("AVOID_LONG_DOUBLE", None)]
+
 
 
                 # e.extra_compile_args = ['-fopenmp', '-O3', '-march=native', '-std=c++11']
@@ -215,7 +218,7 @@ class build_ext_subclass( build_ext ):
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.5.6',
+    version = '0.5.7',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',

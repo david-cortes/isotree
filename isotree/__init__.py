@@ -229,7 +229,7 @@ class IsolationForest:
 
         In general, when the data has categorical variables, models with ``ndim=1`` plus
         ``categ_split_type=="single_categ"`` tend to produce better results, while models ``ndim>1``
-        tend to produce results for numerical-only data.
+        tend to produce better results for numerical-only data, especially in the presence of missing values.
     ntry : int
         When using ``prob_pick_pooled_gain`` and/or ``prob_pick_avg_gain``, how many variables (with ``ndim=1``)
         or linear combinations (with ``ndim>1``) to try for determining the best one according to gain.
@@ -295,9 +295,6 @@ class IsolationForest:
         every single tree will have the exact same splits.
 
         Be aware that ``penalize_range`` can also have a large impact when using ``prob_pick_pooled_gain``.
-
-        Be aware also that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable
-        model, every single tree will have the exact same splits.
 
         Under this option, models are likely to produce better results when increasing ``max_depth``.
         Alternatively, one can also control the depth through ``min_gain`` (for which one might want to
@@ -473,7 +470,7 @@ class IsolationForest:
         ``"auto"``:
             Will select "weighted" for the single-variable model and "impute" for the extended model.
         Ignored when passing 'categ_split_type' = 'single_categ'.
-    categ_split_type : str, one of "auto", subset", or "single_categ"
+    categ_split_type : str, one of "auto", "subset", or "single_categ"
         Whether to split categorical features by assigning sub-sets of them to each branch, or by assigning
         a single category to a branch and the rest to the other branch. For the extended model, whether to
         give each category a coefficient, or only one while the rest get zero.
@@ -481,7 +478,7 @@ class IsolationForest:
         If passing ``"auto"``, will select ``"subset"`` for the extended model and ``"single_categ"`` for
         the single-variable model.
     all_perm : bool
-        When doing categorical variable splits by pooled gain with ``ndim=1`` (regular model),
+        When doing categorical variable splits by pooled gain with ``ndim=1`` (single-variable model),
         whether to consider all possible permutations of variables to assign to each branch or not. If ``False``,
         will sort the categories by their frequency and make a grouping in this sorted order. Note that the
         number of combinations evaluated (if ``True``) is the factorial of the number of present categories in
@@ -493,7 +490,7 @@ class IsolationForest:
         In the extended model, whether to sort the randomly-generated coefficients for categories
         according to their relative frequency in the tree node. This might provide better results when using
         categorical variables with too many categories, but is not recommended, and not reflective of
-        real "categorical-ness". Ignored for the regular model (``ndim=1``) and/or when not using categorical
+        real "categorical-ness". Ignored for the single-variable model (``ndim=1``) and/or when not using categorical
         variables.
     recode_categ : bool
         Whether to re-encode categorical variables even in case they are already passed
@@ -544,7 +541,7 @@ class IsolationForest:
             The standardized outlier score from density for a given observation is calculated as the
             negative of the logarithm of the geometric mean from the per-tree densities, which unlike
             the standardized score produced from depth, is unbounded, but just like the standardized
-            score form depth, has a natural threshold for definining outlierness, which in this case
+            score from depth, has a natural threshold for definining outlierness, which in this case
             is zero is instead of 0.5. The non-standardized outlier score is calculated as the
             geometric mean, while the per-tree scores are calculated as the density values.
             
@@ -1105,9 +1102,10 @@ class IsolationForest:
 
         Note
         ----
-        Setting any parameter other than the number of threads will reset the model
-        - that is, if it was fitted to some data, the fitted model will be lost,
-        and it will need to be refitted before being able to make predictions.
+        Setting any parameter other than the number of threads, will reset the model
+        object to a blank state - that is, if it was fitted to some data, the fitted
+        model will be lost, and it will need to be refitted before being able to
+        make predictions.
         
         Parameters
         ----------
@@ -1119,7 +1117,10 @@ class IsolationForest:
         self : estimator instance
             Estimator instance.
         """
-        if not (len(params) == 1 and ("nthreads" in params or "n_jobs" in params)):
+        if not (
+            len(params) == 1 and
+            ("nthreads" in params or "n_jobs" in params)
+        ):
             self.is_fitted_ = False
         valid_params = self.get_params(deep=False)
         for k,v in params.items():
@@ -1389,6 +1390,9 @@ class IsolationForest:
             Type of distance output to produce. If passing "dist", will standardize the average separation
             depths. If passing "avg_sep", will output the average separation depth without standardizing it
             (note that lower separation depth means furthest distance). If passing 'None', will skip distance calculations.
+
+            Note that it might be much faster to calculate distances through a fitted object with
+            ``build_indexer`` instead or calling this method.
         square_mat : bool
             Whether to produce a full square matrix with the distances. If passing 'False', will output
             only the upper triangular part as a 1-d array in which entry (i,j) with 0 <= i < j < n is located at
@@ -3284,9 +3288,13 @@ class IsolationForest:
         if len(data_info["categ_cols"]):
             data_info["categ_cols"] = self._denumpify_list(data_info["categ_cols"])
 
+        try:
+            nthreads = _process_nthreads(self.nthreads)
+        except:
+            nthreads = 1
         model_info = {
             "ndim" : int(self.ndim_),
-            "nthreads" : _process_nthreads(self.nthreads),
+            "nthreads" : nthreads,
             "build_imputer" : bool(self.build_imputer)
         }
 

@@ -172,7 +172,7 @@ void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *
     }
 
     x_mean = m;
-    x_sd   = std::sqrt((long double)s / (long double)cnt);
+    x_sd   = std::sqrt((ldouble_safe)s / (ldouble_safe)cnt);
 }
 
 template <class real_t_, class mapping>
@@ -282,7 +282,7 @@ void calc_mean_and_sd(size_t *restrict ix_arr, size_t st, size_t end, size_t col
     if (end - st + 1 < THRESHOLD_LONG_DOUBLE)
         calc_mean_and_sd<real_t_, sparse_ix, double>(ix_arr, st, end, col_num, Xc, Xc_ind, Xc_indptr, x_sd, x_mean);
     else
-        calc_mean_and_sd<real_t_, sparse_ix, long double>(ix_arr, st, end, col_num, Xc, Xc_ind, Xc_indptr, x_sd, x_mean);
+        calc_mean_and_sd<real_t_, sparse_ix, ldouble_safe>(ix_arr, st, end, col_num, Xc, Xc_ind, Xc_indptr, x_sd, x_mean);
     x_sd = std::fmax(SD_MIN, x_sd);
 }
 
@@ -331,7 +331,7 @@ double calc_mean_only(size_t *restrict ix_arr, size_t st, size_t end, size_t col
         return 0;
 
     if (cnt > added)
-        m *= ((long double)added / (long double)cnt);
+        m *= ((ldouble_safe)added / (ldouble_safe)cnt);
 
     return m;
 }
@@ -412,12 +412,12 @@ void calc_mean_and_sd_weighted(size_t *restrict ix_arr, size_t st, size_t end, s
        The difference can be put to a closed form. */
     if (cnt > added)
     {
-        s += square(m) * (added * ((long double)1 - (long double)added/(long double)cnt));
+        s += square(m) * (added * ((ldouble_safe)1 - (ldouble_safe)added/(ldouble_safe)cnt));
         m *= added / cnt;
     }
 
     x_mean = m;
-    x_sd   = std::sqrt(s / (long double)cnt);
+    x_sd   = std::sqrt(s / (ldouble_safe)cnt);
 }
 
 template <class real_t_, class sparse_ix, class mapping>
@@ -474,7 +474,7 @@ double calc_mean_only_weighted(size_t *restrict ix_arr, size_t st, size_t end, s
         return 0;
 
     if (cnt > added)
-        m *= (long double)added / (long double)cnt;
+        m *= (ldouble_safe)added / (ldouble_safe)cnt;
 
     return m;
 }
@@ -616,7 +616,7 @@ void add_linear_comb_weighted(size_t ix_arr[], size_t st, size_t end, double *re
         }
 
 
-        long double mid_point = cumw / 2.0l;
+        ldouble_safe mid_point = cumw / (ldouble_safe)2;
         std::vector<size_t> sorted_ix(cnt);
         std::iota(sorted_ix.begin(), sorted_ix.end(), (size_t)0);
         std::sort(sorted_ix.begin(), sorted_ix.end(),
@@ -895,7 +895,7 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
         }
 
         ldouble_safe cumw = std::accumulate(obs_weight.begin(), obs_weight.begin() + end_new, (ldouble_safe)0);
-        ldouble_safe mid_point = cumw / 2.0l;
+        ldouble_safe mid_point = cumw / (ldouble_safe)2;
         std::vector<size_t> sorted_ix(end_new);
         std::iota(sorted_ix.begin(), sorted_ix.end(), (size_t)0);
         std::sort(sorted_ix.begin(), sorted_ix.end(),
@@ -1088,7 +1088,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, double *res
                 default:
                 {
                     /* Determine imputation value as the category in sorted order that gives 50% + 1 */
-                    long double cnt_l = (long double)((end - st + 1) - buffer_cnt[ncat]);
+                    ldouble_safe cnt_l = (ldouble_safe)((end - st + 1) - buffer_cnt[ncat]);
                     std::iota(buffer_pos, buffer_pos + ncat, (size_t)0);
                     std::sort(buffer_pos, buffer_pos + ncat, [&cat_coef](const size_t a, const size_t b){return cat_coef[a] < cat_coef[b];});
 
@@ -1096,7 +1096,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, double *res
                     int cat;
                     for (cat = 0; cat < ncat; cat++)
                     {
-                        cumprob += (long double)buffer_cnt[buffer_pos[cat]] / cnt_l;
+                        cumprob += (ldouble_safe)buffer_cnt[buffer_pos[cat]] / cnt_l;
                         if (cumprob >= .5) break;
                     }
                     // cat = std::min(cat, ncat); /* in case it picks the last one */
@@ -1148,8 +1148,8 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, do
                 case Impute:
                 {
                     bool has_NA = false;
-                    long double cnt_this = 0;
-                    long double cnt_other = 0;
+                    ldouble_safe cnt_this = 0;
+                    ldouble_safe cnt_other = 0;
                     if (first_run)
                     {
                         for (size_t row = st; row <= end; row++)
