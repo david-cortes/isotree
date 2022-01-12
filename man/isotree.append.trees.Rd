@@ -63,15 +63,20 @@ iso2 <- isolation.forest(X2, ntrees=2, nthreads=1)
 nodes1 <- predict(iso1, head(X1, 3), type="tree_num")
 nodes2 <- predict(iso2, head(X1, 3), type="tree_num")
 
+### Check also the average isolation depths
+nodes1.depths <- predict(iso1, head(X1, 3), type="avg_depth")
+nodes2.depths <- predict(iso2, head(X1, 3), type="avg_depth")
+
 ### Append the trees from 'iso2' into 'iso1'
 iso1 <- isotree.append.trees(iso1, iso2)
 
 ### Check that it predicts the same as the two models
 nodes.comb <- predict(iso1, head(X1, 3), type="tree_num")
-nodes.comb$tree_num == cbind(nodes1$tree_num, nodes2$tree_num)
+nodes.comb == cbind(nodes1, nodes2)
 
 ### The new predicted scores will be a weighted average
 ### (Be aware that, due to round-off, it will not match with '==')
-nodes.comb$avg_depth
-(3*nodes1$avg_depth + 2*nodes2$avg_depth) / 5
+nodes.comb.depths <- predict(iso1, head(X1, 3), type="avg_depth")
+nodes.comb.depths
+(3*nodes1.depths + 2*nodes2.depths) / 5
 }

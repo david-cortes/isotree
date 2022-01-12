@@ -85,6 +85,10 @@ check_node_indexer_has_distances <- function(indexer_R_ptr) {
     .Call(`_isotree_check_node_indexer_has_distances`, indexer_R_ptr)
 }
 
+get_null_R_pointer <- function() {
+    .Call(`_isotree_get_null_R_pointer`)
+}
+
 serialize_to_file <- function(serialized_obj, serialized_imputer, serialized_indexer, is_extended, metadata, fname) {
     invisible(.Call(`_isotree_serialize_to_file`, serialized_obj, serialized_imputer, serialized_indexer, is_extended, metadata, fname))
 }

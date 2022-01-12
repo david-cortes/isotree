@@ -646,7 +646,7 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
 
     if (!Rf_isNull(indexer_R_ptr) && R_ExternalPtrAddr(indexer_R_ptr) != NULL)
         indexer_ptr = static_cast<TreesIndexer*>(R_ExternalPtrAddr(indexer_R_ptr));
-    if (indexer_ptr->indices.empty())
+    if (indexer_ptr != NULL && indexer_ptr->indices.empty())
         indexer_ptr = NULL;
 
     size_t old_ntrees = (ndim == 1)? (model_ptr->trees.size()) : (ext_model_ptr->hplanes.size());
@@ -915,14 +915,14 @@ void dist_iso(SEXP model_R_ptr, SEXP indexer_R_ptr,
 
     IsoForest*     model_ptr      =  NULL;
     ExtIsoForest*  ext_model_ptr  =  NULL;
+    TreesIndexer*  indexer        =  NULL;
     if (is_extended)
         ext_model_ptr  =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
     else
         model_ptr      =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
-    TreesIndexer*  indexer = NULL;
     if (!Rf_isNull(indexer_R_ptr) && R_ExternalPtrAddr(indexer_R_ptr) != NULL)
         indexer = static_cast<TreesIndexer*>(R_ExternalPtrAddr(indexer_R_ptr));
-    if (indexer->indices.empty())
+    if (indexer != NULL && (indexer->indices.empty() || indexer->indices.front().node_distances.empty()))
         indexer = NULL;
 
 
@@ -1526,7 +1526,7 @@ Rcpp::List build_tree_indices(SEXP model_R_ptr, bool is_extended, bool with_dist
                            with_distances);
     }
 
-    out["ind_ser"] = serialize_cpp_obj(indexer.get());
+    out["ind_ser"]  =  serialize_cpp_obj(indexer.get());
     out["indexer"]  =  Rcpp::unwindProtect(safe_XPtr<TreesIndexer>, indexer.get());
     indexer.release();
     return out;
@@ -1539,6 +1539,12 @@ bool check_node_indexer_has_distances(SEXP indexer_R_ptr)
         return false;
     TreesIndexer *indexer = static_cast<TreesIndexer*>(R_ExternalPtrAddr(indexer_R_ptr));
     return !indexer->indices.front().node_distances.empty();
+}
+
+// [[Rcpp::export(rng = false)]]
+SEXP get_null_R_pointer()
+{
+    return R_MakeExternalPtr(nullptr, R_NilValue, R_NilValue);
 }
 
 /* This library will use different code paths for opening a file path

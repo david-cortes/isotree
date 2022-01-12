@@ -1156,7 +1156,7 @@ ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_no
 * - indexer
 *       Pointer to associated tree indexer for the model being used, if it was constructed,
 *       which can be used to speed up distance calculations, assuming that it was built with
-*       option 'with_distances=true'.
+*       option 'with_distances=true'. If it does not contain node distances, it will not be used.
 *       Pass NULL if the indexer has not been constructed or was constructed with 'with_distances=false'.
 * - is_col_major
 *       Whether the data comes in column-major order. If using 'indexer', predictions are also possible

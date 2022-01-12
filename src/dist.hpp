@@ -176,7 +176,7 @@
 * - indexer
 *       Pointer to associated tree indexer for the model being used, if it was constructed,
 *       which can be used to speed up distance calculations, assuming that it was built with
-*       option 'with_distances=true'.
+*       option 'with_distances=true'. If it does not contain node distances, it will not be used.
 *       Pass NULL if the indexer has not been constructed or was constructed with 'with_distances=false'.
 * - is_col_major
 *       Whether the data comes in column-major order. If using 'indexer', predictions are also possible
@@ -214,6 +214,8 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
         if (model_outputs->new_cat_action == Weighted && categ_data != NULL)
             indexer = NULL;
     }
+    if (indexer != NULL && (indexer->indices.empty() || indexer->indices.front().node_distances.empty()))
+        indexer = NULL;
     if (
         !is_col_major &&
         indexer == NULL &&
@@ -973,16 +975,17 @@ void calc_similarity_from_indexer
 {
     size_t ntrees = (model_outputs != NULL)? model_outputs->trees.size() : model_outputs_ext->hplanes.size();
     std::vector<sparse_ix> terminal_indices(nrows * ntrees);
-    std::vector<double> ignored(nrows);
+    std::unique_ptr<double[]> ignored(new double[nrows]);
     predict_iforest(numeric_data, categ_data,
                     is_col_major, ld_numeric, ld_categ,
                     is_col_major? Xc : nullptr, is_col_major? Xc_ind : nullptr, is_col_major? Xc_indptr : nullptr,
                     is_col_major? (real_t*)nullptr : Xc, is_col_major? (sparse_ix*)nullptr : Xc_ind, is_col_major? (sparse_ix*)nullptr : Xc_indptr,
                     nrows, nthreads, false,
                     model_outputs, model_outputs_ext,
-                    ignored.data(), terminal_indices.data(),
+                    ignored.get(), terminal_indices.data(),
                     (double*)NULL,
                     indexer);
+    ignored.reset();
 
     #ifndef _OPENMP
     nthreads = 1;

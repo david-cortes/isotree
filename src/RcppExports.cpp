@@ -388,6 +388,15 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// get_null_R_pointer
+SEXP get_null_R_pointer();
+RcppExport SEXP _isotree_get_null_R_pointer() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    rcpp_result_gen = Rcpp::wrap(get_null_R_pointer());
+    return rcpp_result_gen;
+END_RCPP
+}
 // serialize_to_file
 void serialize_to_file(Rcpp::RawVector serialized_obj, Rcpp::RawVector serialized_imputer, Rcpp::RawVector serialized_indexer, bool is_extended, Rcpp::RawVector metadata, Rcpp::CharacterVector fname);
 RcppExport SEXP _isotree_serialize_to_file(SEXP serialized_objSEXP, SEXP serialized_imputerSEXP, SEXP serialized_indexerSEXP, SEXP is_extendedSEXP, SEXP metadataSEXP, SEXP fnameSEXP) {
@@ -672,6 +681,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_copy_cpp_objects", (DL_FUNC) &_isotree_copy_cpp_objects, 5},
     {"_isotree_build_tree_indices", (DL_FUNC) &_isotree_build_tree_indices, 4},
     {"_isotree_check_node_indexer_has_distances", (DL_FUNC) &_isotree_check_node_indexer_has_distances, 1},
+    {"_isotree_get_null_R_pointer", (DL_FUNC) &_isotree_get_null_R_pointer, 0},
     {"_isotree_serialize_to_file", (DL_FUNC) &_isotree_serialize_to_file, 6},
     {"_isotree_deserialize_from_file", (DL_FUNC) &_isotree_deserialize_from_file, 1},
     {"_isotree_call_sort_csc_indices", (DL_FUNC) &_isotree_call_sort_csc_indices, 3},

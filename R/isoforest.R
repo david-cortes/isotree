@@ -602,7 +602,7 @@
 #' for parameter `output_dist`).
 #' 
 #' This was added for experimentation purposes only and it's not recommended to pass `FALSE`.
-#' Note that when calculating distances using a tree indexer (after calling \link{isotree.build.index}), there
+#' Note that when calculating distances using a tree indexer (after calling \link{isotree.build.indexer}), there
 #' might be slight discrepancies between the numbers produced with or without the indexer due to what
 #' are considered "additional" observations in this calculation.
 #' @param build_imputer Whether to construct missing-value imputers so that later this same model could be used to impute
@@ -821,6 +821,7 @@
 #' iso <- isolation.forest(X, ntrees=100, nthreads=1)
 #' 
 #' ### Calculate distances with the model
+#' ### (this can be accelerated with 'isotree.build.indexer')
 #' D_iso <- predict(iso, X, type = "dist")
 #' 
 #' ### Check that it correlates with euclidean distance
@@ -1238,7 +1239,7 @@ isolation.forest <- function(data,
             serialized  =  cpp_outputs$serialized_obj,
             imp_ptr     =  cpp_outputs$imputer_ptr,
             imp_ser     =  cpp_outputs$imputer_ser,
-            indexer     =  new("externalptr"),
+            indexer     =  get_null_R_pointer(),
             ind_ser     =  raw()
         )
     )
@@ -1432,7 +1433,7 @@ isolation.forest <- function(data,
 #' @export
 predict.isolation_forest <- function(object, newdata, type="score", square_mat=FALSE, refdata=NULL, ...) {
     isotree.restore.handle(object)
-    
+
     allowed_type <- c("score", "avg_depth", "dist", "avg_sep", "tree_num", "tree_depths", "impute")
     check.str.option(type, allowed_type)
     check.is.bool(square_mat)
@@ -1526,7 +1527,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
     }
     
     if (type %in% c("score", "avg_depth", "tree_num", "tree_depths")) {
-        predict_iso(object$cpp_obj$ptr, object$params$ndim > 1, object$cpp_obj$ind_ptr,
+        predict_iso(object$cpp_obj$ptr, object$params$ndim > 1, object$cpp_obj$indexer,
                     score_array, tree_num, tree_depths,
                     pdata$X_num, pdata$X_cat,
                     pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
@@ -1540,13 +1541,12 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
             return(score_array)
         }
     } else if (type %in% c("dist", "avg_sep")) {
-        dist_iso(object$cpp_obj$ptr, dist_tmat, dist_dmat, dist_rmat,
+        dist_iso(object$cpp_obj$ptr, object$cpp_obj$indexer, dist_tmat, dist_dmat, dist_rmat,
                  object$params$ndim > 1L,
                  pdata$X_num, pdata$X_cat,
                  pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
                  pdata$nrows, object$nthreads, object$params$assume_full_distr,
-                 type == "dist", square_mat, nobs_group1,
-                 object$cpp_obj$indexer)
+                 type == "dist", square_mat, nobs_group1)
         if (!is.null(refdata))
             return(t(dist_rmat))
         else if (square_mat)
@@ -1727,8 +1727,8 @@ isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights 
         fast_bratio <- TRUE
 
     indexer <- NULL
-    if (!is.null(model&cpp_obj$indexer))
-        indexer <- model&cpp_obj$indexer
+    if (!is.null(model$cpp_obj$indexer))
+        indexer <- model$cpp_obj$indexer
 
     ind_ser <- raw()
     if (NROW(model$cpp_obj$ind_ser))
@@ -1819,11 +1819,15 @@ isotree.restore.handle <- function(model)  {
     if (model$params$build_imputer && check_null_ptr_model(model$cpp_obj$imp_ptr)) {
         if (!NROW(model$cpp_obj$imp_ser))
             stop("'model' is missing serialized raw bytes. Cannot restore handle.")
+        if (!("imp_ptr" %in% names(model$cpp_obj)))
+            set.list.elt(model$cpp_obj, "imp_ptr", get_null_R_pointer())
 
         set.list.elt(model$cpp_obj, "imp_ptr", deserialize_Imputer(model$cpp_obj$imp_ser))
     }
 
     if (NROW(model$cpp_obj$ind_ser) && (is.null(model$cpp_obj$indexer) || check_null_ptr_model(model$cpp_obj$indexer))) {
+        if (!("indexer" %in% names(model$cpp_obj)))
+            set.list.elt(model$cpp_obj, "indexer", get_null_R_pointer())
         set.list.elt(model$cpp_obj, "indexer", deserialize_Indexer(model$cpp_obj$ind_ser))
     }
     
@@ -1890,17 +1894,22 @@ isotree.get.num.nodes <- function(model)  {
 #' nodes1 <- predict(iso1, head(X1, 3), type="tree_num")
 #' nodes2 <- predict(iso2, head(X1, 3), type="tree_num")
 #' 
+#' ### Check also the average isolation depths
+#' nodes1.depths <- predict(iso1, head(X1, 3), type="avg_depth")
+#' nodes2.depths <- predict(iso2, head(X1, 3), type="avg_depth")
+#' 
 #' ### Append the trees from 'iso2' into 'iso1'
 #' iso1 <- isotree.append.trees(iso1, iso2)
 #' 
 #' ### Check that it predicts the same as the two models
 #' nodes.comb <- predict(iso1, head(X1, 3), type="tree_num")
-#' nodes.comb$tree_num == cbind(nodes1$tree_num, nodes2$tree_num)
+#' nodes.comb == cbind(nodes1, nodes2)
 #' 
 #' ### The new predicted scores will be a weighted average
 #' ### (Be aware that, due to round-off, it will not match with '==')
-#' nodes.comb$avg_depth
-#' (3*nodes1$avg_depth + 2*nodes2$avg_depth) / 5
+#' nodes.comb.depths <- predict(iso1, head(X1, 3), type="avg_depth")
+#' nodes.comb.depths
+#' (3*nodes1.depths + 2*nodes2.depths) / 5
 #' @export
 isotree.append.trees <- function(model, other) {
     if (!inherits(model, "isolation_forest") || !inherits(other, "isolation_forest")) {
@@ -2047,10 +2056,13 @@ isotree.export.model <- function(model, file, add_metadata_file=FALSE) {
 
     serialized <- raw()
     imp_ser <- raw()
+    ind_ser <- raw()
     if (NROW(model$cpp_obj$serialized))
         serialized <- model$cpp_obj$serialized
     if (NROW(model$cpp_obj$imp_ser))
         imp_ser    <- model$cpp_obj$imp_ser
+    if (NROW(model$cpp_obj$ind_ser))
+        ind_ser    <- model$cpp_obj$ind_ser
     serialize_to_file(
         serialized,
         imp_ser,
@@ -2403,14 +2415,18 @@ isotree.drop.indexer <- function(model) {
 #' @seealso \link{isotree.drop.indexer}
 #' @export
 isotree.build.indexer <- function(model, with_distances = FALSE) {
-    if (!inherits(model, "isolation_forest"))
-        stop("This function is only available for isolation forest objects as returned from 'isolation.forest'.")
+    isotree.restore.handle(model)
     if (model$params$missing_action == "divide")
         stop("Cannot build tree indexer when using missing_action='divide'.")
     if (model$params$new_categ_action == "weighted" && (model$metadata$ncols_cat > 0 || NROW(model$metadata$cols_cat)))
         stop("Cannot build tree indexer when using new_categ_action='weighted'.")
-    with_distances <- check.bool(with_distances)
-    res <- build_tree_indices(model$cpp_obj$ptr, model$ndim > 1, with_distances, model$nthreads)
+    check.is.bool(with_distances)
+    res <- build_tree_indices(
+        model$cpp_obj$ptr,
+        as.logical(model$params$ndim > 1),
+        as.logical(with_distances),
+        as.integer(model$nthreads)
+    )
     set.list.elt(model$cpp_obj, "ind_ser", res$ind_ser)
     set.list.elt(model$cpp_obj, "indexer", res$indexer)
     return(invisible(model))

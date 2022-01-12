@@ -576,7 +576,7 @@ This will not be assumed when the distances are calculated as the model is being
 for parameter `output_dist`).
 
 This was added for experimentation purposes only and it's not recommended to pass `FALSE`.
-Note that when calculating distances using a tree indexer (after calling \link{isotree.build.index}), there
+Note that when calculating distances using a tree indexer (after calling \link{isotree.build.indexer}), there
 might be slight discrepancies between the numbers produced with or without the indexer due to what
 are considered "additional" observations in this calculation.}
 
@@ -901,6 +901,7 @@ X <- matrix(rnorm(m * n), nrow=m, ncol=n)
 iso <- isolation.forest(X, ntrees=100, nthreads=1)
 
 ### Calculate distances with the model
+### (this can be accelerated with 'isotree.build.indexer')
 D_iso <- predict(iso, X, type = "dist")
 
 ### Check that it correlates with euclidean distance
