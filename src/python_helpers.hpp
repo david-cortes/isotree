@@ -83,6 +83,11 @@ Imputer get_Imputer()
     return Imputer();
 }
 
+TreesIndexer get_Indexer()
+{
+    return TreesIndexer();
+}
+
 /* Reason behind these functions: Cython (as of v0.29) will not auto-deallocate
    structs which are part of a cdef'd class, which produces a memory leak
    but can be force-destructed. Unfortunately, Cython itself doesn't even
@@ -106,6 +111,11 @@ void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext)
 void dealloc_Imputer(Imputer &imputer)
 {
     imputer.~Imputer();
+}
+
+void dealloc_Indexer(TreesIndexer &indexer)
+{
+    indexer.~TreesIndexer();
 }
 
 bool get_has_openmp(void)

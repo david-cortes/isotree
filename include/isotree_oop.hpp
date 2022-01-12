@@ -140,6 +140,7 @@ public:
     IsoForest model;
     ExtIsoForest model_ext;
     Imputer imputer;
+    TreesIndexer indexer;
 
     IsolationForest() = default;
 
@@ -270,6 +271,8 @@ public:
     void impute(double Xr[], int Xr_ind[], int Xr_indptr[],
                 int categ_data[], bool is_col_major, size_t nrows);
 
+    void build_indexer(const bool with_distances);
+
     /*  Serialize (save) the model to a file. See 'isotree.hpp' for compatibility
         details. Note that this does not save all the details of the object, but
         rather only those that are necessary for prediction.
@@ -319,6 +322,8 @@ public:
     ExtIsoForest& get_model_ext();
 
     Imputer& get_imputer();
+
+    TreesIndexer& get_indexer();
 
     /*  This converts from a negative 'nthreads' to the actual number (provided it
         was compiled with OpenMP support), and will set to 1 if the number is invalid.

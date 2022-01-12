@@ -178,6 +178,11 @@
 *       This will not be calculable when using 'ndim==1' alongside with either
 *       'missing_action==Divide' or 'new_categ_action=Weighted'.
 *       Pass NULL if this type of output is not needed.
+* - indexer
+*       Pointer to associated tree indexer for the model being used, if it was constructed,
+*       which can be used to speed up tree numbers/indices predictions.
+*       This is ignored when not passing 'tree_num'.
+*       Pass NULL if the indexer has not been constructed.
 */
 template <class real_t, class sparse_ix>
 void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
@@ -187,7 +192,8 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
                      size_t nrows, int nthreads, bool standardize,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                      double *restrict output_depths,   sparse_ix *restrict tree_num,
-                     double *restrict per_tree_depths)
+                     double *restrict per_tree_depths,
+                     TreesIndexer *indexer)
 {
     /* put data in a struct for passing it in fewer lines */
     PredictionData<real_t, sparse_ix>
@@ -421,8 +427,35 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
        thus this mapping is not stored in the model objects so as to
        save memory */
     if (tree_num != NULL)
-        remap_terminal_trees(model_outputs, model_outputs_ext,
-                             prediction_data, tree_num, nthreads);
+    {
+        if (indexer != NULL && !indexer->indices.empty())
+        {
+            size_t ntrees = (model_outputs != NULL)? model_outputs->trees.size() : model_outputs_ext->hplanes.size();
+            if (model_outputs != NULL)
+            {
+                if (model_outputs->missing_action == Divide)
+                    goto manual_remap;
+                if (model_outputs->new_cat_action == Weighted && categ_data != NULL)
+                    goto manual_remap;
+            }
+
+            for (size_t tree = 0; tree < ntrees; tree++)
+            {
+                size_t *restrict mapping = indexer->indices[tree].terminal_node_mappings.data();
+                for (size_t row = 0; row < nrows; row++)
+                {
+                    tree_num[row + tree*nrows] = mapping[tree_num[row + tree*nrows]];
+                }
+            }
+        }
+
+        else
+        {
+            manual_remap:
+            remap_terminal_trees(model_outputs, model_outputs_ext,
+                                 prediction_data, tree_num, nthreads);
+        }
+    }
 }
 
 template <class PredictionData, class sparse_ix>
@@ -1105,7 +1138,7 @@ void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int
     if (model_outputs != NULL)
     {
         #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
-                shared(worker_memory, model_outputs, prediction_data, tree_num, per_tree_depths, threw_exception)
+                shared(worker_memory, model_outputs, prediction_data, tree_num, per_tree_depths, threw_exception, ex)
         for (size_t_for tree = 0; tree < (decltype(tree))model_outputs->trees.size(); tree++)
         {
             if (threw_exception) continue;
@@ -1145,7 +1178,7 @@ void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int
                                    model_outputs->has_range_penalty);
             }
 
-            catch(...)
+            catch (...)
             {
                 #pragma omp critical
                 {
@@ -1162,7 +1195,7 @@ void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int
     else
     {
         #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
-                shared(worker_memory, model_outputs_ext, prediction_data, tree_num, per_tree_depths, threw_exception)
+                shared(worker_memory, model_outputs_ext, prediction_data, tree_num, per_tree_depths, threw_exception, ex)
         for (size_t_for tree = 0; tree < (decltype(tree))model_outputs_ext->hplanes.size(); tree++)
         {
             if (threw_exception) continue;
@@ -1193,7 +1226,7 @@ void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int
                                     model_outputs_ext->has_range_penalty);
             }
 
-            catch(...)
+            catch (...)
             {
                 #pragma omp critical
                 {
@@ -1242,7 +1275,8 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
                         size_t                curr_tree,
                         bool                  has_range_penalty)
 {
-    if (trees[curr_tree].score >= 0)
+    // if (trees[curr_tree].score >= 0)
+    if (trees[curr_tree].tree_left == 0)
     {
         if (model_outputs.missing_action != Divide)
             for (size_t row = workspace.st; row <= workspace.end; row++)
@@ -1486,7 +1520,8 @@ void traverse_hplane_csc(WorkerForPredictCSC      &workspace,
                          size_t                   curr_tree,
                          bool                     has_range_penalty)
 {
-    if (hplanes[curr_tree].score >= 0)
+    // if (hplanes[curr_tree].score >= 0)
+    if (hplanes[curr_tree].hplane_left == 0)
     {
         for (size_t row = workspace.st; row <= workspace.end; row++)
             workspace.depths[workspace.ix_arr[row]] += hplanes[curr_tree].score;
@@ -1742,7 +1777,7 @@ void get_num_nodes(IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse
         n_nodes[tree] = model_outputs.trees[tree].size();
         for (IsoTree &node : model_outputs.trees[tree])
         {
-            n_terminal[tree] += (node.score > 0);
+            n_terminal[tree] += (node.tree_left == 0);
         }
     }
 }
@@ -1757,7 +1792,7 @@ void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *restrict n_nodes, spa
         n_nodes[hplane] = model_outputs.hplanes[hplane].size();
         for (IsoHPlane &node : model_outputs.hplanes[hplane])
         {
-            n_terminal[hplane] += (node.score > 0);
+            n_terminal[hplane] += (node.hplane_left == 0);
         }
     }
 }

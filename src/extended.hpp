@@ -174,7 +174,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                  model_params.sample_size == input_data.nrows &&
                  !model_params.with_replacement &&
                  input_data.range_low != NULL &&
-                 (model_params.ncols_per_tree == 0 || model_params.ncols_per_tree == input_data.ncols_tot))
+                 model_params.ncols_per_tree == input_data.ncols_tot)
         {
             for (size_t col = 0; col < input_data.ncols_numeric; col++)
                 workspace.node_col_weights[col] = input_data.range_high[col]

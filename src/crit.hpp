@@ -227,7 +227,7 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, real_t x[]
             delta_div  =  delta / n;
             delta_s    =  delta_div * delta_div;
             diff       =  delta * (delta_div * n_prev);
-            n_prev   =  n;
+            n_prev     =  n;
 
             m   +=  w_this * (delta_div);
             M4  +=  w_this * (diff * delta_s * (n * n - 3 * n + 3) + 6 * delta_s * M2 - 4 * delta_div * M3);
@@ -725,7 +725,7 @@ double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[]
     for (int cat = 0; cat < ncat; cat++)
         buffer_prob[cat] = buffer_cnt[cat] / cnt_l;
 
-    switch(cat_split_type)
+    switch (cat_split_type)
     {
         case SubSet:
         {
@@ -870,7 +870,7 @@ double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, in
     for (int cat = 0; cat < ncat; cat++)
         buffer_prob[cat] = buffer_cnt[cat] / cnt;
 
-    switch(cat_split_type)
+    switch (cat_split_type)
     {
         case SubSet:
         {

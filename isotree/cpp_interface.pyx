@@ -192,16 +192,30 @@ cdef extern from "headers_joined.hpp":
         vector[double]  col_means
         vector[int]     col_modes
 
+    ctypedef struct SingleTreeIndex:
+        vector[size_t] terminal_node_mappings
+        vector[double] node_distances
+        vector[double] node_depths
+        vector[size_t] reference_points
+        vector[size_t] reference_indptr
+        vector[size_t] reference_mapping
+        size_t n_terminal
 
-    void tmat_to_dense(double *tmat, double *dmat, size_t n, bool_t diag_to_one)
+    ctypedef struct TreesIndexer:
+        vector[SingleTreeIndex] indices
+
+
+    void tmat_to_dense(double *tmat, double *dmat, size_t n, bool_t diag_to_one, bool_t diag_to_inf)
 
     void merge_models(IsoForest*     model,      IsoForest*     other,
                       ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
-                      Imputer*       imputer,    Imputer*       iother) nogil except +
+                      Imputer*       imputer,    Imputer*       iother,
+                      TreesIndexer*  indexer,    TreesIndexer*  ind_other) nogil except +
 
     void subset_model(IsoForest*     model,      IsoForest*     model_new,
                       ExtIsoForest*  ext_model,  ExtIsoForest*  ext_model_new,
                       Imputer*       imputer,    Imputer*       imputer_new,
+                      TreesIndexer*  indexer,    TreesIndexer*  indexer_new,
                       size_t *trees_take, size_t ntrees_take) nogil except +
 
     vector[cpp_string] generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -225,6 +239,7 @@ cdef extern from "headers_joined.hpp":
         bool_t &has_IsoForest,
         bool_t &has_ExtIsoForest,
         bool_t &has_Imputer,
+        bool_t &has_Indexer,
         bool_t &has_metadata,
         size_t &size_metadata) nogil except +
 
@@ -236,6 +251,7 @@ cdef extern from "headers_joined.hpp":
         bool_t &has_IsoForest,
         bool_t &has_ExtIsoForest,
         bool_t &has_Imputer,
+        bool_t &has_Indexer,
         bool_t &has_metadata,
         size_t &size_metadata) nogil except +
 
@@ -243,12 +259,14 @@ cdef extern from "headers_joined.hpp":
         const IsoForest *model,
         const ExtIsoForest *model_ext,
         const Imputer *imputer,
+        const TreesIndexer *indexer,
         const size_t size_optional_metadata) nogil except +
 
     void serialize_combined(
         const IsoForest *model,
         const ExtIsoForest *model_ext,
         const Imputer *imputer,
+        const TreesIndexer *indexer,
         const char *optional_metadata,
         const size_t size_optional_metadata,
         char *out) nogil except +
@@ -257,6 +275,7 @@ cdef extern from "headers_joined.hpp":
         const IsoForest *model,
         const ExtIsoForest *model_ext,
         const Imputer *imputer,
+        const TreesIndexer *indexer,
         const char *optional_metadata,
         const size_t size_optional_metadata,
         FILE *out) nogil except +
@@ -266,6 +285,7 @@ cdef extern from "headers_joined.hpp":
         IsoForest *model,
         ExtIsoForest *model_ext,
         Imputer *imputer,
+        TreesIndexer *indexer,
         char *optional_metadata) nogil except +
 
     void deserialize_combined(
@@ -273,6 +293,7 @@ cdef extern from "headers_joined.hpp":
         IsoForest *model,
         ExtIsoForest *model_ext,
         Imputer *imputer,
+        TreesIndexer *indexer,
         char *optional_metadata) nogil except +
 
     int return_EXIT_SUCCESS()
@@ -310,7 +331,8 @@ cdef extern from "headers_joined.hpp":
                          size_t nrows, int nthreads, bool_t standardize,
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                          double *output_depths, sparse_ix_ *tree_num,
-                         double *per_tree_depths) nogil except +
+                         double *per_tree_depths,
+                         TreesIndexer *indexer) nogil except +
 
     void get_num_nodes[sparse_ix_](IsoForest &model_outputs, sparse_ix_ *n_nodes, sparse_ix_ *n_terminal, int nthreads) except +
 
@@ -321,7 +343,8 @@ cdef extern from "headers_joined.hpp":
                          real_t_ Xc[], sparse_ix_ Xc_ind[], sparse_ix_ Xc_indptr[],
                          size_t nrows, int nthreads, bool_t assume_full_distr, bool_t standardize_dist,
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                         double tmat[], double rmat[], size_t n_from) nogil except +
+                         double tmat[], double rmat[], size_t n_from,
+                         TreesIndexer *indexer, bool_t is_col_major, size_t ld_numeric, size_t ld_categ) nogil except +
 
     void impute_missing_values[real_t_, sparse_ix_](
                                real_t_ *numeric_data, int *categ_data, bool_t is_col_major,
@@ -348,7 +371,12 @@ cdef extern from "headers_joined.hpp":
                  CategSplit cat_split_type, NewCategAction new_cat_action,
                  UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
                  bool_t  all_perm, Imputer *imputer, size_t min_imp_obs,
+                 TreesIndexer *indexer,
                  uint64_t random_seed) nogil except +
+
+    void build_tree_indices(TreesIndexer &indexer, const IsoForest &model, int nthreads, const bool_t with_distances) nogil except +
+
+    void build_tree_indices(TreesIndexer &indexer, const ExtIsoForest &model, int nthreads, const bool_t with_distances) nogil except +
 
 
 cdef extern from "python_helpers.hpp":
@@ -357,10 +385,12 @@ cdef extern from "python_helpers.hpp":
     IsoForest get_IsoForest() except +
     ExtIsoForest get_ExtIsoForest() except +
     Imputer get_Imputer() except +
+    TreesIndexer get_Indexer() except +
 
     void dealloc_IsoForest(IsoForest &model_outputs) except +
     void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext) except +
     void dealloc_Imputer(Imputer &imputer) except +
+    void dealloc_Indexer(TreesIndexer &indexer) except +
 
     bool_t get_has_openmp() except +
 
@@ -546,28 +576,34 @@ cdef class isoforest_cpp_obj:
     cdef IsoForest     isoforest
     cdef ExtIsoForest  ext_isoforest
     cdef Imputer       imputer
+    cdef TreesIndexer  indexer
 
     def __dealloc__(self):
         dealloc_IsoForest(self.isoforest)
         dealloc_IsoExtForest(self.ext_isoforest)
         dealloc_Imputer(self.imputer)
+        dealloc_Indexer(self.indexer)
 
     def __getstate__(self):
         cdef IsoForest *ptr_IsoForest = NULL
         cdef ExtIsoForest *ptr_ExtIsoForest = NULL
         cdef Imputer *ptr_Imputer = NULL
+        cdef TreesIndexer *ptr_Indexer = NULL
 
-        if self.isoforest.trees.size():
+        if not self.isoforest.trees.empty():
             ptr_IsoForest = &self.isoforest
         else:
             ptr_ExtIsoForest = &self.ext_isoforest
-        if self.imputer.imputer_tree.size():
+        if not self.imputer.imputer_tree.empty():
             ptr_Imputer = &self.imputer
+        if not self.indexer.indices.empty():
+            ptr_Indexer = &self.indexer
 
         cdef size_t size_ser = determine_serialized_size_combined(
             ptr_IsoForest,
             ptr_ExtIsoForest,
             ptr_Imputer,
+            ptr_Indexer,
             <size_t>0
         )
         cdef bytes serialized = bytes(size_ser)
@@ -575,6 +611,7 @@ cdef class isoforest_cpp_obj:
             ptr_IsoForest,
             ptr_ExtIsoForest,
             ptr_Imputer,
+            ptr_Indexer,
             <const char*>NULL,
             <size_t>0,
             serialized
@@ -587,6 +624,7 @@ cdef class isoforest_cpp_obj:
             &self.isoforest,
             &self.ext_isoforest,
             &self.imputer,
+            &self.indexer,
             <char*>NULL
         )
 
@@ -595,11 +633,16 @@ cdef class isoforest_cpp_obj:
         other.isoforest = deepcopy_obj(self.isoforest)
         other.ext_isoforest = deepcopy_obj(self.ext_isoforest)
         other.imputer = deepcopy_obj(self.imputer)
+        other.indexer = deepcopy_obj(self.indexer)
         return other
 
     def drop_imputer(self):
         dealloc_Imputer(self.imputer)
         self.imputer = get_Imputer()
+
+    def drop_indexer(self):
+        dealloc_Indexer(self.indexer)
+        self.indexer = get_Indexer()
 
     def get_cpp_obj(self, is_extended):
         if is_extended:
@@ -609,6 +652,9 @@ cdef class isoforest_cpp_obj:
 
     def get_imputer(self):
         return self.imputer
+
+    def get_indexer(self):
+        return self.indexer
 
     def fit_model(self,
                   np.ndarray[real_t, ndim=1] placeholder_real_t,
@@ -797,7 +843,7 @@ cdef class isoforest_cpp_obj:
             raise ValueError("Error: something went wrong. Procedure failed.")
 
         if (calc_dist) and (sq_dist):
-            tmat_to_dense(tmat_ptr, dmat_ptr, nrows, <bool_t>(not standardize_dist))
+            tmat_to_dense(tmat_ptr, dmat_ptr, nrows, <bool_t>0, <bool_t>(not standardize_dist))
 
         return depths, tmat, dmat, X_num, X_cat
 
@@ -914,6 +960,10 @@ cdef class isoforest_cpp_obj:
         if build_imputer:
             imputer_ptr = &self.imputer
 
+        cdef TreesIndexer *indexer_ptr = NULL
+        if not self.indexer.indices.empty():
+            indexer_ptr = &self.indexer
+
         with nogil, boundscheck(False), nonecheck(False), wraparound(False):
             add_tree(model_ptr, ext_model_ptr,
                      numeric_data_ptr,  ncols_numeric,
@@ -930,7 +980,8 @@ cdef class isoforest_cpp_obj:
                      min_gain, missing_action_C,
                      cat_split_type_C, new_cat_action_C,
                      depth_imp_C, weigh_imp_rows_C,
-                     all_perm, imputer_ptr, min_imp_obs, random_seed)
+                     all_perm, imputer_ptr, min_imp_obs,
+                     indexer_ptr, random_seed)
 
     def predict(self,
                 np.ndarray[real_t, ndim=1] placeholder_real_t,
@@ -1043,6 +1094,10 @@ cdef class isoforest_cpp_obj:
             model_ptr      =  &self.isoforest
         else:
             ext_model_ptr  =  &self.ext_isoforest
+
+        cdef TreesIndexer*  indexer_ptr = NULL
+        if not self.indexer.indices.empty():
+            indexer_ptr = &self.indexer
         
         with nogil, boundscheck(False), nonecheck(False), wraparound(False):
             predict_iforest(numeric_data_ptr, categ_data_ptr,
@@ -1051,7 +1106,8 @@ cdef class isoforest_cpp_obj:
                             Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
                             nrows, nthreads, standardize,
                             model_ptr, ext_model_ptr,
-                            depths_ptr, tree_num_ptr, tree_depths_ptr)
+                            depths_ptr, tree_num_ptr, tree_depths_ptr,
+                            indexer_ptr)
 
         return depths, tree_num, tree_depths
 
@@ -1070,6 +1126,10 @@ cdef class isoforest_cpp_obj:
         cdef sparse_ix*  Xc_ind_ptr        =  NULL
         cdef sparse_ix*  Xc_indptr_ptr     =  NULL
 
+        cdef bool_t is_col_major    =  True
+        cdef size_t ncols_numeric   =  0
+        cdef size_t ncols_categ     =  0
+
         if X_num is not None:
             if not issparse(X_num):
                 if real_t is float:
@@ -1078,6 +1138,8 @@ cdef class isoforest_cpp_obj:
                     if X_num.dtype != ctypes.c_double:
                         X_num = X_num.astype(ctypes.c_double)
                     numeric_data_ptr  =  get_ptr_dbl_mat(X_num)
+                ncols_numeric  =  X_num.shape[1]
+                is_col_major   =  np.isfortran(X_num)
             else:
                 if X_num.data.shape[0]:
                     if real_t is float:
@@ -1104,6 +1166,8 @@ cdef class isoforest_cpp_obj:
                     Xc_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
         if X_cat is not None:
             categ_data_ptr     =  get_ptr_int_mat(X_cat)
+            ncols_categ        =  X_cat.shape[1]
+            is_col_major       =  np.isfortran(X_cat)
 
         cdef np.ndarray[double, ndim = 1]  tmat    =  np.empty(0, dtype = ctypes.c_double)
         cdef np.ndarray[double, ndim = 2]  dmat    =  np.empty((0, 0), dtype = ctypes.c_double)
@@ -1128,20 +1192,25 @@ cdef class isoforest_cpp_obj:
             model_ptr      =  &self.isoforest
         else:
             ext_model_ptr  =  &self.ext_isoforest
+
+        cdef TreesIndexer*  indexer_ptr = NULL
+        if not self.indexer.indices.empty():
+            indexer_ptr = &self.indexer
         
         with nogil, boundscheck(False), nonecheck(False), wraparound(False):
             calc_similarity(numeric_data_ptr, categ_data_ptr,
                             Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
                             nrows, nthreads, assume_full_distr, standardize_dist,
                             model_ptr, ext_model_ptr,
-                            tmat_ptr, rmat_ptr, n_from)
+                            tmat_ptr, rmat_ptr, n_from,
+                            indexer_ptr, is_col_major, ncols_numeric, ncols_categ)
 
         if cy_check_interrupt_switch():
             cy_tick_off_interrupt_switch()
             raise InterruptedError("Error: procedure was interrupted.")
 
         if (sq_dist) and (n_from == 0):
-            tmat_to_dense(tmat_ptr, dmat_ptr, nrows, <bool_t>(not standardize_dist))
+            tmat_to_dense(tmat_ptr, dmat_ptr, nrows, <bool_t>0, <bool_t>(not standardize_dist))
 
         return tmat, dmat, rmat
 
@@ -1230,6 +1299,8 @@ cdef class isoforest_cpp_obj:
         cdef ExtIsoForest *ptr_ext_other = NULL
         cdef Imputer *ptr_imp = NULL
         cdef Imputer *prt_iother = NULL
+        cdef TreesIndexer *ptr_indexer = NULL
+        cdef TreesIndexer *prt_ind_other = NULL
 
         if is_extended:
             ptr_ext_model = &self.ext_isoforest
@@ -1238,15 +1309,21 @@ cdef class isoforest_cpp_obj:
             ptr_model = &self.isoforest
             ptr_other = &other.isoforest
 
-        if self.imputer.imputer_tree.size():
+        if not self.imputer.imputer_tree.empty():
             ptr_imp = &self.imputer
-        if other.imputer.imputer_tree.size():
+        if not other.imputer.imputer_tree.empty():
             prt_iother = &other.imputer
+
+        if not self.indexer.indices.empty():
+            ptr_indexer = &self.indexer
+        if not other.indexer.indices.empty():
+            prt_ind_other = &other.indexer
 
         with nogil, boundscheck(False), nonecheck(False), wraparound(False):
             merge_models(ptr_model, ptr_other,
                          ptr_ext_model, ptr_ext_other,
-                         ptr_imp, prt_iother)
+                         ptr_imp, prt_iother,
+                         ptr_indexer, prt_ind_other)
 
     def serialize_obj(self, str fpath, bytes metadata, bool_t is_extended=False, bool_t has_imputer=False):
         cdef FILE* file_ptr = cy_fopen(fpath, read=False)
@@ -1254,17 +1331,21 @@ cdef class isoforest_cpp_obj:
         cdef IsoForest *ptr_model = NULL
         cdef ExtIsoForest *ptr_ext_model = NULL
         cdef Imputer *ptr_imputer = NULL
+        cdef TreesIndexer *ptr_indexer = NULL
         if not is_extended:
             ptr_model = &self.isoforest
         else:
             ptr_ext_model = &self.ext_isoforest
         if has_imputer:
             ptr_imputer = &self.imputer
+        if not self.indexer.indices.empty():
+            ptr_indexer = &self.indexer
         try:
             serialize_combined(
                 ptr_model,
                 ptr_ext_model,
                 ptr_imputer,
+                ptr_indexer,
                 metadata,
                 len(metadata),
                 file_ptr
@@ -1279,6 +1360,7 @@ cdef class isoforest_cpp_obj:
         cdef bool_t has_IsoForest = 0
         cdef bool_t has_ExtIsoForest = 0
         cdef bool_t has_Imputer = 0
+        cdef bool_t has_Indexer = 0
         cdef bool_t has_metadata = 0
         cdef size_t size_metadata = 0
 
@@ -1288,6 +1370,7 @@ cdef class isoforest_cpp_obj:
         cdef IsoForest *ptr_model = &self.isoforest
         cdef ExtIsoForest *ptr_ext_model = &self.ext_isoforest
         cdef Imputer *ptr_imputer = &self.imputer
+        cdef TreesIndexer *ptr_indexer = &self.indexer
 
         cdef FILE* file_ptr = cy_fopen(fpath, read=True)
 
@@ -1300,6 +1383,7 @@ cdef class isoforest_cpp_obj:
                 has_IsoForest,
                 has_ExtIsoForest,
                 has_Imputer,
+                has_Indexer,
                 has_metadata,
                 size_metadata
             )
@@ -1319,6 +1403,7 @@ cdef class isoforest_cpp_obj:
                 ptr_model,
                 ptr_ext_model,
                 ptr_imputer,
+                ptr_indexer,
                 ptr_metadata
             )
 
@@ -1353,15 +1438,19 @@ cdef class isoforest_cpp_obj:
         cdef IsoForest* model = NULL
         cdef ExtIsoForest* ext_model = NULL
         cdef Imputer* imputer = NULL
+        cdef TreesIndexer* indexer = NULL
         if not is_extended:
             model = &self.isoforest
         else:
             ext_model = &self.ext_isoforest
         if has_imputer:
             imputer = &self.imputer
+        if not self.indexer.indices.empty():
+            indexer = &self.indexer
         subset_model(model,      &new_obj.isoforest,
                      ext_model,  &new_obj.ext_isoforest,
                      imputer,    &new_obj.imputer,
+                     indexer,    &new_obj.indexer,
                      &trees_take[0], trees_take.shape[0])
         return new_obj
 
@@ -1397,3 +1486,17 @@ cdef class isoforest_cpp_obj:
                 out[1] = -self.isoforest.trees[tree][node].score
 
         return None
+
+    def build_tree_indices(self, bool_t is_extended, bool_t with_distances, int nthreads):
+        if not is_extended:
+            build_tree_indices(self.indexer, self.isoforest, nthreads, with_distances)
+        else:
+            build_tree_indices(self.indexer, self.ext_isoforest, nthreads, with_distances)
+
+    def has_indexer(self):
+        return not self.indexer.indices.empty()
+
+    def has_indexer_with_distances(self):
+        if not self.has_indexer():
+            return False
+        return not self.indexer.indices.front().node_distances.empty()

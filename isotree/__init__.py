@@ -710,6 +710,11 @@ class IsolationForest:
         will make the distances between two points potentially vary according to other newly introduced points.
         This will not be assumed when the distances are calculated as the model is being fit (see documentation
         for method 'fit_transform').
+
+        This was added for experimentation purposes only and it's not recommended to pass ``False``.
+        Note that when calculating distances using a tree indexer (after calling ``build_index``), there
+        might be slight discrepancies between the numbers produced with or without the indexer due to what
+        are considered "additional" observations in this calculation.
     build_imputer : bool
         Whether to construct missing-value imputers so that later this same model could be used to impute
         missing values of new (or the same) observations. Be aware that this will significantly increase the memory
@@ -1013,8 +1018,8 @@ class IsolationForest:
         self.prob_pick_col_by_var    =  float(prob_pick_col_by_var)
         self.prob_pick_col_by_kurt   =  float(prob_pick_col_by_kurt)
         self.min_gain                =  min_gain
-        self.missing_action          =  missing_action
-        self.new_categ_action        =  new_categ_action
+        self.missing_action_         =  missing_action
+        self.new_categ_action_       =  new_categ_action
         self.categ_split_type_       =  categ_split_type
         self.coefs                   =  coefs
         self.depth_imp               =  depth_imp
@@ -1131,14 +1136,20 @@ class IsolationForest:
         if (self.prob_pick_avg_gain + self.prob_pick_pooled_gain) > 0:
             msg += " (using guided splits)"
         msg += "\n"
-        if self.ndim > 1:
-            msg += "Splitting by %d variables at a time\n" % self.ndim
+        ndim = self.ndim_ if hasattr(self, "ndim_") else self.ndim
+        if ndim > 1:
+            msg += "Splitting by %d variables at a time\n" % ndim
         if self.is_fitted_:
             msg += "Consisting of %d trees\n" % self._ntrees
             if self._ncols_numeric > 0:
                 msg += "Numeric columns: %d\n" % self._ncols_numeric
             if self._ncols_categ:
                 msg += "Categorical columns: %d\n" % self._ncols_categ
+        if self.has_indexer_:
+            if self._cpp_obj.has_indexer_with_distances():
+                msg += "(Has node indexer with distances built-in)\n"
+            else:
+                msg += "(Has node indexer built-in)\n"
         return msg
 
     def __repr__(self):
@@ -1152,15 +1163,16 @@ class IsolationForest:
 
     def _check_can_use_imputer(self, X_cat):
         categ_split_type = self.categ_split_type
+        ndim = self.ndim_ if hasattr(self, "ndim_") else self.ndim
         if categ_split_type == "auto":
-            if self.ndim == 1:
+            if ndim == 1:
                 categ_split_type = "single_categ"
             else:
                 categ_split_type = "subset"
-        if (self.build_imputer) and (self.ndim == 1) and (X_cat is not None) and (X_cat.shape[1]):
-            if (categ_split_type != "single_categ") and (self.new_categ_action == "weighted"):
+        if (self.build_imputer) and (ndim == 1) and (X_cat is not None) and (X_cat.shape[1]):
+            if (categ_split_type != "single_categ") and (self.new_categ_action_ == "weighted"):
                 raise ValueError("Cannot build imputer with 'ndim=1' + 'new_categ_action=weighted'.")
-            if self.missing_action == "divide":
+            if self.missing_action_ == "divide":
                 raise ValueError("Cannot build imputer with 'ndim=1' + 'missing_action=divide'.")
 
     def fit(self, X, y = None, sample_weights = None, column_weights = None, categ_cols = None):
@@ -1261,7 +1273,7 @@ class IsolationForest:
         else:
             ncols_per_tree = self.ncols_per_tree
 
-        if (self.prob_pick_pooled_gain or self.prob_pick_avg_gain) and self.ndim == 1:
+        if (self.prob_pick_pooled_gain or self.prob_pick_avg_gain) and self.ndim_ == 1:
             ncols_tot = (X_num.shape[1] if X_num is not None else 0) + (X_cat.shape[1] if X_cat is not None else 0)
             if self.ntry > ncols_tot:
                 warnings.warn("Passed 'ntry' larger than number of columns, will decrease it.")
@@ -1277,7 +1289,7 @@ class IsolationForest:
                                 ctypes.c_size_t(nrows).value,
                                 ctypes.c_size_t(self._ncols_numeric).value,
                                 ctypes.c_size_t(self._ncols_categ).value,
-                                ctypes.c_size_t(self.ndim).value,
+                                ctypes.c_size_t(self.ndim_).value,
                                 ctypes.c_size_t(self.ntry).value,
                                 self.coefs,
                                 ctypes.c_bool(self.coef_by_prop).value,
@@ -1304,9 +1316,9 @@ class IsolationForest:
                                 ctypes.c_double(self.prob_pick_col_by_var).value,
                                 ctypes.c_double(self.prob_pick_col_by_kurt).value,
                                 ctypes.c_double(self.min_gain).value,
-                                self.missing_action,
+                                self.missing_action_,
                                 self.categ_split_type_,
-                                self.new_categ_action,
+                                self.new_categ_action_,
                                 ctypes.c_bool(self.build_imputer).value,
                                 ctypes.c_size_t(self.min_imp_obs).value,
                                 self.depth_imp,
@@ -1470,7 +1482,7 @@ class IsolationForest:
         else:
             ncols_per_tree = self.ncols_per_tree
 
-        if (self.prob_pick_pooled_gain or self.prob_pick_avg_gain) and self.ndim == 1:
+        if (self.prob_pick_pooled_gain or self.prob_pick_avg_gain) and self.ndim_ == 1:
             ncols_tot = (X_num.shape[1] if X_num is not None else 0) + (X_cat.shape[1] if X_cat is not None else 0)
             if self.ntry > ncols_tot:
                 warnings.warn("Passed 'ntry' larger than number of columns, will decrease it.")
@@ -1486,7 +1498,7 @@ class IsolationForest:
                                                                    ctypes.c_size_t(nrows).value,
                                                                    ctypes.c_size_t(self._ncols_numeric).value,
                                                                    ctypes.c_size_t(self._ncols_categ).value,
-                                                                   ctypes.c_size_t(self.ndim).value,
+                                                                   ctypes.c_size_t(self.ndim_).value,
                                                                    ctypes.c_size_t(self.ntry).value,
                                                                    self.coefs,
                                                                    ctypes.c_bool(self.coef_by_prop).value,
@@ -1513,9 +1525,9 @@ class IsolationForest:
                                                                    ctypes.c_double(self.prob_pick_col_by_var).value,
                                                                    ctypes.c_double(self.prob_pick_col_by_kurt).value,
                                                                    ctypes.c_double(self.min_gain).value,
-                                                                   self.missing_action,
+                                                                   self.missing_action_,
                                                                    self.categ_split_type_,
-                                                                   self.new_categ_action,
+                                                                   self.new_categ_action_,
                                                                    ctypes.c_bool(self.build_imputer).value,
                                                                    ctypes.c_size_t(self.min_imp_obs).value,
                                                                    self.depth_imp,
@@ -1542,6 +1554,7 @@ class IsolationForest:
 
     def _process_data(self, X, sample_weights, column_weights):
         ### TODO: this needs a refactoring after introducing 'categ_cols'
+        self.ndim_ = self.ndim
 
         if X.__class__.__name__ == "DataFrame":
 
@@ -1599,7 +1612,7 @@ class IsolationForest:
                         cl, self._cat_mapping[cl] = pd.factorize(X_cat[X_cat.columns[cl]])
                         X_cat = X_cat.assign(**{X_cat.columns[cl] : cl})
                     if (self.all_perm
-                        and (self.ndim == 1)
+                        and (self.ndim_ == 1)
                         and (self.prob_pick_pooled_gain)
                     ):
                         if np.math.factorial(self._cat_mapping[cl].shape[0]) > np.iinfo(ctypes.c_size_t).max:
@@ -1750,15 +1763,19 @@ class IsolationForest:
             sample_weights = sample_weights.astype(ctypes.c_double)
             column_weights = column_weights.astype(ctypes.c_double)
 
-        if self.ndim > 1:
-            if self.ndim > ncols:
+        if self.ndim_ > 1:
+            if self.ndim_ > ncols:
                 msg  = "Model was meant to take %d variables for each split, but data has %d columns."
                 msg += " Will decrease number of splitting variables to match number of columns."
-                msg = msg % (self.ndim, ncols)
+                msg = msg % (self.ndim_, ncols)
                 warnings.warn(msg)
-                self.ndim = ncols
-                if self.ndim < 2:
+                self.ndim_ = ncols
+                if self.ndim_ < 2:
                     self._is_extended_ = False
+                    if self.missing_action == "auto":
+                        self.missing_action_ = "divide"
+                    if self.new_categ_action == "auto":
+                        self.new_categ_action_ = "weighted"
 
         X_num = _copy_if_subview(X_num, False)
         X_cat = _copy_if_subview(X_cat, False)
@@ -1798,11 +1815,11 @@ class IsolationForest:
 
                         if (not keep_new_cat_levels) and \
                         (
-                            (self.new_categ_action == "impute" and self.missing_action == "impute")
+                            (self.new_categ_action_ == "impute" and self.missing_action_ == "impute")
                                 or
-                            (self.new_categ_action == "weighted" and
+                            (self.new_categ_action_ == "weighted" and
                              self.categ_split_type_ != "single_categ"
-                             and self.missing_action == "divide")
+                             and self.missing_action_ == "divide")
                         ):
                             for cl in range(self._ncols_categ):
                                 X_cat = X_cat.assign(**{
@@ -2127,7 +2144,8 @@ class IsolationForest:
         ----
         In order to save memory when fitting and serializing models, the functionality for outputting
         terminal node number will generate index mappings on the fly for all tree nodes, even if passing only
-        1 row, so it's only recommended for batch predictions.
+        1 row, so it's only recommended for batch predictions. If this type of prediction is desired, it can
+        be sped up by building an index of terminal nodes through ``build_indexer``.
 
         Note
         ----
@@ -2174,6 +2192,8 @@ class IsolationForest:
 
             ``"tree_num"``:
                 Will output the index of the terminal node under each tree in the model.
+                If this calculation is going to be perform frequently, it's recommended to
+                build node indices through ``build_indexer``.
 
             ``"tree_depths"``:
                 Will output non-standardized per-tree isolation depths or densities or log-densities
@@ -2191,13 +2211,13 @@ class IsolationForest:
         assert output in ["score", "avg_depth", "tree_num", "tree_depths"]
         nthreads_use = _process_nthreads(self.nthreads)
         X_num, X_cat, nrows = self._process_data_new(X, prefer_row_major = True, keep_new_cat_levels = False)
-        if (output in ["tree_num", "tree_depths"]) and (self.ndim == 1):
-            if self.missing_action == "divide":
+        if (output in ["tree_num", "tree_depths"]) and (self.ndim_ == 1):
+            if self.missing_action_ == "divide":
                 raise ValueError("Cannot output tree numbers/depths when using 'missing_action' = 'divide'.")
-            if (self._ncols_categ > 0) and (self.new_categ_action == "weighted") and (self.categ_split_type_ != "single_categ"):
+            if (self._ncols_categ > 0) and (self.new_categ_action_ == "weighted") and (self.categ_split_type_ != "single_categ"):
                 raise ValueError("Cannot output tree numbers/depths when using 'new_categ_action' = 'weighted'.")
-            if (nrows == 1) and (output == "tree_num"):
-                warnings.warn("Predicting tree number is slow, not recommended to do for 1 row at a time.")
+            if (nrows == 1) and (output == "tree_num") and (not self.has_indexer_):
+                warnings.warn("Predicting tree number is slow, not recommended to do for 1 row at a time without indexer.")
 
         depths, tree_num, tree_depths = self._cpp_obj.predict(
                                             _get_num_dtype(X_num, None, None), _get_int_dtype(X_num),
@@ -2220,7 +2240,7 @@ class IsolationForest:
         """
         Wrapper for 'predict' with 'output=score'
 
-        This function is kept for compatibility with SciKit-Learn.
+        This function is kept for compatibility with Scikit-Learn.
 
         Parameters
         ----------
@@ -2253,10 +2273,19 @@ class IsolationForest:
 
         Note
         ----
-        While in theory it should be possible to make this computation relatively fast by precomputing
-        results for each pair of terminal nodes in a given tree, the procedure here is based on
-        calculating this metric on-the-fly as each pair of observations is passed down a tree, which
-        makes it relatively slow, and thus not recommended for real-time usage.
+        Separation depths are very slow to calculate. By default, it will do it through a procedure
+        that counts steps as observations are passed down the trees, which is especially slow and
+        not recommended for more than a few thousand observations. If this function is going to be
+        called repeatedly and/or it is going to be called for a large number of rows, it's highly
+        recommended to build node distance indexes beforehand through ``build_indexer`` with
+        option ``with_distances=True``, as then the computation will be done based on terminal node
+        indices instead, which is a much faster procedure.
+
+        Note
+        ----
+        If using ``assume_full_distr=False`` (not recommended to use such option), predictions with
+        and without an indexer will differ slightly due to differences in what they count towards
+        "additional" observations in the calculation.
 
         Parameters
         ----------
@@ -2302,7 +2331,8 @@ class IsolationForest:
             else:
                 X = np.vstack([X, X_ref])
 
-        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False, prefer_row_major = False, keep_new_cat_levels = False)
+        can_take_row_major = self._cpp_obj.has_indexer() and self._cpp_obj.has_indexer_with_distances() and not issparse(X)
+        X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False, prefer_row_major = can_take_row_major, keep_new_cat_levels = False)
         if nrows == 1:
             raise ValueError("Cannot calculate pairwise distances for only 1 row.")
 
@@ -2356,7 +2386,7 @@ class IsolationForest:
         assert self.is_fitted_
         if not self.build_imputer:
             raise ValueError("Cannot impute missing values with model that was built with 'build_imputer' =  'False'.")
-        if self.missing_action == "fail":
+        if self.missing_action_ == "fail":
             raise ValueError("Cannot impute missing values when using 'missing_action' = 'fail'.")
         nthreads_use = _process_nthreads(self.nthreads)
 
@@ -2378,9 +2408,9 @@ class IsolationForest:
 
     def fit_transform(self, X, y = None, column_weights = None, categ_cols = None):
         """
-        SciKit-Learn pipeline-compatible version of 'fit_predict'
+        Scikit-Learn pipeline-compatible version of 'fit_predict'
 
-        Will fit the model and output imputed missing values. Intended to be used as part of SciKit-learn
+        Will fit the model and output imputed missing values. Intended to be used as part of Scikit-learn
         pipelining. Note that this is just a wrapper over 'fit_predict' with parameter 'output_imputed' = 'True'.
         See the documentation of 'fit_predict' for details.
 
@@ -2391,7 +2421,7 @@ class IsolationForest:
 
             If the model was fit to a DataFrame with categorical columns, must also be a DataFrame.
         y : None
-            Not used. Kept for compatibility with SciKit-Learn.
+            Not used. Kept for compatibility with Scikit-Learn.
         column_weights : None or array(n_features,)
             Sampling weights for each column in 'X'. Ignored when picking columns by deterministic criterion.
             If passing None, each column will have a uniform weight. If used along with kurtosis weights, the
@@ -2529,7 +2559,7 @@ class IsolationForest:
         else:
             ncols_per_tree = self.ncols_per_tree
 
-        if (self.prob_pick_pooled_gain or self.prob_pick_avg_gain) and self.ndim == 1:
+        if (self.prob_pick_pooled_gain or self.prob_pick_avg_gain) and self.ndim_ == 1:
             ncols_tot = (X_num.shape[1] if X_num is not None else 0) + (X_cat.shape[1] if X_cat is not None else 0)
             if self.ntry > ncols_tot:
                 warnings.warn("Passed 'ntry' larger than number of columns, will decrease it.")
@@ -2546,7 +2576,7 @@ class IsolationForest:
                                ctypes.c_size_t(nrows).value,
                                ctypes.c_size_t(self._ncols_numeric).value,
                                ctypes.c_size_t(self._ncols_categ).value,
-                               ctypes.c_size_t(self.ndim).value,
+                               ctypes.c_size_t(self.ndim_).value,
                                ctypes.c_size_t(self.ntry).value,
                                self.coefs,
                                ctypes.c_bool(self.coef_by_prop).value,
@@ -2562,9 +2592,9 @@ class IsolationForest:
                                ctypes.c_double(getattr(self, "prob_pick_col_by_var", 0.)).value,
                                ctypes.c_double(getattr(self, "prob_pick_col_by_kurt", 0.)).value,
                                ctypes.c_double(self.min_gain).value,
-                               self.missing_action,
+                               self.missing_action_,
                                self.categ_split_type_,
-                               self.new_categ_action,
+                               self.new_categ_action_,
                                ctypes.c_bool(self.build_imputer).value,
                                ctypes.c_size_t(self.min_imp_obs).value,
                                self.depth_imp,
@@ -2770,7 +2800,7 @@ class IsolationForest:
                 json.dump(metadata, of, indent=4)
         metadata = json.dumps(metadata)
         metadata = metadata.encode('utf-8')
-        self._cpp_obj.serialize_obj(file, metadata, self.ndim > 1, has_imputer=self.build_imputer)
+        self._cpp_obj.serialize_obj(file, metadata, self.ndim_ > 1, has_imputer=self.build_imputer)
         return self
 
     @staticmethod
@@ -2958,7 +2988,7 @@ class IsolationForest:
                     raise ValueError("'column_names_categ' must have %d entries." % self.cols_categ_.shape[0])
             else:
                 column_names_categ = self.cols_categ_
-            categ_levels = [[str(lev) for lev in mp] for mp in self._cat_mapping]
+            categ_levels = [[str(lev).encode() for lev in mp] for mp in self._cat_mapping]
         else:
             column_names_categ = []
             categ_levels = []
@@ -2967,14 +2997,15 @@ class IsolationForest:
         if enclose != "none":
             enclose_left  = '"' if (enclose == "doublequotes") else '['
             enclose_right = '"' if (enclose == "doublequotes") else ']'
-            column_names = [enclose_left + cl + enclose_right for cl in column_names]
-            column_names_categ = [enclose_left + cl + enclose_right for cl in column_names_categ]
+            column_names = [(enclose_left + cl + enclose_right).encode() for cl in column_names]
+            column_names_categ = [(enclose_left + cl + enclose_right).encode() for cl in column_names_categ]
 
         nthreads_use = _process_nthreads(self.nthreads)
 
-        out = [s for s in self._cpp_obj.generate_sql(self.ndim > 1,
-                                                     column_names, column_names_categ, categ_levels,
-                                                     output_tree_num, single_tree, tree, nthreads_use)]
+        out = [s.decode()
+               for s in self._cpp_obj.generate_sql(self.ndim_ > 1,
+                                                   column_names, column_names_categ, categ_levels,
+                                                   output_tree_num, single_tree, tree, nthreads_use)]
         if single_tree:
             return out[0]
         return out
@@ -3033,16 +3064,16 @@ class IsolationForest:
         model : obj
             A 'treelite' model object.
         """
-        assert self.ndim == 1
+        assert self.ndim_ == 1
         assert self.is_fitted_
 
         if (self._ncols_categ and
             self.categ_split_type_ != "single_categ" and
-            self.new_categ_action not in ["smallest", "random"]
+            self.new_categ_action_ not in ["smallest", "random"]
         ):
             raise ValueError("Cannot convert to 'treelite' with the current parameters for categorical columns.")
 
-        if self.missing_action != "impute":
+        if self.missing_action_ != "impute":
             warnings.warn("'treelite' conversion will switch 'missing_action' to 'impute'.")
         if self.penalize_range:
             warnings.warn("'penalize_range' is ignored (assumed 'False') for 'treelite' conversion.")
@@ -3117,6 +3148,63 @@ class IsolationForest:
         self._cpp_obj.drop_imputer()
         return self
 
+    def drop_indexer(self):
+        """
+        Drops the indexer sub-object from this model object
+
+        Drops the indexer sub-object from this model object, if it was constructed.
+        The indexer, if constructed, is likely to be a very heavy object which might
+        not be needed for all purposes.
+
+        Returns
+        -------
+        self : obj
+            This object
+        """
+        self._cpp_obj.drop_indexer()
+        return self
+
+    def build_indexer(self, with_distances = False):
+        """
+        Build indexer for faster terminal node predictions and/or distance calculations
+
+        Builds an index of terminal nodes for faster prediction of terminal node numbers
+        (calling ``predict`` with ``output="tree_num"``).
+
+        Optionally, can also pre-calculate terminal node distances in order to speed up
+        distance calculations (calling ``predict_distance``).
+
+        Note
+        ----
+        This feature is not available for models that use ``missing_action="divide"``
+        or ``new_categ_action="weighted"`` (which are the defaults when passing ``ndim=1``).
+
+        Parameters
+        ----------
+        with_distances : bool
+            Whether to also pre-calculate node distances in order to speed up ``predict_distance``.
+            Note that this will consume a lot more memory and make the resulting object significantly
+            heavier.
+
+        Returns
+        -------
+        self : obj
+            This object
+        """
+        assert self.is_fitted_
+        if self.missing_action_ == "divide":
+            raise ValueError("Cannot build tree indexer when using missing_action='divide'.")
+        if self.new_categ_action_ == "weighted":
+            if self._ncols_categ or self.cols_categ_.shape[0]:
+                raise ValueError("Cannot build tree indexer when using new_categ_action='weighted'.")
+        self._cpp_obj.build_tree_indices(self._is_extended_, bool(with_distances), _process_nthreads(self.nthreads))
+        return self
+
+    @property
+    def has_indexer_(self):
+        return self._cpp_obj.has_indexer()
+    
+
     def subset_trees(self, trees_take):
         """
         Subset trees of a given model
@@ -3142,7 +3230,7 @@ class IsolationForest:
             raise ValueError("'trees_take' is empty.")
         if trees_take.max() >= self.ntrees:
             raise ValueError("Attempting to take tree indices that the model does not have.")
-        new_cpp_obj = self._cpp_obj.subset_model(trees_take, self.ndim>1, self.build_imputer)
+        new_cpp_obj = self._cpp_obj.subset_model(trees_take, self._is_extended_, self.build_imputer)
         old_cpp_obj = self._cpp_obj
         try:
             self._cpp_obj = None
@@ -3197,7 +3285,7 @@ class IsolationForest:
             data_info["categ_cols"] = self._denumpify_list(data_info["categ_cols"])
 
         model_info = {
-            "ndim" : int(self.ndim),
+            "ndim" : int(self.ndim_),
             "nthreads" : _process_nthreads(self.nthreads),
             "build_imputer" : bool(self.build_imputer)
         }
@@ -3214,8 +3302,8 @@ class IsolationForest:
             "prob_pick_col_by_var" : float(self.prob_pick_col_by_var),
             "prob_pick_col_by_kurt" : float(self.prob_pick_col_by_kurt),
             "min_gain" : float(self.min_gain),
-            "missing_action" : self.missing_action,  ## is in c++
-            "new_categ_action" : self.new_categ_action,  ## is in c++
+            "missing_action" : self.missing_action_,  ## is in c++
+            "new_categ_action" : self.new_categ_action_,  ## is in c++
             "categ_split_type" : self.categ_split_type_,  ## is in c++
             "coefs" : self.coefs,
             "depth_imp" : self.depth_imp,
@@ -3249,6 +3337,7 @@ class IsolationForest:
         self._cat_max_lev = np.array(metadata["data_info"]["categ_max"]).reshape(-1).astype(int) if (self.categ_cols is not None) else []
 
         self.ndim = metadata["model_info"]["ndim"]
+        self.ndim_ = self.ndim
         self.nthreads = _process_nthreads(metadata["model_info"]["nthreads"])
         self.build_imputer = metadata["model_info"]["build_imputer"]
 
@@ -3274,7 +3363,9 @@ class IsolationForest:
             self.prob_pick_col_by_kurt = 0.0
         self.min_gain = metadata["params"]["min_gain"]
         self.missing_action = metadata["params"]["missing_action"]
+        self.missing_action_ = self.missing_action
         self.new_categ_action = metadata["params"]["new_categ_action"]
+        self.new_categ_action_ = self.new_categ_action
         self.categ_split_type = metadata["params"]["categ_split_type"]
         self.categ_split_type_ = self.categ_split_type
         self.coefs = metadata["params"]["coefs"]
@@ -3305,18 +3396,18 @@ class IsolationForest:
         if "prob_split_avg_gain" in metadata["params"].keys():
             if metadata["params"]["prob_split_avg_gain"] > 0:
                 msg = "'prob_split_avg_gain' has been deprecated in favor of 'prob_pick_avg_gain' + 'ntry'."
-                if self.ndim > 1:
+                if self.ndim_ > 1:
                     msg += " Be sure to change these parameters if refitting this model or adding trees."
                 warnings.warn(msg)
         if "prob_split_pooled_gain" in metadata["params"].keys():
             if metadata["params"]["prob_split_pooled_gain"] > 0:
                 msg = "'prob_split_pooled_gain' has been deprecated in favor of 'prob_pick_pooled_gain' + 'ntry'."
-                if self.ndim > 1:
+                if self.ndim_ > 1:
                     msg += " Be sure to change these parameters if refitting this model or adding trees."
                 warnings.warn(msg)
 
         self.is_fitted_ = True
-        self._is_extended_ = self.ndim > 1
+        self._is_extended_ = self.ndim_ > 1
         return self
 
     def __is_fitted__(self):

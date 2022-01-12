@@ -72,41 +72,54 @@
 * Parameters
 * ==========
 * - numeric_data[nrows * ncols_numeric]
-*       Pointer to numeric data for which to make calculations. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to numeric data for which to make calculations. If not using 'indexer', must be
+*       ordered by columns like Fortran, not ordered by rows like C (i.e. entries 1..n contain
+*       column 0, n+1..2n column 1, etc.), while if using 'indexer', may be passed in either
+*       row-major or column-major format (with row-major being faster).
+*       If categorical data is passed, must be in the same storage order (row-major / column-major)
+*       as numerical data (whether dense or sparse).
+*       The column order must be the same as in the data that was used to fit the model.
 *       If making calculations between two sets of observations/rows (see documentation for 'rmat'),
 *       the first group is assumed to be the earlier rows here.
 *       Pass NULL if there are no dense numeric columns.
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - categ_data[nrows * ncols_categ]
-*       Pointer to categorical data for which to make calculations. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
-*       Pass NULL if there are no categorical columns.
+*       Pointer to categorical data for which to make calculations. If not using 'indexer', must be
+*       ordered by columns like Fortran, not ordered by rows like C (i.e. entries 1..n contain
+*       column 0, n+1..2n column 1, etc.), while if using 'indexer', may be passed in either
+*       row-major or column-major format (with row-major being faster).
+*       If numerical data is passed, must be in the same storage order (row-major / column-major)
+*       as categorical data (whether the numerical data is dense or sparse).
 *       Each category should be represented as an integer, and these integers must start at zero and
 *       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
 *       present when the model was fit (note that they are not treated as being ordinal, this is just
 *       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
 *       must be the same as was used in the data to which the model was fit.
+*       Pass NULL if there are no categorical columns.
 *       If making calculations between two sets of observations/rows (see documentation for 'rmat'),
 *       the first group is assumed to be the earlier rows here.
 * - Xc[nnz]
-*       Pointer to numeric data in sparse numeric matrix in CSC format (column-compressed).
+*       Pointer to numeric data in sparse numeric matrix in CSC format (column-compressed),
+*       or optionally in CSR format (row-compressed) if using 'indexer' and passing 'is_col_major=false'
+*       (not recommended as the calculations will be slower if sparse data is passed as CSR).
+*       If categorical data is passed, must be in the same storage order (row-major or CSR / column-major or CSC)
+*       as numerical data (whether dense or sparse).
 *       Pass NULL if there are no sparse numeric columns.
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - Xc_ind[nnz]
-*       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Pointer to row indices to which each non-zero entry in 'Xc' corresponds
+*       (column indices if 'Xc' is in CSR format).
 *       Must be in sorted order, otherwise results will be incorrect.
-*       Pass NULL if there are no sparse numeric columns in CSC format.
+*       Pass NULL if there are no sparse numeric columns in CSC or CSR format.
 * - Xc_indptr[ncols_categ + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
-*       start and at entry [col + 1] where does column 'col' end.
-*       Pass NULL if there are no sparse numeric columns in CSC format.
+*       start and at entry [col + 1] where does column 'col' end
+*       (row index pointers if 'Xc' is passed in CSR format).
+*       Pass NULL if there are no sparse numeric columns in CSC or CSR format.
 *       If making calculations between two sets of observations/rows (see documentation for 'rmat'),
 *       the first group is assumed to be the earlier rows here.
 * - nrows
-*       Number of rows in 'numeric_data', 'Xc', 'Xr, 'categ_data'.
+*       Number of rows in 'numeric_data', 'Xc', 'categ_data'.
 * - nthreads
 *       Number of parallel threads to use. Note that, the more threads, the more memory will be
 *       allocated, even if the thread does not end up being used. Ignored when not building with
@@ -119,6 +132,10 @@
 *       'false', will calculate pairwise distances as if the new observations at prediction time were added to
 *       the sample to which each tree was fit, which will make the distances between two points potentially vary
 *       according to other newly introduced points.
+*       This was added for experimentation purposes only and it's not recommended to pass 'false'.
+*       Note that when calculating distances using 'indexer', there
+*       might be slight discrepancies between the numbers produced with or without the indexer due to what
+*       are considered "additional" observations in this calculation.
 * - standardize_dist
 *       Whether to standardize the resulting average separation depths between rows according
 *       to the expected average separation depth in a similar way as when predicting outlierness,
@@ -144,7 +161,7 @@
 * - rmat[nrows1 * nrows2] (out)
 *       Pointer to array where to write the distances or separation depths between each row in
 *       one set of observations and each row in a different set of observations. If doing these
-*       calculations for all pairs of observations/rows, pass 'rmat' instead.
+*       calculations for all pairs of observations/rows, pass 'tmat' instead.
 *       Will take the first group of observations as the rows in this matrix, and the second
 *       group as the columns. The groups are assumed to be in the same data arrays, with the
 *       first group corresponding to the earlier rows there.
@@ -156,14 +173,71 @@
 *       observations/rows belonging to the first group (the rows in 'rmat'), which will be
 *       assumed to be the first 'n_from' rows.
 *       Ignored when 'tmat' is passed.
+* - indexer
+*       Pointer to associated tree indexer for the model being used, if it was constructed,
+*       which can be used to speed up distance calculations, assuming that it was built with
+*       option 'with_distances=true'.
+*       Pass NULL if the indexer has not been constructed or was constructed with 'with_distances=false'.
+* - is_col_major
+*       Whether the data comes in column-major order. If using 'indexer', predictions are also possible
+*       (and are even faster for the case of dense-only data) if passing the data in row-major format.
+*       Without 'indexer', data may only be passed in column-major format.
+*       If there is sparse numeric data, it is highly suggested to pass it in CSR/column-major format.
+* - ld_numeric
+*       If passing 'is_col_major=false', this indicates the leading dimension of the array 'numeric_data'.
+*       Typically, this corresponds to the number of columns, but may be larger (the array will
+*       be accessed assuming that row 'n' starts at 'numeric_data + n*ld_numeric'). If passing
+*       'numeric_data' in column-major order, this is ignored and will be assumed that the
+*       leading dimension corresponds to the number of rows. This is ignored when passing numeric
+*       data in sparse format.
+*       Note that data in row-major order is only accepted when using 'indexer'.
+* - ld_categ
+*       If passing 'is_col_major=false', this indicates the leading dimension of the array 'categ_data'.
+*       Typically, this corresponds to the number of columns, but may be larger (the array will
+*       be accessed assuming that row 'n' starts at 'categ_data + n*ld_categ'). If passing
+*       'categ_data' in column-major order, this is ignored and will be assumed that the
+*       leading dimension corresponds to the number of rows.
+*       Note that data in row-major order is only accepted when using 'indexer'.
 */
 template <class real_t, class sparse_ix>
 void calc_similarity(real_t numeric_data[], int categ_data[],
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                     double tmat[], double rmat[], size_t n_from)
+                     double tmat[], double rmat[], size_t n_from,
+                     TreesIndexer *indexer, bool is_col_major, size_t ld_numeric, size_t ld_categ)
 {
+    if (indexer != NULL && model_outputs != NULL)
+    {
+        if (model_outputs->missing_action == Divide)
+            indexer = NULL;
+        if (model_outputs->new_cat_action == Weighted && categ_data != NULL)
+            indexer = NULL;
+    }
+    if (
+        !is_col_major &&
+        indexer == NULL &&
+        (
+            Xc_indptr != NULL
+                ||
+            (nrows != 1 &&
+             ((numeric_data != NULL && ld_numeric > 1) || (categ_data != NULL && ld_categ > 1)))
+        )
+    )
+        throw std::runtime_error("Cannot calculate distances with row-major data without indexer.\n");
+    if (indexer != NULL)
+    {
+        calc_similarity_from_indexer(
+            numeric_data, categ_data,
+            Xc, Xc_ind, Xc_indptr,
+            nrows, nthreads, assume_full_distr, standardize_dist,
+            model_outputs, model_outputs_ext,
+            tmat, rmat, n_from,
+            indexer, is_col_major, ld_numeric, ld_categ
+        );
+        return;
+    }
+
     PredictionData<real_t, sparse_ix>
                    prediction_data = {numeric_data, categ_data, nrows,
                                       false, 0, 0,
@@ -192,6 +266,7 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
     std::vector<WorkerForSimilarity> worker_memory(nthreads);
     #else
     std::vector<WorkerForSimilarity> worker_memory(1);
+    nthreads = 1;
     #endif
 
     /* Global variable that determines if the procedure receives a stop signal */
@@ -206,10 +281,10 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
 
     if (model_outputs != NULL)
     {
-        #pragma omp parallel for schedule(dynamic) num_threads(nthreads) shared(ntrees, worker_memory, prediction_data, model_outputs, ex)
+        #pragma omp parallel for schedule(dynamic) num_threads(nthreads) shared(ntrees, worker_memory, prediction_data, model_outputs, ex, threw_exception)
         for (size_t_for tree = 0; tree < (decltype(tree))ntrees; tree++)
         {
-            if (threw_exception) continue;
+            if (threw_exception || interrupt_switch) continue;
             try
             {
                 initialize_worker_for_sim(worker_memory[omp_get_thread_num()], prediction_data,
@@ -221,7 +296,7 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
                                   (size_t)0);
             }
 
-            catch(...)
+            catch (...)
             {
                 #pragma omp critical
                 {
@@ -237,10 +312,10 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
 
     else
     {
-        #pragma omp parallel for schedule(dynamic) num_threads(nthreads) shared(ntrees, worker_memory, prediction_data, model_outputs_ext, ex)
+        #pragma omp parallel for schedule(dynamic) num_threads(nthreads) shared(ntrees, worker_memory, prediction_data, model_outputs_ext, ex, threw_exception)
         for (size_t_for hplane = 0; hplane < (decltype(hplane))ntrees; hplane++)
         {
-            if (threw_exception) continue;
+            if (threw_exception || interrupt_switch) continue;
             try
             {
                 initialize_worker_for_sim(worker_memory[omp_get_thread_num()], prediction_data,
@@ -252,7 +327,7 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
                                     (size_t)0);
             }
 
-            catch(...)
+            catch (...)
             {
                 #pragma omp critical
                 {
@@ -314,7 +389,7 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
     /* Note: the first separation step will not be added here, as it simply consists of adding +1
        to every combination regardless. It has to be added at the end in 'gather_sim_result' to
        obtain the average separation depth. */
-    if (trees[curr_tree].score >= 0.)
+    if (trees[curr_tree].tree_left == 0)
     {
         long double rem = (long double) trees[curr_tree].remainder;
         if (!workspace.weights_arr.size())
@@ -378,10 +453,10 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
 
 
     /* divide according to tree */
-    if (prediction_data.Xc_indptr != NULL && workspace.tmat_sep.size())
+    if (prediction_data.Xc_indptr != NULL && !workspace.tmat_sep.empty())
         std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
     size_t st_NA, end_NA, split_ix;
-    switch(trees[curr_tree].col_type)
+    switch (trees[curr_tree].col_type)
     {
         case Numeric:
         {
@@ -395,7 +470,6 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
                                     prediction_data.Xc, prediction_data.Xc_ind, prediction_data.Xc_indptr,
                                     trees[curr_tree].num_split, model_outputs.missing_action,
                                     st_NA, end_NA, split_ix);
-
             break;
         }
 
@@ -443,9 +517,14 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
 
     /* continue splitting recursively */
     size_t orig_end = workspace.end;
-    if (model_outputs.new_cat_action == Weighted)
+    if (model_outputs.new_cat_action == Weighted && prediction_data.categ_data != NULL) {
+        if (model_outputs.missing_action == Fail && trees[curr_tree].col_type == Numeric) {
+            st_NA = split_ix;
+            end_NA = split_ix;
+        }
         goto missing_action_divide;
-    switch(model_outputs.missing_action)
+    }
+    switch (model_outputs.missing_action)
     {
         case Impute:
         {
@@ -480,6 +559,7 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
 
         case Divide: /* new_cat_action = 'Weighted' will also fall here */
         {
+            /* TODO: this one should also have a parameter 'changed_weoghts' like during fitting */
             missing_action_divide:
           /* TODO: maybe here it shouldn't copy the whole ix_arr,
              but then it'd need to re-generate it from outside too */
@@ -524,7 +604,7 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
                 }
 
                 for (size_t row = st_NA; row < end_NA; row++)
-                    workspace.weights_arr[workspace.ix_arr[row]] *= (1 - trees[curr_tree].pct_tree_left);
+                    workspace.weights_arr[workspace.ix_arr[row]] *= (1. - trees[curr_tree].pct_tree_left);
                 traverse_tree_sim(workspace,
                                   prediction_data,
                                   model_outputs,
@@ -561,7 +641,7 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
     /* Note: the first separation step will not be added here, as it simply consists of adding +1
        to every combination regardless. It has to be added at the end in 'gather_sim_result' to
        obtain the average separation depth. */
-    if (hplanes[curr_tree].score >= 0)
+    if (hplanes[curr_tree].hplane_left == 0)
     {
         if (workspace.tmat_sep.size())
             increase_comb_counter(workspace.ix_arr.data(), workspace.st, workspace.end,
@@ -715,11 +795,9 @@ void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
 {
     if (interrupt_switch)
         return;
-    
-    size_t ncomb = (prediction_data != NULL)?
-                    (prediction_data->nrows * (prediction_data->nrows - 1)) / 2
-                        :
-                    (input_data->nrows * (input_data->nrows - 1)) / 2;
+
+    size_t nrows = (prediction_data != NULL)? prediction_data->nrows : input_data->nrows;
+    size_t ncomb = calc_ncomb(nrows);
     size_t n_to  = (prediction_data != NULL)? (prediction_data->nrows - n_from) : 0;
 
     #ifdef _OPENMP
@@ -763,7 +841,7 @@ void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
     {
         if (worker_memory != NULL)
         {
-            if ((*worker_memory)[0].tmat_sep.size())
+            if (!(*worker_memory)[0].tmat_sep.empty())
                 std::copy((*worker_memory)[0].tmat_sep.begin(), (*worker_memory)[0].tmat_sep.end(), tmat);
             else
                 std::copy((*worker_memory)[0].rmat.begin(), (*worker_memory)[0].rmat.end(), rmat);
@@ -810,24 +888,32 @@ void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
 
         
         if (tmat != NULL)
-            #pragma omp parallel for schedule(static) num_threads(nthreads) shared(ncomb, tmat, ntrees_dbl, div_trees)
-            for (size_t_for ix = 0; ix < (decltype(ix))ncomb; ix++)
+            #ifndef _WIN32
+            #pragma omp simd
+            #endif
+            for (size_t ix = 0; ix < ncomb; ix++)
                 tmat[ix] = std::exp2( - tmat[ix] / div_trees);
         else
-            #pragma omp parallel for schedule(static) num_threads(nthreads) shared(ncomb, rmat, ntrees_dbl, div_trees)
-            for (size_t_for ix = 0; ix < (decltype(ix))(n_from * n_to); ix++)
+            #ifndef _WIN32
+            #pragma omp simd
+            #endif
+            for (size_t ix = 0; ix < (n_from * n_to); ix++)
                 rmat[ix] = std::exp2( - rmat[ix] / div_trees);
     }
     
     else
     {
         if (tmat != NULL)
-            #pragma omp parallel for schedule(static) num_threads(nthreads) shared(ncomb, tmat, ntrees_dbl)
-            for (size_t_for ix = 0; ix < (decltype(ix))ncomb; ix++)
+            #ifndef _WIN32
+            #pragma omp simd
+            #endif
+            for (size_t ix = 0; ix < ncomb; ix++)
                 tmat[ix] = (tmat[ix] + ntrees) / ntrees_dbl;
         else
-            #pragma omp parallel for schedule(static) num_threads(nthreads) shared(n_from, rmat, ntrees_dbl)
-            for (size_t_for ix = 0; ix < (decltype(ix))(n_from * n_to); ix++)
+            #ifndef _WIN32
+            #pragma omp simd
+            #endif
+            for (size_t ix = 0; ix < (n_from * n_to); ix++)
                 rmat[ix] = (rmat[ix] + ntrees) / ntrees_dbl;
     }
 }
@@ -845,31 +931,494 @@ void initialize_worker_for_sim(WorkerForSimilarity  &workspace,
     workspace.n_from = n_from;
     workspace.assume_full_distr = assume_full_distr; /* doesn't need to have one copy per worker */
 
-    if (!workspace.ix_arr.size())
+    if (workspace.ix_arr.empty())
     {
         workspace.ix_arr.resize(prediction_data.nrows);
         std::iota(workspace.ix_arr.begin(), workspace.ix_arr.end(), (size_t)0);
         if (!n_from)
-          workspace.tmat_sep.resize((prediction_data.nrows * (prediction_data.nrows - (size_t)1)) / (size_t)2, 0);
+            workspace.tmat_sep.resize(calc_ncomb(prediction_data.nrows), 0);
         else
-          workspace.rmat.resize((prediction_data.nrows - n_from) * n_from, 0);
+            workspace.rmat.resize((prediction_data.nrows - n_from) * n_from, 0);
     }
 
     if (model_outputs != NULL &&
         (model_outputs->missing_action == Divide ||
          (model_outputs->new_cat_action == Weighted && prediction_data.categ_data != NULL)))
     {
-        if (!workspace.weights_arr.size())
-            workspace.weights_arr.resize(prediction_data.nrows, 1);
+        if (workspace.weights_arr.empty())
+            workspace.weights_arr.resize(prediction_data.nrows, 1.);
         else
-            std::fill(workspace.weights_arr.begin(), workspace.weights_arr.end(), 1);
+            std::fill(workspace.weights_arr.begin(), workspace.weights_arr.end(), 1.);
     }
 
     if (model_outputs_ext != NULL)
     {
-        if (!workspace.comb_val.size())
+        if (workspace.comb_val.empty())
             workspace.comb_val.resize(prediction_data.nrows, 0);
         else
             std::fill(workspace.comb_val.begin(), workspace.comb_val.end(), 0);
+    }
+}
+
+template <class real_t, class sparse_ix>
+void calc_similarity_from_indexer
+(
+    real_t *restrict numeric_data, int *restrict categ_data,
+    real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+    size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
+    IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+    double *restrict tmat, double *restrict rmat, size_t n_from,
+    TreesIndexer *indexer, bool is_col_major, size_t ld_numeric, size_t ld_categ
+)
+{
+    size_t ntrees = (model_outputs != NULL)? model_outputs->trees.size() : model_outputs_ext->hplanes.size();
+    std::vector<sparse_ix> terminal_indices(nrows * ntrees);
+    std::vector<double> ignored(nrows);
+    predict_iforest(numeric_data, categ_data,
+                    is_col_major, ld_numeric, ld_categ,
+                    is_col_major? Xc : nullptr, is_col_major? Xc_ind : nullptr, is_col_major? Xc_indptr : nullptr,
+                    is_col_major? (real_t*)nullptr : Xc, is_col_major? (sparse_ix*)nullptr : Xc_ind, is_col_major? (sparse_ix*)nullptr : Xc_indptr,
+                    nrows, nthreads, false,
+                    model_outputs, model_outputs_ext,
+                    ignored.data(), terminal_indices.data(),
+                    (double*)NULL,
+                    indexer);
+
+    #ifndef _OPENMP
+    nthreads = 1;
+    #endif
+
+    SignalSwitcher ss;
+
+    if (n_from == 0)
+    {
+        size_t ncomb = calc_ncomb(nrows);
+        std::fill_n(tmat, ncomb, 0.);
+
+        std::vector<std::vector<double>> sum_separations(nthreads);
+        if (nthreads != 1) {
+            for (auto &v : sum_separations) v.resize(ncomb);
+        }
+
+        std::vector<std::vector<size_t>> thread_argsorted_nodes(nthreads);
+        for (auto &v : thread_argsorted_nodes) v.resize(nrows);
+
+        std::vector<std::vector<size_t>> thread_sorted_nodes(nthreads);
+        for (auto &v : thread_sorted_nodes) v.reserve(nrows); /* <- could shrink to max number of terminal nodes */
+
+
+        bool threw_exception = false;
+        std::exception_ptr ex = NULL;
+        #pragma omp parallel for schedule(static) num_threads(nthreads) \
+                shared(model_outputs, model_outputs_ext, nthreads, indexer, nrows, ncomb, terminal_indices, \
+                       sum_separations, thread_argsorted_nodes, thread_sorted_nodes, tmat, \
+                       threw_exception, ex)
+        for (size_t_for tree = 0; tree < ntrees; tree++)
+        {
+            if (interrupt_switch || threw_exception) continue;
+
+            if (indexer->indices[tree].n_terminal <= 1)
+            {
+                for (auto &el : sum_separations[omp_get_thread_num()]) el += 1.;
+                continue;
+            }
+
+            double *restrict ptr_this_sep = sum_separations[omp_get_thread_num()].data();
+            if (nthreads == 1) ptr_this_sep = tmat;
+            double *restrict node_dist_this = indexer->indices[tree].node_distances.data();
+            double *restrict node_depths_this = indexer->indices[tree].node_depths.data();
+            size_t n_terminal_this = indexer->indices[tree].n_terminal;
+            size_t ncomb_this = calc_ncomb(n_terminal_this);
+            std::vector<IsoTree> *tree_this = (model_outputs != NULL)? &model_outputs->trees[tree] : nullptr;
+            std::vector<IsoHPlane> *hplane_this = (model_outputs_ext != NULL)? &model_outputs_ext->hplanes[tree] : nullptr;
+            sparse_ix *restrict terminal_indices_this = terminal_indices.data() + nrows * tree;
+            size_t i, j;
+            double add_round;
+
+            if (assume_full_distr)
+            {
+                for (size_t el1 = 0; el1 < nrows-1; el1++)
+                {
+                    i = terminal_indices_this[el1];
+                    for (size_t el2 = el1+1; el2 < nrows; el2++)
+                    {
+                        j = terminal_indices_this[el2];
+                        if (i == j)
+                            add_round = node_depths_this[i] + 3.;
+                        else
+                            add_round = node_dist_this[ix_comb(i, j, n_terminal_this, ncomb_this)];
+                        ptr_this_sep[ix_comb(el1, el2, nrows, ncomb)] += add_round;
+                    }
+                }
+            }
+
+            else
+            {
+                hashed_set<size_t> nodes_w_repeated;
+                try
+                {
+                    nodes_w_repeated.reserve(n_terminal_this);
+                    for (size_t el1 = 0; el1 < nrows-1; el1++)
+                    {
+                        i = terminal_indices_this[el1];
+                        for (size_t el2 = el1+1; el2 < nrows; el2++)
+                        {
+                            j = terminal_indices_this[el2];
+                            if (i == j)
+                                nodes_w_repeated.insert(i);
+                            else
+                                ptr_this_sep[ix_comb(el1, el2, nrows, ncomb)]
+                                    +=
+                                node_dist_this[ix_comb(i, j, n_terminal_this, ncomb_this)];
+                        }
+                    }
+                }
+
+                catch (...)
+                {
+                    #pragma omp critical
+                    {
+                        if (!threw_exception)
+                        {
+                            threw_exception = true;
+                            ex = std::current_exception();
+                        }
+                    }
+                }
+
+                if (!nodes_w_repeated.empty())
+                {
+                    std::vector<size_t> *restrict argsorted_nodes = &thread_argsorted_nodes[omp_get_thread_num()];
+                    std::iota(argsorted_nodes->begin(), argsorted_nodes->end(), (size_t)0);
+                    std::sort(argsorted_nodes->begin(), argsorted_nodes->end(),
+                              [&terminal_indices_this](const size_t a, const size_t b)
+                              {return terminal_indices_this[a] < terminal_indices_this[b];});
+                    std::vector<size_t>::iterator curr_begin = argsorted_nodes->begin();
+                    std::vector<size_t>::iterator new_begin;
+
+                    std::vector<size_t> *restrict sorted_nodes = &thread_sorted_nodes[omp_get_thread_num()];
+                    sorted_nodes->assign(nodes_w_repeated.begin(), nodes_w_repeated.end());
+                    std::sort(sorted_nodes->begin(), sorted_nodes->end());
+                    for (size_t node_ix : *sorted_nodes)
+                    {
+                        curr_begin = std::lower_bound(curr_begin, argsorted_nodes->end(),
+                                                      node_ix,
+                                                      [&terminal_indices_this](const size_t &a, const size_t &b)
+                                                      {return (size_t)terminal_indices_this[a] < b;});
+                        new_begin =  std::upper_bound(curr_begin, argsorted_nodes->end(),
+                                                      node_ix,
+                                                      [&terminal_indices_this](const size_t &a, const size_t &b)
+                                                      {return a < (size_t)terminal_indices_this[b];});
+                        size_t n_this = std::distance(curr_begin, new_begin);
+                        long double sep_this
+                            =
+                        n_this
+                            +
+                        ((tree_this != NULL)?
+                         (*tree_this)[node_ix].remainder
+                            :
+                         (*hplane_this)[node_ix].remainder);
+                        double sep_this_ = expected_separation_depth(sep_this) + node_depths_this[node_ix];
+
+                        size_t i, j;
+                        for (size_t el1 = 0; el1 < n_this-1; el1++)
+                        {
+                            i = *(curr_begin + el1);
+                            for (size_t el2 = el1+1; el2 < n_this; el2++)
+                            {
+                                j = *(curr_begin + el2);
+                                ptr_this_sep[ix_comb(i, j, nrows, ncomb)] += sep_this_;
+                            }
+                        }
+
+                        curr_begin = new_begin;
+                    }
+                }
+
+            }
+        }
+
+        check_interrupt_switch(ss);
+
+        if (threw_exception)
+            std::rethrow_exception(ex);
+
+        if (nthreads == 1)
+        {
+            /* Here 'tmat' already contains the sum of separations */
+        }
+
+        else
+        {
+            for (int tid = 0; tid < nthreads; tid++)
+            {
+                double *restrict seps_thread = sum_separations[tid].data();
+                for (size_t ix = 0; ix < ncomb; ix++)
+                    tmat[ix] += seps_thread[ix];
+            }
+        }
+
+        check_interrupt_switch(ss);
+
+        if (standardize_dist)
+        {
+            double divisor;
+            if (assume_full_distr)
+                divisor = (double)(ntrees * 2);
+            else
+                divisor = (double)ntrees * ((model_outputs != NULL)? model_outputs->exp_avg_sep : model_outputs_ext->exp_avg_sep);
+
+            if (assume_full_distr)
+            {
+                double ntrees_dbl = (double)ntrees;
+                #ifndef _WIN32
+                #pragma omp simd
+                #endif
+                for (size_t ix = 0; ix < ncomb; ix++)
+                    tmat[ix] = std::exp2( - (tmat[ix] - ntrees_dbl) / divisor);
+            }
+
+            else
+            {
+                #ifndef _WIN32
+                #pragma omp simd
+                #endif
+                for (size_t ix = 0; ix < ncomb; ix++)
+                    tmat[ix] = std::exp2( - tmat[ix] / divisor);
+            }
+        }
+
+        else
+        {
+            double divisor = (double)ntrees;
+            for (size_t ix = 0; ix < ncomb; ix++)
+                tmat[ix] /= divisor;
+        }
+
+        check_interrupt_switch(ss);
+    }
+
+    /* TODO: merge this with the block above, can simplify lots of things by a couple if-elses */
+    else /* has 'rmat' / 'nfrom>0' */
+    {
+        size_t n_to  = nrows - n_from;
+        size_t ncomb = n_from * n_to;
+        std::fill_n(rmat, ncomb, 0.);
+
+        std::vector<std::vector<double>> sum_separations(nthreads);
+        if (nthreads != 1) {
+            for (auto &v : sum_separations) v.resize(ncomb);
+        }
+
+        std::vector<std::vector<size_t>> thread_argsorted_nodes(nthreads);
+        for (auto &v : thread_argsorted_nodes) v.resize(nrows);
+
+        std::vector<std::vector<size_t>> thread_doubly_argsorted(nthreads);
+        for (auto &v : thread_doubly_argsorted) v.reserve(nrows);
+
+        std::vector<std::vector<size_t>> thread_sorted_nodes(nthreads);
+        for (auto &v : thread_sorted_nodes) v.reserve(nrows); /* <- could shrink to max number of terminal nodes */
+
+        bool threw_exception = false;
+        std::exception_ptr ex = NULL;
+        #pragma omp parallel for schedule(static) num_threads(nthreads) \
+                shared(model_outputs, model_outputs_ext, nthreads, indexer, nrows, ncomb, terminal_indices, \
+                       sum_separations, thread_argsorted_nodes, thread_sorted_nodes, thread_doubly_argsorted, rmat, n_to, n_from, \
+                       threw_exception, ex)
+        for (size_t_for tree = 0; tree < ntrees; tree++)
+        {
+            if (interrupt_switch || threw_exception) continue;
+
+            if (indexer->indices[tree].n_terminal <= 1)
+            {
+                for (auto &el : sum_separations[omp_get_thread_num()]) el += 1.;
+                continue;
+            }
+
+            double *restrict ptr_this_sep = sum_separations[omp_get_thread_num()].data();
+            if (nthreads == 1) ptr_this_sep = rmat;
+            double *restrict node_dist_this = indexer->indices[tree].node_distances.data();
+            double *restrict node_depths_this = indexer->indices[tree].node_depths.data();
+            size_t n_terminal_this = indexer->indices[tree].n_terminal;
+            size_t ncomb_this = calc_ncomb(n_terminal_this);
+            std::vector<IsoTree> *tree_this = (model_outputs != NULL)? &model_outputs->trees[tree] : nullptr;
+            std::vector<IsoHPlane> *hplane_this = (model_outputs_ext != NULL)? &model_outputs_ext->hplanes[tree] : nullptr;
+            sparse_ix *restrict terminal_indices_this = terminal_indices.data() + nrows * tree;
+            size_t i, j;
+            double add_round;
+
+            if (assume_full_distr)
+            {
+                for (size_t el1 = 0; el1 < n_from; el1++)
+                {
+                    i = terminal_indices_this[el1];
+                    double *ptr_this_sep_ = ptr_this_sep + el1*n_to;
+                    for (size_t el2 = n_from; el2 < nrows; el2++)
+                    {
+                        j = terminal_indices_this[el2];
+                        if (i == j)
+                            add_round = node_depths_this[i] + 3.;
+                        else
+                            add_round = node_dist_this[ix_comb(i, j, n_terminal_this, ncomb_this)];
+                        ptr_this_sep_[el2-n_from] += add_round;
+                    }
+                }
+            }
+
+            else
+            {
+                hashed_set<size_t> nodes_w_repeated;
+                try
+                {
+                    nodes_w_repeated.reserve(n_terminal_this);
+                    for (size_t el1 = 0; el1 < n_from; el1++)
+                    {
+                        i = terminal_indices_this[el1];
+                        double *ptr_this_sep_ = ptr_this_sep + el1*n_to;
+                        for (size_t el2 = n_from; el2 < nrows; el2++)
+                        {
+                            j = terminal_indices_this[el2];
+                            if (i == j)
+                                nodes_w_repeated.insert(i);
+                            else
+                                ptr_this_sep_[el2-n_from]
+                                    +=
+                                node_dist_this[ix_comb(i, j, n_terminal_this, ncomb_this)];
+                        }
+                    }
+
+                    if (!nodes_w_repeated.empty())
+                    {
+                        std::vector<size_t> *restrict argsorted_nodes = &thread_argsorted_nodes[omp_get_thread_num()];
+                        std::iota(argsorted_nodes->begin(), argsorted_nodes->end(), (size_t)0);
+                        std::sort(argsorted_nodes->begin(), argsorted_nodes->end(),
+                                  [&terminal_indices_this](const size_t a, const size_t b)
+                                  {return terminal_indices_this[a] < terminal_indices_this[b];});
+                        std::vector<size_t>::iterator curr_begin = argsorted_nodes->begin();
+                        std::vector<size_t>::iterator new_begin;
+                        
+                        std::vector<size_t> *restrict sorted_nodes = &thread_sorted_nodes[omp_get_thread_num()];
+                        sorted_nodes->assign(nodes_w_repeated.begin(), nodes_w_repeated.end());
+                        std::sort(sorted_nodes->begin(), sorted_nodes->end());
+                        for (size_t node_ix : *sorted_nodes)
+                        {
+                            curr_begin = std::lower_bound(curr_begin, argsorted_nodes->end(),
+                                                          node_ix,
+                                                          [&terminal_indices_this](const size_t &a, const size_t &b)
+                                                          {return (size_t)terminal_indices_this[a] < b;});
+                            new_begin =  std::upper_bound(curr_begin, argsorted_nodes->end(),
+                                                          node_ix,
+                                                          [&terminal_indices_this](const size_t &a, const size_t &b)
+                                                          {return a < (size_t)terminal_indices_this[b];});
+                            size_t n_this = std::distance(curr_begin, new_begin);
+                            if (!n_this) unexpected_error();
+                            long double sep_this
+                                =
+                            n_this
+                                +
+                            ((tree_this != NULL)?
+                             (*tree_this)[node_ix].remainder
+                                :
+                             (*hplane_this)[node_ix].remainder);
+                            double sep_this_ = expected_separation_depth(sep_this) + node_depths_this[node_ix];
+
+                            std::vector<size_t> *restrict doubly_argsorted = &thread_doubly_argsorted[omp_get_thread_num()];
+                            doubly_argsorted->assign(curr_begin, curr_begin + n_this);
+                            std::sort(doubly_argsorted->begin(), doubly_argsorted->end());
+                            std::vector<size_t>::iterator pos_n_from = std::lower_bound(doubly_argsorted->begin(),
+                                                                                        doubly_argsorted->end(),
+                                                                                        n_from);
+                            if (pos_n_from == doubly_argsorted->end()) unexpected_error();
+                            size_t n1 = std::distance(doubly_argsorted->begin(), pos_n_from);
+                            size_t i, j;
+                            double *ptr_this_sep__;
+                            for (size_t el1 = 0; el1 < n1; el1++)
+                            {
+                                i = (*doubly_argsorted)[el1];
+                                ptr_this_sep__ = ptr_this_sep + i*n_to;
+                                for (size_t el2 = n1; el2 < n_this; el2++)
+                                {
+                                    j = (*doubly_argsorted)[el2];
+                                    ptr_this_sep__[j-n_from] += sep_this_;
+                                }
+                            }
+
+                            curr_begin = new_begin;
+                        }
+                    }
+                }
+
+                catch (...)
+                {
+                    #pragma omp critical
+                    {
+                        if (!threw_exception)
+                        {
+                            threw_exception = true;
+                            ex = std::current_exception();
+                        }
+                    }
+                }
+            }
+        }
+
+        check_interrupt_switch(ss);
+
+        if (threw_exception)
+            std::rethrow_exception(ex);
+
+        if (nthreads == 1)
+        {
+            /* Here 'rmat' already contains the sum of separations */
+        }
+
+        else
+        {
+            for (int tid = 0; tid < nthreads; tid++)
+            {
+                double *restrict seps_thread = sum_separations[tid].data();
+                for (size_t ix = 0; ix < ncomb; ix++)
+                    rmat[ix] += seps_thread[ix];
+            }
+        }
+
+        check_interrupt_switch(ss);
+
+        if (standardize_dist)
+        {
+            double divisor;
+            if (assume_full_distr)
+                divisor = (double)(ntrees * 2);
+            else
+                divisor = (double)ntrees * ((model_outputs != NULL)? model_outputs->exp_avg_sep : model_outputs_ext->exp_avg_sep);
+
+            if (assume_full_distr)
+            {
+                double ntrees_dbl = (double)ntrees;
+                #ifndef _WIN32
+                #pragma omp simd
+                #endif
+                for (size_t ix = 0; ix < ncomb; ix++)
+                    rmat[ix] = std::exp2( - (rmat[ix] - ntrees_dbl) / divisor);
+            }
+
+            else
+            {
+                #ifndef _WIN32
+                #pragma omp simd
+                #endif
+                for (size_t ix = 0; ix < ncomb; ix++)
+                    rmat[ix] = std::exp2( - rmat[ix] / divisor);
+            }
+        }
+
+        else
+        {
+            double divisor = (double)ntrees;
+            for (size_t ix = 0; ix < ncomb; ix++)
+                rmat[ix] /= divisor;
+        }
+
+        check_interrupt_switch(ss);
     }
 }

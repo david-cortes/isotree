@@ -528,6 +528,13 @@ int isotree_get_num_threads(const isotree_model_t isotree_model);
 ISOTREE_EXPORTED
 size_t isotree_get_ntrees(const isotree_model_t isotree_model);
 
+ISOTREE_EXPORTED
+isotree_exit_code isotree_build_indexer(isotree_model_t isotree_model, const isotree_bool with_distances);
+
+/*  If an error occurs (e.g. passing a NULL pointer), will return NULL.  */
+ISOTREE_EXPORTED
+isotree_model_t isotree_copy_model(isotree_model_t isotree_model);
+
 #ifdef __cplusplus
 }
 #endif

@@ -14,9 +14,6 @@ The same `model` object, but now with the imputer removed. \bold{Note that `mode
 in any event}.
 }
 \description{
-Drop Imputer Sub-Object from Isolation Forest Model Object
-}
-\details{
 Drops the imputer sub-object from an isolation forest model object, if it was fitted with data imputation
 capabilities. The imputer, if constructed, is likely to be a very heavy object which might
 not be needed for all purposes.

@@ -37,10 +37,15 @@ when the number of trees or rows is large.}
   \item `"dist"` for approximate pairwise or between-points distances (must pass more than 1 row) - these are
   standardized in the same way as outlierness, values closer to zero indicate nearer points,
   closer to one further away points, and closer to 0.5 average distance.
+  To make this computation faster, it is highly recommended to build a node indexer with
+  \link{isotree.build.indexer} (with `with_distances=TRUE`) before calling this function.
   \item `"avg_sep"` for the non-standardized average separation depth.
+  To make this computation faster, it is highly recommended to build a node indexer with
+  \link{isotree.build.indexer} (with `with_distances=TRUE`) before calling this function.
   \item `"tree_num"` for the terminal node number for each tree - if choosing this option,
   will return a list containing both the average isolation depth and the terminal node numbers, under entries
-  `avg_depth` and `tree_num`, respectively.
+  `avg_depth` and `tree_num`, respectively. If this calculation is going to be perform frequently, it's recommended to
+  build node indices through \link{isotree.build.indexer}.
   \item `"tree_depths"` for the non-standardized isolation depth or expected isolation depth or density
   or log-density for each tree (note that they will not include range penalties from `penalize_range=TRUE`).
   See the documentation for `scoring_metric` for more details about the calculations for density-based metrics.
@@ -65,8 +70,8 @@ or `"avg_sep"`, will calculate pairwise distances/separation between the points 
 \value{
 The requested prediction type, which can be: \itemize{
 \item A numeric vector with one entry per row in `newdata` (for output types `"score"`, `"avg_depth"`).
-\item A list with entries `avg_depth` (numeric vector)
-and `tree_num` (integer matrix indicating the terminal node number under each tree for each
+\item An integer matrix with number of rows matching to rows in `newdata` and number of columns matching
+to the number of trees in the model, indicating the terminal node number under each tree for each
 observation, with trees as columns), for output type `"tree_num"`.
 \item A numeric matrix with rows matching to those in `newdata` and one column per tree in the
 model, for output type `"tree_depths"`.
@@ -112,7 +117,8 @@ first run will  be slower, while subsequent runs will be faster as the C++ objec
 
 In order to save memory when fitting and serializing models, the functionality for outputting
 terminal node numbers will generate index mappings on the fly for all tree nodes, even if passing only
-1 row, so it's only recommended for batch predictions.
+1 row, so it's only recommended for batch predictions. If this type of prediction is desired, it can
+be sped up by building an index of terminal nodes through \link{isotree.build.indexer}.
 
 The outlier scores/depth predict functionality is optimized for making predictions on one or a
 few rows at a time - for making large batches of predictions, it might be faster to use the
@@ -124,11 +130,17 @@ can be small differences between runs due to roundoff error.
 When imputing missing values, the input may contain new columns (i.e. not present when the model was fitted),
 which will be output as-is.
 
-If passing `type="dist"` or `type="avg_sep"`, while in theory it should be possible to make such
-computations relatively fast by precomputing
-results for each pair of terminal nodes in a given tree, the procedure here is based on
-calculating this metric on-the-fly as each pair of observations is passed down a tree, which
-makes it relatively slow, and thus not recommended for real-time usage.
+If passing `type="dist"` or `type="avg_sep"`, by default, it will do the calculation through a procedure
+that counts steps as observations are passed down the trees, which is especially slow and
+not recommended for more than a few thousand observations. If this calculation is going to be
+called repeatedly and/or it is going to be called for a large number of rows, it's highly
+recommended to build node distance indexes beforehand through \link{isotree.build.indexer} with
+option `with_distances=TRUE`, as then the computation will be done based on terminal node
+indices instead, which is a much faster procedure.
+
+If using `assume_full_distr=FALSE` (not recommended to use such option), distance predictions with
+and without an indexer will differ slightly due to differences in what they count towards
+"additional" observations in the calculation.
 }
 \section{Model serving considerations}{
 
@@ -154,5 +166,5 @@ collection through `gc()`.
 }
 
 \seealso{
-\link{isolation.forest} \link{isotree.restore.handle}
+\link{isolation.forest} \link{isotree.restore.handle} \link{isotree.build.indexer}
 }

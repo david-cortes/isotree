@@ -198,6 +198,21 @@ typedef struct Imputer {
     Imputer() = default;
 } Imputer;
 
+typedef struct SingleTreeIndex {
+    std::vector<size_t> terminal_node_mappings;
+    std::vector<double> node_distances;
+    std::vector<double> node_depths;
+    std::vector<size_t> reference_points;
+    std::vector<size_t> reference_indptr;
+    std::vector<size_t> reference_mapping;
+    size_t n_terminal;
+} TreeNodeIndex;
+
+typedef struct TreesIndexer {
+    std::vector<SingleTreeIndex> indices;
+    TreesIndexer() = default;
+} TreesIndexer;
+
 #endif /* ISOTREE_H */
 
 /*  Fit Isolation Forest model, or variant of it such as SCiForest
@@ -857,6 +872,10 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - min_imp_obs
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
+* - indexer
+*       Indexer object associated to the model object ('model_outputs' or 'model_outputs_ext'), which will
+*       be updated with the new tree to add.
+*       Pass NULL if the model has no associated indexer.
 * - random_seed
 *       Seed that will be used to generate random numbers used by the model.
 */
@@ -878,6 +897,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              CategSplit cat_split_type, NewCategAction new_cat_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
              bool   all_perm, Imputer *imputer, size_t min_imp_obs,
+             TreesIndexer *indexer,
              uint64_t random_seed);
 
 
@@ -988,6 +1008,11 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       This will not be calculable when using 'ndim==1' alongside with either
 *       'missing_action==Divide' or 'new_categ_action=Weighted'.
 *       Pass NULL if this type of output is not needed.
+* - indexer
+*       Pointer to associated tree indexer for the model being used, if it was constructed,
+*       which can be used to speed up tree numbers/indices predictions.
+*       This is ignored when not passing 'tree_num'.
+*       Pass NULL if the indexer has not been constructed.
 */
 ISOTREE_EXPORTED
 void predict_iforest(real_t numeric_data[], int categ_data[],
@@ -997,7 +1022,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
                      size_t nrows, int nthreads, bool standardize,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                      double output_depths[],   sparse_ix tree_num[],
-                     double per_tree_depths[]);
+                     double per_tree_depths[],
+                     TreesIndexer *indexer);
 
 
 
@@ -1026,41 +1052,54 @@ ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_no
 * Parameters
 * ==========
 * - numeric_data[nrows * ncols_numeric]
-*       Pointer to numeric data for which to make calculations. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
+*       Pointer to numeric data for which to make calculations. If not using 'indexer', must be
+*       ordered by columns like Fortran, not ordered by rows like C (i.e. entries 1..n contain
+*       column 0, n+1..2n column 1, etc.), while if using 'indexer', may be passed in either
+*       row-major or column-major format (with row-major being faster).
+*       If categorical data is passed, must be in the same storage order (row-major / column-major)
+*       as numerical data (whether dense or sparse).
+*       The column order must be the same as in the data that was used to fit the model.
 *       If making calculations between two sets of observations/rows (see documentation for 'rmat'),
 *       the first group is assumed to be the earlier rows here.
 *       Pass NULL if there are no dense numeric columns.
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - categ_data[nrows * ncols_categ]
-*       Pointer to categorical data for which to make calculations. Must be ordered by columns like Fortran,
-*       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.),
-*       and the column order must be the same as in the data that was used to fit the model.
-*       Pass NULL if there are no categorical columns.
+*       Pointer to categorical data for which to make calculations. If not using 'indexer', must be
+*       ordered by columns like Fortran, not ordered by rows like C (i.e. entries 1..n contain
+*       column 0, n+1..2n column 1, etc.), while if using 'indexer', may be passed in either
+*       row-major or column-major format (with row-major being faster).
+*       If numerical data is passed, must be in the same storage order (row-major / column-major)
+*       as categorical data (whether the numerical data is dense or sparse).
 *       Each category should be represented as an integer, and these integers must start at zero and
 *       be in consecutive order - i.e. if category '3' is present, category '2' must have also been
 *       present when the model was fit (note that they are not treated as being ordinal, this is just
 *       an encoding). Missing values should be encoded as negative numbers such as (-1). The encoding
 *       must be the same as was used in the data to which the model was fit.
+*       Pass NULL if there are no categorical columns.
 *       If making calculations between two sets of observations/rows (see documentation for 'rmat'),
 *       the first group is assumed to be the earlier rows here.
 * - Xc[nnz]
-*       Pointer to numeric data in sparse numeric matrix in CSC format (column-compressed).
+*       Pointer to numeric data in sparse numeric matrix in CSC format (column-compressed),
+*       or optionally in CSR format (row-compressed) if using 'indexer' and passing 'is_col_major=false'
+*       (not recommended as the calculations will be slower if sparse data is passed as CSR).
+*       If categorical data is passed, must be in the same storage order (row-major or CSR / column-major or CSC)
+*       as numerical data (whether dense or sparse).
 *       Pass NULL if there are no sparse numeric columns.
 *       Can only pass one of 'numeric_data' or 'Xc' + 'Xc_ind' + 'Xc_indptr'.
 * - Xc_ind[nnz]
-*       Pointer to row indices to which each non-zero entry in 'Xc' corresponds.
+*       Pointer to row indices to which each non-zero entry in 'Xc' corresponds
+*       (column indices if 'Xc' is in CSR format).
 *       Must be in sorted order, otherwise results will be incorrect.
-*       Pass NULL if there are no sparse numeric columns in CSC format.
+*       Pass NULL if there are no sparse numeric columns in CSC or CSR format.
 * - Xc_indptr[ncols_categ + 1]
 *       Pointer to column index pointers that tell at entry [col] where does column 'col'
-*       start and at entry [col + 1] where does column 'col' end.
-*       Pass NULL if there are no sparse numeric columns in CSC format.
+*       start and at entry [col + 1] where does column 'col' end
+*       (row index pointers if 'Xc' is passed in CSR format).
+*       Pass NULL if there are no sparse numeric columns in CSC or CSR format.
 *       If making calculations between two sets of observations/rows (see documentation for 'rmat'),
 *       the first group is assumed to be the earlier rows here.
 * - nrows
-*       Number of rows in 'numeric_data', 'Xc', 'Xr, 'categ_data'.
+*       Number of rows in 'numeric_data', 'Xc', 'categ_data'.
 * - nthreads
 *       Number of parallel threads to use. Note that, the more threads, the more memory will be
 *       allocated, even if the thread does not end up being used. Ignored when not building with
@@ -1073,6 +1112,10 @@ ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_no
 *       'false', will calculate pairwise distances as if the new observations at prediction time were added to
 *       the sample to which each tree was fit, which will make the distances between two points potentially vary
 *       according to other newly introduced points.
+*       This was added for experimentation purposes only and it's not recommended to pass 'false'.
+*       Note that when calculating distances using 'indexer', there
+*       might be slight discrepancies between the numbers produced with or without the indexer due to what
+*       are considered "additional" observations in this calculation.
 * - standardize_dist
 *       Whether to standardize the resulting average separation depths between rows according
 *       to the expected average separation depth in a similar way as when predicting outlierness,
@@ -1098,7 +1141,7 @@ ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_no
 * - rmat[nrows1 * nrows2] (out)
 *       Pointer to array where to write the distances or separation depths between each row in
 *       one set of observations and each row in a different set of observations. If doing these
-*       calculations for all pairs of observations/rows, pass 'rmat' instead.
+*       calculations for all pairs of observations/rows, pass 'tmat' instead.
 *       Will take the first group of observations as the rows in this matrix, and the second
 *       group as the columns. The groups are assumed to be in the same data arrays, with the
 *       first group corresponding to the earlier rows there.
@@ -1110,13 +1153,39 @@ ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_no
 *       observations/rows belonging to the first group (the rows in 'rmat'), which will be
 *       assumed to be the first 'n_from' rows.
 *       Ignored when 'tmat' is passed.
+* - indexer
+*       Pointer to associated tree indexer for the model being used, if it was constructed,
+*       which can be used to speed up distance calculations, assuming that it was built with
+*       option 'with_distances=true'.
+*       Pass NULL if the indexer has not been constructed or was constructed with 'with_distances=false'.
+* - is_col_major
+*       Whether the data comes in column-major order. If using 'indexer', predictions are also possible
+*       (and are even faster for the case of dense-only data) if passing the data in row-major format.
+*       Without 'indexer', data may only be passed in column-major format.
+*       If there is sparse numeric data, it is highly suggested to pass it in CSR/column-major format.
+* - ld_numeric
+*       If passing 'is_col_major=false', this indicates the leading dimension of the array 'numeric_data'.
+*       Typically, this corresponds to the number of columns, but may be larger (the array will
+*       be accessed assuming that row 'n' starts at 'numeric_data + n*ld_numeric'). If passing
+*       'numeric_data' in column-major order, this is ignored and will be assumed that the
+*       leading dimension corresponds to the number of rows. This is ignored when passing numeric
+*       data in sparse format.
+*       Note that data in row-major order is only accepted when using 'indexer'.
+* - ld_categ
+*       If passing 'is_col_major=false', this indicates the leading dimension of the array 'categ_data'.
+*       Typically, this corresponds to the number of columns, but may be larger (the array will
+*       be accessed assuming that row 'n' starts at 'categ_data + n*ld_categ'). If passing
+*       'categ_data' in column-major order, this is ignored and will be assumed that the
+*       leading dimension corresponds to the number of rows.
+*       Note that data in row-major order is only accepted when using 'indexer'.
 */
 ISOTREE_EXPORTED
 void calc_similarity(real_t numeric_data[], int categ_data[],
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                     double tmat[], double rmat[], size_t n_from);
+                     double tmat[], double rmat[], size_t n_from,
+                     TreesIndexer *indexer, bool is_col_major, size_t ld_numeric, size_t ld_categ);
 
 
 /* Impute missing values in new data
@@ -1243,11 +1312,24 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
 *       Hyperparameters related to imputation might differ between 'imputer' and 'iother' ('imputer' will preserve its
 *       hyperparameters after the merge).
 *       Pass NULL if this is not to be used.
+* - indexer (in, out)
+*       Pointer to indexer object which has already been fit through 'fit_iforest' along with
+*       either 'model' or 'ext_model' in the same call to 'fit_iforest' or through another specialized function.
+*       The imputation nodes from 'ind_other' will be merged into this (will be at the end of vector member 'indices').
+*       Reference points should not differ between 'indexer' and 'ind_other'.
+*       Pass NULL if this is not to be used.
+* - ind_other
+*       Pointer to indexer object which has already been fit through 'fit_iforest' along with
+*       either 'model' or 'ext_model' in the same call to 'fit_iforest' or through another specialized function.
+*       The imputation nodes from this object will be added into 'imputer' (this object will not be modified).
+*       Reference points should not differ between 'indexer' and 'ind_other'.
+*       Pass NULL if this is not to be used.
 */
 ISOTREE_EXPORTED
 void merge_models(IsoForest*     model,      IsoForest*     other,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
-                  Imputer*       imputer,    Imputer*       iother);
+                  Imputer*       imputer,    Imputer*       iother,
+                  TreesIndexer*  indexer,    TreesIndexer*  ind_other);
 
 /* Create a model containing a sub-set of the trees from another model
 * 
@@ -1265,6 +1347,10 @@ void merge_models(IsoForest*     model,      IsoForest*     other,
 *       Pointer to imputation object which has already been fit through 'fit_iforest' along with
 *       either 'model' or 'ext_model' in the same call to 'fit_iforest'.
 *       Pass NULL if the model was built without an imputer.
+* - indexer (in)
+*       Pointer to indexer object which has already been fit through 'fit_iforest' along with
+*       either 'model' or 'ext_model' in the same call to 'fit_iforest' or through another specialized funcction.
+*       Pass NULL if the model was built without an indexer.
 * - model_new (out)
 *       Pointer to already-allocated isolation forest model, which will be reset and to
 *       which the selected trees from 'model' will be copied.
@@ -1278,12 +1364,49 @@ void merge_models(IsoForest*     model,      IsoForest*     other,
 *       which the selected nodes from 'imputer' (matching to those of either 'model'
 *       or 'ext_model') will be copied.
 *       Pass NULL if the model was built without an imputer.
+* - indexer_new (out)
+*       Pointer to already-allocated indexer object, which will be reset and to
+*       which the selected nodes from 'indexer' (matching to those of either 'model'
+*       or 'ext_model') will be copied.
+*       Pass NULL if the model was built without an indexer.
 */
 ISOTREE_EXPORTED
 void subset_model(IsoForest*     model,      IsoForest*     model_new,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_model_new,
                   Imputer*       imputer,    Imputer*       imputer_new,
+                  TreesIndexer*  indexer,    TreesIndexer*  indexer_new,
                   size_t *trees_take, size_t ntrees_take);
+
+/* Build indexer for faster terminal node predictions and/or distance calculations
+* 
+* Parameters
+* ==========
+* - indexer
+*       Pointer or reference to an indexer object which will be associated to a fitted model and in
+*       which indices for terminal nodes and potentially node distances will be stored.
+* - model / model_outputs / model_outputs_ext
+*       Pointer or reference to a fitted model object for which an indexer will be built.
+* - nthreads
+*       Number of parallel threads to use. This operation will only be multi-threaded when passing
+*       'with_distances=true'.
+* - with_distances
+*       Whether to also pre-calculate node distances in order to speed up 'calc_similarity' (distances).
+*       Note that this will consume a lot more memory and make the resulting object significantly
+*       heavier.
+*/
+ISOTREE_EXPORTED
+void build_tree_indices(TreesIndexer &indexer, const IsoForest &model, int nthreads, const bool with_distances);
+ISOTREE_EXPORTED
+void build_tree_indices(TreesIndexer &indexer, const ExtIsoForest &model, int nthreads, const bool with_distances);
+ISOTREE_EXPORTED
+void build_tree_indices
+(
+    TreesIndexer *indexer,
+    const IsoForest *model_outputs,
+    const ExtIsoForest *model_outputs_ext,
+    int nthreads,
+    const bool with_distances
+);
 
 
 /* Functions to inspect serialized objects
@@ -1353,6 +1476,7 @@ void inspect_serialized_object
     bool &has_IsoForest,
     bool &has_ExtIsoForest,
     bool &has_Imputer,
+    bool &has_Indexer,
     bool &has_metadata,
     size_t &size_metadata
 );
@@ -1366,6 +1490,7 @@ void inspect_serialized_object
     bool &has_IsoForest,
     bool &has_ExtIsoForest,
     bool &has_Imputer,
+    bool &has_Indexer,
     bool &has_metadata,
     size_t &size_metadata
 );
@@ -1379,6 +1504,7 @@ void inspect_serialized_object
     bool &has_IsoForest,
     bool &has_ExtIsoForest,
     bool &has_Imputer,
+    bool &has_Indexer,
     bool &has_metadata,
     size_t &size_metadata
 );
@@ -1392,6 +1518,7 @@ void inspect_serialized_object
     bool &has_IsoForest,
     bool &has_ExtIsoForest,
     bool &has_Imputer,
+    bool &has_Indexer,
     bool &has_metadata,
     size_t &size_metadata
 );
@@ -1432,6 +1559,8 @@ ISOTREE_EXPORTED
 size_t determine_serialized_size(const ExtIsoForest &model);
 ISOTREE_EXPORTED
 size_t determine_serialized_size(const Imputer &model);
+ISOTREE_EXPORTED
+size_t determine_serialized_size(const TreesIndexer &model);
 ISOTREE_EXPORTED
 void serialize_IsoForest(const IsoForest &model, char *out);
 ISOTREE_EXPORTED
@@ -1480,6 +1609,22 @@ ISOTREE_EXPORTED
 void deserialize_Imputer(Imputer &model, std::istream &in);
 ISOTREE_EXPORTED
 void deserialize_Imputer(Imputer &model, const std::string &in);
+ISOTREE_EXPORTED
+void serialize_Indexer(const TreesIndexer &model, char *out);
+ISOTREE_EXPORTED
+void serialize_Indexer(const TreesIndexer &model, FILE *out);
+ISOTREE_EXPORTED
+void serialize_Indexer(const TreesIndexer &model, std::ostream &out);
+ISOTREE_EXPORTED
+std::string serialize_Indexer(const TreesIndexer &model);
+ISOTREE_EXPORTED
+void deserialize_Indexer(TreesIndexer &model, const char *in);
+ISOTREE_EXPORTED
+void deserialize_Indexer(TreesIndexer &model, FILE *in);
+ISOTREE_EXPORTED
+void deserialize_Indexer(TreesIndexer &model, std::istream &in);
+ISOTREE_EXPORTED
+void deserialize_Indexer(TreesIndexer &model, const std::string &in);
 
 
 /* Serialization and de-serialization functions (combined objects)
@@ -1547,6 +1692,7 @@ size_t determine_serialized_size_combined
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const size_t size_optional_metadata
 );
 ISOTREE_EXPORTED
@@ -1555,6 +1701,7 @@ size_t determine_serialized_size_combined
     const char *serialized_model,
     const char *serialized_model_ext,
     const char *serialized_imputer,
+    const char *serialized_indexer,
     const size_t size_optional_metadata
 );
 ISOTREE_EXPORTED
@@ -1563,6 +1710,7 @@ void serialize_combined
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     char *out
@@ -1573,6 +1721,7 @@ void serialize_combined
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     FILE *out
@@ -1583,6 +1732,7 @@ void serialize_combined
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     std::ostream &out
@@ -1593,6 +1743,7 @@ std::string serialize_combined
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata
 );
@@ -1602,6 +1753,7 @@ void serialize_combined
     const char *serialized_model,
     const char *serialized_model_ext,
     const char *serialized_imputer,
+    const char *serialized_indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     FILE *out
@@ -1612,6 +1764,7 @@ void serialize_combined
     const char *serialized_model,
     const char *serialized_model_ext,
     const char *serialized_imputer,
+    const char *serialized_indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     std::ostream &out
@@ -1622,6 +1775,7 @@ std::string serialize_combined
     const char *serialized_model,
     const char *serialized_model_ext,
     const char *serialized_imputer,
+    const char *serialized_indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata
 );
@@ -1632,6 +1786,7 @@ void deserialize_combined
     IsoForest *model,
     ExtIsoForest *model_ext,
     Imputer *imputer,
+    TreesIndexer *indexer,
     char *optional_metadata
 );
 ISOTREE_EXPORTED
@@ -1641,6 +1796,7 @@ void deserialize_combined
     IsoForest *model,
     ExtIsoForest *model_ext,
     Imputer *imputer,
+    TreesIndexer *indexer,
     char *optional_metadata
 );
 ISOTREE_EXPORTED
@@ -1650,6 +1806,7 @@ void deserialize_combined
     IsoForest *model,
     ExtIsoForest *model_ext,
     Imputer *imputer,
+    TreesIndexer *indexer,
     char *optional_metadata
 );
 ISOTREE_EXPORTED
@@ -1659,6 +1816,7 @@ void deserialize_combined
     IsoForest *model,
     ExtIsoForest *model_ext,
     Imputer *imputer,
+    TreesIndexer *indexer,
     char *optional_metadata
 );
 
@@ -1697,11 +1855,15 @@ bool check_can_undergo_incremental_serialization(const ExtIsoForest &model, cons
 ISOTREE_EXPORTED
 bool check_can_undergo_incremental_serialization(const Imputer &model, const char *serialized_bytes);
 ISOTREE_EXPORTED
+bool check_can_undergo_incremental_serialization(const TreesIndexer &model, const char *serialized_bytes);
+ISOTREE_EXPORTED
 size_t determine_serialized_size_additional_trees(const IsoForest &model, size_t old_ntrees);
 ISOTREE_EXPORTED
 size_t determine_serialized_size_additional_trees(const ExtIsoForest &model, size_t old_ntrees);
 ISOTREE_EXPORTED
 size_t determine_serialized_size_additional_trees(const Imputer &model, size_t old_ntrees);
+ISOTREE_EXPORTED
+size_t determine_serialized_size_additional_trees(const TreesIndexer &model, size_t old_ntrees);
 ISOTREE_EXPORTED
 void incremental_serialize_IsoForest(const IsoForest &model, char *old_bytes_reallocated);
 ISOTREE_EXPORTED
@@ -1709,11 +1871,15 @@ void incremental_serialize_ExtIsoForest(const ExtIsoForest &model, char *old_byt
 ISOTREE_EXPORTED
 void incremental_serialize_Imputer(const Imputer &model, char *old_bytes_reallocated);
 ISOTREE_EXPORTED
+void incremental_serialize_Indexer(const TreesIndexer &model, char *old_bytes_reallocated);
+ISOTREE_EXPORTED
 void incremental_serialize_IsoForest(const IsoForest &model, std::string &old_bytes);
 ISOTREE_EXPORTED
 void incremental_serialize_ExtIsoForest(const ExtIsoForest &model, std::string &old_bytes);
 ISOTREE_EXPORTED
 void incremental_serialize_Imputer(const Imputer &model, std::string &old_bytes);
+ISOTREE_EXPORTED
+void incremental_serialize_Indexer(const TreesIndexer &model, std::string &old_bytes);
 
 
 /* Translate isolation forest model into a single SQL select statement

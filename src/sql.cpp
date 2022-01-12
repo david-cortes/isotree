@@ -230,7 +230,7 @@ std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *mo
 
     #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
             shared(model_outputs, model_outputs_ext, numeric_colnames, categ_colnames, categ_levels, \
-                   loop_st, loop_end, index1, single_tree, all_node_rules, out, ex) \
+                   loop_st, loop_end, index1, single_tree, all_node_rules, out, ex, threw_exception) \
             firstprivate(conditions_left, conditions_right) private(tree_use)
     for (size_t_for tree = loop_st; tree < loop_end; tree++)
     {
@@ -291,7 +291,7 @@ std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *mo
             all_node_rules[tree_use].clear();
         }
 
-        catch(...)
+        catch (...)
         {
             #pragma omp critical
             {

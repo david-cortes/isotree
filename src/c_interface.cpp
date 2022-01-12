@@ -584,9 +584,10 @@ size_t isotree_serialize_get_raw_size(const void *isotree_model)
     {
         const IsolationForest *model = (const IsolationForest*)isotree_model;
         return determine_serialized_size_combined(
-            model->model.trees.size()? &model->model : nullptr,
-            model->model_ext.hplanes.size()? &model->model_ext : nullptr,
-            model->imputer.imputer_tree.size()? &model->imputer : nullptr,
+            (!model->model.trees.empty())? &model->model : nullptr,
+            (!model->model_ext.hplanes.empty())? &model->model_ext : nullptr,
+            (!model->imputer.imputer_tree.empty())? &model->imputer : nullptr,
+            (!model->indexer.indices.empty())? &model->indexer : nullptr,
             (size_t)0
         );
     }
@@ -611,9 +612,10 @@ int isotree_serialize_to_raw(const void *isotree_model, char *output)
     try
     {
         serialize_combined(
-            model->model.trees.size()? &model->model : nullptr,
-            model->model_ext.hplanes.size()? &model->model_ext : nullptr,
-            model->imputer.imputer_tree.size()? &model->imputer : nullptr,
+            (!model->model.trees.empty())? &model->model : nullptr,
+            (!model->model_ext.hplanes.empty())? &model->model_ext : nullptr,
+            (!model->imputer.imputer_tree.empty())? &model->imputer : nullptr,
+            (!model->indexer.indices.empty())? &model->indexer : nullptr,
             (char*)nullptr,
             (size_t)0,
             output
@@ -646,6 +648,7 @@ void* isotree_deserialize_from_raw(const char *serialized_model, int nthreads)
         bool has_IsoForest = false;
         bool has_ExtIsoForest = false;
         bool has_Imputer = false;
+        bool has_Indexer = false;
         bool has_metadata = false;
         size_t size_metadata = 0;
         inspect_serialized_object(
@@ -656,6 +659,7 @@ void* isotree_deserialize_from_raw(const char *serialized_model, int nthreads)
             has_IsoForest,
             has_ExtIsoForest,
             has_Imputer,
+            has_Indexer,
             has_metadata,
             size_metadata
         );
@@ -665,12 +669,14 @@ void* isotree_deserialize_from_raw(const char *serialized_model, int nthreads)
         IsoForest model = IsoForest();
         ExtIsoForest model_ext = ExtIsoForest();
         Imputer imputer = Imputer();
+        TreesIndexer indexer = TreesIndexer();
 
         deserialize_combined(
             serialized_model,
             &model,
             &model_ext,
             &imputer,
+            &indexer,
             (char*)nullptr
         );
 
@@ -681,17 +687,21 @@ void* isotree_deserialize_from_raw(const char *serialized_model, int nthreads)
         size_t ndim = 3;
         bool build_imputer = false;
 
-        if (model.trees.size()) {
+        if (!model.trees.empty()) {
             ntrees = model.trees.size();
             ndim = 1;
         }
         else {
             ntrees = model_ext.hplanes.size();
         }
-        if (imputer.imputer_tree.size()) {
+        if (!imputer.imputer_tree.empty()) {
             if (imputer.imputer_tree.size() != ntrees)
                 throw std::runtime_error("Error: imputer has incorrect number of trees.\n");
             build_imputer = true;
+        }
+        if (!indexer.indices.empty()) {
+            if (indexer.indices.size() != ntrees)
+                throw std::runtime_error("Error: indexer has incorrect number of trees.\n");
         }
 
         std::unique_ptr<IsolationForest> out(new IsolationForest());
@@ -700,12 +710,14 @@ void* isotree_deserialize_from_raw(const char *serialized_model, int nthreads)
         out->ntrees = ntrees;
         out->build_imputer = build_imputer;
 
-        if (model.trees.size())
+        if (!model.trees.empty())
             out->get_model() = std::move(model);
         else
             out->get_model_ext() = std::move(model_ext);
-        if (imputer.imputer_tree.size())
+        if (!imputer.imputer_tree.empty())
             out->get_imputer() = std::move(imputer);
+        if (!indexer.indices.empty())
+            out->indexer = std::move(indexer);
 
         return out.release();
     }
@@ -764,6 +776,48 @@ size_t isotree_get_ntrees(const void *isotree_model)
         cerr.flush();
         return SIZE_MAX;
     }
+}
+
+ISOTREE_EXPORTED
+uint8_t isotree_build_indexer(void *isotree_model, const uint8_t with_distances)
+{
+    if (!isotree_model) {
+        cerr << "Passed NULL 'isotree_model' to 'isotree_build_indexer'." << std::endl;
+        return IsoTreeError;
+    }
+    IsolationForest *model = (IsolationForest*)isotree_model;
+    if (!model->indexer.indices.empty()) return IsoTreeSuccess;
+    try {
+        model->build_indexer((const bool)with_distances);
+    }
+    catch (std::exception &e) {
+        model->indexer.indices.clear();
+        cerr << e.what();
+        cerr.flush();
+        return IsoTreeError;
+    }
+    return IsoTreeSuccess;
+}
+
+ISOTREE_EXPORTED
+void* isotree_copy_model(void *isotree_model)
+{
+    if (!isotree_model) {
+        cerr << "Passed NULL 'isotree_model' to 'isotree_copy_model'." << std::endl;
+        return nullptr;
+    }
+    IsolationForest *model = (IsolationForest*)isotree_model;
+    try {
+        std::unique_ptr<IsolationForest> model_copy(new IsolationForest());
+        *model_copy = *model;
+        return model_copy.release();
+    }
+    catch (std::exception &e) {
+        cerr << e.what();
+        cerr.flush();
+        return nullptr;
+    }
+    return nullptr;
 }
 
 

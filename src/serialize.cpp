@@ -58,6 +58,7 @@
 */
 #include "isotree.hpp"
 
+/* TODO: add option to serialize as JSON file */
 
 using std::uint8_t;
 using std::int8_t;
@@ -110,7 +111,7 @@ using std::int64_t;
 #endif
 
 #if defined(DBL_MANT_DIG) && (DBL_MANT_DIG == 53) && (FLT_RADIX == 2)
-    #define HAS_NORMAL_DOUBLE
+    #define HAS_IEEE_DOUBLE
 #endif
 
 #if INT_MAX == INT16_MAX
@@ -137,18 +138,33 @@ static const size_t SIZE_WATERMARK = 13;
 enum DoubleTypeStructure {IsNormalDouble=1, IsAbnormalDouble=2};
 enum PlatformSize {Is16Bit=1, Is32Bit=2, Is64Bit=3, IsOther=4};
 enum PlatformEndianness {PlatformLittleEndian=1, PlatformBigEndian=2};
-enum ModelTypes {IsoForestModel=1, ExtIsoForestModel=2, ImputerModel=3, AllObjectsCombined=4};
+enum ModelTypes {
+    IsoForestModel=1,
+    ExtIsoForestModel=2,
+    ImputerModel=3,
+    IndexerModel=5,
+    AllObjectsCombined=4
+};
 enum EndingIndicator {
     EndsHere=0,
     HasSingleVarModelNext=1,
     HasExtModelNext=2,
     HasImputerNext=3,
+    HasIndexerNext=11,
     HasSingleVarModelPlusImputerNext=4,
+    HasSingleVarModelPlusIndexerNext=12,
+    HasSingleVarModelPlusImputerPlusIndexerNext=13,
     HasExtModelPlusImputerNext=5,
+    HasExtModelPlusIndexerNext=14,
+    HasExtModelPlusImputerPlusIndexerNext=15,
     HasSingleVarModelPlusMetadataNext=6,
+    HasSingleVarModelPlusIndexerPlusMetadataNext=16,
     HasExtModelPlusMetadataNext=7,
+    HasExtModelPlusIndexerPlusMetadataNext=17,
     HasSingleVarModelPlusImputerPlusMetadataNext=8,
+    HasSingleVarModelPlusImputerPlusIndexerPlusMetadataNext=18,
     HasExtModelPlusImputerPlusMetadataNext=9,
+    HasExtModelPlusImputerPlusIndexerPlusMetadataNext=19,
     HasMoreTreesNext=10
 };
 
@@ -230,7 +246,7 @@ void swap64b(char *bytes)
 #endif
 void endian_swap(float &bytes)
 {
-    #ifdef HAS_NORMAL_DOUBLE
+    #ifdef HAS_IEEE_DOUBLE
     swap32b((char*)&bytes);
     #else
     std::reverse((char*)&bytes, (char*)&bytes + sizeof(float));
@@ -238,7 +254,7 @@ void endian_swap(float &bytes)
 }
 void endian_swap(double &bytes)
 {
-    #ifdef HAS_NORMAL_DOUBLE
+    #ifdef HAS_IEEE_DOUBLE
     swap64b((char*)&bytes);
     #else
     std::reverse((char*)&bytes, (char*)&bytes + sizeof(double));
@@ -1056,6 +1072,118 @@ void deserialize_node(ImputeNode &node, itype &in, std::vector<char> &buffer, co
     read_bytes<double, double>(node.cat_weight, data_sizets[4], in, buffer, diff_endian);
 }
 
+size_t get_size_node(const SingleTreeIndex &node)
+{
+    size_t n_bytes = 0;
+    n_bytes += sizeof(size_t);
+    n_bytes += node.terminal_node_mappings.size() * sizeof(size_t);
+    n_bytes += sizeof(size_t);
+    n_bytes += node.node_distances.size() * sizeof(double);
+    n_bytes += sizeof(size_t);
+    n_bytes += node.node_depths.size() * sizeof(double);
+    n_bytes += sizeof(size_t);
+    n_bytes += node.reference_points.size() * sizeof(size_t);
+    n_bytes += sizeof(size_t);
+    n_bytes += node.reference_indptr.size() * sizeof(size_t);
+    n_bytes += sizeof(size_t);
+    n_bytes += node.reference_mapping.size() * sizeof(size_t);
+    n_bytes += sizeof(size_t);
+    return n_bytes;
+}
+
+template <class otype>
+void serialize_node(const SingleTreeIndex &node, otype &out)
+{
+    if (interrupt_switch) return;
+
+    size_t vec_size = node.terminal_node_mappings.size();
+    write_bytes<size_t>((void*)&vec_size, (size_t)1, out);
+    if (vec_size)
+        write_bytes<size_t>((void*)node.terminal_node_mappings.data(), vec_size, out);
+
+    vec_size = node.node_distances.size();
+    write_bytes<size_t>((void*)&vec_size, (size_t)1, out);
+    if (vec_size)
+        write_bytes<double>((void*)node.node_distances.data(), vec_size, out);
+
+    vec_size = node.node_depths.size();
+    write_bytes<size_t>((void*)&vec_size, (size_t)1, out);
+    if (vec_size)
+        write_bytes<double>((void*)node.node_depths.data(), vec_size, out);
+
+    vec_size = node.reference_points.size();
+    write_bytes<size_t>((void*)&vec_size, (size_t)1, out);
+    if (vec_size)
+        write_bytes<size_t>((void*)node.reference_points.data(), vec_size, out);
+
+    vec_size = node.reference_indptr.size();
+    write_bytes<size_t>((void*)&vec_size, (size_t)1, out);
+    if (vec_size)
+        write_bytes<size_t>((void*)node.reference_indptr.data(), vec_size, out);
+
+    vec_size = node.reference_mapping.size();
+    write_bytes<size_t>((void*)&vec_size, (size_t)1, out);
+    if (vec_size)
+        write_bytes<size_t>((void*)node.reference_mapping.data(), vec_size, out);
+
+    vec_size = node.n_terminal;
+    write_bytes<size_t>((void*)&vec_size, (size_t)1, out);
+}
+
+template <class itype>
+void deserialize_node(SingleTreeIndex &node, itype &in)
+{
+    if (interrupt_switch) return;
+
+    size_t vec_size;
+    read_bytes<size_t>((void*)&vec_size, (size_t)1, in);
+    read_bytes<size_t>(node.terminal_node_mappings, vec_size, in);
+
+    read_bytes<size_t>((void*)&vec_size, (size_t)1, in);
+    read_bytes<double>(node.node_distances, vec_size, in);
+
+    read_bytes<size_t>((void*)&vec_size, (size_t)1, in);
+    read_bytes<double>(node.node_depths, vec_size, in);
+
+    read_bytes<size_t>((void*)&vec_size, (size_t)1, in);
+    read_bytes<size_t>(node.reference_points, vec_size, in);
+
+    read_bytes<size_t>((void*)&vec_size, (size_t)1, in);
+    read_bytes<size_t>(node.reference_indptr, vec_size, in);
+
+    read_bytes<size_t>((void*)&vec_size, (size_t)1, in);
+    read_bytes<size_t>(node.reference_mapping, vec_size, in);
+
+    read_bytes<size_t>((void*)&node.n_terminal, (size_t)1, in);
+}
+
+template <class itype, class saved_int_t, class saved_size_t>
+void deserialize_node(SingleTreeIndex &node, itype &in, std::vector<char> &buffer, const bool diff_endian)
+{
+    if (interrupt_switch) return;
+
+    size_t vec_size;
+    read_bytes<size_t, saved_size_t>((void*)&vec_size, (size_t)1, in, buffer, diff_endian);
+    read_bytes<size_t, saved_size_t>(node.terminal_node_mappings, vec_size, in, buffer, diff_endian);
+
+    read_bytes<size_t, saved_size_t>((void*)&vec_size, (size_t)1, in, buffer, diff_endian);
+    read_bytes<double, double>(node.node_distances, vec_size, in, buffer, diff_endian);
+
+    read_bytes<size_t, saved_size_t>((void*)&vec_size, (size_t)1, in, buffer, diff_endian);
+    read_bytes<double, double>(node.node_depths, vec_size, in, buffer, diff_endian);
+
+    read_bytes<size_t, saved_size_t>((void*)&vec_size, (size_t)1, in, buffer, diff_endian);
+    read_bytes<size_t, saved_size_t>(node.reference_points, vec_size, in, buffer, diff_endian);
+
+    read_bytes<size_t, saved_size_t>((void*)&vec_size, (size_t)1, in, buffer, diff_endian);
+    read_bytes<size_t, saved_size_t>(node.reference_indptr, vec_size, in, buffer, diff_endian);
+
+    read_bytes<size_t, saved_size_t>((void*)&vec_size, (size_t)1, in, buffer, diff_endian);
+    read_bytes<size_t, saved_size_t>(node.reference_mapping, vec_size, in, buffer, diff_endian);
+
+    read_bytes<size_t, saved_size_t>((void*)&node.n_terminal, (size_t)1, in, buffer, diff_endian);
+}
+
 size_t get_size_model(const IsoForest &model)
 {
     size_t n_bytes = 0;
@@ -1532,6 +1660,70 @@ size_t determine_serialized_size_additional_trees(const Imputer &model, size_t o
     return n_bytes;
 }
 
+size_t get_size_model(const TreesIndexer &model)
+{
+    size_t n_bytes = 0;
+    n_bytes += sizeof(size_t);
+    for (const auto &node : model.indices)
+        n_bytes += get_size_node(node);
+    return n_bytes;
+}
+
+template <class otype>
+void serialize_model(const TreesIndexer &model, otype &out)
+{
+    if (interrupt_switch) return;
+
+    size_t vec_size = model.indices.size();
+    write_bytes<size_t>((void*)&vec_size, (size_t)1, out);
+
+    for (const auto &tree : model.indices)
+        serialize_node(tree, out);
+}
+
+template <class itype>
+void deserialize_model(TreesIndexer &model, itype &in)
+{
+    if (interrupt_switch) return;
+
+    size_t vec_size;
+    read_bytes<size_t>(&vec_size, (size_t)1, in);
+    model.indices.resize(vec_size);
+    model.indices.shrink_to_fit();
+    for (auto &tree : model.indices)
+        deserialize_node(tree, in);
+}
+
+template <class itype, class saved_int_t, class saved_size_t>
+void deserialize_model(TreesIndexer &model, itype &in, std::vector<char> &buffer,
+                       const bool diff_endian, const bool lacks_range_penalty,
+                       const bool lacks_scoring_metric)
+{
+    if (interrupt_switch) return;
+
+    size_t vec_size;
+    read_bytes<size_t, saved_size_t>(&vec_size, (size_t)1, in, buffer, diff_endian);
+    model.indices.resize(vec_size);
+    model.indices.shrink_to_fit();
+    for (auto &tree : model.indices)
+        deserialize_node<itype, saved_int_t, saved_size_t>(tree, in, buffer, diff_endian);
+}
+
+template <class otype>
+void serialize_additional_trees(const TreesIndexer &model, otype &out, size_t trees_prev)
+{
+    for (size_t ix = trees_prev; ix < model.indices.size(); ix++)
+        serialize_node(model.indices[ix], out);
+}
+
+size_t determine_serialized_size_additional_trees(const TreesIndexer &model, size_t old_ntrees)
+{
+    size_t n_bytes = 0;
+    for (size_t ix = 0; ix < model.indices.size(); ix++)
+        n_bytes += get_size_node(model.indices[ix]);
+    return n_bytes;
+}
+
 bool get_is_little_endian()
 {
     const int one = 1;
@@ -1564,7 +1756,7 @@ void add_setup_info(otype &out, bool full_watermark)
         (uint8_t)ISOTREE_VERSION_MAJOR,
         (uint8_t)ISOTREE_VERSION_MINOR,
         (uint8_t)ISOTREE_VERSION_PATCH,
-        #if defined(HAS_NORMAL_DOUBLE)
+        #if defined(HAS_IEEE_DOUBLE)
         (uint8_t)IsNormalDouble,
         #else
         (uint8_t)IsAbnormalDouble,
@@ -1604,13 +1796,15 @@ void check_setup_info
     PlatformEndianness &saved_endian,
     bool &is_deserializable,
     bool &lacks_range_penalty,
-    bool &lacks_scoring_metric
+    bool &lacks_scoring_metric,
+    bool &lacks_indexer
 )
 {
     is_deserializable = false;
     has_incomplete_watermark = false;
     lacks_range_penalty = false;
     lacks_scoring_metric = false;
+    lacks_indexer = false;
 
     unsigned char watermark_in[SIZE_WATERMARK];
     read_bytes<unsigned char>((void*)watermark_in, SIZE_WATERMARK, in);
@@ -1642,6 +1836,10 @@ void check_setup_info
 
     if (setup_info[1] == 0 && setup_info[2] < 4) {
         lacks_scoring_metric = true;
+    }
+
+    if (setup_info[1] == 0 && setup_info[2] < 5) {
+        lacks_indexer = true;
     }
 
     if (setup_info[4] == (uint8_t)IsAbnormalDouble)
@@ -1717,6 +1915,7 @@ void check_setup_info(itype &in)
     bool is_deserializable = false;
     bool lacks_range_penalty = false;
     bool lacks_scoring_metric = false;
+    bool lacks_indexer = false;
 
     check_setup_info(
         in,
@@ -1731,7 +1930,8 @@ void check_setup_info(itype &in)
         saved_endian,
         is_deserializable,
         lacks_range_penalty,
-        lacks_scoring_metric
+        lacks_scoring_metric,
+        lacks_indexer
     );
 
     if (!has_watermark) {
@@ -1748,7 +1948,7 @@ void check_setup_info(itype &in)
         throw std::runtime_error("Error: input model was saved in a machine with different 'size_t' type.\n");
     if (!has_same_endianness)
         throw std::runtime_error("Error: input model was saved in a machine with different endianness.\n");
-    if (lacks_range_penalty || lacks_scoring_metric)
+    if (lacks_range_penalty || lacks_scoring_metric || lacks_indexer)
         throw std::runtime_error("Error: input model was produced with an incompatible earlier version, needs to be re-serialized.\n");
 }
 
@@ -1763,7 +1963,8 @@ void check_setup_info
     PlatformSize &saved_size_t,
     PlatformEndianness &saved_endian,
     bool &lacks_range_penalty,
-    bool &lacks_scoring_metric
+    bool &lacks_scoring_metric,
+    bool &lacks_indexer
 )
 {
     bool has_watermark = false;
@@ -1784,7 +1985,8 @@ void check_setup_info
         saved_endian,
         is_deserializable,
         lacks_range_penalty,
-        lacks_scoring_metric
+        lacks_scoring_metric,
+        lacks_indexer
     );
 
     if (!has_watermark) {
@@ -1834,6 +2036,11 @@ uint8_t get_model_code(const Imputer &model)
     return ImputerModel;
 }
 
+uint8_t get_model_code(const TreesIndexer &model)
+{
+    return IndexerModel;
+}
+
 template <class Model, class otype>
 void serialization_pipeline(const Model &model, otype &out)
 {
@@ -1877,6 +2084,7 @@ void deserialization_pipeline(Model &model, itype &in)
     PlatformEndianness saved_endian;
     bool lacks_range_penalty;
     bool lacks_scoring_metric;
+    bool lacks_indexer; /* <- ignored */
 
     check_setup_info(
         in,
@@ -1887,7 +2095,8 @@ void deserialization_pipeline(Model &model, itype &in)
         saved_size_t,
         saved_endian,
         lacks_range_penalty,
-        lacks_scoring_metric
+        lacks_scoring_metric,
+        lacks_indexer
     );
 
     uint8_t model_type = get_model_code(model);
@@ -2165,6 +2374,64 @@ void re_serialization_pipeline(const Imputer &model, char *&out)
     check_interrupt_switch(ss);
 }
 
+void re_serialization_pipeline(const TreesIndexer &model, char *&out)
+{
+    SignalSwitcher ss = SignalSwitcher();
+
+    check_setup_info(out);
+    
+    uint8_t model_in;
+    memcpy(&model_in, out, sizeof(uint8_t));
+    out += sizeof(uint8_t);
+    if (model_in != get_model_code(model))
+        throw std::runtime_error("Object to incrementally-serialize does not match with the supplied type.\n");
+
+    char *pos_size = out;
+    size_t old_size;
+    memcpy(&old_size, out, sizeof(size_t));
+    out += sizeof(size_t);
+    
+    char *old_end = out + old_size;
+    uint8_t old_ending_type;
+    memcpy(&old_ending_type, old_end, sizeof(uint8_t));
+    size_t old_jump_ahead;
+    memcpy(&old_jump_ahead, old_end + sizeof(uint8_t), sizeof(size_t));
+
+    size_t new_size = get_size_model(model);
+    size_t new_ntrees = model.indices.size();
+
+    try
+    {
+        char *pos_ntrees = out;
+        size_t old_ntrees;
+        memcpy(&old_ntrees, out, sizeof(size_t));
+        
+        serialize_additional_trees(model, old_end, old_ntrees);
+
+        out = old_end;
+        uint8_t ending_type = (uint8_t)EndsHere;
+        memcpy(out, &ending_type, sizeof(uint8_t));
+        out += sizeof(uint8_t);
+        size_t jump_ahead = 0;
+        memcpy(out, &jump_ahead, sizeof(size_t));
+        out += sizeof(size_t);
+
+        /* Leave this for the end in case something fails, so as not to
+           render the serialized bytes unusable. */
+        memcpy(pos_size, &new_size, sizeof(size_t));
+        memcpy(pos_ntrees, &new_ntrees, sizeof(size_t));
+    }
+
+    catch(...)
+    {
+        memcpy(out, &old_ending_type, sizeof(uint8_t));
+        memcpy(out + sizeof(uint8_t), &old_jump_ahead, sizeof(size_t));
+        throw;
+    }
+
+    check_interrupt_switch(ss);
+}
+
 void incremental_serialize_IsoForest(const IsoForest &model, char *old_bytes_reallocated)
 {
     char *out = old_bytes_reallocated;
@@ -2178,6 +2445,12 @@ void incremental_serialize_ExtIsoForest(const ExtIsoForest &model, char *old_byt
 }
 
 void incremental_serialize_Imputer(const Imputer &model, char *old_bytes_reallocated)
+{
+    char *out = old_bytes_reallocated;
+    re_serialization_pipeline(model, out);
+}
+
+void incremental_serialize_Indexer(const TreesIndexer &model, char *old_bytes_reallocated)
 {
     char *out = old_bytes_reallocated;
     re_serialization_pipeline(model, out);
@@ -2207,6 +2480,11 @@ void incremental_serialize_ExtIsoForest(const ExtIsoForest &model, std::string &
 }
 
 void incremental_serialize_Imputer(const Imputer &model, std::string &old_bytes)
+{
+    incremental_serialize_string(model, old_bytes);
+}
+
+void incremental_serialize_Indexer(const TreesIndexer &model, std::string &old_bytes)
 {
     incremental_serialize_string(model, old_bytes);
 }
@@ -2250,6 +2528,11 @@ size_t determine_serialized_size(const ExtIsoForest &model)
 size_t determine_serialized_size(const Imputer &model)
 {
     return determine_serialized_size<Imputer>(model);
+}
+
+size_t determine_serialized_size(const TreesIndexer &model)
+{
+    return determine_serialized_size<TreesIndexer>(model);
 }
 
 void serialize_IsoForest(const IsoForest &model, char *out)
@@ -2459,6 +2742,75 @@ void deserialize_Imputer_FromFile(Imputer &model, const wchar_t *fname)
 }
 #endif
 
+void serialize_Indexer(const TreesIndexer &model, char *out)
+{
+    serialization_pipeline(model, out);
+}
+
+void serialize_Indexer(const TreesIndexer &model, FILE *out)
+{
+    serialization_pipeline(model, out);
+}
+
+void serialize_Indexer(const TreesIndexer &model, std::ostream &out)
+{
+    serialization_pipeline(model, out);
+}
+
+std::string serialize_Indexer(const TreesIndexer &model)
+{
+    return serialization_pipeline(model);
+}
+
+void serialize_Indexer_ToFile(const TreesIndexer &model, const char *fname)
+{
+    serialization_pipeline_ToFile(model, fname);
+}
+
+#ifdef WCHAR_T_FUNS
+void serialize_Indexer_ToFile(const TreesIndexer &model, const wchar_t *fname)
+{
+    serialization_pipeline_ToFile(model, fname);
+}
+#endif
+
+void deserialize_Indexer(TreesIndexer &model, const char *in)
+{
+    deserialization_pipeline(model, in);
+}
+
+void deserialize_Indexer(TreesIndexer &model, FILE *in)
+{
+    deserialization_pipeline(model, in);
+}
+
+void deserialize_Indexer(TreesIndexer &model, std::istream &in)
+{
+    deserialization_pipeline(model, in);
+}
+
+void deserialize_Indexer(TreesIndexer &model, const std::string &in)
+{
+    if (!in.size())
+        throw std::runtime_error("Invalid input model to deserialize.");
+    const char *in_ = &in[0];
+    deserialization_pipeline(model, in_);
+}
+
+void deserialize_Indexer_FromFile(TreesIndexer &model, const char *fname)
+{
+    FileHandle f(fname, "rb");
+    deserialize_Indexer(model, f.handle);
+}
+
+#ifdef WCHAR_T_FUNS
+void deserialize_Indexer_FromFile(TreesIndexer &model, const wchar_t *fname)
+{
+    WFileHandle f(fname, L"rb");
+    deserialize_Indexer(model, f.handle);
+}
+#endif
+
 /* Shorthands to use in templates (will be used in R) */
 void serialize_isotree(const IsoForest &model, char *out)
 {
@@ -2473,6 +2825,11 @@ void serialize_isotree(const ExtIsoForest &model, char *out)
 void serialize_isotree(const Imputer &model, char *out)
 {
     serialize_Imputer(model, out);
+}
+
+void serialize_isotree(const TreesIndexer &model, char *out)
+{
+    serialize_Indexer(model, out);
 }
 
 void deserialize_isotree(IsoForest &model, const char *in)
@@ -2490,6 +2847,11 @@ void deserialize_isotree(Imputer &model, const char *in)
     deserialize_Imputer(model, in);
 }
 
+void deserialize_isotree(TreesIndexer &model, const char *in)
+{
+    deserialize_Indexer(model, in);
+}
+
 void incremental_serialize_isotree(const IsoForest &model, char *old_bytes_reallocated)
 {
     incremental_serialize_IsoForest(model, old_bytes_reallocated);
@@ -2503,6 +2865,11 @@ void incremental_serialize_isotree(const ExtIsoForest &model, char *old_bytes_re
 void incremental_serialize_isotree(const Imputer &model, char *old_bytes_reallocated)
 {
     incremental_serialize_Imputer(model, old_bytes_reallocated);
+}
+
+void incremental_serialize_isotree(const TreesIndexer &model, char *old_bytes_reallocated)
+{
+    incremental_serialize_Indexer(model, old_bytes_reallocated);
 }
 
 template <class itype>
@@ -2540,6 +2907,7 @@ void inspect_serialized_object
     bool &has_IsoForest,
     bool &has_ExtIsoForest,
     bool &has_Imputer,
+    bool &has_Indexer,
     bool &has_metadata,
     size_t &size_metadata,
     bool &has_same_int_size,
@@ -2557,8 +2925,11 @@ void inspect_serialized_object
     has_IsoForest = false;
     has_ExtIsoForest = false;
     has_Imputer = false;
+    has_Indexer = false;
     has_metadata = false;
     size_metadata = 0;
+
+    bool lacks_indexer = false;
 
     bool has_same_double = false;
     bool has_incomplete_watermark = false;
@@ -2578,7 +2949,8 @@ void inspect_serialized_object
         saved_endian,
         is_compatible,
         lacks_range_penalty,
-        lacks_scoring_metric
+        lacks_scoring_metric,
+        lacks_indexer
     );
 
     if (!is_isotree_model || !is_compatible)
@@ -2607,6 +2979,11 @@ void inspect_serialized_object
             break;
         }
 
+        case IndexerModel:
+        {
+            has_Indexer = true;
+        }
+
         case AllObjectsCombined:
         {
             has_combined_objects = true;
@@ -2621,7 +2998,7 @@ void inspect_serialized_object
 
     if (has_combined_objects)
     {
-        size_t size_model[3];
+        size_t size_model[4] = {0};
 
         read_bytes<uint8_t>((void*)&model_type, (size_t)1, serialized_bytes);
         switch(model_type)
@@ -2642,26 +3019,71 @@ void inspect_serialized_object
                 has_Imputer = true;
                 break;
             }
+            case HasSingleVarModelPlusIndexerNext:
+            {
+                has_IsoForest = true;
+                has_Indexer = true;
+                break;
+            }
+            case HasSingleVarModelPlusImputerPlusIndexerNext:
+            {
+                has_IsoForest = true;
+                has_Imputer = true;
+                has_Indexer = true;
+                break;
+            }
             case HasExtModelPlusImputerNext:
             {
                 has_ExtIsoForest = true;
                 has_Imputer = true;
                 break;
             }
+            case HasExtModelPlusIndexerNext:
+            {
+                has_ExtIsoForest = true;
+                has_Indexer = true;
+                break;
+            }
+            case HasExtModelPlusImputerPlusIndexerNext:
+            {
+                has_ExtIsoForest = true;
+                has_Imputer = true;
+                has_Indexer = true;
+                break;
+            }
             case HasSingleVarModelPlusMetadataNext:
             {
                 has_IsoForest = true;
                 has_metadata = true;
-                read_bytes_size_t(size_model, (size_t)3, serialized_bytes, saved_size_t, has_same_endianness);
-                size_metadata = size_model[2];
+                read_bytes_size_t(size_model, (size_t)(3+!lacks_indexer), serialized_bytes, saved_size_t, has_same_endianness);
+                size_metadata = size_model[2+!lacks_indexer];
+                break;
+            }
+            case HasSingleVarModelPlusIndexerPlusMetadataNext:
+            {
+                has_IsoForest = true;
+                has_Indexer = true;
+                has_metadata = true;
+                read_bytes_size_t(size_model, (size_t)4, serialized_bytes, saved_size_t, has_same_endianness);
+                size_metadata = size_model[3];
                 break;
             }
             case HasExtModelPlusMetadataNext:
             {
                 has_ExtIsoForest = true;
                 has_metadata = true;
-                read_bytes_size_t(size_model, (size_t)3, serialized_bytes, saved_size_t, has_same_endianness);
-                size_metadata = size_model[2];
+                read_bytes_size_t(size_model, (size_t)(3+!lacks_indexer), serialized_bytes, saved_size_t, has_same_endianness);
+                size_metadata = size_model[2+!lacks_indexer];
+                break;
+            }
+            case HasExtModelPlusIndexerPlusMetadataNext:
+            {
+                has_ExtIsoForest = true;
+                has_Indexer = true;
+                has_metadata = true;
+                read_bytes_size_t(size_model, (size_t)4, serialized_bytes, saved_size_t, has_same_endianness);
+                size_metadata = size_model[3];
+                break;
                 break;
             }
             case HasSingleVarModelPlusImputerPlusMetadataNext:
@@ -2669,8 +3091,18 @@ void inspect_serialized_object
                 has_IsoForest = true;
                 has_Imputer = true;
                 has_metadata = true;
-                read_bytes_size_t(size_model, (size_t)3, serialized_bytes, saved_size_t, has_same_endianness);
-                size_metadata = size_model[2];
+                read_bytes_size_t(size_model, (size_t)(3+!lacks_indexer), serialized_bytes, saved_size_t, has_same_endianness);
+                size_metadata = size_model[2+!lacks_indexer];
+                break;
+            }
+            case HasSingleVarModelPlusImputerPlusIndexerPlusMetadataNext:
+            {
+                has_IsoForest = true;
+                has_Imputer = true;
+                has_Indexer = true;
+                has_metadata = true;
+                read_bytes_size_t(size_model, (size_t)4, serialized_bytes, saved_size_t, has_same_endianness);
+                size_metadata = size_model[3];
                 break;
             }
             case HasExtModelPlusImputerPlusMetadataNext:
@@ -2678,8 +3110,18 @@ void inspect_serialized_object
                 has_ExtIsoForest = true;
                 has_Imputer = true;
                 has_metadata = true;
-                read_bytes_size_t(size_model, (size_t)3, serialized_bytes, saved_size_t, has_same_endianness);
-                size_metadata = size_model[2];
+                read_bytes_size_t(size_model, (size_t)(3+!lacks_indexer), serialized_bytes, saved_size_t, has_same_endianness);
+                size_metadata = size_model[2+!lacks_indexer];
+                break;
+            }
+            case HasExtModelPlusImputerPlusIndexerPlusMetadataNext:
+            {
+                has_ExtIsoForest = true;
+                has_Imputer = true;
+                has_Indexer = true;
+                has_metadata = true;
+                read_bytes_size_t(size_model, (size_t)4, serialized_bytes, saved_size_t, has_same_endianness);
+                size_metadata = size_model[3];
                 break;
             }
             
@@ -2703,6 +3145,7 @@ void inspect_serialized_object
     bool &has_IsoForest,
     bool &has_ExtIsoForest,
     bool &has_Imputer,
+    bool &has_Indexer,
     bool &has_metadata,
     size_t &size_metadata
 )
@@ -2716,6 +3159,7 @@ void inspect_serialized_object
         has_IsoForest,
         has_ExtIsoForest,
         has_Imputer,
+        has_Indexer,
         has_metadata,
         size_metadata,
         ignored[0],
@@ -2735,6 +3179,7 @@ void inspect_serialized_object
     bool &has_IsoForest,
     bool &has_ExtIsoForest,
     bool &has_Imputer,
+    bool &has_Indexer,
     bool &has_metadata,
     size_t &size_metadata
 )
@@ -2748,6 +3193,7 @@ void inspect_serialized_object
         has_IsoForest,
         has_ExtIsoForest,
         has_Imputer,
+        has_Indexer,
         has_metadata,
         size_metadata
     );
@@ -2762,6 +3208,7 @@ void inspect_serialized_object
     bool &has_IsoForest,
     bool &has_ExtIsoForest,
     bool &has_Imputer,
+    bool &has_Indexer,
     bool &has_metadata,
     size_t &size_metadata
 )
@@ -2772,6 +3219,8 @@ void inspect_serialized_object
         has_IsoForest = false;
         has_ExtIsoForest = false;
         has_Imputer = false;
+        has_Indexer = false;
+        has_metadata = false;
         return;
     }
     const char *in = &serialized_bytes[0];
@@ -2783,6 +3232,7 @@ void inspect_serialized_object
         has_IsoForest,
         has_ExtIsoForest,
         has_Imputer,
+        has_Indexer,
         has_metadata,
         size_metadata
     );
@@ -2797,6 +3247,7 @@ void inspect_serialized_object
     bool &has_IsoForest,
     bool &has_ExtIsoForest,
     bool &has_Imputer,
+    bool &has_Indexer,
     bool &has_metadata,
     size_t &size_metadata
 )
@@ -2810,6 +3261,7 @@ void inspect_serialized_object
         has_IsoForest,
         has_ExtIsoForest,
         has_Imputer,
+        has_Indexer,
         has_metadata,
         size_metadata
     );
@@ -2824,6 +3276,7 @@ void inspect_serialized_object
     bool &has_IsoForest,
     bool &has_ExtIsoForest,
     bool &has_Imputer,
+    bool &has_Indexer,
     bool &has_metadata,
     size_t &size_metadata
 )
@@ -2836,24 +3289,10 @@ void inspect_serialized_object
         has_IsoForest,
         has_ExtIsoForest,
         has_Imputer,
+        has_Indexer,
         has_metadata,
         size_metadata
     );
-}
-
-size_t get_ntrees(const IsoForest &model)
-{
-    return model.trees.size();
-}
-
-size_t get_ntrees(const ExtIsoForest &model)
-{
-    return model.hplanes.size();
-}
-
-size_t get_ntrees(const Imputer &model)
-{
-    return model.imputer_tree.size();
 }
 
 template <class Model>
@@ -2890,6 +3329,7 @@ bool check_can_undergo_incremental_serialization(const Model &model, const char 
     bool has_IsoForest;
     bool has_ExtIsoForest;
     bool has_Imputer;
+    bool has_Indexer;
     bool has_metadata;
     size_t size_metadata;
     bool has_same_int_size;
@@ -2906,6 +3346,7 @@ bool check_can_undergo_incremental_serialization(const Model &model, const char 
         has_IsoForest,
         has_ExtIsoForest,
         has_Imputer,
+        has_Indexer,
         has_metadata,
         size_metadata,
         has_same_int_size,
@@ -2921,17 +3362,22 @@ bool check_can_undergo_incremental_serialization(const Model &model, const char 
         return false;
 
     if (std::is_same<Model, IsoForest>::value) {
-        if (!has_IsoForest || has_ExtIsoForest || has_Imputer)
+        if (!has_IsoForest || has_ExtIsoForest || has_Imputer || has_Indexer)
             return false;
     }
 
     else if (std::is_same<Model, ExtIsoForest>::value) {
-        if (has_IsoForest || !has_ExtIsoForest || has_Imputer)
+        if (has_IsoForest || !has_ExtIsoForest || has_Imputer || has_Indexer)
             return false;
     }
 
     else if (std::is_same<Model, Imputer>::value) {
-        if (has_IsoForest || has_ExtIsoForest || !has_Imputer)
+        if (has_IsoForest || has_ExtIsoForest || !has_Imputer || has_Indexer)
+            return false;
+    }
+
+    else if (std::is_same<Model, TreesIndexer>::value) {
+        if (has_IsoForest || has_ExtIsoForest || has_Imputer || !has_Indexer)
             return false;
     }
 
@@ -2961,6 +3407,10 @@ bool check_can_undergo_incremental_serialization(const Model &model, const char 
         start += sizeof(size_t) * 3;
     }
 
+    else if (std::is_same<Model, TreesIndexer>::value) {
+        /* Nothing is required here */
+    }
+
     else {
         assert(0);
     }
@@ -2988,17 +3438,23 @@ bool check_can_undergo_incremental_serialization(const Imputer &model, const cha
     return check_can_undergo_incremental_serialization<Imputer>(model, serialized_bytes);
 }
 
+bool check_can_undergo_incremental_serialization(const TreesIndexer &model, const char *serialized_bytes)
+{
+    return check_can_undergo_incremental_serialization<TreesIndexer>(model, serialized_bytes);
+}
+
 size_t determine_serialized_size_combined
 (
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const size_t size_optional_metadata
 )
 {
     size_t n_bytes = get_size_setup_info();
-    n_bytes += 2 * sizeof(uint8_t);
-    n_bytes += 3 * sizeof(size_t);
+    n_bytes += 3 * sizeof(uint8_t);
+    n_bytes += 5 * sizeof(size_t);
 
     if (model != NULL)
         n_bytes += get_size_model(*model);
@@ -3006,6 +3462,8 @@ size_t determine_serialized_size_combined
         n_bytes += get_size_model(*model_ext);
     if (imputer != NULL)
         n_bytes += get_size_model(*imputer);
+    if (indexer != NULL)
+        n_bytes += get_size_model(*indexer);
 
     n_bytes += get_size_ending_metadata();
     return n_bytes;
@@ -3017,6 +3475,7 @@ void serialize_combined
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     otype &out
@@ -3035,18 +3494,34 @@ void serialize_combined
 
         if (!size_optional_metadata)
         {
-            if (imputer == NULL)
-                model_type = HasSingleVarModelNext;
-            else
-                model_type = HasSingleVarModelPlusImputerNext;
+            if (imputer == NULL) {
+                if (indexer == NULL)
+                    model_type = HasSingleVarModelNext;
+                else
+                    model_type = HasSingleVarModelPlusIndexerNext;
+            }
+            else {
+                if (indexer == NULL)
+                    model_type = HasSingleVarModelPlusImputerNext;
+                else
+                    model_type = HasSingleVarModelPlusImputerPlusIndexerNext;
+            }
         }
 
         else
         {
-            if (imputer == NULL)
-                model_type = HasSingleVarModelPlusMetadataNext;
-            else
-                model_type = HasSingleVarModelPlusImputerPlusMetadataNext;
+            if (imputer == NULL) {
+                if (indexer == NULL)
+                    model_type = HasSingleVarModelPlusMetadataNext;
+                else
+                    model_type = HasSingleVarModelPlusIndexerPlusMetadataNext;
+            }
+            else {
+                if (indexer == NULL)
+                    model_type = HasSingleVarModelPlusImputerPlusMetadataNext;
+                else
+                    model_type = HasSingleVarModelPlusImputerPlusIndexerPlusMetadataNext;
+            }
         }
 
     }
@@ -3056,18 +3531,34 @@ void serialize_combined
 
         if (!size_optional_metadata)
         {
-            if (imputer == NULL)
-                model_type = HasExtModelNext;
-            else
-                model_type = HasExtModelPlusImputerNext;
+            if (imputer == NULL) {
+                if (indexer == NULL)
+                    model_type = HasExtModelNext;
+                else
+                    model_type = HasExtModelPlusIndexerNext;
+            }
+            else {
+                if (indexer == NULL)
+                    model_type = HasExtModelPlusImputerNext;
+                else
+                    model_type = HasExtModelPlusImputerPlusIndexerNext;
+            }
         }
 
         else
         {
-            if (imputer == NULL)
-                model_type = HasExtModelPlusMetadataNext;
-            else
-                model_type = HasExtModelPlusImputerPlusMetadataNext;
+            if (imputer == NULL) {
+                if (indexer == NULL)
+                    model_type = HasExtModelPlusMetadataNext;
+                else
+                    model_type = HasExtModelPlusIndexerPlusMetadataNext;
+            }
+            else {
+                if (indexer == NULL)
+                    model_type = HasExtModelPlusImputerPlusMetadataNext;
+                else
+                    model_type = HasExtModelPlusImputerPlusIndexerPlusMetadataNext;
+            }
         }
     }
 
@@ -3090,6 +3581,12 @@ void serialize_combined
         size_model = 0;
     write_bytes<size_t>((void*)&size_model, (size_t)1, out);
 
+    if (indexer != NULL)
+        size_model = get_size_model(*indexer);
+    else
+        size_model = 0;
+    write_bytes<size_t>((void*)&size_model, (size_t)1, out);
+
     write_bytes<size_t>((void*)&size_optional_metadata, (size_t)1, out);
 
 
@@ -3102,6 +3599,9 @@ void serialize_combined
 
     if (imputer != NULL)
         serialize_model(*imputer, out);
+
+    if (indexer != NULL)
+        serialize_model(*indexer, out);
 
     if (size_optional_metadata)
         write_bytes<char>((void*)optional_metadata, size_optional_metadata, out);
@@ -3124,6 +3624,7 @@ void serialize_combined
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     char *out
@@ -3133,6 +3634,7 @@ void serialize_combined
         model,
         model_ext,
         imputer,
+        indexer,
         optional_metadata,
         size_optional_metadata,
         out
@@ -3144,6 +3646,7 @@ void serialize_combined
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     FILE *out
@@ -3153,6 +3656,7 @@ void serialize_combined
         model,
         model_ext,
         imputer,
+        indexer,
         optional_metadata,
         size_optional_metadata,
         out
@@ -3164,6 +3668,7 @@ void serialize_combined
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     std::ostream &out
@@ -3173,6 +3678,7 @@ void serialize_combined
         model,
         model_ext,
         imputer,
+        indexer,
         optional_metadata,
         size_optional_metadata,
         out
@@ -3184,14 +3690,15 @@ std::string serialize_combined
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata
 )
 {
     std::string serialized;
-    serialized.resize(determine_serialized_size_combined(model, model_ext, imputer, size_optional_metadata));
+    serialized.resize(determine_serialized_size_combined(model, model_ext, imputer, indexer, size_optional_metadata));
     char *ptr = &serialized[0];
-    serialize_combined(model, model_ext, imputer, optional_metadata, size_optional_metadata, ptr);
+    serialize_combined(model, model_ext, imputer, indexer, optional_metadata, size_optional_metadata, ptr);
     return serialized;
 }
 
@@ -3200,12 +3707,13 @@ size_t determine_serialized_size_combined
     const char *serialized_model,
     const char *serialized_model_ext,
     const char *serialized_imputer,
+    const char *serialized_indexer,
     const size_t size_optional_metadata
 )
 {
     size_t n_bytes = get_size_setup_info();
-    n_bytes += 2 * sizeof(uint8_t);
-    n_bytes += 3 * sizeof(size_t);
+    n_bytes += 3 * sizeof(uint8_t);
+    n_bytes += 5 * sizeof(size_t);
 
     size_t model_size;
 
@@ -3216,6 +3724,10 @@ size_t determine_serialized_size_combined
     n_bytes += model_size;
     if (serialized_imputer != NULL) {
         memcpy(&model_size, serialized_imputer + get_size_setup_info() + sizeof(uint8_t), sizeof(size_t));
+        n_bytes += model_size;
+    }
+    if (serialized_indexer != NULL) {
+        memcpy(&model_size, serialized_indexer + get_size_setup_info() + sizeof(uint8_t), sizeof(size_t));
         n_bytes += model_size;
     }
 
@@ -3231,6 +3743,7 @@ void serialize_combined
     const char *serialized_model,
     const char *serialized_model_ext,
     const char *serialized_imputer,
+    const char *serialized_indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     otype &out
@@ -3251,18 +3764,34 @@ void serialize_combined
     {
         if (!size_optional_metadata)
         {
-            if (serialized_imputer == NULL)
-                model_type = HasSingleVarModelNext;
-            else
-                model_type = HasSingleVarModelPlusImputerNext;
+            if (serialized_imputer == NULL) {
+                if (serialized_indexer == NULL)
+                    model_type = HasSingleVarModelNext;
+                else
+                    model_type = HasSingleVarModelPlusIndexerNext;
+            }
+            else {
+                if (serialized_indexer == NULL)
+                    model_type = HasSingleVarModelPlusImputerNext;
+                else
+                    model_type = HasSingleVarModelPlusImputerPlusIndexerNext;
+            }
         }
 
         else
         {
-            if (serialized_imputer == NULL)
-                model_type = HasSingleVarModelPlusMetadataNext;
-            else
-                model_type = HasSingleVarModelPlusImputerPlusMetadataNext;
+            if (serialized_imputer == NULL) {
+                if (serialized_indexer == NULL)
+                    model_type = HasSingleVarModelPlusMetadataNext;
+                else
+                    model_type = HasSingleVarModelPlusIndexerPlusMetadataNext;
+            }
+            else {
+                if (serialized_indexer == NULL)
+                    model_type = HasSingleVarModelPlusImputerPlusMetadataNext;
+                else
+                    model_type = HasSingleVarModelPlusImputerPlusIndexerPlusMetadataNext;
+            }
         }
     }
 
@@ -3270,25 +3799,41 @@ void serialize_combined
     {
         if (!size_optional_metadata)
         {
-            if (serialized_imputer == NULL)
-                model_type = HasExtModelNext;
-            else
-                model_type = HasExtModelPlusImputerNext;
+            if (serialized_imputer == NULL) {
+                if (serialized_indexer == NULL)
+                    model_type = HasExtModelNext;
+                else
+                    model_type = HasExtModelPlusIndexerNext;
+            }
+            else {
+                if (serialized_indexer == NULL)
+                    model_type = HasExtModelPlusImputerNext;
+                else
+                    model_type = HasExtModelPlusImputerPlusIndexerNext;
+            }
         }
 
         else
         {
-            if (serialized_imputer == NULL)
-                model_type = HasExtModelPlusMetadataNext;
-            else
-                model_type = HasExtModelPlusImputerPlusMetadataNext;
+            if (serialized_imputer == NULL) {
+                if (serialized_indexer == NULL)
+                    model_type = HasExtModelPlusMetadataNext;
+                else
+                    model_type = HasExtModelPlusIndexerPlusMetadataNext;
+            }
+            else {
+                if (serialized_indexer == NULL)
+                    model_type = HasExtModelPlusImputerPlusMetadataNext;
+                else
+                    model_type = HasExtModelPlusImputerPlusIndexerPlusMetadataNext;
+            }
         }
     }
 
     write_bytes<uint8_t>((void*)&model_type, (size_t)1, out);
 
     size_t model_size;
-    size_t size_model1, size_model2, size_model3;
+    size_t size_model1, size_model2, size_model3, size_model4;
 
     std::unique_ptr<char[]> new_model;
     if (serialized_model != NULL)
@@ -3354,6 +3899,29 @@ void serialize_combined
     }
     write_bytes<size_t>((void*)&model_size, (size_t)1, out);
 
+    if (serialized_indexer != NULL)
+    {
+        if (memcmp(curr_setup.get(), serialized_indexer, get_size_setup_info()))
+        {
+            fprintf(stderr, "Warning: 'indexer' was serialized in a different setup, will need to convert.\n");
+            TreesIndexer model;
+            deserialization_pipeline(model, serialized_indexer);
+            new_model = std::unique_ptr<char[]>(new char[get_size_model(model)]);
+            char *ptr_new_model_ser = new_model.get();
+            serialization_pipeline(model, ptr_new_model_ser);
+            serialized_indexer = new_model.get();
+        }
+        serialized_indexer += get_size_setup_info() + sizeof(uint8_t);
+        memcpy(&model_size, serialized_indexer, sizeof(size_t));
+        serialized_indexer += sizeof(size_t);
+        size_model4 = model_size;
+    }
+
+    else {
+        model_size = 0;
+    }
+    write_bytes<size_t>((void*)&model_size, (size_t)1, out);
+
     check_interrupt_switch(ss);
 
     write_bytes<size_t>((void*)&size_optional_metadata, (size_t)1, out);
@@ -3364,6 +3932,8 @@ void serialize_combined
         write_bytes<char>((void*)serialized_model_ext, size_model2, out);
     if (serialized_imputer != NULL)
         write_bytes<char>((void*)serialized_imputer, size_model3, out);
+    if (serialized_indexer != NULL)
+        write_bytes<char>((void*)serialized_indexer, size_model4, out);
 
     if (size_optional_metadata)
         write_bytes<char>((void*)optional_metadata, size_optional_metadata, out);
@@ -3386,6 +3956,7 @@ void serialize_combined
     const char *serialized_model,
     const char *serialized_model_ext,
     const char *serialized_imputer,
+    const char *serialized_indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     FILE *out
@@ -3395,6 +3966,7 @@ void serialize_combined
         serialized_model,
         serialized_model_ext,
         serialized_imputer,
+        serialized_indexer,
         optional_metadata,
         size_optional_metadata,
         out
@@ -3406,6 +3978,7 @@ void serialize_combined
     const char *serialized_model,
     const char *serialized_model_ext,
     const char *serialized_imputer,
+    const char *serialized_indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     std::ostream &out
@@ -3415,6 +3988,7 @@ void serialize_combined
         serialized_model,
         serialized_model_ext,
         serialized_imputer,
+        serialized_indexer,
         optional_metadata,
         size_optional_metadata,
         out
@@ -3426,6 +4000,7 @@ std::string serialize_combined
     const char *serialized_model,
     const char *serialized_model_ext,
     const char *serialized_imputer,
+    const char *serialized_indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata
 )
@@ -3436,6 +4011,7 @@ std::string serialize_combined
             serialized_model,
             serialized_model_ext,
             serialized_imputer,
+            serialized_indexer,
             size_optional_metadata
         )
     );
@@ -3444,6 +4020,7 @@ std::string serialize_combined
         serialized_model,
         serialized_model_ext,
         serialized_imputer,
+        serialized_indexer,
         optional_metadata,
         size_optional_metadata,
         ptr
@@ -3516,6 +4093,7 @@ void deserialize_combined
     IsoForest *model,
     ExtIsoForest *model_ext,
     Imputer *imputer,
+    TreesIndexer *indexer,
     char *optional_metadata
 )
 {
@@ -3529,6 +4107,7 @@ void deserialize_combined
     PlatformEndianness saved_endian;
     bool lacks_range_penalty;
     bool lacks_scoring_metric;
+    bool lacks_indexer;
 
     check_setup_info(
         in,
@@ -3539,7 +4118,8 @@ void deserialize_combined
         saved_size_t,
         saved_endian,
         lacks_range_penalty,
-        lacks_scoring_metric
+        lacks_scoring_metric,
+        lacks_indexer
     );
 
     uint8_t model_in;
@@ -3548,19 +4128,47 @@ void deserialize_combined
         throw std::runtime_error("Object to de-serialize was not created through 'serialize_combined'.\n");
 
     read_bytes<uint8_t>((void*)&model_in, (size_t)1, in);
-    size_t size_model[3];
-    read_bytes_size_t((void*)size_model, (size_t)3, in, saved_size_t, has_same_endianness);
+    
+    size_t size_model[4];
+    size_t size_metadata;
+    if (!lacks_indexer)
+    {
+        read_bytes_size_t((void*)size_model, (size_t)4, in, saved_size_t, has_same_endianness);
+        size_metadata = size_model[3];
+    }
 
-    switch(model_in)
+    else
+    {
+        read_bytes_size_t((void*)size_model, (size_t)3, in, saved_size_t, has_same_endianness);
+        size_metadata = size_model[2];
+        size_model[2] = 0;
+        size_model[3] = size_metadata;
+    }
+
+    switch (model_in)
     {
         case HasSingleVarModelNext:
         {
             deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             break;
         }
+        case HasSingleVarModelPlusIndexerNext:
+        {
+            deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            deserialize_model(*indexer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            break;
+        }
         case HasExtModelNext:
         {
             deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            break;
+        }
+        case HasExtModelPlusIndexerNext:
+        {
+            deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            deserialize_model(*indexer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             break;
         }
         case HasSingleVarModelPlusImputerNext:
@@ -3570,6 +4178,15 @@ void deserialize_combined
             deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             break;
         }
+        case HasSingleVarModelPlusImputerPlusIndexerNext:
+        {
+            deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            deserialize_model(*indexer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            break;
+        }
         case HasExtModelPlusImputerNext:
         {
             deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
@@ -3577,18 +4194,45 @@ void deserialize_combined
             deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             break;
         }
+        case HasExtModelPlusImputerPlusIndexerNext:
+        {
+            deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            deserialize_model(*indexer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            break;
+        }
         case HasSingleVarModelPlusMetadataNext:
         {
             deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             check_interrupt_switch(ss);
-            read_bytes<char>((void*)optional_metadata, size_model[2], in);
+            read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            break;
+        }
+        case HasSingleVarModelPlusIndexerPlusMetadataNext:
+        {
+            deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            deserialize_model(*indexer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            read_bytes<char>((void*)optional_metadata, size_metadata, in);
             break;
         }
         case HasExtModelPlusMetadataNext:
         {
             deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             check_interrupt_switch(ss);
-            read_bytes<char>((void*)optional_metadata, size_model[2], in);
+            read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            break;
+        }
+        case HasExtModelPlusIndexerPlusMetadataNext:
+        {
+            deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            deserialize_model(*indexer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            read_bytes<char>((void*)optional_metadata, size_metadata, in);
             break;
         }
         case HasSingleVarModelPlusImputerPlusMetadataNext:
@@ -3597,7 +4241,18 @@ void deserialize_combined
             check_interrupt_switch(ss);
             deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             check_interrupt_switch(ss);
-            read_bytes<char>((void*)optional_metadata, size_model[2], in);
+            read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            break;
+        }
+        case HasSingleVarModelPlusImputerPlusIndexerPlusMetadataNext:
+        {
+            deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            deserialize_model(*indexer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            read_bytes<char>((void*)optional_metadata, size_metadata, in);
             break;
         }
         case HasExtModelPlusImputerPlusMetadataNext:
@@ -3606,7 +4261,18 @@ void deserialize_combined
             check_interrupt_switch(ss);
             deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             check_interrupt_switch(ss);
-            read_bytes<char>((void*)optional_metadata, size_model[2], in);
+            read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            break;
+        }
+        case HasExtModelPlusImputerPlusIndexerPlusMetadataNext:
+        {
+            deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            deserialize_model(*indexer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
+            check_interrupt_switch(ss);
+            read_bytes<char>((void*)optional_metadata, size_metadata, in);
             break;
         }
         
@@ -3623,6 +4289,7 @@ void deserialize_combined
     IsoForest *model,
     ExtIsoForest *model_ext,
     Imputer *imputer,
+    TreesIndexer *indexer,
     char *optional_metadata
 )
 {
@@ -3631,6 +4298,7 @@ void deserialize_combined
         model,
         model_ext,
         imputer,
+        indexer,
         optional_metadata
     );
 }
@@ -3641,6 +4309,7 @@ void deserialize_combined
     IsoForest *model,
     ExtIsoForest *model_ext,
     Imputer *imputer,
+    TreesIndexer *indexer,
     char *optional_metadata
 )
 {
@@ -3649,6 +4318,7 @@ void deserialize_combined
         model,
         model_ext,
         imputer,
+        indexer,
         optional_metadata
     );
 }
@@ -3659,6 +4329,7 @@ void deserialize_combined
     IsoForest *model,
     ExtIsoForest *model_ext,
     Imputer *imputer,
+    TreesIndexer *indexer,
     char *optional_metadata
 )
 {
@@ -3667,6 +4338,7 @@ void deserialize_combined
         model,
         model_ext,
         imputer,
+        indexer,
         optional_metadata
     );
 }
@@ -3677,6 +4349,7 @@ void deserialize_combined
     IsoForest *model,
     ExtIsoForest *model_ext,
     Imputer *imputer,
+    TreesIndexer *indexer,
     char *optional_metadata
 )
 {
@@ -3686,6 +4359,7 @@ void deserialize_combined
         model,
         model_ext,
         imputer,
+        indexer,
         optional_metadata
     );
 }
@@ -3735,6 +4409,11 @@ void add_range_penalty(ExtIsoForest &model)
 }
 
 void add_range_penalty(Imputer &model)
+{
+    
+}
+
+void add_range_penalty(TreesIndexer &model)
 {
     
 }

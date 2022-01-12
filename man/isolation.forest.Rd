@@ -573,7 +573,12 @@ distances between points from which the model was fit). If passing `FALSE`, will
 as if the new observations at prediction time were added to the sample to which each tree was fit, which
 will make the distances between two points potentially vary according to other newly introduced points.
 This will not be assumed when the distances are calculated as the model is being fit (see documentation
-for parameter `output_dist`).}
+for parameter `output_dist`).
+
+This was added for experimentation purposes only and it's not recommended to pass `FALSE`.
+Note that when calculating distances using a tree indexer (after calling \link{isotree.build.index}), there
+might be slight discrepancies between the numbers produced with or without the indexer due to what
+are considered "additional" observations in this calculation.}
 
 \item{build_imputer}{Whether to construct missing-value imputers so that later this same model could be used to impute
 missing values of new (or the same) observations. Be aware that this will significantly increase the memory
@@ -682,7 +687,7 @@ trees beyond balanced-tree limit. Offers options to vary between randomized and 
 any of the references (see section "Matching models from references").
 In particular, the following default values are likely to cause huge differences when compared to the
 defaults in other software: `ndim`, `sample_size`, `ntrees`. The defaults here are
-nevertheless more likely to result in better models. In order to mimic scikit-learn for example, one
+nevertheless more likely to result in better models. In order to mimic the Python library "scikit-learn" for example, one
 would need to pass `ndim=1`, `sample_size=256`, `ntrees=100`, `missing_action="fail"`, `nthreads=1`.
 
 Note that the default parameters will not scale to large datasets. In particular,

@@ -13,9 +13,6 @@ isotree.deep.copy(model)
 A new `isolation_forest` object, with deep-copied C++ objects.
 }
 \description{
-Deep-Copy an Isolation Forest Model Object
-}
-\details{
 Generates a deep copy of a model object, including the C++ objects inside it.
 This function is only meaningful if one intends to call a function that modifies the
 internal C++ objects - currently, the only such function are \link{isotree.add.tree}

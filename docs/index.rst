@@ -28,8 +28,11 @@ Methods
 
 * `IsolationForest <#isotree.IsolationForest>`_
 * `append_trees <#isotree.IsolationForest.append_trees>`_
+* `build_indexer <#isotree.IsolationForest.build_indexer>`_
 * `copy <#isotree.IsolationForest.copy>`_
 * `decision_function <#isotree.IsolationForest.decision_function>`_
+* `drop_imputer <#isotree.IsolationForest.drop_imputer>`_
+* `drop_indexer <#isotree.IsolationForest.drop_indexer>`_
 * `export_model <#isotree.IsolationForest.export_model>`_
 * `fit <#isotree.IsolationForest.fit>`_
 * `fit_predict <#isotree.IsolationForest.fit_predict>`_

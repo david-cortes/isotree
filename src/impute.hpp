@@ -162,7 +162,7 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
     if (model_outputs != NULL)
     {
         #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
-                shared(end, imp_memory, prediction_data, model_outputs, ix_arr, imputer, ex)
+                shared(end, imp_memory, prediction_data, model_outputs, ix_arr, imputer, ex, threw_exception)
         for (size_t_for row = 0; row < (decltype(row))end; row++)
         {
             if (threw_exception) continue;
@@ -206,7 +206,7 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
     {
         double temp;
         #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
-                shared(end, imp_memory, prediction_data, model_outputs_ext, ix_arr, imputer, ex) \
+                shared(end, imp_memory, prediction_data, model_outputs_ext, ix_arr, imputer, ex, threw_exception) \
                 private(temp)
         for (size_t_for row = 0; row < (decltype(row))end; row++)
         {
@@ -231,7 +231,7 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
                 apply_imputation_results(prediction_data, imp_memory[omp_get_thread_num()], imputer, (size_t) ix_arr[row]);
             }
 
-            catch(...)
+            catch (...)
             {
                 #pragma omp critical
                 {
@@ -691,7 +691,7 @@ void drop_nonterminal_imp_node(std::vector<ImputeNode>  &imputer_tree,
     {
         for (size_t tr = 0; tr < trees->size(); tr++)
         {
-            if ((*trees)[tr].score <= 0)
+            if ((*trees)[tr].tree_left != 0)
             {
                 shrink_impute_node(imputer_tree[tr]);
             }
@@ -709,7 +709,7 @@ void drop_nonterminal_imp_node(std::vector<ImputeNode>  &imputer_tree,
     {
         for (size_t tr = 0; tr < hplanes->size(); tr++)
         {
-            if ((*hplanes)[tr].score <= 0)
+            if ((*hplanes)[tr].hplane_left != 0)
             {
                 shrink_impute_node(imputer_tree[tr]);
             }

@@ -93,6 +93,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              CategSplit cat_split_type, NewCategAction new_cat_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
              bool   all_perm, std::vector<ImputeNode> *impute_nodes, size_t min_imp_obs,
+             TreesIndexer *indexer,
              uint64_t random_seed);
 ISOTREE_EXPORTED
 void predict_iforest(real_t numeric_data[], int categ_data[],
@@ -102,7 +103,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
                      size_t nrows, int nthreads, bool standardize,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                      double output_depths[],   sparse_ix tree_num[],
-                     double per_tree_depths[]);
+                     double per_tree_depths[],
+                     TreesIndexer *indexer);
 ISOTREE_EXPORTED void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads);
 ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads);
 ISOTREE_EXPORTED
@@ -110,7 +112,8 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                     double tmat[], double rmat[], size_t n_from);
+                     double tmat[], double rmat[], size_t n_from,
+                     TreesIndexer *indexer, bool is_col_major, size_t ld_numeric, size_t ld_categ);
 ISOTREE_EXPORTED
 void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
                            real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
@@ -120,7 +123,14 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
 ISOTREE_EXPORTED
 void merge_models(IsoForest*     model,      IsoForest*     other,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
-                  Imputer*       imputer,    Imputer*       iother);
+                  Imputer*       imputer,    Imputer*       iother,
+                  TreesIndexer*  indexer,    TreesIndexer*  ind_other);
+ISOTREE_EXPORTED
+void subset_model(IsoForest*     model,      IsoForest*     model_new,
+                  ExtIsoForest*  ext_model,  ExtIsoForest*  ext_model_new,
+                  Imputer*       imputer,    Imputer*       imputer_new,
+                  TreesIndexer*  indexer,    TreesIndexer*  indexer_new,
+                  size_t *trees_take, size_t ntrees_take);
 ISOTREE_EXPORTED
 std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                           std::string &table_from, std::string &select_as,

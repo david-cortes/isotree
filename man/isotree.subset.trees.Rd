@@ -18,9 +18,6 @@ A new isolation forest model object, containing only the subset of trees
 from this `model` that was specified under `trees_take`.
 }
 \description{
-Subset trees of a given model
-}
-\details{
 Creates a new isolation forest model containing only selected trees of a
 given isolation forest model object.
 }

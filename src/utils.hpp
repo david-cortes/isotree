@@ -296,12 +296,10 @@ double expected_separation_depth(long double n)
     return s_l + diff * s_u;
 }
 
-#define ix_comb_(i, j, n, ncomb) (  ((ncomb)  + ((j) - (i))) - (size_t)1 - div2(((n) - (i)) * ((n) - (i) - (size_t)1))  )
-#define ix_comb(i, j, n, ncomb) (  ((i) < (j))? ix_comb_(i, j, n, ncomb) : ix_comb_(j, i, n, ncomb)  )
 void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n, double counter[], double exp_remainder)
 {
     size_t i, j;
-    size_t ncomb = ((n % 2) == 0)? (div2(n) * (n-(size_t)1)) : (n * div2(n-(size_t)1));
+    size_t ncomb = calc_ncomb(n);
     if (exp_remainder <= 1)
         for (size_t el1 = st; el1 < end; el1++)
         {
@@ -327,7 +325,7 @@ void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
                            double *restrict counter, double *restrict weights, double exp_remainder)
 {
     size_t i, j;
-    size_t ncomb = ((n % 2) == 0)? (div2(n) * (n-(size_t)1)) : (n * div2(n-(size_t)1));
+    size_t ncomb = calc_ncomb(n);
     if (exp_remainder <= 1)
         for (size_t el1 = st; el1 < end; el1++)
         {
@@ -353,7 +351,7 @@ void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
                            double counter[], hashed_map<size_t, double> &weights, double exp_remainder)
 {
     size_t i, j;
-    size_t ncomb = ((n % 2) == 0)? (div2(n) * (n-(size_t)1)) : (n * div2(n-(size_t)1));
+    size_t ncomb = calc_ncomb(n);
     if (exp_remainder <= 1)
         for (size_t el1 = st; el1 < end; el1++)
         {
@@ -422,9 +420,9 @@ void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, siz
                 weights[ix_arr[ix1]] * weights[ix_arr[ix2]] * exp_remainder;
 }
 
-void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool diag_to_one)
+void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool diag_to_one, bool diag_to_inf)
 {
-    size_t ncomb = ((n % 2) == 0)? (div2(n) * (n-(size_t)1)) : (n * div2(n-(size_t)1));
+    size_t ncomb = calc_ncomb(n);
     for (size_t i = 0; i < (n-1); i++)
     {
         for (size_t j = i + 1; j < n; j++)
@@ -433,12 +431,18 @@ void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool 
             dmat[i + j * n] = dmat[j + i * n] = tmat[ix_comb(i, j, n, ncomb)];
         }
     }
-    if (diag_to_one)
+    if (diag_to_one) {
         for (size_t i = 0; i < n; i++)
             dmat[i + i * n] = 1;
-    else
+    }
+    else if (diag_to_inf) {
+        for (size_t i = 0; i < n; i++)
+            dmat[i + i * n] = std::numeric_limits<double>::infinity();
+    }
+    else {
         for (size_t i = 0; i < n; i++)
             dmat[i + i * n] = 0;
+    }
 }
 
 template <class real_t>

@@ -237,7 +237,8 @@ std::vector<double> IsolationForest::predict(double X[], size_t nrows, bool stan
         nrows, this->nthreads, standardize,
         (!this->model.trees.empty())? &this->model : nullptr,
         (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
-        out.data(), (int*)nullptr, (double*)nullptr);
+        out.data(), (int*)nullptr, (double*)nullptr,
+        (TreesIndexer*)nullptr);
     return out;
 }
 
@@ -257,7 +258,8 @@ void IsolationForest::predict(double numeric_data[], int categ_data[], bool is_c
         nrows, this->nthreads, standardize,
         (!this->model.trees.empty())? &this->model : nullptr,
         (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
-        output_depths, tree_num, per_tree_depths);
+        output_depths, tree_num, per_tree_depths,
+        (!this>indexer.indices.empty())? &this->indexer : nullptr);
 }
 
 void IsolationForest::predict(double X_sparse[], int X_ind[], int X_indptr[], bool is_csc,
@@ -277,7 +279,8 @@ void IsolationForest::predict(double X_sparse[], int X_ind[], int X_indptr[], bo
         nrows, this->nthreads, standardize,
         (!this->model.trees.empty())? &this->model : nullptr,
         (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
-        output_depths, tree_num, per_tree_depths);
+        output_depths, tree_num, per_tree_depths,
+        (!this>indexer.indices.empty())? &this->indexer : nullptr);
 }
 
 std::vector<double> IsolationForest::predict_distance(double X[], size_t nrows,
@@ -286,7 +289,7 @@ std::vector<double> IsolationForest::predict_distance(double X[], size_t nrows,
 {
     this->check_is_fitted();
     this->check_nthreads();
-    std::vector<double> tmat((nrows % 2)? (nrows * div2(nrows-1)) : (div2(nrows) * (nrows-1)));
+    std::vector<double> tmat(calc_ncomb(nrows));
     std::vector<double> dmat(triangular? square(nrows) : 0);
 
     calc_similarity(X, (int*)nullptr,
@@ -294,9 +297,11 @@ std::vector<double> IsolationForest::predict_distance(double X[], size_t nrows,
                     nrows, this->nthreads, assume_full_distr, standardize_dist,
                     (!this->model.trees.empty())? &this->model : nullptr,
                     (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
-                    tmat.data(), (double*)nullptr, (size_t)0);
+                    tmat.data(), (double*)nullptr, (size_t)0,
+                    (!this->indexer.indices.empty())? &this->indexer : nullptr,
+                    true, (size_t)0, (size_t)0);
     if (!triangular)
-        tmat_to_dense(tmat.data(), dmat.data(), nrows, false);
+        tmat_to_dense(tmat.data(), dmat.data(), nrows, false, !standardize_dist);
     return (triangular? tmat : dmat);
 }
 
@@ -308,7 +313,7 @@ void IsolationForest::predict_distance(double numeric_data[], int categ_data[],
 {
     this->check_is_fitted();
     this->check_nthreads();
-    std::vector<double> tmat(triangular? 0 : ((nrows % 2)? (nrows * div2(nrows-1)) : (div2(nrows) * (nrows-1))));
+    std::vector<double> tmat(triangular? 0 : calc_ncomb(nrows));
 
     calc_similarity(numeric_data, categ_data,
                     (double*)nullptr, (int*)nullptr, (int*)nullptr,
@@ -317,9 +322,11 @@ void IsolationForest::predict_distance(double numeric_data[], int categ_data[],
                     (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                     triangular? dist_matrix : tmat.data(),
                     (double*)nullptr,
-                    (size_t)0);
+                    (size_t)0,
+                    (!this->indexer.indices.empty())? &this->indexer : nullptr,
+                    true, (size_t)0, (size_t)0);
     if (!triangular)
-        tmat_to_dense(tmat.data(), dist_matrix, nrows, false);
+        tmat_to_dense(tmat.data(), dist_matrix, nrows, false, !standardize_dist);
 }
 
 void IsolationForest::predict_distance(double Xc[], int Xc_ind[], int Xc_indptr[], int categ_data[],
@@ -329,7 +336,7 @@ void IsolationForest::predict_distance(double Xc[], int Xc_ind[], int Xc_indptr[
 {
     this->check_is_fitted();
     this->check_nthreads();
-    std::vector<double> tmat(triangular? 0 : ((nrows % 2)? (nrows * div2(nrows-1)) : (div2(nrows) * (nrows-1))));
+    std::vector<double> tmat(triangular? 0 : calc_ncomb(nrows));
 
     calc_similarity((double*)nullptr, (int*)nullptr,
                     Xc, Xc_ind, Xc_indptr,
@@ -338,9 +345,11 @@ void IsolationForest::predict_distance(double Xc[], int Xc_ind[], int Xc_indptr[
                     (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                     triangular? dist_matrix : tmat.data(),
                     (double*)nullptr,
-                    (size_t)0);
+                    (size_t)0,
+                    (!this->indexer.indices.empty())? &this->indexer : nullptr,
+                    true, (size_t)0, (size_t)0);
     if (!triangular)
-        tmat_to_dense(tmat.data(), dist_matrix, nrows, false);
+        tmat_to_dense(tmat.data(), dist_matrix, nrows, false, !standardize_dist);
 }
 
 void IsolationForest::impute(double X[], size_t nrows)
@@ -384,6 +393,24 @@ void IsolationForest::impute(double Xr[], int Xr_ind[], int Xr_indptr[],
                           (!this->model.trees.empty())? &this->model : nullptr,
                           (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                           this->imputer);
+}
+
+void IsolationForest::build_indexer(const bool with_distances)
+{
+    this->check_is_fitted();
+    if (!this->indexer.indices.empty())
+        return;
+    if (this->missing_action == Divide)
+        throw std::runtime_error("Cannot build tree indexer when using 'missing_action=Divide'.\n");
+    if (!this->model.trees.empty() && this->new_cat_action == Weighted)
+        throw std::runtime_error("Cannot build tree indexer when using 'new_cat_action=Weighted' with single-variable model.\n");
+    
+    if (!this->model.trees.empty())
+        build_tree_indices(this->indexer, this->model, this->nthreads, with_distances);
+    else if (!this->model_ext.hplanes.empty())
+        build_tree_indices(this->indexer, this->model_ext, this->nthreads, with_distances);
+    else
+        unexpected_error();
 }
 
 void IsolationForest::serialize(FILE *out) const
@@ -452,6 +479,13 @@ Imputer& IsolationForest::get_imputer()
     return this->imputer;
 }
 
+TreesIndexer& IsolationForest::get_indexer()
+{
+    if (this->indexer.indices.empty() && (!this->model.trees.empty() || !this->model_ext.hplanes.empty()))
+        throw std::runtime_error("Error: model does not contain indexer.\n");
+    return this->indexer;
+}
+
 void IsolationForest::check_nthreads()
 {
     if (this->nthreads < 0) {
@@ -509,6 +543,7 @@ void IsolationForest::override_previous_fit()
         this->model = IsoForest();
         this->model_ext = ExtIsoForest();
         this->imputer = Imputer();
+        this->indexer = TreesIndexer();
     }
 }
 
@@ -573,6 +608,7 @@ void IsolationForest::serialize_template(otype &out) const
         (!this->model.trees.empty())? &this->model : nullptr,
         (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
         (!this->imputer.imputer_tree.empty())? &this->imputer : nullptr,
+        (!this->indexer.indices.empty())? &this->indexer : nullptr,
         (char*)nullptr,
         (size_t)0,
         out
@@ -595,6 +631,7 @@ IsolationForest IsolationForest::deserialize_template(itype &inp, int nthreads)
     bool has_IsoForest = false;
     bool has_ExtIsoForest = false;
     bool has_Imputer = false;
+    bool has_Indexer = false;
     bool has_metadata = false;
     size_t size_metadata = 0;
     inspect_serialized_object(
@@ -605,6 +642,7 @@ IsolationForest IsolationForest::deserialize_template(itype &inp, int nthreads)
         has_IsoForest,
         has_ExtIsoForest,
         has_Imputer,
+        has_Indexer,
         has_metadata,
         size_metadata
     );
@@ -614,12 +652,14 @@ IsolationForest IsolationForest::deserialize_template(itype &inp, int nthreads)
     IsoForest model = IsoForest();
     ExtIsoForest model_ext = ExtIsoForest();
     Imputer imputer = Imputer();
+    TreesIndexer indexer = TreesIndexer();
 
     deserialize_combined(
         inp,
         &model,
         &model_ext,
         &imputer,
+        &indexer,
         (char*)nullptr
     );
 
@@ -642,6 +682,10 @@ IsolationForest IsolationForest::deserialize_template(itype &inp, int nthreads)
             throw std::runtime_error("Error: imputer has incorrect number of trees.\n");
         build_imputer = true;
     }
+    if (!indexer.indices.empty()) {
+        if (indexer.indices.size() != ntrees)
+            throw std::runtime_error("Error: indexer has incorrect number of trees.\n");
+    }
 
     IsolationForest out = IsolationForest(nthreads, ndim, ntrees, build_imputer);
 
@@ -655,6 +699,8 @@ IsolationForest IsolationForest::deserialize_template(itype &inp, int nthreads)
     }
     if (!imputer.imputer_tree.empty())
         out.get_imputer() = std::move(imputer);
+    if (!indexer.indices.empty())
+        out.indexer = std::move(indexer);
 
     return out;
 }

@@ -21,7 +21,7 @@
 #' any of the references (see section "Matching models from references").
 #' In particular, the following default values are likely to cause huge differences when compared to the
 #' defaults in other software: `ndim`, `sample_size`, `ntrees`. The defaults here are
-#' nevertheless more likely to result in better models. In order to mimic scikit-learn for example, one
+#' nevertheless more likely to result in better models. In order to mimic the Python library "scikit-learn" for example, one
 #' would need to pass `ndim=1`, `sample_size=256`, `ntrees=100`, `missing_action="fail"`, `nthreads=1`.
 #' 
 #' Note that the default parameters will not scale to large datasets. In particular,
@@ -600,6 +600,11 @@
 #' will make the distances between two points potentially vary according to other newly introduced points.
 #' This will not be assumed when the distances are calculated as the model is being fit (see documentation
 #' for parameter `output_dist`).
+#' 
+#' This was added for experimentation purposes only and it's not recommended to pass `FALSE`.
+#' Note that when calculating distances using a tree indexer (after calling \link{isotree.build.index}), there
+#' might be slight discrepancies between the numbers produced with or without the indexer due to what
+#' are considered "additional" observations in this calculation.
 #' @param build_imputer Whether to construct missing-value imputers so that later this same model could be used to impute
 #' missing values of new (or the same) observations. Be aware that this will significantly increase the memory
 #' requirements and serialized object sizes. Note that this is not related to 'missing_action' as missing values
@@ -1232,7 +1237,9 @@ isolation.forest <- function(data,
             ptr         =  cpp_outputs$model_ptr,
             serialized  =  cpp_outputs$serialized_obj,
             imp_ptr     =  cpp_outputs$imputer_ptr,
-            imp_ser     =  cpp_outputs$imputer_ser
+            imp_ser     =  cpp_outputs$imputer_ser,
+            indexer     =  new("externalptr"),
+            ind_ser     =  raw()
         )
     )
     
@@ -1306,10 +1313,15 @@ isolation.forest <- function(data,
 #'   \item `"dist"` for approximate pairwise or between-points distances (must pass more than 1 row) - these are
 #'   standardized in the same way as outlierness, values closer to zero indicate nearer points,
 #'   closer to one further away points, and closer to 0.5 average distance.
+#'   To make this computation faster, it is highly recommended to build a node indexer with
+#'   \link{isotree.build.indexer} (with `with_distances=TRUE`) before calling this function.
 #'   \item `"avg_sep"` for the non-standardized average separation depth.
+#'   To make this computation faster, it is highly recommended to build a node indexer with
+#'   \link{isotree.build.indexer} (with `with_distances=TRUE`) before calling this function.
 #'   \item `"tree_num"` for the terminal node number for each tree - if choosing this option,
 #'   will return a list containing both the average isolation depth and the terminal node numbers, under entries
-#'   `avg_depth` and `tree_num`, respectively.
+#'   `avg_depth` and `tree_num`, respectively. If this calculation is going to be perform frequently, it's recommended to
+#'   build node indices through \link{isotree.build.indexer}.
 #'   \item `"tree_depths"` for the non-standardized isolation depth or expected isolation depth or density
 #'   or log-density for each tree (note that they will not include range penalties from `penalize_range=TRUE`).
 #'   See the documentation for `scoring_metric` for more details about the calculations for density-based metrics.
@@ -1329,8 +1341,8 @@ isolation.forest <- function(data,
 #' @param ... Not used.
 #' @return The requested prediction type, which can be: \itemize{
 #' \item A numeric vector with one entry per row in `newdata` (for output types `"score"`, `"avg_depth"`).
-#' \item A list with entries `avg_depth` (numeric vector)
-#' and `tree_num` (integer matrix indicating the terminal node number under each tree for each
+#' \item An integer matrix with number of rows matching to rows in `newdata` and number of columns matching
+#' to the number of trees in the model, indicating the terminal node number under each tree for each
 #' observation, with trees as columns), for output type `"tree_num"`.
 #' \item A numeric matrix with rows matching to those in `newdata` and one column per tree in the
 #' model, for output type `"tree_depths"`.
@@ -1391,7 +1403,8 @@ isolation.forest <- function(data,
 #' 
 #' In order to save memory when fitting and serializing models, the functionality for outputting
 #' terminal node numbers will generate index mappings on the fly for all tree nodes, even if passing only
-#' 1 row, so it's only recommended for batch predictions.
+#' 1 row, so it's only recommended for batch predictions. If this type of prediction is desired, it can
+#' be sped up by building an index of terminal nodes through \link{isotree.build.indexer}.
 #' 
 #' The outlier scores/depth predict functionality is optimized for making predictions on one or a
 #' few rows at a time - for making large batches of predictions, it might be faster to use the
@@ -1403,12 +1416,18 @@ isolation.forest <- function(data,
 #' When imputing missing values, the input may contain new columns (i.e. not present when the model was fitted),
 #' which will be output as-is.
 #' 
-#' If passing `type="dist"` or `type="avg_sep"`, while in theory it should be possible to make such
-#' computations relatively fast by precomputing
-#' results for each pair of terminal nodes in a given tree, the procedure here is based on
-#' calculating this metric on-the-fly as each pair of observations is passed down a tree, which
-#' makes it relatively slow, and thus not recommended for real-time usage.
-#' @seealso \link{isolation.forest} \link{isotree.restore.handle}
+#' If passing `type="dist"` or `type="avg_sep"`, by default, it will do the calculation through a procedure
+#' that counts steps as observations are passed down the trees, which is especially slow and
+#' not recommended for more than a few thousand observations. If this calculation is going to be
+#' called repeatedly and/or it is going to be called for a large number of rows, it's highly
+#' recommended to build node distance indexes beforehand through \link{isotree.build.indexer} with
+#' option `with_distances=TRUE`, as then the computation will be done based on terminal node
+#' indices instead, which is a much faster procedure.
+#' 
+#' If using `assume_full_distr=FALSE` (not recommended to use such option), distance predictions with
+#' and without an indexer will differ slightly due to differences in what they count towards
+#' "additional" observations in the calculation.
+#' @seealso \link{isolation.forest} \link{isotree.restore.handle} \link{isotree.build.indexer}
 #' @export predict.isolation_forest
 #' @export
 predict.isolation_forest <- function(object, newdata, type="score", square_mat=FALSE, refdata=NULL, ...) {
@@ -1507,14 +1526,14 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
     }
     
     if (type %in% c("score", "avg_depth", "tree_num", "tree_depths")) {
-        predict_iso(object$cpp_obj$ptr, object$params$ndim > 1,
+        predict_iso(object$cpp_obj$ptr, object$params$ndim > 1, object$cpp_obj$ind_ptr,
                     score_array, tree_num, tree_depths,
                     pdata$X_num, pdata$X_cat,
                     pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
                     pdata$Xr, pdata$Xr_ind, pdata$Xr_indptr,
                     pdata$nrows, object$nthreads, type == "score")
         if (type == "tree_num") {
-            return(list(avg_depth = score_array, tree_num = tree_num+1L))
+            return(tree_num+1L)
         } else if (type == "tree_depths") {
             return(t(tree_depths))
         } else {
@@ -1526,7 +1545,8 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
                  pdata$X_num, pdata$X_cat,
                  pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
                  pdata$nrows, object$nthreads, object$params$assume_full_distr,
-                 type == "dist", square_mat, nobs_group1)
+                 type == "dist", square_mat, nobs_group1,
+                 object$cpp_obj$indexer)
         if (!is.null(refdata))
             return(t(dist_rmat))
         else if (square_mat)
@@ -1583,6 +1603,12 @@ print.isolation_forest <- function(x, ...) {
     cat(sprintf("Consisting of %d trees\n", x$params$ntrees))
     if (x$metadata$ncols_num  > 0)  cat(sprintf("Numeric columns: %d\n",     x$metadata$ncols_num))
     if (x$metadata$ncols_cat  > 0)  cat(sprintf("Categorical columns: %d\n", x$metadata$ncols_cat))
+    if (NROW(x$cpp_obj$ind_ser)) {
+        if (check_node_indexer_has_distances(x$cpp_obj$indexer))
+            cat("(Has node indexer with distances built-in)\n")
+        else
+            cat("(Has node indexer built-in)\n")
+    }
     if (NROW(x$cpp_obj$serialized)) {
         bytes <- length(x$cpp_obj$serialized) + NROW(x$cpp_obj$imp_ser)
         if (bytes > 1024^3) {
@@ -1700,7 +1726,16 @@ isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights 
     if (is.null(fast_bratio))
         fast_bratio <- TRUE
 
+    indexer <- NULL
+    if (!is.null(model&cpp_obj$indexer))
+        indexer <- model&cpp_obj$indexer
+
+    ind_ser <- raw()
+    if (NROW(model$cpp_obj$ind_ser))
+        ind_ser <- model$cpp_obj$ind_ser
+
     fit_tree(model$cpp_obj$ptr, serialized, imp_ser,
+             indexer, ind_ser,
              pdata$X_num, pdata$X_cat, unname(ncat),
              pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
              sample_weights, column_weights,
@@ -1786,6 +1821,10 @@ isotree.restore.handle <- function(model)  {
             stop("'model' is missing serialized raw bytes. Cannot restore handle.")
 
         set.list.elt(model$cpp_obj, "imp_ptr", deserialize_Imputer(model$cpp_obj$imp_ser))
+    }
+
+    if (NROW(model$cpp_obj$ind_ser) && (is.null(model$cpp_obj$indexer) || check_null_ptr_model(model$cpp_obj$indexer))) {
+        set.list.elt(model$cpp_obj, "indexer", deserialize_Indexer(model$cpp_obj$ind_ser))
     }
     
     return(invisible(model))
@@ -1880,15 +1919,19 @@ isotree.append.trees <- function(model, other) {
     
     serialized <- raw()
     imp_ser <- raw()
+    ind_ser <- raw()
     if (NROW(model$cpp_obj$serialized))
         serialized <- model$cpp_obj$serialized
     if (NROW(model$cpp_obj$imp_ser))
         imp_ser    <- model$cpp_obj$imp_ser
+    if (NROW(model$cpp_obj$ind_ser))
+        ind_ser    <- model$cpp_obj$ind_ser
 
     append_trees_from_other(model$cpp_obj$ptr,      other$cpp_obj$ptr,
                             model$cpp_obj$imp_ptr,  other$cpp_obj$imp_ptr,
+                            model$cpp_obj$ind_ser,  other$cpp_obj$ind_ser,
                             model$params$ndim > 1,
-                            serialized, imp_ser,
+                            serialized, imp_ser, ind_ser,
                             model$cpp_obj, model$params)
     return(invisible(model))
 }
@@ -2011,6 +2054,7 @@ isotree.export.model <- function(model, file, add_metadata_file=FALSE) {
     serialize_to_file(
         serialized,
         imp_ser,
+        ind_ser,
         model$params$ndim > 1,
         metadata,
         file
@@ -2060,10 +2104,16 @@ isotree.import.model <- function(file) {
                                    simplifyDataFrame = FALSE,
                                    simplifyMatrix = FALSE)
     this <- take.metadata(metadata)
-    this$cpp_obj$ptr         <-  res$ptr
-    this$cpp_obj$serialized  <-  res$serialized
-    this$cpp_obj$imp_ser     <-  res$imp_ser
-    this$cpp_obj$imp_ptr     <-  res$imp_ptr
+    this$cpp_obj <- list(
+        ptr         =  res$ptr,
+        serialized  =  res$serialized,
+        imp_ptr     =  res$imp_ptr,
+        imp_ser     =  res$imp_ser,
+        indexer     =  res$indexer,
+        ind_ser     =  res$ind_ser
+    )
+    if (!NROW(this$metadata$imp_ser))
+        this$metadata$has_imputer <- FALSE
     class(this) <- "isolation_forest"
     return(this)
 }
@@ -2262,7 +2312,7 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
 }
 
 #' @title Deep-Copy an Isolation Forest Model Object
-#' @details Generates a deep copy of a model object, including the C++ objects inside it.
+#' @description Generates a deep copy of a model object, including the C++ objects inside it.
 #' This function is only meaningful if one intends to call a function that modifies the
 #' internal C++ objects - currently, the only such function are \link{isotree.add.tree}
 #' and \link{isotree.append.trees} - as otherwise R's objects follow a copy-on-write logic.
@@ -2272,13 +2322,16 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
 isotree.deep.copy <- function(model) {
     isotree.restore.handle(model)
     new_pointers <- copy_cpp_objects(model$cpp_obj$ptr, model$params$ndim > 1,
-                                     model$cpp_obj$imputer_ptr, !is.null(model$cpp_obj$imputer_ptr))
+                                     model$cpp_obj$imputer_ptr, !is.null(model$cpp_obj$imputer_ptr),
+                                     model$cpp$indexer)
     new_model <- model
     new_model$cpp_obj <- list(
         ptr         =  new_pointers$model_ptr,
         serialized  =  model$cpp_obj$serialized,
         imp_ptr     =  new_pointers$imputer_ptr,
-        imp_ser     =  model$cpp_obj$imputer_ser
+        imp_ser     =  model$cpp_obj$imputer_ser,
+        indexer     =  new_pointers$indexer_ptr,
+        ind_ser     =  model$cpp_obj$ind_ser
     )
     new_model$metadata <- list(
         ncols_num  =  model$metadata$ncols_num,
@@ -2294,7 +2347,7 @@ isotree.deep.copy <- function(model) {
 }
 
 #' @title Drop Imputer Sub-Object from Isolation Forest Model Object
-#' @details Drops the imputer sub-object from an isolation forest model object, if it was fitted with data imputation
+#' @description Drops the imputer sub-object from an isolation forest model object, if it was fitted with data imputation
 #' capabilities. The imputer, if constructed, is likely to be a very heavy object which might
 #' not be needed for all purposes.
 #' @param model An `isolation_forest` model object.
@@ -2305,14 +2358,66 @@ isotree.drop.imputer <- function(model) {
     if (!inherits(model, "isolation_forest"))
         stop("This function is only available for isolation forest objects as returned from 'isolation.forest'.")
     set.list.elt(model$params, "build_imputer", FALSE)
-    on.exit(set.list.elt(model$cpp_obj, "imputer_ser", NULL))
     if (!is.null(model$cpp_obj$imp_ptr))
         set.list.elt(model$cpp_obj, "imp_ptr", drop_imputer(model$cpp_obj$imp_ptr))
-    return(model)
+    set.list.elt(model$cpp_obj, "imputer_ser", NULL)
+    return(invisible(model))
+}
+
+#' @title Drop Indexer Sub-Object from Isolation Forest Model Object
+#' @description Drops the indexer sub-object from an isolation forest model object, if it was constructed.
+#' The indexer, if constructed, is likely to be a very heavy object which might
+#' not be needed for all purposes.
+#' @param model An `isolation_forest` model object.
+#' @return The same `model` object, but now with the indexer removed. \bold{Note that `model` is modified in-place
+#' in any event}.
+#' @seealso \link{isotree.build.indexer}
+#' @export
+isotree.drop.indexer <- function(model) {
+    if (!inherits(model, "isolation_forest"))
+        stop("This function is only available for isolation forest objects as returned from 'isolation.forest'.")
+    if (!is.null(model$cpp_obj$indexer))
+        set.list.elt(model$cpp_obj, "indexer", drop_indexer(model$cpp_obj$indexer))
+    set.list.elt(model$cpp_obj, "ind_ser", raw())
+    return(invisible(model))
+}
+
+#' @title Build Indexer for Faster Terminal Node Predictions and/or Distance Calculations
+#' @description Builds an index of terminal nodes for faster prediction of terminal node numbers
+#' (calling `predict` with `type="tree_num"`).
+#' 
+#' Optionally, can also pre-calculate terminal node distances in order to speed up
+#' distance calculations (calling `predict` with `type="dist"` or `type="avg_sep"`).
+#' @details This feature is not available for models that use `missing_action="divide"`
+#' or `new_categ_action="weighted"` (which are the defaults when passing `ndim=1`).
+#' @param model An Isolation Forest model (as returned by function \link{isolation.forest})
+#' for which an indexer for terminal node numbers and/or distances will be added.
+#' 
+#' \bold{The object will be modified in-place}.
+#' @param with_distances Whether to also pre-calculate node distances in order to speed up
+#' `predict` with `type="dist"` or `type="avg_sep"`.
+#' Note that this will consume a lot more memory and make the resulting object significantly
+#' heavier.
+#' @return The same `model` object (as invisible), but now with an indexer added to it. Note
+#' the input object is modified in-place regardless.
+#' @seealso \link{isotree.drop.indexer}
+#' @export
+isotree.build.indexer <- function(model, with_distances = FALSE) {
+    if (!inherits(model, "isolation_forest"))
+        stop("This function is only available for isolation forest objects as returned from 'isolation.forest'.")
+    if (model$params$missing_action == "divide")
+        stop("Cannot build tree indexer when using missing_action='divide'.")
+    if (model$params$new_categ_action == "weighted" && (model$metadata$ncols_cat > 0 || NROW(model$metadata$cols_cat)))
+        stop("Cannot build tree indexer when using new_categ_action='weighted'.")
+    with_distances <- check.bool(with_distances)
+    res <- build_tree_indices(model$cpp_obj$ptr, model$ndim > 1, with_distances, model$nthreads)
+    set.list.elt(model$cpp_obj, "ind_ser", res$ind_ser)
+    set.list.elt(model$cpp_obj, "indexer", res$indexer)
+    return(invisible(model))
 }
 
 #' @title Subset trees of a given model
-#' @details Creates a new isolation forest model containing only selected trees of a
+#' @description Creates a new isolation forest model containing only selected trees of a
 #' given isolation forest model object.
 #' @param model An `isolation_forest` model object.
 #' @param trees_take Indices of the trees of `model` to copy over to a new model,
@@ -2331,7 +2436,7 @@ isotree.subset.trees <- function(model, trees_take) {
 
     ntrees_new <- length(trees_take)
     new_cpp_obj <- subset_trees(
-        model$cpp_obj$ptr, model$cpp_obj$imp_ptr,
+        model$cpp_obj$ptr, model$cpp_obj$imp_ptr, model$cpp_obj$indexer,
         model$params$ndim > 1, model$params$build_imputer,
         trees_take
     )

@@ -74,6 +74,10 @@
 *       Pointer to imputation object which has already been fit through 'fit_iforest' along with
 *       either 'model' or 'ext_model' in the same call to 'fit_iforest'.
 *       Pass NULL if the model was built without an imputer.
+* - indexer (in)
+*       Pointer to indexer object which has already been fit through 'fit_iforest' along with
+*       either 'model' or 'ext_model' in the same call to 'fit_iforest' or through another specialized funcction.
+*       Pass NULL if the model was built without an indexer.
 * - model_new (out)
 *       Pointer to already-allocated isolation forest model, which will be reset and to
 *       which the selected trees from 'model' will be copied.
@@ -87,10 +91,16 @@
 *       which the selected nodes from 'imputer' (matching to those of either 'model'
 *       or 'ext_model') will be copied.
 *       Pass NULL if the model was built without an imputer.
+* - indexer_new (out)
+*       Pointer to already-allocated indexer object, which will be reset and to
+*       which the selected nodes from 'indexer' (matching to those of either 'model'
+*       or 'ext_model') will be copied.
+*       Pass NULL if the model was built without an indexer.
 */
 void subset_model(IsoForest*     model,      IsoForest*     model_new,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_model_new,
                   Imputer*       imputer,    Imputer*       imputer_new,
+                  TreesIndexer*  indexer,    TreesIndexer*  indexer_new,
                   size_t *trees_take, size_t ntrees_take)
 {
     if (model != NULL)
@@ -146,5 +156,15 @@ void subset_model(IsoForest*     model,      IsoForest*     model_new,
         imputer_new->imputer_tree.resize(ntrees_take);
         for (size_t ix = 0; ix < ntrees_take; ix++)
             imputer_new->imputer_tree[ix] = imputer->imputer_tree[trees_take[ix]];
+    }
+
+    if (indexer != NULL)
+    {
+        if (indexer_new == NULL)
+            throw std::runtime_error("Must pass an already-allocated 'indexer_new'.");
+
+        indexer_new->indices.resize(ntrees_take);
+        for (size_t ix = 0; ix < ntrees_take; ix++)
+            indexer_new->indices[ix] = indexer->indices[trees_take[ix]];
     }
 }

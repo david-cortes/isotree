@@ -134,6 +134,7 @@ public:
     IsoForest model;
     ExtIsoForest model_ext;
     Imputer imputer;
+    TreesIndexer indexer;
 
     IsolationForest() = default;
 
@@ -200,6 +201,8 @@ public:
     void impute(double Xr[], int Xr_ind[], int Xr_indptr[],
                 int categ_data[], bool is_col_major, size_t nrows);
 
+    void build_indexer(const bool with_distances);
+
     void serialize(FILE *out) const;
 
     void serialize(std::ostream &out) const;
@@ -217,6 +220,8 @@ public:
     ExtIsoForest& get_model_ext();
 
     Imputer& get_imputer();
+
+    TreesIndexer& get_indexer();
 
     void check_nthreads();
 

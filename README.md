@@ -122,6 +122,12 @@ And then reinstall this package: `pip install --force-reinstall isotree`.
 
 * R:
 
+Latest version (recommended):
+```r
+remotes::install_github("david-cortes/isotree")
+```
+
+Older version from CRAN:
 ```r
 install.packages("isotree")
 ```
@@ -156,7 +162,7 @@ See [external repository with wrapper](https://github.com/ankane/isotree).
 
 * Python:
 
-(Library is SciKit-Learn compatible)
+(Library is Scikit-Learn compatible)
 
 ```python
 import numpy as np

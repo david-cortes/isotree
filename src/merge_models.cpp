@@ -108,14 +108,42 @@
 *       Hyperparameters related to imputation might differ between 'imputer' and 'iother' ('imputer' will preserve its
 *       hyperparameters after the merge).
 *       Pass NULL if this is not to be used.
+* - indexer (in, out)
+*       Pointer to indexer object which has already been fit through 'fit_iforest' along with
+*       either 'model' or 'ext_model' in the same call to 'fit_iforest' or through another specialized function.
+*       The imputation nodes from 'ind_other' will be merged into this (will be at the end of vector member 'indices').
+*       Reference points should not differ between 'indexer' and 'ind_other'.
+*       Pass NULL if this is not to be used.
+* - ind_other
+*       Pointer to indexer object which has already been fit through 'fit_iforest' along with
+*       either 'model' or 'ext_model' in the same call to 'fit_iforest' or through another specialized function.
+*       The imputation nodes from this object will be added into 'imputer' (this object will not be modified).
+*       Reference points should not differ between 'indexer' and 'ind_other'.
+*       Pass NULL if this is not to be used.
 */
 void merge_models(IsoForest*     model,      IsoForest*     other,
                   ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
-                  Imputer*       imputer,    Imputer*       iother)
+                  Imputer*       imputer,    Imputer*       iother,
+                  TreesIndexer*  indexer,    TreesIndexer*  ind_other)
 {
     size_t curr_size_model = (model != NULL)? (model->trees.size()) : 0;
     size_t curr_size_model_ext = (ext_model != NULL)? (ext_model->hplanes.size()) : 0;
     size_t curr_size_imputer = (imputer != NULL)? (imputer->imputer_tree.size()) : 0;
+    size_t curr_size_indexer = (indexer != NULL)? (indexer->indices.size()) : 0;
+
+    if (imputer != NULL && iother == NULL)
+        throw std::runtime_error("Model to append trees to has imputer, but model to take trees from doesn't.\n");
+    if (indexer != NULL && ind_other == NULL)
+        throw std::runtime_error("Model to append trees to has indexer, but model to take trees from doesn't.\n");
+    if (indexer != NULL && ind_other != NULL)
+    {
+        if (!indexer->indices.front().node_distances.empty() && ind_other->indices.front().node_distances.empty())
+            throw std::runtime_error("Model to append trees to has indexer with distances, but model to take trees from has indexer without distances.\n");
+        if (!indexer->indices.front().reference_points.empty() && ind_other->indices.front().reference_points.empty())
+            throw std::runtime_error("Model to append trees to has indexer with reference points, but model to take trees from has indexer without reference points.\n");
+        if (!indexer->indices.front().reference_indptr.empty() && ind_other->indices.front().reference_indptr.empty())
+            throw std::runtime_error("Model to append trees to has indexer with kernel reference points, but model to take trees from has indexer without kernel reference points.\n");
+    }
 
     try
     {
@@ -124,7 +152,7 @@ void merge_models(IsoForest*     model,      IsoForest*     other,
             if (model == other)
             {
                 auto other_copy = *other;
-                merge_models(model, &other_copy, ext_model, ext_other, imputer, iother);
+                merge_models(model, &other_copy, ext_model, ext_other, imputer, iother, indexer, ind_other);
                 return;
             }
             model->trees.insert(model->trees.end(),
@@ -138,7 +166,7 @@ void merge_models(IsoForest*     model,      IsoForest*     other,
             if (ext_model == ext_other)
             {
                 auto other_copy = *ext_other;
-                merge_models(model, other, ext_model, &other_copy, imputer, iother);
+                merge_models(model, other, ext_model, &other_copy, imputer, iother, indexer, ind_other);
                 return;
             }
             ext_model->hplanes.insert(ext_model->hplanes.end(),
@@ -151,12 +179,25 @@ void merge_models(IsoForest*     model,      IsoForest*     other,
             if (imputer == iother)
             {
                 auto other_copy = *iother;
-                merge_models(model, other, ext_model, ext_other, imputer, &other_copy);
+                merge_models(model, other, ext_model, ext_other, imputer, &other_copy, indexer, ind_other);
                 return;
             }
             imputer->imputer_tree.insert(imputer->imputer_tree.end(),
                                          iother->imputer_tree.begin(),
                                          iother->imputer_tree.end());
+        }
+
+        if (indexer != NULL && ind_other != NULL)
+        {
+            if (indexer == ind_other)
+            {
+                auto other_copy = *ind_other;
+                merge_models(model, other, ext_model, ext_other, imputer, iother, indexer, &other_copy);
+                return;
+            }
+            indexer->indices.insert(indexer->indices.end(),
+                                    ind_other->indices.begin(),
+                                    ind_other->indices.end());
         }
     }
 
@@ -165,6 +206,7 @@ void merge_models(IsoForest*     model,      IsoForest*     other,
         if (model != NULL) model->trees.resize(curr_size_model);
         if (ext_model != NULL) ext_model->hplanes.resize(curr_size_model_ext);
         if (imputer != NULL) imputer->imputer_tree.resize(curr_size_imputer);
+        if (indexer != NULL) indexer->indices.resize(curr_size_indexer);
         throw;
     }
 }

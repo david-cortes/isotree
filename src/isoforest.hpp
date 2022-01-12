@@ -184,7 +184,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                  model_params.sample_size == input_data.nrows &&
                  !model_params.with_replacement &&
                  input_data.range_low != NULL &&
-                 (model_params.ncols_per_tree == 0 || model_params.ncols_per_tree == input_data.ncols_tot))
+                 model_params.ncols_per_tree == input_data.ncols_tot)
         {
             workspace.has_saved_stats = false;
             for (size_t col = 0; col < input_data.ncols_numeric; col++)
@@ -768,7 +768,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
         else 
         {
 
-            switch(model_params.cat_split_type)
+            switch (model_params.cat_split_type)
             {
 
                 case SingleCateg:
@@ -776,7 +776,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
 
                     if (workspace.determine_split)
                     {
-                        switch(workspace.criterion)
+                        switch (workspace.criterion)
                         {
                             case NoCrit:
                             {

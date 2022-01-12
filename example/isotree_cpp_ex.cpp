@@ -87,7 +87,7 @@ int main()
                     nrow, 1, true,
                     NULL, &iso,
                     outlier_scores.data(),
-                    NULL, NULL);
+                    NULL, NULL, NULL);
 
     int row_highest = which_max(outlier_scores);
     std::cout << "Point with highest outlier score: [";

@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.12.4)
-project (isotree VERSION 0.5.5)
+project (isotree VERSION 0.5.6)
 set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED False)
 set(SRC_FILES ${PROJECT_SOURCE_DIR}/src/instantiate_template_headers.cpp
               ${PROJECT_SOURCE_DIR}/src/oop_interface.cpp
               ${PROJECT_SOURCE_DIR}/src/c_interface.cpp
+              ${PROJECT_SOURCE_DIR}/src/indexer.cpp
               ${PROJECT_SOURCE_DIR}/src/merge_models.cpp
               ${PROJECT_SOURCE_DIR}/src/subset_models.cpp
               ${PROJECT_SOURCE_DIR}/src/serialize.cpp

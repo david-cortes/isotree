@@ -596,11 +596,20 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         if (impute_at_fit)
             throw std::runtime_error("Cannot impute at fit time when sampling with replacement.\n");
     }
+    if (sample_size != 0 && sample_size < nrows) {
+        if (output_depths != NULL)
+            throw std::runtime_error("Cannot produce outlier scores at fit time when using sub-sampling.\n");
+        if (tmat != NULL)
+            throw std::runtime_error("Cannot calculate distances at fit time when using sub-sampling.\n");
+        if (impute_at_fit)
+            throw std::runtime_error("Cannot produce missing data imputations at fit time when using sub-sampling.\n");
+    }
 
 
     /* TODO: this function should also accept the array as a memoryview with a
        leading dimension that might not correspond to the number of columns,
-       so as to avoid having to make deep copies of memoryviews in python. */
+       so as to avoid having to make deep copies of memoryviews in python and to
+       allow using pointers to columns of dataframes in R and Python. */
 
     /* calculate maximum number of categories to use later */
     int max_categ = 0;
@@ -609,7 +618,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 
     bool calc_dist = tmat != NULL;
 
-    if (calc_dist || sample_size == 0)
+    if (sample_size == 0)
         sample_size = nrows;
 
     if (model_outputs != NULL)
@@ -862,7 +871,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     std::exception_ptr ex = NULL;
 
     /* grow trees */
-    #pragma omp parallel for num_threads(nthreads) schedule(dynamic) shared(model_outputs, model_outputs_ext, worker_memory, input_data, model_params, threw_exception)
+    #pragma omp parallel for num_threads(nthreads) schedule(dynamic) shared(model_outputs, model_outputs_ext, worker_memory, input_data, model_params, threw_exception, ex)
     for (size_t_for tree = 0; tree < (decltype(tree))ntrees; tree++)
     {
         if (interrupt_switch || threw_exception)
@@ -906,7 +915,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 model_outputs_ext->hplanes[tree].shrink_to_fit();
         }
 
-        catch(...)
+        catch (...)
         {
             #pragma omp critical
             {
@@ -1165,6 +1174,10 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - min_imp_obs
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
+* - indexer
+*       Indexer object associated to the model object ('model_outputs' or 'model_outputs_ext'), which will
+*       be updated with the new tree to add.
+*       Pass NULL if the model has no associated indexer.
 * - random_seed
 *       Seed that will be used to generate random numbers used by the model.
 */
@@ -1186,6 +1199,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              CategSplit cat_split_type, NewCategAction new_cat_action,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
              bool   all_perm, Imputer *imputer, size_t min_imp_obs,
+             TreesIndexer *indexer,
              uint64_t random_seed)
 {
     if (
@@ -1210,8 +1224,11 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     if (model_outputs != NULL)
         ntry = std::min(ntry, ncols_numeric + ncols_categ);
 
-    if(ncols_per_tree == 0)
+    if (ncols_per_tree == 0)
         ncols_per_tree = ncols_numeric + ncols_categ;
+
+    if (indexer != NULL && indexer->indices.empty())
+        indexer = NULL;
 
     InputData<real_t, sparse_ix>
               input_data     = {numeric_data, ncols_numeric, categ_data, ncat, max_categ, ncols_categ,
@@ -1259,6 +1276,14 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
             impute_nodes = &(imputer->imputer_tree.back());
         }
 
+        if (indexer != NULL)
+        {
+            indexer->indices.emplace_back();
+        }
+
+        SignalSwitcher ss = SignalSwitcher();
+        check_interrupt_switch(ss);
+
         fit_itree((model_outputs != NULL)? &model_outputs->trees.back() : NULL,
                   (model_outputs_ext != NULL)? &model_outputs_ext->hplanes.back() : NULL,
                   *workspace,
@@ -1266,6 +1291,8 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                   model_params,
                   impute_nodes,
                   last_tree);
+
+        check_interrupt_switch(ss);
 
         if (model_outputs != NULL) {
             model_outputs->trees.back().shrink_to_fit();
@@ -1278,9 +1305,52 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 
         if (imputer != NULL)
             imputer->imputer_tree.back().shrink_to_fit();
+
+        if (indexer != NULL)
+        {
+            if (model_outputs != NULL)
+                build_terminal_node_mappings_single_tree(indexer->indices.back().terminal_node_mappings,
+                                                         indexer->indices.back().n_terminal,
+                                                         model_outputs->trees.back());
+            else
+                build_terminal_node_mappings_single_tree(indexer->indices.back().terminal_node_mappings,
+                                                         indexer->indices.back().n_terminal,
+                                                         model_outputs_ext->hplanes.back());
+
+            check_interrupt_switch(ss);
+
+
+            if (!indexer->indices.front().node_distances.empty())
+            {
+                std::vector<size_t> temp;
+                temp.reserve(indexer->indices.back().n_terminal);
+                if (model_outputs != NULL) {
+                    build_dindex(
+                        temp,
+                        indexer->indices.back().terminal_node_mappings,
+                        indexer->indices.back().node_distances,
+                        indexer->indices.back().node_depths,
+                        indexer->indices.back().n_terminal,
+                        model_outputs->trees.back()
+                    );
+                }
+                else {
+                    build_dindex(
+                        temp,
+                        indexer->indices.back().terminal_node_mappings,
+                        indexer->indices.back().node_distances,
+                        indexer->indices.back().node_depths,
+                        indexer->indices.back().n_terminal,
+                        model_outputs_ext->hplanes.back()
+                    );
+                }
+            }
+
+            check_interrupt_switch(ss);
+        }
     }
 
-    catch(...)
+    catch (...)
     {
         if (added_tree)
         {
@@ -1293,6 +1363,12 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                     imputer->imputer_tree.resize(model_outputs->trees.size());
                 else
                     imputer->imputer_tree.resize(model_outputs_ext->hplanes.size());
+            }
+            if (indexer != NULL) {
+                if (model_outputs != NULL)
+                    indexer->indices.resize(model_outputs->trees.size());
+                else
+                    indexer->indices.resize(model_outputs_ext->hplanes.size());
             }
         }
         throw;

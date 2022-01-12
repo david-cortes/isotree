@@ -874,7 +874,9 @@ take.metadata <- function(metadata) {
             ptr         =  NULL,
             serialized  =  NULL,
             imp_ptr     =  NULL,
-            imp_ser     =  NULL
+            imp_ser     =  NULL,
+            indexer     =  NULL,
+            ind_ser     =  NULL
         )
     )
 

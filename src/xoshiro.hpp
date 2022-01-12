@@ -24,12 +24,9 @@ namespace Xoshiro {
 #define rotl64(x, k) std::rotl(x, k)
 #define rotl32(x, k) std::rotl(x, k)
 #else
-[[gnu::hot]]
 static inline uint64_t rotl64(const uint64_t x, const int k) {
     return (x << k) | (x >> (64 - k));
 }
-
-[[gnu::hot]]
 static inline uint32_t rotl32(const uint32_t x, const int k) {
     return (x << k) | (x >> (32 - k));
 }
@@ -74,7 +71,6 @@ static inline void assign_32bits_to64_right(uint64_t &assign_to, const uint32_t 
 
    It is a very fast generator passing BigCrush, and it can be useful if
    for some reason you absolutely want 64 bits of state. */
-[[gnu::hot]]
 static inline uint64_t splitmix64(const uint64_t seed)
 {
     uint64_t z = (seed + 0x9e3779b97f4a7c15);
@@ -136,7 +132,6 @@ public:
         this->seed((uint64_t)seed);
     }
 
-    [[gnu::hot]]
     inline result_type operator()()
     {
         const uint64_t result = rotl64(this->state[0] + this->state[3], 23) + this->state[0];
@@ -220,7 +215,6 @@ public:
         this->seed((uint64_t)seed);
     }
 
-    [[gnu::hot]]
     inline result_type operator()()
     {
         const uint32_t result = rotl32(this->state[0] + this->state[3], 7) + this->state[0];
@@ -296,7 +290,7 @@ public:
     
     template <class XoshiroRNG>
     #ifndef _FOR_R
-    [[gnu::hot, gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
     #endif
     double operator()(XoshiroRNG &rng)
     {
@@ -343,7 +337,7 @@ public:
 
     template <class XoshiroRNG>
     #ifndef _FOR_R
-    [[gnu::hot, gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
     #endif
     double operator()(XoshiroRNG &rng)
     {
@@ -398,7 +392,7 @@ public:
 
     template <class XoshiroRNG>
     #ifndef _FOR_R
-    [[gnu::hot, gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+    [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
     #endif
     double operator()(XoshiroRNG &rng)
     {
