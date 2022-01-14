@@ -108,6 +108,12 @@ the scores are unlikely to be centered around zero.
 The more threads that are set for the model, the higher the memory requirement will be as each
 thread will allocate an array with one entry per row (outlierness) or combination (distance).
 
+For multi-threaded predictions on many rows, it is recommended to set the number of threads
+to the number of physical cores of the CPU rather than the number of logical cores, as it
+will typically have better performance that way. Assuming a typical x86-64 desktop CPU,
+this typically involves dividing the number of threads by 2 - for example:
+`model$nthreads <- parallel::detectCores()/2`
+
 Outlierness predictions for sparse data will be much slower than for dense data. Not recommended to pass
 sparse matrices unless they are too big to fit in memory.
 

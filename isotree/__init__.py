@@ -81,6 +81,9 @@ def _process_nthreads(nthreads, warn_if_no_omp=False):
         if nthreads < 1:
             raise ValueError("Passed invalid 'nthreads'.")
 
+    if isinstance(nthreads, float):
+        nthreads = int(nthreads)
+
     if (warn_if_no_omp) and (nthreads > 1) and (not _get_has_openmp()):
         msg_omp  = "Attempting to use more than 1 thread, but "
         msg_omp += "package was built without multi-threading "
@@ -2121,6 +2124,15 @@ class IsolationForest:
         When using ``scoring_metric="density"``, the standardized outlier scores are instead unbounded,
         with larger values indicating more outlierness and a natural threshold of zero for determining
         inliers and outliers.
+
+        Note
+        ----
+        For multi-threaded predictions on many rows, it is recommended to set the number of threads
+        to the number of physical cores of the CPU rather than the number of logical cores, as it
+        will typically have better performance that way. Assuming a typical x86-64 desktop CPU,
+        this typically involves dividing the number of threads by 2 - for example:
+        
+            ``import multiprocessing;model.set_params(nthreads=multiprocessing.cpu_count()/2)``
 
         Note
         ----
