@@ -207,6 +207,9 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
                      double tmat[], double rmat[], size_t n_from,
                      TreesIndexer *indexer, bool is_col_major, size_t ld_numeric, size_t ld_categ)
 {
+    if (nrows < 2)
+        throw std::runtime_error("Cannot calculate distances from less than 2 rows.\n");
+
     if (indexer != NULL && model_outputs != NULL)
     {
         if (model_outputs->missing_action == Divide)

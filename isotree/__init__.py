@@ -2622,8 +2622,9 @@ class IsolationForest:
             nodes. Both are returned as arrays having one entry per tree.
         """
         assert self.is_fitted_
+        nthreads = _process_nthreads(self.nthreads)
         n_nodes, n_terminal = self._cpp_obj.get_n_nodes(ctypes.c_bool(self._is_extended_).value,
-                                                        ctypes.c_int(self.nthreads).value)
+                                                        ctypes.c_int(nthreads).value)
         return n_nodes, n_terminal
 
     def append_trees(self, other):
@@ -3042,10 +3043,6 @@ class IsolationForest:
               to a decimal representation and back to floating point; which combined can result in some precision
               loss which leads to producing slightly different predictions from the ``predict`` function in this
               package.
-            - The output returned from a compiled 'treelite' model when calling ``predict`` will be the
-              average isolation depth, as it does not (yet?) support the standardized outlier score from
-              isolation forests. If using ``scoring_metric="density"``, the output should match with the
-              standardized outlier score however.
             - If the model was fit to a DataFrame having a mixture of numerical and categorical columns, the
               resulting 'treelite' object will be built assuming all the numerical columns come before the
               categorical columns, regardless of which order they originally had in the data that was passed to
@@ -3097,12 +3094,22 @@ class IsolationForest:
                                             self.categ_cols, assume_unique=True)
             mapping_cat_cols = np.array(self.categ_cols).reshape(-1).astype(int)
 
-        builder = treelite.ModelBuilder(
-            num_feature = self._ncols_numeric + self._ncols_categ,
-            average_tree_output = True,
-            threshold_type = float_dtype,
-            leaf_output_type = float_dtype
-        )
+        if self.scoring_metric in ["depth", "adj_depth", "adj_density"]:
+            builder = treelite.ModelBuilder(
+                num_feature = self._ncols_numeric + self._ncols_categ,
+                average_tree_output = True,
+                threshold_type = float_dtype,
+                leaf_output_type = float_dtype,
+                pred_transform = "exponential_standard_ratio",
+                ratio_c = self._cpp_obj.get_expected_isolation_depth()
+            )
+        else:
+            builder = treelite.ModelBuilder(
+                num_feature = self._ncols_numeric + self._ncols_categ,
+                average_tree_output = True,
+                threshold_type = float_dtype,
+                leaf_output_type = float_dtype
+            )
         for tree_ix in range(self._ntrees):
             tree = treelite.ModelBuilder.Tree(threshold_type = float_dtype, leaf_output_type = float_dtype)
             for node_ix in range(n_nodes[tree_ix]):

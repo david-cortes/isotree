@@ -144,6 +144,7 @@ cdef extern from "headers_joined.hpp":
         NewCategAction   new_cat_action
         CategSplit       cat_split_type
         MissingAction    missing_action
+        ScoringMetric    scoring_metric
         double           exp_avg_depth
         double           exp_avg_sep
         size_t           orig_sample_size
@@ -172,6 +173,7 @@ cdef extern from "headers_joined.hpp":
         NewCategAction    new_cat_action
         CategSplit        cat_split_type
         MissingAction     missing_action
+        ScoringMetric     scoring_metric
         double            exp_avg_depth
         double            exp_avg_sep
         size_t            orig_sample_size
@@ -1486,6 +1488,9 @@ cdef class isoforest_cpp_obj:
                 out[1] = -self.isoforest.trees[tree][node].score
 
         return None
+
+    def get_expected_isolation_depth(self):
+        return self.isoforest.exp_avg_depth
 
     def build_tree_indices(self, bool_t is_extended, bool_t with_distances, int nthreads):
         if not is_extended:
