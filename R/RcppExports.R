@@ -41,16 +41,16 @@ impute_iso <- function(model_R_ptr, imputer_R_ptr, is_extended, X_num, X_cat, Xr
     .Call(`_isotree_impute_iso`, model_R_ptr, imputer_R_ptr, is_extended, X_num, X_cat, Xr, Xr_ind, Xr_indptr, nrows, nthreads)
 }
 
-drop_imputer <- function(imputer_R_ptr) {
-    .Call(`_isotree_drop_imputer`, imputer_R_ptr)
+drop_imputer <- function(lst_modify, lst_modify2) {
+    invisible(.Call(`_isotree_drop_imputer`, lst_modify, lst_modify2))
 }
 
-drop_indexer <- function(indexer_R_ptr) {
-    .Call(`_isotree_drop_indexer`, indexer_R_ptr)
+drop_indexer <- function(lst_modify, lst_modify2) {
+    invisible(.Call(`_isotree_drop_indexer`, lst_modify, lst_modify2))
 }
 
-drop_reference_points <- function(indexer_R_ptr) {
-    .Call(`_isotree_drop_reference_points`, indexer_R_ptr)
+drop_reference_points <- function(lst_modify, lst_modify2) {
+    invisible(.Call(`_isotree_drop_reference_points`, lst_modify, lst_modify2))
 }
 
 subset_trees <- function(model_R_ptr, imputer_R_ptr, indexer_R_ptr, is_extended, has_imputer, trees_take) {
@@ -81,16 +81,16 @@ copy_cpp_objects <- function(model_R_ptr, is_extended, imp_R_ptr, has_imputer, i
     .Call(`_isotree_copy_cpp_objects`, model_R_ptr, is_extended, imp_R_ptr, has_imputer, ind_R_ptr)
 }
 
-build_tree_indices <- function(model_R_ptr, is_extended, with_distances, nthreads) {
-    .Call(`_isotree_build_tree_indices`, model_R_ptr, is_extended, with_distances, nthreads)
+build_tree_indices <- function(lst_modify, is_extended, with_distances, nthreads) {
+    invisible(.Call(`_isotree_build_tree_indices`, lst_modify, is_extended, with_distances, nthreads))
 }
 
 check_node_indexer_has_distances <- function(indexer_R_ptr) {
     .Call(`_isotree_check_node_indexer_has_distances`, indexer_R_ptr)
 }
 
-set_reference_points <- function(model_R_ptr, is_extended, indexer_R_ptr, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, with_distances) {
-    .Call(`_isotree_set_reference_points`, model_R_ptr, is_extended, indexer_R_ptr, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, with_distances)
+set_reference_points <- function(lst_modify, lst_modify2, rnames, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, with_distances) {
+    invisible(.Call(`_isotree_set_reference_points`, lst_modify, lst_modify2, rnames, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, with_distances))
 }
 
 check_node_indexer_has_references <- function(indexer_R_ptr) {

@@ -1192,8 +1192,8 @@ isolation.forest <- function(data,
         stop("Procedure was interrupted.")
     
     has_int_overflow = (
-        !NROW(cpp_outputs$serialized_obj) ||
-        (build_imputer && !is.null(cpp_outputs$imputer_ser) && !NROW(cpp_outputs$imputer_ser))
+        !NROW(cpp_outputs$serialized) ||
+        (build_imputer && !is.null(cpp_outputs$imp_ser) && !NROW(cpp_outputs$imp_ser))
     )
     if (has_int_overflow)
         stop("Resulting model is too large for R to handle.")
@@ -1237,10 +1237,10 @@ isolation.forest <- function(data,
         random_seed  =  seed,
         nthreads     =  nthreads,
         cpp_obj      =  list(
-            ptr         =  cpp_outputs$model_ptr,
-            serialized  =  cpp_outputs$serialized_obj,
-            imp_ptr     =  cpp_outputs$imputer_ptr,
-            imp_ser     =  cpp_outputs$imputer_ser,
+            ptr         =  cpp_outputs$ptr,
+            serialized  =  cpp_outputs$serialized,
+            imp_ptr     =  cpp_outputs$imp_ptr,
+            imp_ser     =  cpp_outputs$imp_ser,
             indexer     =  get_null_R_pointer(),
             ind_ser     =  raw()
         )
@@ -1663,7 +1663,7 @@ print.isolation_forest <- function(x, ...) {
                     ifelse(has_references, " with reference points", "")))
     }
     if (NROW(x$cpp_obj$serialized)) {
-        bytes <- length(x$cpp_obj$serialized) + NROW(x$cpp_obj$imp_ser)
+        bytes <- length(x$cpp_obj$serialized) + NROW(x$cpp_obj$imp_ser) + NROW(x$cpp_obj$ind_ser)
         if (bytes > 1024^3) {
             cat(sprintf("Size: %.2f GiB\n", bytes/1024^3))
         } else if (bytes > 1024^2) {
@@ -2418,15 +2418,15 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
 isotree.deep.copy <- function(model) {
     isotree.restore.handle(model)
     new_pointers <- copy_cpp_objects(model$cpp_obj$ptr, model$params$ndim > 1,
-                                     model$cpp_obj$imputer_ptr, !is.null(model$cpp_obj$imputer_ptr),
+                                     model$cpp_obj$imp_ptr, !is.null(model$cpp_obj$imp_ptr),
                                      model$cpp$indexer)
     new_model <- model
     new_model$cpp_obj <- list(
-        ptr         =  new_pointers$model_ptr,
+        ptr         =  new_pointers$ptr,
         serialized  =  model$cpp_obj$serialized,
-        imp_ptr     =  new_pointers$imputer_ptr,
-        imp_ser     =  model$cpp_obj$imputer_ser,
-        indexer     =  new_pointers$indexer_ptr,
+        imp_ptr     =  new_pointers$imp_ptr,
+        imp_ser     =  model$cpp_obj$imp_ser,
+        indexer     =  new_pointers$indexer,
         ind_ser     =  model$cpp_obj$ind_ser
     )
     new_model$metadata <- list(
@@ -2453,10 +2453,14 @@ isotree.deep.copy <- function(model) {
 isotree.drop.imputer <- function(model) {
     if (!inherits(model, "isolation_forest"))
         stop("This function is only available for isolation forest objects as returned from 'isolation.forest'.")
-    set.list.elt(model$params, "build_imputer", FALSE)
-    if (!is.null(model$cpp_obj$imp_ptr))
-        set.list.elt(model$cpp_obj, "imp_ptr", drop_imputer(model$cpp_obj$imp_ptr))
-    set.list.elt(model$cpp_obj, "imputer_ser", NULL)
+    if (NROW(model$cpp_obj$imp_ser) && check_null_ptr_model(model$cpp_obj$imp_ptr)) {
+        on.exit({
+            set.list.elt(model$params, "build_imputer", FALSE)
+            set.list.elt(model$cpp_obj, "imp_ser", raw())
+        })
+        return(invisible(model))
+    }
+    drop_imputer(model$cpp_obj, model$params)
     return(invisible(model))
 }
 
@@ -2474,10 +2478,14 @@ isotree.drop.imputer <- function(model) {
 isotree.drop.indexer <- function(model) {
     if (!inherits(model, "isolation_forest"))
         stop("This function is only available for isolation forest objects as returned from 'isolation.forest'.")
-    if (!is.null(model$cpp_obj$indexer))
-        set.list.elt(model$cpp_obj, "indexer", drop_indexer(model$cpp_obj$indexer))
-    set.list.elt(model$cpp_obj, "ind_ser", raw())
-    set.list.elt(model$metadata, "reference_names", character())
+    if (NROW(model$cpp_obj$ind_ser) && check_null_ptr_model(model$cpp_obj$indexer)) {
+        on.exit({
+            set.list.elt(model$cpp_obj, "ind_ser", raw())
+            set.list.elt(model$metadata, "reference_names", FALSE)
+        })
+        return(invisible(model))
+    }
+    drop_indexer(model$cpp_obj, model$metadata)
     return(invisible(model))
 }
 
@@ -2491,11 +2499,8 @@ isotree.drop.indexer <- function(model) {
 #' @export
 isotree.drop.reference.points <- function(model) {
     isotree.restore.handle(model)
-    res <- drop_reference_points(model$cpp_obj$indexer)
-    if (is.null(res)) return(invisible(model))
-    set.list.elt(model$cpp_obj, "indexer", res$indexer)
-    set.list.elt(model$cpp_obj, "ind_ser", res$ind_ser)
-    set.list.elt(model$metadata, "reference_names", character())
+    if (!NROW(model$cpp_obj$ind_ser)) return(invisible(model))
+    drop_reference_points(model$cpp_obj, model$metadata)
     return(invisible(model))
 }
 
@@ -2526,14 +2531,12 @@ isotree.build.indexer <- function(model, with_distances = FALSE) {
     if (model$params$new_categ_action == "weighted" && model$params$categ_split_type != "single_categ" && (model$metadata$ncols_cat > 0 || NROW(model$metadata$cols_cat)))
         stop("Cannot build tree indexer when using new_categ_action='weighted'.")
     check.is.bool(with_distances)
-    res <- build_tree_indices(
-        model$cpp_obj$ptr,
+    build_tree_indices(
+        model$cpp_obj,
         as.logical(model$params$ndim > 1),
         as.logical(with_distances),
         as.integer(model$nthreads)
     )
-    set.list.elt(model$cpp_obj, "ind_ser", res$ind_ser)
-    set.list.elt(model$cpp_obj, "indexer", res$indexer)
     return(invisible(model))
 }
 
@@ -2597,14 +2600,10 @@ isotree.set.reference.points <- function(model, data, with_distances=FALSE) {
     if (!NROW(model$cpp_obj$ind_ser))
         isotree.build.indexer(model, with_distances=with_distances)
 
-    res <- set_reference_points(model$cpp_obj$ptr, model$params$ndim > 1, model$cpp_obj$indexer,
-                                pdata$X_num, pdata$X_cat,
-                                pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
-                                pdata$nrows, model$nthreads, as.logical(with_distances))
-    set.list.elt(model$cpp_obj, "ind_ser", res$ind_ser)
-    set.list.elt(model$cpp_obj, "indexer", res$indexer)
-    if (!is.null(row.names(data)))
-        set.list.elt(model$metadata, "reference_names", row.names(data))
+    set_reference_points(model$cpp_obj, model$metadata, row.names(data), model$params$ndim > 1,
+                         pdata$X_num, pdata$X_cat,
+                         pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
+                         pdata$nrows, model$nthreads, as.logical(with_distances))
     return(invisible(model))
 }
 
@@ -2635,12 +2634,14 @@ isotree.subset.trees <- function(model, trees_take) {
     new_model <- model
     new_model$cpp_obj <- NULL
     new_model$params$ntrees <- ntrees_new
-    new_model$params$build_imputer <- as.logical(NROW(new_cpp_obj$imputer_ser))
+    new_model$params$build_imputer <- as.logical(NROW(new_cpp_obj$imp_ser))
     new_model$cpp_obj <- list(
-        ptr         =  new_cpp_obj$model_ptr,
-        serialized  =  new_cpp_obj$serialized_obj,
+        ptr         =  new_cpp_obj$ptr,
+        serialized  =  new_cpp_obj$serialized,
         imp_ptr     =  new_cpp_obj$imp_ptr,
-        imp_ser     =  new_cpp_obj$imputer_ser
+        imp_ser     =  new_cpp_obj$imp_ser,
+        indexer     =  new_cpp_obj$indexer,
+        ind_ser     =  new_cpp_obj$ind_ser
     )
     new_model$metadata <- list(
         ncols_num  =  model$metadata$ncols_num,

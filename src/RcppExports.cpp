@@ -248,33 +248,33 @@ BEGIN_RCPP
 END_RCPP
 }
 // drop_imputer
-SEXP drop_imputer(SEXP imputer_R_ptr);
-RcppExport SEXP _isotree_drop_imputer(SEXP imputer_R_ptrSEXP) {
+void drop_imputer(Rcpp::List lst_modify, Rcpp::List lst_modify2);
+RcppExport SEXP _isotree_drop_imputer(SEXP lst_modifySEXP, SEXP lst_modify2SEXP) {
 BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::traits::input_parameter< SEXP >::type imputer_R_ptr(imputer_R_ptrSEXP);
-    rcpp_result_gen = Rcpp::wrap(drop_imputer(imputer_R_ptr));
-    return rcpp_result_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify(lst_modifySEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify2(lst_modify2SEXP);
+    drop_imputer(lst_modify, lst_modify2);
+    return R_NilValue;
 END_RCPP
 }
 // drop_indexer
-SEXP drop_indexer(SEXP indexer_R_ptr);
-RcppExport SEXP _isotree_drop_indexer(SEXP indexer_R_ptrSEXP) {
+void drop_indexer(Rcpp::List lst_modify, Rcpp::List lst_modify2);
+RcppExport SEXP _isotree_drop_indexer(SEXP lst_modifySEXP, SEXP lst_modify2SEXP) {
 BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::traits::input_parameter< SEXP >::type indexer_R_ptr(indexer_R_ptrSEXP);
-    rcpp_result_gen = Rcpp::wrap(drop_indexer(indexer_R_ptr));
-    return rcpp_result_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify(lst_modifySEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify2(lst_modify2SEXP);
+    drop_indexer(lst_modify, lst_modify2);
+    return R_NilValue;
 END_RCPP
 }
 // drop_reference_points
-SEXP drop_reference_points(SEXP indexer_R_ptr);
-RcppExport SEXP _isotree_drop_reference_points(SEXP indexer_R_ptrSEXP) {
+void drop_reference_points(Rcpp::List lst_modify, Rcpp::List lst_modify2);
+RcppExport SEXP _isotree_drop_reference_points(SEXP lst_modifySEXP, SEXP lst_modify2SEXP) {
 BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::traits::input_parameter< SEXP >::type indexer_R_ptr(indexer_R_ptrSEXP);
-    rcpp_result_gen = Rcpp::wrap(drop_reference_points(indexer_R_ptr));
-    return rcpp_result_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify(lst_modifySEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify2(lst_modify2SEXP);
+    drop_reference_points(lst_modify, lst_modify2);
+    return R_NilValue;
 END_RCPP
 }
 // subset_trees
@@ -383,16 +383,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // build_tree_indices
-Rcpp::List build_tree_indices(SEXP model_R_ptr, bool is_extended, bool with_distances, int nthreads);
-RcppExport SEXP _isotree_build_tree_indices(SEXP model_R_ptrSEXP, SEXP is_extendedSEXP, SEXP with_distancesSEXP, SEXP nthreadsSEXP) {
+void build_tree_indices(Rcpp::List lst_modify, bool is_extended, bool with_distances, int nthreads);
+RcppExport SEXP _isotree_build_tree_indices(SEXP lst_modifySEXP, SEXP is_extendedSEXP, SEXP with_distancesSEXP, SEXP nthreadsSEXP) {
 BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify(lst_modifySEXP);
     Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
     Rcpp::traits::input_parameter< bool >::type with_distances(with_distancesSEXP);
     Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(build_tree_indices(model_R_ptr, is_extended, with_distances, nthreads));
-    return rcpp_result_gen;
+    build_tree_indices(lst_modify, is_extended, with_distances, nthreads);
+    return R_NilValue;
 END_RCPP
 }
 // check_node_indexer_has_distances
@@ -406,13 +405,13 @@ BEGIN_RCPP
 END_RCPP
 }
 // set_reference_points
-SEXP set_reference_points(SEXP model_R_ptr, bool is_extended, SEXP indexer_R_ptr, Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, size_t nrows, int nthreads, bool with_distances);
-RcppExport SEXP _isotree_set_reference_points(SEXP model_R_ptrSEXP, SEXP is_extendedSEXP, SEXP indexer_R_ptrSEXP, SEXP X_numSEXP, SEXP X_catSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP nrowsSEXP, SEXP nthreadsSEXP, SEXP with_distancesSEXP) {
+void set_reference_points(Rcpp::List lst_modify, Rcpp::List lst_modify2, SEXP rnames, bool is_extended, Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, size_t nrows, int nthreads, bool with_distances);
+RcppExport SEXP _isotree_set_reference_points(SEXP lst_modifySEXP, SEXP lst_modify2SEXP, SEXP rnamesSEXP, SEXP is_extendedSEXP, SEXP X_numSEXP, SEXP X_catSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP nrowsSEXP, SEXP nthreadsSEXP, SEXP with_distancesSEXP) {
 BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify(lst_modifySEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify2(lst_modify2SEXP);
+    Rcpp::traits::input_parameter< SEXP >::type rnames(rnamesSEXP);
     Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
-    Rcpp::traits::input_parameter< SEXP >::type indexer_R_ptr(indexer_R_ptrSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type X_num(X_numSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type X_cat(X_catSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type Xc(XcSEXP);
@@ -421,8 +420,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< size_t >::type nrows(nrowsSEXP);
     Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
     Rcpp::traits::input_parameter< bool >::type with_distances(with_distancesSEXP);
-    rcpp_result_gen = Rcpp::wrap(set_reference_points(model_R_ptr, is_extended, indexer_R_ptr, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, with_distances));
-    return rcpp_result_gen;
+    set_reference_points(lst_modify, lst_modify2, rnames, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, with_distances);
+    return R_NilValue;
 END_RCPP
 }
 // check_node_indexer_has_references
@@ -685,10 +684,10 @@ BEGIN_RCPP
 END_RCPP
 }
 // modify_R_list_inplace
-void modify_R_list_inplace(Rcpp::List& lst, int ix, SEXP el);
+void modify_R_list_inplace(SEXP lst, int ix, SEXP el);
 RcppExport SEXP _isotree_modify_R_list_inplace(SEXP lstSEXP, SEXP ixSEXP, SEXP elSEXP) {
 BEGIN_RCPP
-    Rcpp::traits::input_parameter< Rcpp::List& >::type lst(lstSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type lst(lstSEXP);
     Rcpp::traits::input_parameter< int >::type ix(ixSEXP);
     Rcpp::traits::input_parameter< SEXP >::type el(elSEXP);
     modify_R_list_inplace(lst, ix, el);
@@ -727,9 +726,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_predict_iso", (DL_FUNC) &_isotree_predict_iso, 17},
     {"_isotree_dist_iso", (DL_FUNC) &_isotree_dist_iso, 19},
     {"_isotree_impute_iso", (DL_FUNC) &_isotree_impute_iso, 10},
-    {"_isotree_drop_imputer", (DL_FUNC) &_isotree_drop_imputer, 1},
-    {"_isotree_drop_indexer", (DL_FUNC) &_isotree_drop_indexer, 1},
-    {"_isotree_drop_reference_points", (DL_FUNC) &_isotree_drop_reference_points, 1},
+    {"_isotree_drop_imputer", (DL_FUNC) &_isotree_drop_imputer, 2},
+    {"_isotree_drop_indexer", (DL_FUNC) &_isotree_drop_indexer, 2},
+    {"_isotree_drop_reference_points", (DL_FUNC) &_isotree_drop_reference_points, 2},
     {"_isotree_subset_trees", (DL_FUNC) &_isotree_subset_trees, 6},
     {"_isotree_inplace_set_to_zero", (DL_FUNC) &_isotree_inplace_set_to_zero, 1},
     {"_isotree_get_n_nodes", (DL_FUNC) &_isotree_get_n_nodes, 3},
@@ -739,7 +738,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_copy_cpp_objects", (DL_FUNC) &_isotree_copy_cpp_objects, 5},
     {"_isotree_build_tree_indices", (DL_FUNC) &_isotree_build_tree_indices, 4},
     {"_isotree_check_node_indexer_has_distances", (DL_FUNC) &_isotree_check_node_indexer_has_distances, 1},
-    {"_isotree_set_reference_points", (DL_FUNC) &_isotree_set_reference_points, 11},
+    {"_isotree_set_reference_points", (DL_FUNC) &_isotree_set_reference_points, 12},
     {"_isotree_check_node_indexer_has_references", (DL_FUNC) &_isotree_check_node_indexer_has_references, 1},
     {"_isotree_get_num_references", (DL_FUNC) &_isotree_get_num_references, 1},
     {"_isotree_get_null_R_pointer", (DL_FUNC) &_isotree_get_null_R_pointer, 0},
