@@ -3387,6 +3387,10 @@ class IsolationForest:
         ``predict_distance`` and/or ``predict_kernel``. If any points have already been set
         as references in the model object, they will be overwritten with the new points passed here.
 
+        Note that points are added in terms of their terminal node indices, but the raw data about
+        them is not kept - thus, calling ``partial_fit`` later on a model with reference points
+        requires passing those reference points again to add their node indices to the new tree.
+
         Be aware that adding reference points requires building a tree indexer.
 
         Parameters

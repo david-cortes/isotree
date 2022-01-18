@@ -1325,7 +1325,7 @@ isolation.forest <- function(data,
 #'   proximity matrix), which denotes the fraction of trees in which two observations end up in
 #'   the same terminal node. This is typically not as good quality as the separation distance, but
 #'   it's much faster to calculate. Note that building an indexer will not speed up kernel/proximity
-#'   calculations unless it has reference points. Note that this calculation can be sped up signficantly
+#'   calculations unless it has reference points. This calculation can be sped up significantly
 #'   by setting reference points in the model object through \link{isotree.set.reference.points},
 #'   and it's highly recommended to do so if this calculation is going to be performed repeatedly.
 #'   \item `"kernel_raw"` for the isolation kernel or proximity matrix, but having as output the
@@ -2544,6 +2544,9 @@ isotree.build.indexer <- function(model, with_distances = FALSE) {
 #' as references in the model object, they will be overwritten with the new points passed here.
 #' 
 #' Be aware that adding reference points requires building a tree indexer.
+#' @details Note that points are added in terms of their terminal node indices, but the raw data about
+#' them is not kept - thus, calling \link{isotree.add.tree} later on a model with reference points
+#' requires passing those reference points again to add their node indices to the new tree.
 #' @param model An Isolation Forest model (as returned by function \link{isolation.forest})
 #' for which reference points for distance and/or kernel calculations will be set.
 #' 
@@ -2553,7 +2556,7 @@ isotree.build.indexer <- function(model, with_distances = FALSE) {
 #' @param with_distances Whether to pre-calculate node distances (this is required to calculate distance
 #' from arbitrary points to the reference points).
 #' 
-#' Note that reference points for distances can only be set when using ``assume_full_distr=FALSE``
+#' Note that reference points for distances can only be set when using `assume_full_distr=FALSE`
 #' (which is the default).
 #' @return The same `model` object (as invisible), but now with added reference points that
 #' can be used for new distance and/or kernel calculations with respect to other arbitrary points.

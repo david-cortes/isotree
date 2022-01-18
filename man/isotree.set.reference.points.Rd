@@ -18,7 +18,7 @@ Same format as for \link{predict.isolation_forest}.}
 \item{with_distances}{Whether to pre-calculate node distances (this is required to calculate distance
 from arbitrary points to the reference points).
 
-Note that reference points for distances can only be set when using ``assume_full_distr=FALSE``
+Note that reference points for distances can only be set when using `assume_full_distr=FALSE`
 (which is the default).}
 }
 \value{
@@ -32,6 +32,11 @@ isolation kernel values will be calculated for arbitrary new points in calls to
 as references in the model object, they will be overwritten with the new points passed here.
 
 Be aware that adding reference points requires building a tree indexer.
+}
+\details{
+Note that points are added in terms of their terminal node indices, but the raw data about
+them is not kept - thus, calling \link{isotree.add.tree} later on a model with reference points
+requires passing those reference points again to add their node indices to the new tree.
 }
 \seealso{
 \link{isotree.build.indexer}

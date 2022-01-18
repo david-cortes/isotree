@@ -8,6 +8,16 @@ The new concepts in this software are described in:
 * [Distance approximation using Isolation Forests](https://arxiv.org/abs/1910.12362)
 * [Imputing missing values with unsupervised random trees](https://arxiv.org/abs/1911.06646)
 
+*********************
+
+Short Python example notebooks:
+* [General library usage](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb).
+* [Using it as imputer in a scikit-learn pipeline](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb).
+* [Using it as a kernel for SVMs](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_svm_kernel_example.ipynb).
+* [Converting it to TreeLite format for faster predictions](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/treelite_example.ipynb).
+
+(R examples are available in the internal documentation)
+
 # Description
 
 Isolation Forest is an algorithm originally developed for outlier detection that consists in splitting sub-samples of the data according to some attribute/feature/column at random. The idea is that, the rarer the observation, the more likely it is that a random uniform split on some feature would put outliers alone in one branch, and the fewer splits it will take to isolate an outlier observation like this. The concept is extended to splitting hyperplanes in the extended model (i.e. splitting by more than one column at a time), and to guided (not entirely random) splits in the SCiForest model that aim at isolating outliers faster and finding clustered outliers.
@@ -232,7 +242,11 @@ See [external repository with wrapper](https://github.com/ankane/isotree).
 
 # Examples
 
-* Python: example notebook [here](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb), (also example as imputer in sklearn pipeline [here](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb), and example converting to treelite [here](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/treelite_example.ipynb)).
+* Python:
+    * [Example about general library usage](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb).
+    * [Example using it as imputer in a scikit-learn pipeline](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb).
+    * [Example using it as a kernel for SVMs](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_svm_kernel_example.ipynb).
+    * [Example converting it to TreeLite format for faster predictions](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/treelite_example.ipynb).
 * R: examples available in the documentation (`help(isotree::isolation.forest)`, [link to CRAN](https://cran.r-project.org/web/packages/isotree/index.html)).
 * C and C++: see short examples in the section above.
 * Ruby: see [external repository with wrapper](https://github.com/ankane/isotree).

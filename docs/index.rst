@@ -20,7 +20,8 @@ Quick example notebooks
 
 * `General library usage <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb>`_.
 * `As missing value imputer <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb>`_.
-* `Converting to treelite <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/treelite_example.ipynb>`_.
+* `As kernel for SVMs <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_svm_kernel_example.ipynb>`_.
+* `Converting to treelite for faster predictions <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/treelite_example.ipynb>`_.
 
 
 Methods

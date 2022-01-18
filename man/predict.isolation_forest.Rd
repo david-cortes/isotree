@@ -47,7 +47,7 @@ when the number of trees or rows is large.}
   proximity matrix), which denotes the fraction of trees in which two observations end up in
   the same terminal node. This is typically not as good quality as the separation distance, but
   it's much faster to calculate. Note that building an indexer will not speed up kernel/proximity
-  calculations unless it has reference points. Note that this calculation can be sped up signficantly
+  calculations unless it has reference points. This calculation can be sped up significantly
   by setting reference points in the model object through \link{isotree.set.reference.points},
   and it's highly recommended to do so if this calculation is going to be performed repeatedly.
   \item `"kernel_raw"` for the isolation kernel or proximity matrix, but having as output the
