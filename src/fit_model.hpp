@@ -34,6 +34,10 @@
 *     [13] Cortes, David.
 *          "Isolation forests: looking beyond tree depth."
 *          arXiv preprint arXiv:2111.11639 (2021).
+*     [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou.
+*          "Isolation kernel and its effect on SVM"
+*          Proceedings of the 24th ACM SIGKDD
+*          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2022, David Cortes
@@ -951,7 +955,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                           model_outputs, model_outputs_ext,
                           tmat, NULL, 0,
                           model_params.ntrees, false,
-                          standardize_dist, nthreads);
+                          standardize_dist, false, nthreads);
 
     check_interrupt_switch(ss);
     #if defined(DONT_THROW_ON_INTERRUPT)
@@ -1044,7 +1048,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       if the trees are are to be added to an single-variable model. Can only pass one of
 *       'model_outputs' and 'model_outputs_ext'. Note that this function is not thread-safe,
 *       so it cannot be run in parallel for the same model object.
-* - numeric_data
+* - numeric_data[nrows * ncols_numeric]
 *       Pointer to numeric data to which to fit this additional tree. Must be ordered by columns like Fortran,
 *       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.).
 *       Pass NULL if there are no dense numeric columns.
@@ -1054,7 +1058,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - ncols_numeric
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Cannot be changed from
 *       what was originally passed to 'fit_iforest'.
-* - categ_data
+* - categ_data[nrows * ncols_categ]
 *       Pointer to categorical data to which to fit this additional tree. Must be ordered by columns like Fortran,
 *       not ordered by rows like C (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.).
 *       Pass NULL if there are no categorical columns. The encoding must be the same as was used
@@ -1069,7 +1073,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - ncols_categ
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Cannot be changed from
 *       what was originally passed to 'fit_iforest'.
-* - ncat
+* - ncat[ncols_categ]
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). May contain new categories,
 *       but should keep the same encodings that were used for previous categories.
 * - Xc[nnz]
@@ -1177,7 +1181,57 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - indexer
 *       Indexer object associated to the model object ('model_outputs' or 'model_outputs_ext'), which will
 *       be updated with the new tree to add.
+*       If 'indexer' has reference points, these must be passed again here in order to index them.
 *       Pass NULL if the model has no associated indexer.
+* - ref_numeric_data[nref * ncols_numeric]
+*       Pointer to numeric data for reference points. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'ref_is_col_major').
+*       Pass NULL if there are no dense numeric columns or no reference points.
+*       Can only pass one of 'ref_numeric_data' or 'ref_Xc' + 'ref_Xc_ind' + 'ref_Xc_indptr'.
+*       If 'indexer' is passed, it has reference points, and the data to which the model was fit had
+*       numeric columns, then numeric data for reference points must be passed (in either dense or sparse format).
+* - ref_categ_data[nref * ncols_categ]
+*       Pointer to categorical data for reference points. May be ordered by rows
+*       (i.e. entries 1..n contain row 0, n+1..2n row 1, etc.) - a.k.a. row-major - or by
+*       columns (i.e. entries 1..n contain column 0, n+1..2n column 1, etc.) - a.k.a. column-major
+*       (see parameter 'ref_is_col_major').
+*       Pass NULL if there are no categorical columns or no reference points.
+*       If 'indexer' is passed, it has reference points, and the data to which the model was fit had
+*       categorical columns, then 'ref_categ_data' must be passed.
+* - ref_is_col_major
+*       Whether 'ref_numeric_data' and/or 'ref_categ_data' are in column-major order. If numeric data is
+*       passed in sparse format, categorical data must be passed in column-major format. If passing dense
+*       data, row-major format is preferred as it will be faster. If the data is passed in row-major format,
+*       must also pass 'ref_ld_numeric' and/or 'ref_ld_categ'.
+*       If both 'ref_numeric_data' and 'ref_categ_data' are passed, they must have the same orientation
+*       (row-major or column-major).
+* - ref_ld_numeric
+*       Leading dimension of the array 'ref_numeric_data', if it is passed in row-major format.
+*       Typically, this corresponds to the number of columns, but may be larger (the array will
+*       be accessed assuming that row 'n' starts at 'ref_numeric_data + n*ref_ld_numeric'). If passing
+*       'ref_numeric_data' in column-major order, this is ignored and will be assumed that the
+*       leading dimension corresponds to the number of rows. This is ignored when passing numeric
+*       data in sparse format.
+* - ref_ld_categ
+*       Leading dimension of the array 'ref_categ_data', if it is passed in row-major format.
+*       Typically, this corresponds to the number of columns, but may be larger (the array will
+*       be accessed assuming that row 'n' starts at 'ref_categ_data + n*ref_ld_categ'). If passing
+*       'ref_categ_data' in column-major order, this is ignored and will be assumed that the
+*       leading dimension corresponds to the number of rows.
+* - ref_Xc[ref_nnz]
+*       Pointer to numeric data for reference points in sparse numeric matrix in CSC format (column-compressed).
+*       Pass NULL if there are no sparse numeric columns for reference points or no reference points.
+*       Can only pass one of 'ref_numeric_data' or 'ref_Xc' + 'ref_Xc_ind' + 'ref_Xc_indptr'.
+* - ref_Xc_ind[ref_nnz]
+*       Pointer to row indices to which each non-zero entry in 'ref_Xc' corresponds.
+*       Must be in sorted order, otherwise results will be incorrect.
+*       Pass NULL if there are no sparse numeric columns in CSC format for reference points or no reference points.
+* - ref_Xc_indptr[ref_nnz]
+*       Pointer to column index pointers that tell at entry [col] where does column 'col'
+*       start and at entry [col + 1] where does column 'col' end.
+*       Pass NULL if there are no sparse numeric columns in CSC format for reference points or no reference points.
 * - random_seed
 *       Seed that will be used to generate random numbers used by the model.
 */
@@ -1200,6 +1254,9 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
              bool   all_perm, Imputer *imputer, size_t min_imp_obs,
              TreesIndexer *indexer,
+             real_t ref_numeric_data[], int ref_categ_data[],
+             bool ref_is_col_major, size_t ref_ld_numeric, size_t ref_ld_categ,
+             real_t ref_Xc[], sparse_ix ref_Xc_ind[], sparse_ix ref_Xc_indptr[],
              uint64_t random_seed)
 {
     if (
@@ -1214,6 +1271,10 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         throw std::runtime_error("'weigh_by_kurt' and 'prob_pick_col_by_kurt' cannot be used together.\n");
     if (ndim == 0 && model_outputs == NULL)
         throw std::runtime_error("Must pass 'ndim>0' in the extended model.\n");
+    if (indexer != NULL && !indexer->indices.empty() && !indexer->indices.front().reference_points.empty()) {
+        if (ref_numeric_data == NULL && ref_categ_data == NULL && ref_Xc_indptr == NULL)
+            throw std::runtime_error("'indexer' has reference points. Those points must be passed to index them in the new tree to add.\n");
+    }
 
     std::vector<ImputeNode> *impute_nodes = NULL;
 
@@ -1344,6 +1405,56 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                         model_outputs_ext->hplanes.back()
                     );
                 }
+            }
+
+            check_interrupt_switch(ss);
+            if (!indexer->indices.front().reference_points.empty())
+            {
+                size_t n_ref = indexer->indices.front().reference_points.size();
+                std::vector<sparse_ix> terminal_indices(n_ref);
+                std::unique_ptr<double[]> ignored(new double[n_ref]);
+                if (model_outputs != NULL)
+                {
+                    IsoForest single_tree_model;
+                    single_tree_model.new_cat_action = model_outputs->new_cat_action;
+                    single_tree_model.cat_split_type = model_outputs->cat_split_type;
+                    single_tree_model.missing_action = model_outputs->missing_action;
+                    single_tree_model.trees.push_back(model_outputs->trees.back());
+
+                    predict_iforest(ref_numeric_data, ref_categ_data,
+                                    ref_is_col_major, ref_ld_numeric, ref_ld_categ,
+                                    ref_Xc, ref_Xc_ind, ref_Xc_indptr,
+                                    (real_t*)NULL, (sparse_ix*)NULL, (sparse_ix*)NULL,
+                                    n_ref, 1, false,
+                                    &single_tree_model, (ExtIsoForest*)NULL,
+                                    ignored.get(), terminal_indices.data(),
+                                    (double*)NULL,
+                                    indexer);
+                }
+
+                else
+                {
+                    ExtIsoForest single_tree_model;
+                    single_tree_model.new_cat_action = model_outputs_ext->new_cat_action;
+                    single_tree_model.cat_split_type = model_outputs_ext->cat_split_type;
+                    single_tree_model.missing_action = model_outputs_ext->missing_action;
+                    single_tree_model.hplanes.push_back(model_outputs_ext->hplanes.back());
+
+                    predict_iforest(ref_numeric_data, ref_categ_data,
+                                    ref_is_col_major, ref_ld_numeric, ref_ld_categ,
+                                    ref_Xc, ref_Xc_ind, ref_Xc_indptr,
+                                    (real_t*)NULL, (sparse_ix*)NULL, (sparse_ix*)NULL,
+                                    n_ref, 1, false,
+                                    (IsoForest*)NULL, &single_tree_model,
+                                    ignored.get(), terminal_indices.data(),
+                                    (double*)NULL,
+                                    indexer);
+                }
+
+                ignored.reset();
+                indexer->indices.back().reference_points.assign(terminal_indices.begin(), terminal_indices.end());
+                indexer->indices.back().reference_points.shrink_to_fit();
+                build_ref_node(indexer->indices.back());
             }
 
             check_interrupt_switch(ss);

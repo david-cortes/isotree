@@ -34,6 +34,10 @@
 *     [13] Cortes, David.
 *          "Isolation forests: looking beyond tree depth."
 *          arXiv preprint arXiv:2111.11639 (2021).
+*     [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou.
+*          "Isolation kernel and its effect on SVM"
+*          Proceedings of the 24th ACM SIGKDD
+*          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -463,7 +467,8 @@ isotree_exit_code isotree_predict_distance
 (
     isotree_model_t isotree_model,
     isotree_bool output_triangular,
-    isotree_bool standardize_distance,
+    isotree_bool as_kernel,
+    isotree_bool standardize,
     isotree_bool assume_full_distr,
     double *output_dist, /* <- output goes here */
     size_t nrows,
@@ -487,6 +492,49 @@ isotree_exit_code isotree_impute
     double *csr_values,
     int *csr_indices,
     int *csr_indptr
+);
+
+ISOTREE_EXPORTED
+isotree_exit_code isotree_set_reference_points
+(
+    isotree_model_t isotree_model,
+    isotree_bool with_distances,
+    size_t nrows,
+    isotree_bool is_col_major,
+    double *numeric_data,
+    size_t ld_numeric,
+    int *categ_data,
+    size_t ld_categ,
+    double *csc_values,
+    int *csc_indices,
+    int *csc_indptr
+);
+
+ISOTREE_EXPORTED
+size_t isotree_get_num_reference_points(isotree_model_t isotree_model);
+
+/*  Must call 'isotree_set_reference_points' to make this method available.
+
+    Here 'output_dist' should have dimension [nrows, n_references],
+    and will be filled in row-major order.
+
+    This will always take 'assume_full_distr=true'.  */
+ISOTREE_EXPORTED
+isotree_exit_code isotree_predict_distance_to_ref_points
+(
+    isotree_model_t isotree_model,
+    double *output_dist, /* <- output goes here */
+    isotree_bool as_kernel,
+    isotree_bool standardize,
+    size_t nrows,
+    isotree_bool is_col_major,
+    double *numeric_data,
+    size_t ld_numeric,
+    int *categ_data,
+    size_t ld_categ,
+    double *csc_values,
+    int *csc_indices,
+    int *csc_indptr
 );
 
 /*  Files should be opened in binary mode.  */

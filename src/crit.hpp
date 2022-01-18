@@ -34,6 +34,10 @@
 *     [13] Cortes, David.
 *          "Isolation forests: looking beyond tree depth."
 *          arXiv preprint arXiv:2111.11639 (2021).
+*     [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou.
+*          "Isolation kernel and its effect on SVM"
+*          Proceedings of the 24th ACM SIGKDD
+*          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2022, David Cortes
@@ -99,7 +103,7 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], Missing
             M2  +=  diff;
         }
 
-        if (!is_na_or_inf(M2) && M2 <= 0)
+        if (unlikely(!is_na_or_inf(M2) && M2 <= 0))
         {
             if (!check_more_than_two_unique_values(ix_arr, st, end, x, missing_action))
                 return -HUGE_VAL;
@@ -114,7 +118,7 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], Missing
         size_t cnt = 0;
         for (size_t row = st; row <= end; row++)
         {
-            if (!is_na_or_inf(x[ix_arr[row]]))
+            if (likely(!is_na_or_inf(x[ix_arr[row]])))
             {
                 cnt++;
                 n = (ldouble_safe) cnt;
@@ -131,8 +135,8 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], Missing
             }
         }
 
-        if (cnt == 0) return -HUGE_VAL;
-        if (!is_na_or_inf(M2) && M2 <= 0)
+        if (unlikely(cnt == 0)) return -HUGE_VAL;
+        if (unlikely(!is_na_or_inf(M2) && M2 <= 0))
         {
             if (!check_more_than_two_unique_values(ix_arr, st, end, x, missing_action))
                 return -HUGE_VAL;
@@ -178,7 +182,7 @@ double calc_kurtosis(real_t x[], size_t n, MissingAction missing_action)
         size_t cnt = 0;
         for (size_t row = 0; row < n; row++)
         {
-            if (!is_na_or_inf(x[row]))
+            if (likely(!is_na_or_inf(x[row])))
             {
                 cnt++;
                 n_ = (ldouble_safe) cnt;
@@ -195,7 +199,7 @@ double calc_kurtosis(real_t x[], size_t n, MissingAction missing_action)
             }
         }
 
-        if (cnt == 0) return -HUGE_VAL;
+        if (unlikely(cnt == 0)) return -HUGE_VAL;
 
         out = ( M4 / M2 ) * ( (ldouble_safe)cnt / M2 );
         return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
@@ -218,7 +222,7 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, real_t x[]
 
     for (size_t row = st; row <= end; row++)
     {
-        if (!is_na_or_inf(x[ix_arr[row]]))
+        if (likely(!is_na_or_inf(x[ix_arr[row]])))
         {
             w_this = w[ix_arr[row]];
             n += w_this;
@@ -236,8 +240,8 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, real_t x[]
         }
     }
 
-    if (n <= 0) return -HUGE_VAL;
-    if (!is_na_or_inf(M2) && M2 <= std::numeric_limits<double>::epsilon())
+    if (unlikely(n <= 0)) return -HUGE_VAL;
+    if (unlikely(!is_na_or_inf(M2) && M2 <= std::numeric_limits<double>::epsilon()))
     {
         if (!check_more_than_two_unique_values(ix_arr, st, end, x, missing_action))
             return -HUGE_VAL;
@@ -261,7 +265,7 @@ double calc_kurtosis_weighted(real_t *restrict x, size_t n_, MissingAction missi
 
     for (size_t row = 0; row < n_; row++)
     {
-        if (!is_na_or_inf(x[row]))
+        if (likely(!is_na_or_inf(x[row])))
         {
             w_this = w[row];
             n += w_this;
@@ -279,7 +283,7 @@ double calc_kurtosis_weighted(real_t *restrict x, size_t n_, MissingAction missi
         }
     }
 
-    if (n <= 0) return -HUGE_VAL;
+    if (unlikely(n <= 0)) return -HUGE_VAL;
 
     out = ( M4 / M2 ) * ( n / M2 );
     return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
@@ -305,7 +309,7 @@ double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
     ldouble_safe x_sq;
     size_t cnt = end - st + 1;
 
-    if (cnt <= 1) return -HUGE_VAL;
+    if (unlikely(cnt <= 1)) return -HUGE_VAL;
     
     size_t st_col  = Xc_indptr[col_num];
     size_t end_col = Xc_indptr[col_num + 1] - 1;
@@ -324,7 +328,7 @@ double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
             if (Xc_ind[curr_pos] == (sparse_ix)(*row))
             {
                 xval = Xc[curr_pos];
-                if (is_na_or_inf(xval))
+                if (unlikely(is_na_or_inf(xval)))
                 {
                     cnt--;
                 }
@@ -358,7 +362,7 @@ double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
             }
         }
 
-        if (cnt <= (end - st + 1) - (Xc_indptr[col_num+1] - Xc_indptr[col_num])) return -HUGE_VAL;
+        if (unlikely(cnt <= (end - st + 1) - (Xc_indptr[col_num+1] - Xc_indptr[col_num]))) return -HUGE_VAL;
     }
 
     else
@@ -394,11 +398,11 @@ double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
         }
     }
 
-    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return -HUGE_VAL;
+    if (unlikely(cnt <= 1 || s2 == 0 || s2 == pw2(s1))) return -HUGE_VAL;
     ldouble_safe cnt_l = (ldouble_safe) cnt;
     ldouble_safe sn = s1 / cnt_l;
     ldouble_safe v  = s2 / cnt_l - pw2(sn);
-    if (std::isnan(v)) return -HUGE_VAL;
+    if (unlikely(std::isnan(v))) return -HUGE_VAL;
     if (
         v <= std::numeric_limits<double>::epsilon() &&
         !check_more_than_two_unique_values(ix_arr, st, end, col_num,
@@ -406,7 +410,7 @@ double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
                                            missing_action)
     )
         return -HUGE_VAL;
-    if (v <= 0) return 0.;
+    if (unlikely(v <= 0)) return 0.;
     ldouble_safe out =  (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt_l * pw4(sn)) / (cnt_l * pw2(v));
     return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
 }
@@ -426,7 +430,7 @@ double calc_kurtosis(size_t col_num, size_t nrows,
     ldouble_safe x_sq;
     size_t cnt = nrows;
 
-    if (cnt <= 1) return -HUGE_VAL;
+    if (unlikely(cnt <= 1)) return -HUGE_VAL;
 
     ldouble_safe xval;
 
@@ -435,7 +439,7 @@ double calc_kurtosis(size_t col_num, size_t nrows,
         for (auto ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num+1]; ix++)
         {
             xval = Xc[ix];
-            if (is_na_or_inf(xval))
+            if (unlikely(is_na_or_inf(xval)))
             {
                 cnt--;
             }
@@ -474,11 +478,11 @@ double calc_kurtosis(size_t col_num, size_t nrows,
         }
     }
 
-    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return -HUGE_VAL;
+    if (unlikely(cnt <= 1 || s2 == 0 || s2 == pw2(s1))) return -HUGE_VAL;
     ldouble_safe cnt_l = (ldouble_safe) cnt;
     ldouble_safe sn = s1 / cnt_l;
     ldouble_safe v  = s2 / cnt_l - pw2(sn);
-    if (std::isnan(v)) return -HUGE_VAL;
+    if (unlikely(std::isnan(v))) return -HUGE_VAL;
     if (
         v <= std::numeric_limits<double>::epsilon() &&
         !check_more_than_two_unique_values(nrows, col_num,
@@ -486,7 +490,7 @@ double calc_kurtosis(size_t col_num, size_t nrows,
                                            missing_action)
     )
         return -HUGE_VAL;
-    if (v <= 0) return 0.;
+    if (unlikely(v <= 0)) return 0.;
     ldouble_safe out =  (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt_l * pw4(sn)) / (cnt_l * pw2(v));
     return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
 }
@@ -511,7 +515,7 @@ double calc_kurtosis_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
     for (size_t row = st; row <= end; row++)
         cnt += w[ix_arr[row]];
 
-    if (cnt <= 0) return -HUGE_VAL;
+    if (unlikely(cnt <= 0)) return -HUGE_VAL;
     
     size_t st_col  = Xc_indptr[col_num];
     size_t end_col = Xc_indptr[col_num + 1] - 1;
@@ -532,7 +536,7 @@ double calc_kurtosis_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
                 w_this = w[*row];
                 xval = Xc[curr_pos];
 
-                if (is_na_or_inf(xval))
+                if (unlikely(is_na_or_inf(xval)))
                 {
                     cnt -= w_this;
                 }
@@ -563,7 +567,7 @@ double calc_kurtosis_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
             }
         }
 
-        if (cnt <= 0) return -HUGE_VAL;
+        if (unlikely(cnt <= 0)) return -HUGE_VAL;
     }
 
     else
@@ -601,10 +605,10 @@ double calc_kurtosis_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
         }
     }
 
-    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return -HUGE_VAL;
+    if (unlikely(cnt <= 1 || s2 == 0 || s2 == pw2(s1))) return -HUGE_VAL;
     ldouble_safe sn = s1 / cnt;
     ldouble_safe v  = s2 / cnt - pw2(sn);
-    if (std::isnan(v)) return -HUGE_VAL;
+    if (unlikely(std::isnan(v))) return -HUGE_VAL;
     if (
         v <= std::numeric_limits<double>::epsilon() &&
         !check_more_than_two_unique_values(ix_arr, st, end, col_num,
@@ -635,7 +639,7 @@ double calc_kurtosis_weighted(size_t col_num, size_t nrows,
     for (auto ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num + 1]; ix++)
         cnt += w[Xc_ind[ix]];
 
-    if (cnt <= 0) return -HUGE_VAL;
+    if (unlikely(cnt <= 0)) return -HUGE_VAL;
     
     ldouble_safe xval;
 
@@ -646,7 +650,7 @@ double calc_kurtosis_weighted(size_t col_num, size_t nrows,
             w_this = w[Xc_ind[ix]];
             xval = Xc[ix];
 
-            if (is_na_or_inf(xval))
+            if (unlikely(is_na_or_inf(xval)))
             {
                 cnt -= w_this;
             }
@@ -687,10 +691,10 @@ double calc_kurtosis_weighted(size_t col_num, size_t nrows,
         }
     }
 
-    if (cnt <= 1 || s2 == 0 || s2 == pw2(s1)) return -HUGE_VAL;
+    if (unlikely(cnt <= 1 || s2 == 0 || s2 == pw2(s1))) return -HUGE_VAL;
     ldouble_safe sn = s1 / cnt;
     ldouble_safe v  = s2 / cnt - pw2(sn);
-    if (std::isnan(v)) return -HUGE_VAL;
+    if (unlikely(std::isnan(v))) return -HUGE_VAL;
     if (
         v <= std::numeric_limits<double>::epsilon() &&
         !check_more_than_two_unique_values(nrows, col_num,
@@ -698,7 +702,7 @@ double calc_kurtosis_weighted(size_t col_num, size_t nrows,
                                            missing_action)
     )
         return -HUGE_VAL;
-    if (v <= 0) return -HUGE_VAL;
+    if (unlikely(v <= 0)) return -HUGE_VAL;
     ldouble_safe out =  (s4 - 4 * s3 * sn + 6 * s2 * pw2(sn) - 4 * s1 * pw3(sn) + cnt * pw4(sn)) / (cnt * pw2(v));
     return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
 }
@@ -759,9 +763,9 @@ double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[]
                 else
                     sum_kurt += (s4 - 4 * s3 * pw1(s1) + 6 * s2 * pw2(s1) - 4 * s1 * pw3(s1) + pw4(s1)) / pw2(temp_v);
             }
-            if (!ntry)
+            if (unlikely(!ntry))
                 return -HUGE_VAL;
-            else if (is_na_or_inf(sum_kurt))
+            else if (unlikely(is_na_or_inf(sum_kurt)))
                 return -HUGE_VAL;
             else
                 return std::fmax(sum_kurt, 0.) / (double)ntry;
@@ -781,7 +785,7 @@ double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[]
             }
             if (ncat_present <= 1)
                 return -HUGE_VAL;
-            else if (is_na_or_inf(sum_kurt))
+            else if (unlikely(is_na_or_inf(sum_kurt)))
                 return -HUGE_VAL;
             else
                 return std::fmax(sum_kurt, 0.) / (double)ncat_present;
@@ -816,7 +820,7 @@ double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, int x[], in
     {
         for (size_t row = st; row <= end; row++)
         {
-            if (x[ix_arr[row]] >= 0)
+            if (likely(x[ix_arr[row]] >= 0))
                 buffer_cnt[x[ix_arr[row]]]++;
             else
                 buffer_cnt[ncat]++;
@@ -843,7 +847,7 @@ double calc_kurtosis(size_t nrows, int x[], int ncat, size_t buffer_cnt[], doubl
     {
         for (size_t row = 0; row < nrows; row++)
         {
-            if (x[row] >= 0)
+            if (likely(x[row] >= 0))
                 buffer_cnt[x[row]]++;
             else
                 buffer_cnt[ncat]++;
@@ -866,7 +870,7 @@ double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, in
     ldouble_safe cnt = std::accumulate(buffer_cnt.begin(), buffer_cnt.end(), (ldouble_safe)0);
 
     cnt -= buffer_cnt[ncat];
-    if (cnt <= 1) return -HUGE_VAL;
+    if (unlikely(cnt <= 1)) return -HUGE_VAL;
     for (int cat = 0; cat < ncat; cat++)
         buffer_prob[cat] = buffer_cnt[cat] / cnt;
 
@@ -898,14 +902,14 @@ double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, in
                     // s4 += buffer_prob[cat] * pw4(coef);
                 }
                 temp_v = s2 - pw2(s1);
-                if (temp_v <= 0)
+                if (unlikely(temp_v <= 0))
                     ntry--;
                 else
                     sum_kurt += (s4 - 4 * s3 * pw1(s1) + 6 * s2 * pw2(s1) - 4 * s1 * pw3(s1) + pw4(s1)) / pw2(temp_v);
             }
-            if (!ntry)
+            if (unlikely(!ntry))
                 return -HUGE_VAL;
-            else if (is_na_or_inf(sum_kurt))
+            else if (unlikely(is_na_or_inf(sum_kurt)))
                 return -HUGE_VAL;
             else
                 return std::fmax(sum_kurt, 0.) / (double)ntry;
@@ -925,7 +929,7 @@ double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, in
             }
             if (ncat_present <= 1)
                 return -HUGE_VAL;
-            else if (is_na_or_inf(sum_kurt))
+            else if (unlikely(is_na_or_inf(sum_kurt)))
                 return -HUGE_VAL;
             else
                 return std::fmax(sum_kurt, 0.) / (double)ncat_present;
@@ -945,7 +949,7 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, int x[], i
     for (size_t row = st; row <= end; row++)
     {
         w_this = w[ix_arr[row]];
-        if (x[ix_arr[row]] >= 0)
+        if (likely(x[ix_arr[row]] >= 0))
             buffer_cnt[x[ix_arr[row]]] += w_this;
         else
             buffer_cnt[ncat] += w_this;
@@ -967,7 +971,7 @@ double calc_kurtosis_weighted(size_t nrows, int x[], int ncat, double *restrict 
     for (size_t row = 0; row < nrows; row++)
     {
         w_this = w[row];
-        if (x[row] >= 0)
+        if (likely(x[row] >= 0))
             buffer_cnt[x[row]] += w_this;
         else
             buffer_cnt[ncat] += w_this;
@@ -1084,7 +1088,7 @@ double expected_sd_cat(size_t *restrict ix_arr, size_t st, size_t end, int x[], 
         for (size_t row = st; row <= end; row++)
         {
             xval = x[ix_arr[row]];
-            if (xval < 0)
+            if (unlikely(xval < 0))
                 buffer_cnt[ncat]++;
             else
                 buffer_cnt[xval]++;
@@ -1097,7 +1101,7 @@ double expected_sd_cat(size_t *restrict ix_arr, size_t st, size_t end, int x[], 
     {
         for (size_t row = st; row <= end; row++)
         {
-            if (x[ix_arr[row]] >= 0) buffer_cnt[x[ix_arr[row]]]++;
+            if (likely(x[ix_arr[row]] >= 0)) buffer_cnt[x[ix_arr[row]]]++;
         }
     }
 
@@ -1122,7 +1126,7 @@ double expected_sd_cat_weighted(size_t *restrict ix_arr, size_t st, size_t end, 
             xval = x[ix_arr[row]];
             w_this = w[ix_arr[row]];
 
-            if (xval < 0) {
+            if (unlikely(xval < 0)) {
                 buffer_cnt[ncat] += w_this;
             }
             else {
@@ -1137,14 +1141,14 @@ double expected_sd_cat_weighted(size_t *restrict ix_arr, size_t st, size_t end, 
     {
         for (size_t row = st; row <= end; row++)
         {
-            if (x[ix_arr[row]] >= 0)
+            if (likely(x[ix_arr[row]] >= 0))
             {
                 buffer_cnt[x[ix_arr[row]]] += w[ix_arr[row]];
             }
         }
         for (int cat = 0; cat < ncat; cat++)
             cnt += buffer_cnt[cat];
-        if (cnt == 0) return 0;
+        if (unlikely(cnt == 0)) return 0;
     }
 
     return expected_sd_cat_internal(ncat, buffer_cnt, cnt, buffer_pos, buffer_prob);
@@ -1242,7 +1246,7 @@ template <class real_t>
 double midpoint(real_t x, real_t y)
 {
     real_t m = x + (y-x)/(real_t)2;
-    if ((double)m < (double)y)
+    if (likely((double)m < (double)y))
         return m;
     else {
         m = std::nextafter(m, y);
@@ -1675,7 +1679,7 @@ double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
     double gain;
 
     /* here it's assumed the 'x' vector matches exactly with 'ix_arr' + 'st' */
-    if (n == 2)
+    if (unlikely(n == 2))
     {
         if (x[0] == x[1]) return -HUGE_VAL;
         split_point = midpoint_with_reorder(x[0], x[1]);
@@ -1709,7 +1713,7 @@ double eval_guided_crit_weighted(double *restrict x, size_t n, GainCriterion cri
     double gain;
 
     /* here it's assumed the 'x' vector matches exactly with 'ix_arr' + 'st' */
-    if (n == 2)
+    if (unlikely(n == 2))
     {
         if (x[0] == x[1]) return -HUGE_VAL;
         split_point = midpoint_with_reorder(x[0], x[1]);
@@ -1747,8 +1751,8 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, real_t_ 
     if (missing_action != Fail)
         st = move_NAs_to_front(ix_arr, st, end, x);
 
-    if (st >= end) return -HUGE_VAL;
-    else if (st == (end-1))
+    if (unlikely(st >= end)) return -HUGE_VAL;
+    else if (unlikely(st == (end-1)))
     {
         if (x[ix_arr[st]] == x[ix_arr[end]])
             return -HUGE_VAL;
@@ -1816,8 +1820,8 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
     if (missing_action != Fail)
         st = move_NAs_to_front(ix_arr, st, end, x);
 
-    if (st >= end) return -HUGE_VAL;
-    else if (st == (end-1))
+    if (unlikely(st >= end)) return -HUGE_VAL;
+    else if (unlikely(st == (end-1)))
     {
         if (x[ix_arr[st]] == x[ix_arr[end]])
             return -HUGE_VAL;
@@ -1897,7 +1901,7 @@ double eval_guided_crit(size_t ix_arr[], size_t st, size_t end,
         missing_action = Fail;
         for (size_t ix = 0; ix < tot; ix++)
         {
-            if (is_na_or_inf(buffer_arr[ix]))
+            if (unlikely(is_na_or_inf(buffer_arr[ix])))
             {
                 goto fill_missing;
             }
@@ -1953,7 +1957,7 @@ double eval_guided_crit_weighted(size_t ix_arr[], size_t st, size_t end,
         missing_action = Fail;
         for (size_t ix = 0; ix < tot; ix++)
         {
-            if (is_na_or_inf(buffer_arr[ix]))
+            if (unlikely(is_na_or_inf(buffer_arr[ix])))
             {
                 goto fill_missing;
             }
@@ -2033,13 +2037,13 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
         for (size_t row = st; row <= end; row++)
         {
             xval = x[ix_arr[row]];
-            if (xval < 0)
+            if (unlikely(xval < 0))
                 n_nas++;
             else
                 buffer_cnt[xval]++;
         }
 
-        if (n_nas >= end-st) return -HUGE_VAL;
+        if (unlikely(n_nas >= end-st)) return -HUGE_VAL;
 
         if (n_nas)
         {
@@ -2054,7 +2058,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
         for (size_t row = st; row <= end; row++)
         {
             xval = x[ix_arr[row]];
-            if (xval >= 0) buffer_cnt[xval]++;
+            if (likely(xval >= 0)) buffer_cnt[xval]++;
         }
     }
 
@@ -2355,6 +2359,7 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
         for (size_t row = st; row <= end; row++)
         {
             ix_ = ix_arr[row];
+            if (unlikely(x[ix_]) < 0) continue;
             buffer_cnt[x[ix_]] += w[ix_];
         }
     }
@@ -2365,7 +2370,7 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
         {
             ix_ = ix_arr[row];
             xval = x[ix_];
-            if (xval < 0)
+            if (unlikely(xval < 0))
                 w_missing += w[ix_];
             else
                 buffer_cnt[xval] += w[ix_];
@@ -2385,7 +2390,7 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
         {
             ix_ = ix_arr[row];
             xval = x[ix_];
-            if (xval >= 0) buffer_cnt[xval] += w[ix_];
+            if (likely(xval >= 0)) buffer_cnt[xval] += w[ix_];
         }
     }
 

@@ -26,7 +26,7 @@
 #     [9] Cortes, David.
 #         "Imputing missing values with unsupervised random trees."
 #         arXiv preprint arXiv:1911.06646 (2019).
-#     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom
+#     [10] https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottomF
 #     [11] Cortes, David.
 #          "Revisiting randomized choices in isolation forests."
 #          arXiv preprint arXiv:2110.13402 (2021).
@@ -36,6 +36,10 @@
 #     [13] Cortes, David.
 #          "Isolation forests: looking beyond tree depth."
 #          arXiv preprint arXiv:2111.11639 (2021).
+#     [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou.
+#          "Isolation kernel and its effect on SVM"
+#          Proceedings of the 24th ACM SIGKDD
+#          International Conference on Knowledge Discovery & Data Mining. 2018.
 # 
 #     BSD 2-Clause License
 #     Copyright (c) 2019-2022, David Cortes
@@ -207,7 +211,7 @@ cdef extern from "headers_joined.hpp":
         vector[SingleTreeIndex] indices
 
 
-    void tmat_to_dense(double *tmat, double *dmat, size_t n, bool_t diag_to_one, bool_t diag_to_inf)
+    void tmat_to_dense(double *tmat, double *dmat, size_t n, double fill_diag)
 
     void merge_models(IsoForest*     model,      IsoForest*     other,
                       ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
@@ -343,9 +347,10 @@ cdef extern from "headers_joined.hpp":
     void calc_similarity[real_t_, sparse_ix_](
                          real_t_ numeric_data[], int categ_data[],
                          real_t_ Xc[], sparse_ix_ Xc_ind[], sparse_ix_ Xc_indptr[],
-                         size_t nrows, int nthreads, bool_t assume_full_distr, bool_t standardize_dist,
+                         size_t nrows, int nthreads,
+                         bool_t assume_full_distr, bool_t standardize_dist, bool_t as_kernel,
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                         double tmat[], double rmat[], size_t n_from,
+                         double tmat[], double rmat[], size_t n_from, bool_t use_indexed_references,
                          TreesIndexer *indexer, bool_t is_col_major, size_t ld_numeric, size_t ld_categ) nogil except +
 
     void impute_missing_values[real_t_, sparse_ix_](
@@ -374,7 +379,19 @@ cdef extern from "headers_joined.hpp":
                  UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
                  bool_t  all_perm, Imputer *imputer, size_t min_imp_obs,
                  TreesIndexer *indexer,
+                 real_t_ ref_numeric_data[], int ref_categ_data[],
+                 bool_t ref_is_col_major, size_t ref_ld_numeric, size_t ref_ld_categ,
+                 real_t_ ref_Xc[], sparse_ix_ ref_Xc_ind[], sparse_ix_ ref_Xc_indptr[],
                  uint64_t random_seed) nogil except +
+
+    void set_reference_points[real_t_, sparse_ix_](
+                              IsoForest *model_outputs, ExtIsoForest *model_outputs_ext, TreesIndexer *indexer,
+                              const bool_t with_distances,
+                              real_t_ *numeric_data, int *categ_data,
+                              bool_t is_col_major, size_t ld_numeric, size_t ld_categ,
+                              real_t_ *Xc, sparse_ix_ *Xc_ind, sparse_ix_ *Xc_indptr,
+                              real_t_ *Xr, sparse_ix_ *Xr_ind, sparse_ix_ *Xr_indptr,
+                              size_t nrows, int nthreads) nogil except +
 
     void build_tree_indices(TreesIndexer &indexer, const IsoForest &model, int nthreads, const bool_t with_distances) nogil except +
 
@@ -646,6 +663,16 @@ cdef class isoforest_cpp_obj:
         dealloc_Indexer(self.indexer)
         self.indexer = get_Indexer()
 
+    def drop_reference_points(self):
+        cdef size_t tree, ntrees
+        ntrees = self.indexer.indices.size()
+        if (ntrees > 0) and (self.indexer.indices.front().reference_points.empty()):
+            return None
+        for tree in range(ntrees):
+            self.indexer.indices[tree].reference_points.clear()
+            self.indexer.indices[tree].reference_indptr.clear()
+            self.indexer.indices[tree].reference_mapping.clear()
+
     def get_cpp_obj(self, is_extended):
         if is_extended:
             return self.ext_isoforest
@@ -787,7 +814,7 @@ cdef class isoforest_cpp_obj:
             tmat      =  np.zeros(int((nrows * (nrows - <size_t>1)) / <size_t>2), dtype = ctypes.c_double)
             tmat_ptr  =  &tmat[0]
             if sq_dist:
-                dmat      =  np.zeros((nrows, nrows), dtype = ctypes.c_double, order = 'F')
+                dmat      =  np.zeros((nrows, nrows), dtype = ctypes.c_double)
                 dmat_ptr  =  &dmat[0, 0]
         if calc_depth:
             depths      =  np.zeros(nrows, dtype = ctypes.c_double)
@@ -845,7 +872,7 @@ cdef class isoforest_cpp_obj:
             raise ValueError("Error: something went wrong. Procedure failed.")
 
         if (calc_dist) and (sq_dist):
-            tmat_to_dense(tmat_ptr, dmat_ptr, nrows, <bool_t>0, <bool_t>(not standardize_dist))
+            tmat_to_dense(tmat_ptr, dmat_ptr, nrows, 0. if standardize_dist else np.inf)
 
         return depths, tmat, dmat, X_num, X_cat
 
@@ -864,7 +891,9 @@ cdef class isoforest_cpp_obj:
                  double min_gain, missing_action, cat_split_type, new_cat_action,
                  bool_t build_imputer, size_t min_imp_obs,
                  depth_imp, weigh_imp_rows,
-                 bool_t all_perm, uint64_t random_seed):
+                 bool_t all_perm,
+                 ref_X_num, ref_X_cat,
+                 uint64_t random_seed):
         cdef real_t*     numeric_data_ptr    =  NULL
         cdef int*        categ_data_ptr      =  NULL
         cdef int*        ncat_ptr            =  NULL
@@ -921,6 +950,51 @@ cdef class isoforest_cpp_obj:
                 if col_weights.dtype != ctypes.c_double:
                     col_weights = col_weights.astype(ctypes.c_double)
                 col_weights_ptr =  get_ptr_dbl_vec(col_weights)
+
+
+        cdef real_t*     ref_numeric_data_ptr    =  NULL
+        cdef int*        ref_categ_data_ptr      =  NULL
+        cdef real_t*     ref_Xc_ptr              =  NULL
+        cdef sparse_ix*  ref_Xc_ind_ptr          =  NULL
+        cdef sparse_ix*  ref_Xc_indptr_ptr       =  NULL
+        cdef bool_t      ref_is_col_major    =  True
+        cdef size_t      ref_ncols_numeric   =  0
+        cdef size_t      ref_ncols_categ     =  0
+
+        if ref_X_num is not None:
+            if not issparse(ref_X_num):
+                if real_t is float:
+                    ref_numeric_data_ptr  =  get_ptr_float_mat(ref_X_num)
+                else:
+                    if ref_X_num.dtype != ctypes.c_double:
+                        ref_X_num = ref_X_num.astype(ctypes.c_double)
+                    ref_numeric_data_ptr  =  get_ptr_dbl_mat(ref_X_num)
+                ref_ncols_numeric      =  ref_X_num.shape[1]
+                ref_is_col_major       =  np.isfortran(ref_X_num)
+            else:
+                if real_t is float:
+                    ref_Xc_ptr         =  get_ptr_float_vec(ref_X_num.data)
+                else:
+                    if ref_X_num.data.dtype != ctypes.c_double:
+                        ref_X_num.data = ref_X_num.data.astype(ctypes.c_double)
+                    ref_Xc_ptr         =  get_ptr_dbl_vec(ref_X_num.data)
+                if sparse_ix is int:
+                    ref_Xc_ind_ptr     =  get_ptr_int_vec(ref_X_num.indices)
+                    ref_Xc_indptr_ptr  =  get_ptr_int_vec(ref_X_num.indptr)
+                elif sparse_ix is np.int64_t:
+                    ref_Xc_ind_ptr     =  get_ptr_int64_vec(ref_X_num.indices)
+                    ref_Xc_indptr_ptr  =  get_ptr_int64_vec(ref_X_num.indptr)
+                else:
+                    if ref_X_num.indices.dtype != ctypes.c_size_t:
+                        ref_X_num.indices = ref_X_num.indices.astype(ctypes.c_size_t)
+                    if ref_X_num.indptr.dtype != ctypes.c_size_t:
+                        ref_X_num.indptr = ref_X_num.indptr.astype(ctypes.c_size_t)
+                    ref_Xc_ind_ptr     =  get_ptr_szt_vec(ref_X_num.indices)
+                    ref_Xc_indptr_ptr  =  get_ptr_szt_vec(ref_X_num.indptr)
+        if ref_X_cat is not None:
+            ref_categ_data_ptr     =  get_ptr_int_mat(ref_X_cat)
+            ref_ncols_categ        =  ref_X_cat.shape[1]
+            ref_is_col_major       =  np.isfortran(ref_X_cat)
 
         cdef CoefType        coef_type_C       =  Normal
         cdef CategSplit      cat_split_type_C  =  SubSet
@@ -983,7 +1057,11 @@ cdef class isoforest_cpp_obj:
                      cat_split_type_C, new_cat_action_C,
                      depth_imp_C, weigh_imp_rows_C,
                      all_perm, imputer_ptr, min_imp_obs,
-                     indexer_ptr, random_seed)
+                     indexer_ptr,
+                     ref_numeric_data_ptr, ref_categ_data_ptr,
+                     ref_is_col_major, ref_ncols_numeric, ref_ncols_categ,
+                     ref_Xc_ptr, ref_Xc_ind_ptr, ref_Xc_indptr_ptr,
+                     random_seed)
 
     def predict(self,
                 np.ndarray[real_t, ndim=1] placeholder_real_t,
@@ -1120,7 +1198,8 @@ cdef class isoforest_cpp_obj:
              X_num, X_cat, is_extended,
              size_t nrows, int nthreads, bool_t assume_full_distr,
              bool_t standardize_dist,    bool_t sq_dist,
-             size_t n_from):
+             size_t n_from, bool_t use_reference_points,
+             bool_t as_kernel):
 
         cdef real_t*     numeric_data_ptr  =  NULL
         cdef int*        categ_data_ptr    =  NULL
@@ -1132,8 +1211,21 @@ cdef class isoforest_cpp_obj:
         cdef size_t ncols_numeric   =  0
         cdef size_t ncols_categ     =  0
 
+        cdef bool_t avoid_row_major = (
+            as_kernel and
+            (not use_reference_points or
+             self.indexer.indices.empty() or
+             self.indexer.indices.front().reference_points.empty())
+        )
+
         if X_num is not None:
             if not issparse(X_num):
+                if avoid_row_major and not np.isfortran(X_num):
+                    if real_t is float:
+                        X_num = np.asfortranarray(X_num, dtype=ctypes.c_float)
+                    else:
+                        X_num = np.asfortranarray(X_num, dtype=ctypes.c_double)
+
                 if real_t is float:
                     numeric_data_ptr  =  get_ptr_float_mat(X_num)
                 else:
@@ -1167,6 +1259,9 @@ cdef class isoforest_cpp_obj:
                         X_num.indptr = X_num.indptr.astype(ctypes.c_size_t)
                     Xc_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
         if X_cat is not None:
+            if avoid_row_major and not np.isfortran(X_cat):
+                X_cat = np.asfortranarray(X_cat, dtype=ctypes.c_int)
+
             categ_data_ptr     =  get_ptr_int_mat(X_cat)
             ncols_categ        =  X_cat.shape[1]
             is_col_major       =  np.isfortran(X_cat)
@@ -1178,15 +1273,23 @@ cdef class isoforest_cpp_obj:
         cdef double*  dmat_ptr    =  NULL
         cdef double*  rmat_ptr    =  NULL
 
-        if n_from == 0:
+        if n_from != 0:
+            rmat = np.zeros((n_from, nrows - n_from), dtype = ctypes.c_double)
+            rmat_ptr = &rmat[0, 0]
+        elif (
+              use_reference_points and
+              not self.indexer.indices.empty() and
+              not self.indexer.indices.front().reference_points.empty() and
+              (as_kernel or not self.indexer.indices.front().node_distances.empty())
+        ):
+            rmat = np.zeros((nrows, self.indexer.indices.front().reference_points.size()), dtype = ctypes.c_double)
+            rmat_ptr = &rmat[0, 0]
+        else:
             tmat      =  np.zeros(int((nrows * (nrows - 1)) / 2), dtype = ctypes.c_double)
             tmat_ptr  =  &tmat[0]
             if sq_dist:
-                dmat      =  np.zeros((nrows, nrows), dtype = ctypes.c_double, order = 'F')
+                dmat      =  np.zeros((nrows, nrows), dtype = ctypes.c_double)
                 dmat_ptr  =  &dmat[0, 0]
-        else:
-            rmat = np.zeros((n_from, nrows - n_from), dtype = ctypes.c_double)
-            rmat_ptr = &rmat[0, 0]
 
         cdef IsoForest*     model_ptr      =  NULL
         cdef ExtIsoForest*  ext_model_ptr  =  NULL
@@ -1202,17 +1305,30 @@ cdef class isoforest_cpp_obj:
         with nogil, boundscheck(False), nonecheck(False), wraparound(False):
             calc_similarity(numeric_data_ptr, categ_data_ptr,
                             Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
-                            nrows, nthreads, assume_full_distr, standardize_dist,
+                            nrows, nthreads,
+                            assume_full_distr, standardize_dist, as_kernel,
                             model_ptr, ext_model_ptr,
-                            tmat_ptr, rmat_ptr, n_from,
+                            tmat_ptr, rmat_ptr, n_from, use_reference_points,
                             indexer_ptr, is_col_major, ncols_numeric, ncols_categ)
 
         if cy_check_interrupt_switch():
             cy_tick_off_interrupt_switch()
             raise InterruptedError("Error: procedure was interrupted.")
 
-        if (sq_dist) and (n_from == 0):
-            tmat_to_dense(tmat_ptr, dmat_ptr, nrows, <bool_t>0, <bool_t>(not standardize_dist))
+        cdef double diag_filler
+
+        if (sq_dist) and (n_from == 0) and (not rmat.shape[1]):
+            if as_kernel:
+                if standardize_dist:
+                    diag_filler = 1
+                else:
+                    diag_filler = max(self.isoforest.trees.size(), self.ext_isoforest.hplanes.size())
+            else:
+                if standardize_dist:
+                    diag_filler = 0
+                else:
+                    diag_filler = np.inf
+            tmat_to_dense(tmat_ptr, dmat_ptr, nrows, diag_filler)
 
         return tmat, dmat, rmat
 
@@ -1505,3 +1621,94 @@ cdef class isoforest_cpp_obj:
         if not self.has_indexer():
             return False
         return not self.indexer.indices.front().node_distances.empty()
+
+    def set_reference_points(self,
+                             np.ndarray[real_t, ndim=1] placeholder_real_t,
+                             np.ndarray[sparse_ix, ndim=1] placeholder_sparse_ix,
+                             X_num, X_cat, is_extended,
+                             size_t nrows, int nthreads, bool_t with_distances):
+
+        cdef real_t*     numeric_data_ptr  =  NULL
+        cdef int*        categ_data_ptr    =  NULL
+        cdef real_t*     Xc_ptr            =  NULL
+        cdef sparse_ix*  Xc_ind_ptr        =  NULL
+        cdef sparse_ix*  Xc_indptr_ptr     =  NULL
+
+        cdef bool_t is_col_major    =  True
+        cdef size_t ncols_numeric   =  0
+        cdef size_t ncols_categ     =  0
+
+        if X_num is not None:
+            if not issparse(X_num):
+                if real_t is float:
+                    numeric_data_ptr  =  get_ptr_float_mat(X_num)
+                else:
+                    if X_num.dtype != ctypes.c_double:
+                        X_num = X_num.astype(ctypes.c_double)
+                    numeric_data_ptr  =  get_ptr_dbl_mat(X_num)
+                ncols_numeric  =  X_num.shape[1]
+                is_col_major   =  np.isfortran(X_num)
+            else:
+                if X_num.data.shape[0]:
+                    if real_t is float:
+                        Xc_ptr         =  get_ptr_float_vec(X_num.data)
+                    else:
+                        if X_num.data.dtype != ctypes.c_double:
+                            X_num.data = X_num.data.astype(ctypes.c_double)
+                        Xc_ptr         =  get_ptr_dbl_vec(X_num.data)
+                if sparse_ix is int:
+                    if X_num.indices.shape[0]:
+                        Xc_ind_ptr =  get_ptr_int_vec(X_num.indices)
+                    Xc_indptr_ptr  =  get_ptr_int_vec(X_num.indptr)
+                elif sparse_ix is np.int64_t:
+                    if X_num.indices.shape[0]:
+                        Xc_ind_ptr =  get_ptr_int64_vec(X_num.indices)
+                    Xc_indptr_ptr  =  get_ptr_int64_vec(X_num.indptr)
+                else:
+                    if X_num.indices.shape[0]:
+                        if X_num.indices.dtype != ctypes.c_size_t:
+                            X_num.indices = X_num.indices.astype(ctypes.c_size_t)
+                        Xc_ind_ptr     =  get_ptr_szt_vec(X_num.indices)
+                    if X_num.indptr.dtype != ctypes.c_size_t:
+                        X_num.indptr = X_num.indptr.astype(ctypes.c_size_t)
+                    Xc_indptr_ptr  =  get_ptr_szt_vec(X_num.indptr)
+        if X_cat is not None:
+            categ_data_ptr     =  get_ptr_int_mat(X_cat)
+            ncols_categ        =  X_cat.shape[1]
+            is_col_major       =  np.isfortran(X_cat)
+
+
+        cdef IsoForest*     model_ptr      =  NULL
+        cdef ExtIsoForest*  ext_model_ptr  =  NULL
+        if not is_extended:
+            model_ptr      =  &self.isoforest
+        else:
+            ext_model_ptr  =  &self.ext_isoforest
+        cdef TreesIndexer*  indexer_ptr = &self.indexer
+
+        with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+            set_reference_points(model_ptr, ext_model_ptr, indexer_ptr,
+                                 with_distances,
+                                 numeric_data_ptr, categ_data_ptr,
+                                 is_col_major, ncols_numeric, ncols_categ,
+                                 Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
+                                 <real_t*>NULL, <sparse_ix*>NULL, <sparse_ix*>NULL,
+                                 nrows, nthreads)
+
+        if cy_check_interrupt_switch():
+            cy_tick_off_interrupt_switch()
+            raise InterruptedError("Error: procedure was interrupted.")
+
+    def has_reference_points(self):
+        if self.indexer.indices.empty():
+            return False
+        if self.indexer.indices.front().reference_points.empty():
+            return False
+        else:
+            return True
+
+    def get_n_reference_points(self):
+        if self.indexer.indices.empty():
+            return 0
+        return self.indexer.indices.front().reference_points.size()
+

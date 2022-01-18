@@ -10,6 +10,7 @@
   type = "score",
   square_mat = FALSE,
   refdata = NULL,
+  use_reference_points = TRUE,
   ...
 )
 }
@@ -17,8 +18,8 @@
 \item{object}{An Isolation Forest object as returned by \link{isolation.forest}.}
 
 \item{newdata}{A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`,
-CSC/dgCMatrix supported for distance and outlierness, CSR/dgRMatrix supported for outlierness and imputations)
-for which to predict outlierness, distance, or imputations of missing values.
+CSC/dgCMatrix supported for distance, kernels, and outlierness; CSR/dgRMatrix supported for outlierness and imputations)
+for which to predict outlierness, distance, kernels, or imputations of missing values.
 
 If `newdata` is sparse and one wants to obtain the outlier score or average depth or tree
 numbers, it's highly recommended to pass it in CSC (`dgCMatrix`) format as it will be much faster
@@ -42,6 +43,15 @@ when the number of trees or rows is large.}
   \item `"avg_sep"` for the non-standardized average separation depth.
   To make this computation faster, it is highly recommended to build a node indexer with
   \link{isotree.build.indexer} (with `with_distances=TRUE`) before calling this function.
+  \item `"kernel"` for pairwise or between-points isolation kernel calculations (also known as
+  proximity matrix), which denotes the fraction of trees in which two observations end up in
+  the same terminal node. This is typically not as good quality as the separation distance, but
+  it's much faster to calculate. Note that building an indexer will not speed up kernel/proximity
+  calculations unless it has reference points. Note that this calculation can be sped up signficantly
+  by setting reference points in the model object through \link{isotree.set.reference.points},
+  and it's highly recommended to do so if this calculation is going to be performed repeatedly.
+  \item `"kernel_raw"` for the isolation kernel or proximity matrix, but having as output the
+  number of trees instead of the fraction of total trees.
   \item `"tree_num"` for the terminal node number for each tree - if choosing this option,
   will return a list containing both the average isolation depth and the terminal node numbers, under entries
   `avg_depth` and `tree_num`, respectively. If this calculation is going to be perform frequently, it's recommended to
@@ -52,34 +62,50 @@ when the number of trees or rows is large.}
   \item `"impute"` for imputation of missing values in `newdata`.
 }}
 
-\item{square_mat}{When passing `type` = `"dist` or `"avg_sep"` with no `refdata`, whether to return a
-full square matrix (returned as a numeric `matrix` object) or
+\item{square_mat}{When passing `type` = `"dist` or `"avg_sep"` or `"kernel"` or `"kernel_raw"`
+with no `refdata`, whether to return a full square matrix (returned as a numeric `matrix` object) or
 just its upper-triangular part (returned as a `dist` object and compatible with functions such as `hclust`),
 in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 p(i, j) = ((i - 1) * (n - i/2) + j - i).
-Ignored when not predicting distance/separation or when passing `refdata`.}
 
-\item{refdata}{If passing this and calculating distance or average separation depth, will calculate distances
+Ignored when not predicting distance/separation/kernels or when passing `refdata` or `use_reference_points=TRUE` plus having reference points.}
+
+\item{refdata}{If passing this and calculating distances or average separation depths or kernels, will calculate distances
 between each point in `newdata` and each point in `refdata`, outputing a matrix in which points in `newdata`
 correspond to rows and points in `refdata` correspond to columns. Must be of the same type as `newdata` (e.g.
 `data.frame`, `matrix`, `dgCMatrix`, etc.). If this is not passed, and type is `"dist"`
-or `"avg_sep"`, will calculate pairwise distances/separation between the points in `newdata`.}
+or `"avg_sep"` or `"kernel"` or `"kernel_raw"`, will calculate pairwise distances/separation between the points in `newdata`.
+
+Note that, if `refdata` is passed and and the model object has an indexer with reference points
+added (through \link{isotree.set.reference.points}), those reference points will be ignored for the
+calculation.}
+
+\item{use_reference_points}{When the model object has an indexer with reference points (which can be added through
+\link{isotree.set.reference.points}) and passing `type="dist"` or `"avg_sep"` or `"kernel"` or `"kernel_raw"`, whether to calculate the distances/kernels from `newdata` to those reference
+points instead of the pairwise distances between points in `newdata`.
+
+This is ignored when passing `refdata` or when the model object does not contain an indexer
+or the indexer does not contain reference points.}
 
 \item{...}{Not used.}
 }
 \value{
 The requested prediction type, which can be: \itemize{
-\item A numeric vector with one entry per row in `newdata` (for output types `"score"`, `"avg_depth"`).
+\item A numeric vector with one entry per row in `newdata` (for output types `"score"` and `"avg_depth"`).
 \item An integer matrix with number of rows matching to rows in `newdata` and number of columns matching
 to the number of trees in the model, indicating the terminal node number under each tree for each
-observation, with trees as columns), for output type `"tree_num"`.
+observation, with trees as columns, for output type `"tree_num"`.
 \item A numeric matrix with rows matching to those in `newdata` and one column per tree in the
 model, for output type `"tree_depths"`.
-\item A numeric square matrix or `dist` object containing a vector with the upper triangular
-part of a square matrix
-(for output types `"dist"`, `"avg_sep"`, with no `refdata`).
+\item A numeric square matrix or `dist` object which consists of a vector with the upper triangular
+part of a square matrix,
+(for output types `"dist"`, `"avg_sep"`, `"kernel"`, `"kernel_raw"`; with no `refdata` and no reference points or
+`use_reference_points=FALSE`).
 \item A numeric matrix with points in `newdata` as rows and points in `refdata` as columns
-(for output types `"dist"`, `"avg_sep"`, with `refdata`).
+(for output types `"dist"`, `"avg_sep"`, `"kernel"`, `"kernel_raw"`; with `refdata`).
+\item A numeric matrix with points in `newdata` as rows and reference points set through
+\link{isotree.set.reference.points} as columns
+(for output types `"dist"`, `"avg_sep"`, `"kernel"`, `"kernel_raw"`; with `use_reference_points=TRUE` and no `refdata`).
 \item The same type as the input `newdata` (for output type `"impute"`).}
 }
 \description{
@@ -106,7 +132,8 @@ most of the values should be negative, and while zero can be used as a natural s
 the scores are unlikely to be centered around zero.
 
 The more threads that are set for the model, the higher the memory requirement will be as each
-thread will allocate an array with one entry per row (outlierness) or combination (distance).
+thread will allocate an array with one entry per row (outlierness) or combination (distance),
+with an exception being calculation of distances/kernels to reference points, which do not do this.
 
 For multi-threaded predictions on many rows, it is recommended to set the number of threads
 to the number of physical cores of the CPU rather than the number of logical cores, as it
@@ -124,7 +151,8 @@ first run will  be slower, while subsequent runs will be faster as the C++ objec
 In order to save memory when fitting and serializing models, the functionality for outputting
 terminal node numbers will generate index mappings on the fly for all tree nodes, even if passing only
 1 row, so it's only recommended for batch predictions. If this type of prediction is desired, it can
-be sped up by building an index of terminal nodes through \link{isotree.build.indexer}.
+be sped up by building an index of terminal nodes through \link{isotree.build.indexer}, which will avoid
+having to recompute these every time.
 
 The outlier scores/depth predict functionality is optimized for making predictions on one or a
 few rows at a time - for making large batches of predictions, it might be faster to use the
@@ -142,7 +170,9 @@ not recommended for more than a few thousand observations. If this calculation i
 called repeatedly and/or it is going to be called for a large number of rows, it's highly
 recommended to build node distance indexes beforehand through \link{isotree.build.indexer} with
 option `with_distances=TRUE`, as then the computation will be done based on terminal node
-indices instead, which is a much faster procedure.
+indices instead, which is a much faster procedure. If distance calculations are all going to be performed
+with respect to a fixed set of points, it's highly recommended to set those points as references
+through \link{isotree.set.reference.points}.
 
 If using `assume_full_distr=FALSE` (not recommended to use such option), distance predictions with
 and without an indexer will differ slightly due to differences in what they count towards
@@ -172,5 +202,5 @@ collection through `gc()`.
 }
 
 \seealso{
-\link{isolation.forest} \link{isotree.restore.handle} \link{isotree.build.indexer}
+\link{isolation.forest} \link{isotree.restore.handle} \link{isotree.build.indexer} \link{isotree.set.reference.points}
 }

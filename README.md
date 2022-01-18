@@ -83,6 +83,7 @@ There's already many available implementations of isolation forests for both Pyt
 * Can handle categorical variables (one-hot/dummy encoding does not produce the same result).
 * Can use a mixture of random and non-random splits, and can split by weighted/pooled gain (in addition to simple average).
 * Can produce approximated pairwise distances between observations according to how many steps it takes on average to separate them down the tree.
+* Can calculate isolation kernels or proximity matrix, which counts the proportion of trees in which two given observations end up in the same terminal node.
 * Can produce missing value imputations according to observations that fall on each terminal node.
 * Can work with sparse matrices.
 * Can use either depth-based metrics or density-based metrics for calculation of outlier scores.
@@ -262,3 +263,4 @@ The package does not currenly have any functionality for visualizing trees. Pull
 * Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
 * Guha, Sudipto, et al. "Robust random cut forest based anomaly detection on streams." International conference on machine learning. PMLR, 2016.
 * Cortes, David. "Isolation forests: looking beyond tree depth." arXiv preprint arXiv:2111.11639 (2021).
+* Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou. "Isolation kernel and its effect on SVM." Proceedings of the 24th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining. 2018.

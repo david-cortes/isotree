@@ -34,6 +34,10 @@
 *     [13] Cortes, David.
 *          "Isolation forests: looking beyond tree depth."
 *          arXiv preprint arXiv:2111.11639 (2021).
+*     [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou.
+*          "Isolation kernel and its effect on SVM"
+*          Proceedings of the 24th ACM SIGKDD
+*          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2022, David Cortes
@@ -136,7 +140,7 @@ double digamma(double x)
     if( (x <= THRESHOLD_EXACT_H) && (x == std::floor(x)) )
         return harmonic(x - 1) - EULERS_GAMMA;
 
-    if( x < 1.0e17 )
+    if (likely(x < 1.0e17 ))
     {
         z = 1.0/(x * x);
         z2 = square(z);
@@ -375,13 +379,8 @@ void increase_comb_counter(size_t ix_arr[], size_t st, size_t end, size_t n,
 void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, size_t split_ix, size_t n,
                                      double counter[], double exp_remainder)
 {
-    size_t n_group = 0;
-    for (size_t ix = st; ix <= end; ix++)
-        if (ix_arr[ix] < split_ix)
-            n_group++;
-        else
-            break;
-
+    size_t *ptr_split_ix = std::lower_bound(ix_arr + st, ix_arr + end + 1, split_ix);
+    size_t n_group = std::distance(ix_arr + st, ptr_split_ix);
     n = n - split_ix;
 
     if (exp_remainder <= 1)
@@ -397,13 +396,8 @@ void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, siz
 void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, size_t split_ix, size_t n,
                                      double *restrict counter, double *restrict weights, double exp_remainder)
 {
-    size_t n_group = 0;
-    for (size_t ix = st; ix <= end; ix++)
-        if (ix_arr[ix] < split_ix)
-            n_group++;
-        else
-            break;
-
+    size_t *ptr_split_ix = std::lower_bound(ix_arr + st, ix_arr + end + 1, split_ix);
+    size_t n_group = std::distance(ix_arr + st, ptr_split_ix);
     n = n - split_ix;
 
     if (exp_remainder <= 1)
@@ -420,7 +414,7 @@ void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, siz
                 weights[ix_arr[ix1]] * weights[ix_arr[ix2]] * exp_remainder;
 }
 
-void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool diag_to_one, bool diag_to_inf)
+void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, double fill_diag)
 {
     size_t ncomb = calc_ncomb(n);
     for (size_t i = 0; i < (n-1); i++)
@@ -431,18 +425,8 @@ void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool 
             dmat[i + j * n] = dmat[j + i * n] = tmat[ix_comb(i, j, n, ncomb)];
         }
     }
-    if (diag_to_one) {
-        for (size_t i = 0; i < n; i++)
-            dmat[i + i * n] = 1;
-    }
-    else if (diag_to_inf) {
-        for (size_t i = 0; i < n; i++)
-            dmat[i + i * n] = std::numeric_limits<double>::infinity();
-    }
-    else {
-        for (size_t i = 0; i < n; i++)
-            dmat[i + i * n] = 0;
-    }
+    for (size_t i = 0; i < n; i++)
+        dmat[i + i * n] = fill_diag;
 }
 
 template <class real_t>
@@ -703,14 +687,14 @@ void weighted_shuffle(size_t *restrict outp, size_t n, real_t *restrict weights,
     }
 }
 
-double sample_random_uniform(double xmin, double xmax, RNG_engine &rng)
+double sample_random_uniform(double xmin, double xmax, RNG_engine &rng) noexcept
 {
     double out;
     std::uniform_real_distribution<double> runif(xmin, xmax);
     for (int attempt = 0; attempt < 100; attempt++)
     {
         out = runif(rng);
-        if (out < xmax) return out;
+        if (likely(out < xmax)) return out;
     }
     return xmin;
 }
@@ -739,7 +723,7 @@ void ColumnSampler::initialize(real_t weights[], size_t n_cols)
         this->tree_weights[ix_parent(ix)] += this->tree_weights[ix];
 
     /* if the weights are invalid, make it an unweighted sampler */
-    if (isnan(this->tree_weights[0]) || this->tree_weights[0] <= 0)
+    if (unlikely(isnan(this->tree_weights[0]) || this->tree_weights[0] <= 0))
     {
         this->drop_weights();
     }
@@ -1212,7 +1196,7 @@ bool SingleNodeColumnSampler::sample_col(size_t &col_chosen, RNG_engine &rnd_gen
             this->cumw = 0;
             for (size_t col = 0; col < this->curr_pos; col++)
                 this->cumw += this->weights_orig[this->col_indices[col]];
-            if (this->cumw <= 0)
+            if (unlikely(this->cumw <= 0))
                 unexpected_error();
         }
 
@@ -2172,7 +2156,7 @@ void DensityCalculator::save_n_present(size_t *restrict cat_counts, int ncat)
 }
 
 /* For hyperplane intersections */
-size_t divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, double split_point)
+size_t divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, double split_point) noexcept
 {
     size_t temp;
     size_t st_orig = st;
@@ -2192,7 +2176,7 @@ size_t divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, d
 /* For numerical columns */
 template <class real_t>
 void divide_subset_split(size_t *restrict ix_arr, real_t x[], size_t st, size_t end, double split_point,
-                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix)
+                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix) noexcept
 {
     size_t temp;
 
@@ -2230,7 +2214,7 @@ void divide_subset_split(size_t *restrict ix_arr, real_t x[], size_t st, size_t 
 
         for (size_t row = st; row <= end; row++)
         {
-            if (isnan(x[ix_arr[row]]))
+            if (unlikely(isnan(x[ix_arr[row]])))
             {
                 temp        = ix_arr[st];
                 ix_arr[st]  = ix_arr[row];
@@ -2246,7 +2230,7 @@ void divide_subset_split(size_t *restrict ix_arr, real_t x[], size_t st, size_t 
 template <class real_t, class sparse_ix>
 void divide_subset_split(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                          real_t Xc[], sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr, double split_point,
-                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix)
+                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix) noexcept
 {
     /* TODO: this is a mess, needs refactoring */
     /* TODO: when moving zeros, would be better to instead move by '>' (opposite as in here) */
@@ -2396,7 +2380,7 @@ void divide_subset_split(size_t *restrict ix_arr, size_t st, size_t end, size_t 
 
                 if (Xc_ind[curr_pos] == (sparse_ix)(*row))
                 {
-                    if (isnan(Xc[curr_pos]))
+                    if (unlikely(isnan(Xc[curr_pos])))
                         has_NAs = true;
                     else if (Xc[curr_pos] <= split_point)
                     {
@@ -2446,7 +2430,7 @@ void divide_subset_split(size_t *restrict ix_arr, size_t st, size_t end, size_t 
             {
                 if (Xc_ind[curr_pos] == (sparse_ix)(*row))
                 {
-                    if (isnan(Xc[curr_pos])) has_NAs = true;
+                    if (unlikely(isnan(Xc[curr_pos]))) has_NAs = true;
                     if (!isnan(Xc[curr_pos]) && Xc[curr_pos] <= split_point)
                     {
                         temp       = ix_arr[st];
@@ -2480,7 +2464,7 @@ void divide_subset_split(size_t *restrict ix_arr, size_t st, size_t end, size_t 
             {
                 if (Xc_ind[curr_pos] == (sparse_ix)(*row))
                 {
-                    if (isnan(Xc[curr_pos]))
+                    if (unlikely(isnan(Xc[curr_pos])))
                     {
                         temp       = ix_arr[st];
                         ix_arr[st] = *row;
@@ -2508,7 +2492,7 @@ void divide_subset_split(size_t *restrict ix_arr, size_t st, size_t end, size_t 
 
 /* For categorical columns split by subset */
 void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end, signed char split_categ[],
-                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix)
+                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix) noexcept
 {
     size_t temp;
 
@@ -2561,7 +2545,7 @@ void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end
 /* For categorical columns split by subset, used at prediction time (with similarity) */
 void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end, signed char split_categ[],
                          int ncat, MissingAction missing_action, NewCategAction new_cat_action,
-                         bool move_new_to_left, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix)
+                         bool move_new_to_left, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix) noexcept
 {
     size_t temp;
     int cval;
@@ -2662,7 +2646,7 @@ void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end
         {
             for (size_t row = st; row <= end; row++)
             {
-                if (x[ix_arr[row]] < 0)
+                if (unlikely(x[ix_arr[row]] < 0))
                 {
                     temp        = ix_arr[st];
                     ix_arr[st]  = ix_arr[row];
@@ -2762,7 +2746,7 @@ void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end
         {
             for (size_t row = st; row <= end; row++)
             {
-                if (x[ix_arr[row]] < 0)
+                if (unlikely(x[ix_arr[row]] < 0))
                 {
                     temp        = ix_arr[st];
                     ix_arr[st]  = ix_arr[row];
@@ -2778,7 +2762,7 @@ void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end
 
 /* For categoricals split on a single category */
 void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end, int split_categ,
-                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix)
+                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix) noexcept
 {
     size_t temp;
 
@@ -2816,7 +2800,7 @@ void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end
 
         for (size_t row = st; row <= end; row++)
         {
-            if (x[ix_arr[row]] < 0)
+            if (unlikely(x[ix_arr[row]] < 0))
             {
                 temp        = ix_arr[st];
                 ix_arr[st]  = ix_arr[row];
@@ -2831,7 +2815,7 @@ void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end
 /* For categoricals split on sub-set that turned out to have 2 categories only (prediction-time) */
 void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end,
                          MissingAction missing_action, NewCategAction new_cat_action,
-                         bool move_new_to_left, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix)
+                         bool move_new_to_left, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix) noexcept
 {
     size_t temp;
 
@@ -2888,7 +2872,7 @@ void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end
 
             for (size_t row = st; row <= end; row++)
             {
-                if (x[ix_arr[row]] < 0)
+                if (unlikely(x[ix_arr[row]] < 0))
                 {
                     temp        = ix_arr[st];
                     ix_arr[st]  = ix_arr[row];
@@ -2915,7 +2899,7 @@ void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end
 
             for (size_t row = st; row <= end; row++)
             {
-                if (x[ix_arr[row]] < 0)
+                if (unlikely(x[ix_arr[row]] < 0))
                 {
                     temp        = ix_arr[st];
                     ix_arr[st]  = ix_arr[row];
@@ -2931,7 +2915,7 @@ void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end
 /* for regular numeric columns */
 template <class real_t>
 void get_range(size_t ix_arr[], real_t *restrict x, size_t st, size_t end,
-               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable)
+               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable) noexcept
 {
     xmin =  HUGE_VAL;
     xmax = -HUGE_VAL;
@@ -2963,7 +2947,7 @@ void get_range(size_t ix_arr[], real_t *restrict x, size_t st, size_t end,
 
 template <class real_t>
 void get_range(real_t *restrict x, size_t n,
-               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable)
+               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable) noexcept
 {
     xmin =  HUGE_VAL;
     xmax = -HUGE_VAL;
@@ -2994,7 +2978,7 @@ void get_range(real_t *restrict x, size_t n,
 template <class real_t, class sparse_ix>
 void get_range(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
-               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable)
+               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable) noexcept
 {
     /* ix_arr must already be sorted beforehand */
     xmin =  HUGE_VAL;
@@ -3090,7 +3074,7 @@ void get_range(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
 template <class real_t, class sparse_ix>
 void get_range(size_t col_num, size_t nrows,
                real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
-               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable)
+               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable) noexcept
 {
     xmin =  HUGE_VAL;
     xmax = -HUGE_VAL;
@@ -3114,7 +3098,7 @@ void get_range(size_t col_num, size_t nrows,
     {
         for (auto ix = Xc_indptr[col_num]; ix < Xc_indptr[col_num+1]; ix++)
         {
-            if (std::isinf(Xc[ix])) continue;
+            if (unlikely(std::isinf(Xc[ix]))) continue;
             xmin = std::fmin(xmin, Xc[ix]);
             xmax = std::fmax(xmax, Xc[ix]);
         }
@@ -3125,12 +3109,12 @@ void get_range(size_t col_num, size_t nrows,
 
 
 void get_categs(size_t *restrict ix_arr, int x[], size_t st, size_t end, int ncat,
-                MissingAction missing_action, signed char categs[], size_t &restrict npresent, bool &unsplittable)
+                MissingAction missing_action, signed char categs[], size_t &restrict npresent, bool &unsplittable) noexcept
 {
     std::fill(categs, categs + ncat, -1);
     npresent = 0;
     for (size_t row = st; row <= end; row++)
-        if (x[ix_arr[row]] >= 0)
+        if (likely(x[ix_arr[row]] >= 0))
             categs[x[ix_arr[row]]] = 1;
 
     npresent = std::accumulate(categs,
@@ -3162,7 +3146,7 @@ bool check_more_than_two_unique_values(size_t ix_arr[], size_t st, size_t end, r
         size_t ix;
         for (ix = st; ix <= end; ix++)
         {
-            if (!is_na_or_inf(x[ix_arr[ix]]))
+            if (likely(!is_na_or_inf(x[ix_arr[ix]])))
             {
                 x0 = x[ix_arr[ix]];
                 ix++;
@@ -3339,7 +3323,7 @@ void count_categs(size_t *restrict ix_arr, size_t st, size_t end, int x[], int n
 {
     std::fill(counts, counts + ncat, (size_t)0);
     for (size_t row = st; row <= end; row++)
-        if (x[ix_arr[row]] >= 0)
+        if (likely(x[ix_arr[row]] >= 0))
             counts[x[ix_arr[row]]]++;
 }
 
@@ -3348,7 +3332,7 @@ int count_ncateg_in_col(const int x[], const size_t n, const int ncat, unsigned 
     memset(buffer, 0, ncat*sizeof(char));
     for (size_t ix = 0; ix < n; ix++)
     {
-        if (x[ix] >= 0) buffer[x[ix]] = true;
+        if (likely(x[ix] >= 0)) buffer[x[ix]] = true;
     }
 
     int ncat_present = 0;
@@ -3382,7 +3366,7 @@ size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, real_t x[])
 
     for (size_t row = st; row <= end; row++)
     {
-        if (is_na_or_inf(x[ix_arr[row]]))
+        if (unlikely(is_na_or_inf(x[ix_arr[row]])))
         {
             temp = ix_arr[st_non_na];
             ix_arr[st_non_na] = ix_arr[row];
@@ -3413,7 +3397,7 @@ size_t move_NAs_to_front(size_t *restrict ix_arr, size_t st, size_t end, size_t 
     {
         if (Xc_ind[curr_pos] == *row)
         {
-            if (is_na_or_inf(Xc[curr_pos]))
+            if (unlikely(is_na_or_inf(Xc[curr_pos])))
             {
                 temp = ix_arr[st_non_na];
                 ix_arr[st_non_na] = *row;
@@ -3444,7 +3428,7 @@ size_t move_NAs_to_front(size_t ix_arr[], size_t st, size_t end, int x[])
 
     for (size_t row = st; row <= end; row++)
     {
-        if (x[ix_arr[row]] < 0)
+        if (unlikely(x[ix_arr[row]] < 0))
         {
             temp = ix_arr[st_non_na];
             ix_arr[st_non_na] = ix_arr[row];

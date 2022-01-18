@@ -793,6 +793,8 @@ class IsolationForest:
             International conference on machine learning. PMLR, 2016.
     .. [13] Cortes, David. "Isolation forests: looking beyond tree depth."
             arXiv preprint arXiv:2111.11639 (2021).
+    .. [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou. "Isolation kernel and its effect on SVM."
+            Proceedings of the 24th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining. 2018.
     """
     def __init__(self, sample_size = "auto", ntrees = 500, ndim = 3, ntry = 1,
                  categ_cols = None, max_depth = "auto", ncols_per_tree = None,
@@ -1150,10 +1152,13 @@ class IsolationForest:
             if self._ncols_categ:
                 msg += "Categorical columns: %d\n" % self._ncols_categ
         if self.has_indexer_:
-            if self._cpp_obj.has_indexer_with_distances():
-                msg += "(Has node indexer with distances built-in)\n"
-            else:
-                msg += "(Has node indexer built-in)\n"
+            has_distances = self._cpp_obj.has_indexer_with_distances()
+            has_references = self._cpp_obj.has_reference_points()
+            msg += "(Has node indexer%s%s%s built-in)\n" & (
+                "  with distances" if has_distances else "",
+                " and" if (has_distances and has_references) else "",
+                " with reference points" if has_references else ""
+            )
         return msg
 
     def __repr__(self):
@@ -2271,21 +2276,25 @@ class IsolationForest:
         """
         return self.predict(X, output="score")
 
-    def predict_distance(self, X, output = "dist", square_mat = False, X_ref = None):
+    def predict_distance(self, X, output = "dist", square_mat = True, X_ref = None, use_reference_points = True):
         """
-        Predict approximate distances between points
+        Predict approximate distances or isolation kernels/proximities between points
 
-        Predict approximate pairwise distances between points or individual distances between
-        two sets of points based on how many
-        splits it takes to separate them. Can output either the average number of paths,
+        Predict approximate pairwise distances between points, or individual distances between
+        two sets of points based on how many splits it takes to separate them, or isolation
+        kernels (a.k.a. proximity matrix) from the model based on the number of trees in which
+        two observations end up in the same terminal node. Can output either the average number
+        of paths/steps it takes to separate two observations,
         or a standardized metric (in the same way as the outlier score) in which values closer
         to zero indicate nearer points, closer to one further away points, and closer to 0.5
-        average distance.
+        average distance, or a kernel/proximity metric, either standardized (values between zero and one)
+        or raw (values ranging from zero to the number of trees in the model).
 
         Note
         ----
         The more threads that are set for the model, the higher the memory requirement will be as each
-        thread will allocate an array with one entry per combination.
+        thread will allocate an array with one entry per combination (with an exception being
+        calculation of distances to reference points, which do not do this).
 
         Note
         ----
@@ -2295,7 +2304,9 @@ class IsolationForest:
         called repeatedly and/or it is going to be called for a large number of rows, it's highly
         recommended to build node distance indexes beforehand through ``build_indexer`` with
         option ``with_distances=True``, as then the computation will be done based on terminal node
-        indices instead, which is a much faster procedure.
+        indices instead, which is a much faster procedure. If the calculations are all going to be performed
+        with respect to a fixed set of points, it's highly recommended to set those points as references
+        through ``set_reference_points``.
 
         Note
         ----
@@ -2306,37 +2317,56 @@ class IsolationForest:
         Parameters
         ----------
         X : array or array-like (n_samples, n_features)
-            Observations for which to calculate approximate pairwise distances,
-            or first group for distances between sets of points. Can pass
+            Observations for which to calculate approximate pairwise distances or kernels,
+            or first group for distances/kernels between sets of points. Can pass
             a NumPy array, Pandas DataFrame, or SciPy sparse CSC matrix.
-        output : str, one of "dist", "avg_sep"
+        output : str, one of "dist", "avg_sep", "kernel", "kernel_raw"
             Type of output to produce. If passing "dist", will standardize the average separation
             depths. If passing "avg_sep", will output the average separation depth without standardizing it
             (note that lower separation depth means furthest distance).
+            If passing "kernel", will output the fraction of the trees in which two observations end up
+            in the same terminal node. If passing "kernel_raw", will output the number (not fraction) of
+            trees in which two observations end up in the same terminal node.
+
+            Note that for "kernel" and "kernel_raw", having an indexer without reference points will not
+            speed up calculations, and if such calculations are going to be done frequently, it is highly
+            recommended to set reference points in the model object.
         square_mat : bool
-            Whether to produce a full square matrix with the pairwise distances. If passing 'False', will output
+            Whether to produce a full square matrix with the pairwise distances or kernels.
+            If passing 'False', will output
             only the upper triangular part as a 1-d array in which entry (i,j) with 0 <= i < j < n is located at
             position p(i,j) = (i * (n - (i+1)/2) + j - i - 1).
-            Ignored when passing ``X_ref``.
+            
+            Ignored when passing ``X_ref`` or ``use_reference_points=True`` plus having reference points.
         X_ref : array or array-like (n_ref, n_features)
-            Second group of observations. If passing it, will calculate distances between each point in
+            Second group of observations. If passing it, will calculate distances/kernels between each point in
             ``X`` and each point in ``X_ref``. If passing ``None`` (the default), will calculate
-            pairwise distances between the points in ``X``.
+            pairwise distances/kernels between the points in ``X``.
             Must be of the same type as ``X`` (e.g. array, DataFrame, CSC).
+
+            Note that, if ``X_ref`` is passed and the model object has an indexer with reference points
+            added (through ``set_reference_points``), those reference points will be ignored for the
+            calculation.
+        use_reference_points : bool
+            When the model object has an indexer with reference points (which can be added through
+            ``set_reference_points``), whether to calculate the distances/kernels from ``X`` to those reference
+            points instead of the pairwise distances/kernels between points in ``X``.
+
+            This is ignored when passing ``X_ref`` or when the model object does not contain an indexer
+            or the indexer does not contain reference points.
 
         Returns
         -------
         dist : array(n_samples * (n_samples - 1) / 2,) or array(n_samples, n_samples) or array(n_samples, n_ref)
-            Approximate distances or average separation depth between points, according to
-            parameter 'output'. Shape and size depends on parameter ``square_mat``, or ``X_ref`` if passed.
+            Approximate distances or average separation depth or kernels/proximities between points,
+            according to parameter 'output'. Shape and size depends on parameters ``square_mat``,
+            ``use_reference_points``, and whether ``X_ref`` is passed.
         """
         assert self.is_fitted_
-        assert output in ["dist", "avg_sep"]
+        assert output in ["dist", "avg_sep", "kernel", "kernel_raw"]
         nthreads_use = _process_nthreads(self.nthreads)
 
-        if X_ref is None:
-            nobs_group1 = 0
-        else:
+        if X_ref is not None:
             if X.__class__ != X_ref.__class__:
                 raise ValueError("'X' and 'X_ref' must be of the same class.")
             nobs_group1 = X.shape[0]
@@ -2346,10 +2376,17 @@ class IsolationForest:
                 X = sp_vstack([X, X_ref])
             else:
                 X = np.vstack([X, X_ref])
+        else:
+            nobs_group1 = 0
+            use_reference_points = bool(use_reference_points)
+            if use_reference_points and self._cpp_obj.has_reference_points():
+                if (not output in ["kernel", "kernel_raw"]) and (not self._cpp_obj.has_indexer_with_distances()):
+                    raise ValueError("Model indexer was built without distances. Cannot calculate distances to reference points.")
+            
 
         can_take_row_major = self._cpp_obj.has_indexer() and self._cpp_obj.has_indexer_with_distances() and not issparse(X)
         X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False, prefer_row_major = can_take_row_major, keep_new_cat_levels = False)
-        if nrows == 1:
+        if nrows == 1 and not (use_reference_points and self._cpp_obj.has_reference_points()):
             raise ValueError("Cannot calculate pairwise distances for only 1 row.")
 
         tmat, dmat, rmat = self._cpp_obj.dist(_get_num_dtype(X_num, None, None), _get_int_dtype(X_num),
@@ -2357,16 +2394,61 @@ class IsolationForest:
                                               ctypes.c_size_t(nrows).value,
                                               ctypes.c_int(nthreads_use).value,
                                               ctypes.c_bool(self.assume_full_distr).value,
-                                              ctypes.c_bool(output == "dist").value,
+                                              ctypes.c_bool(output in ["dist", "kernel"]).value,
                                               ctypes.c_bool(square_mat).value,
-                                              ctypes.c_size_t(nobs_group1).value)
+                                              ctypes.c_size_t(nobs_group1).value,
+                                              ctypes.c_bool(use_reference_points).value,
+                                              ctypes.c_bool(output in ["kernel", "kernel_raw"]).value)
         
-        if X_ref is not None:
+        if (X_ref is not None) or (use_reference_points and rmat.shape[1]):
             return rmat
         elif square_mat:
             return dmat
         else:
             return tmat
+
+    def predict_kernel(self, X, square_mat = True, X_ref = None, use_reference_points = True):
+        """
+        Predict isolation kernel between points
+
+        This is a shorthand for ``predict_distance`` with ``output="kernel"``.
+
+        Parameters
+        ----------
+        X : array or array-like (n_samples, n_features)
+            Observations for which to calculate approximate pairwise kernels/proximities,
+            or first group for kernels between sets of points. Can pass
+            a NumPy array, Pandas DataFrame, or SciPy sparse CSC matrix.
+        square_mat : bool
+            Whether to produce a full square matrix with the pairwise kernels. If passing 'False', will output
+            only the upper triangular part as a 1-d array in which entry (i,j) with 0 <= i < j < n is located at
+            position p(i,j) = (i * (n - (i+1)/2) + j - i - 1).
+            Ignored when passing ``X_ref``.
+        X_ref : array or array-like (n_ref, n_features)
+            Second group of observations. If passing it, will calculate kernels between each point in
+            ``X`` and each point in ``X_ref``. If passing ``None`` (the default), will calculate
+            pairwise kernels between the points in ``X``.
+            Must be of the same type as ``X`` (e.g. array, DataFrame, CSC).
+
+            Note that, if ``X_ref`` is passed and the model object has an indexer with reference points
+            added (through ``set_reference_points``), those reference points will be ignored for the
+            calculation.
+        use_reference_points : bool
+            When the model object has an indexer with reference points (which can be added through
+            ``set_reference_points``), whether to calculate the kernels from ``X`` to those reference
+            points instead of the pairwise kernels between points in ``X``.
+
+            This is ignored when passing ``X_ref`` or when the model object does not contain an indexer
+            or the indexer does not contain reference points.
+
+        Returns
+        -------
+        dist : array(n_samples * (n_samples - 1) / 2,) or array(n_samples, n_samples) or array(n_samples, n_ref)
+            Approximate kernels between points, according to
+            parameter 'output'. Shape and size depends on parameter ``square_mat``,
+            and whether ``X_ref`` is passed.
+        """
+        return self.predict_distance(X, output = "kernel", square_mat = square_mat, X_ref = X_ref, use_reference_points = use_reference_points)
 
     def transform(self, X):
         """
@@ -2467,7 +2549,7 @@ class IsolationForest:
             self.fit(X = X, column_weights = column_weights)
             return self.transform(X)
 
-    def partial_fit(self, X, sample_weights = None, column_weights = None):
+    def partial_fit(self, X, sample_weights = None, column_weights = None, X_ref = None):
         """
         Add additional (single) tree to isolation forest model
 
@@ -2503,6 +2585,9 @@ class IsolationForest:
                Categorical columns, if any, may have new categories.
             
             Other dtypes are not supported.
+
+            If passing an array and the array is not in column-major format, will be forcibly converted
+            to column-major, which implies an extra data copy.
         sample_weights : None or array(n_samples,)
             Sample observation weights for each row of 'X', with higher weights indicating
             distribution density (i.e. if the weight is two, it has the same effect of including the same data
@@ -2511,6 +2596,15 @@ class IsolationForest:
             Sampling weights for each column in 'X'. Ignored when picking columns by deterministic criterion.
             If passing None, each column will have a uniform weight. If used along with kurtosis weights, the
             effect is multiplicative.
+        X_ref : array or array-like (n_references, n_features)
+            Reference points for distance and/or kernel calculations, if these were previously added to
+            the model object through ``set_reference_points``. Must correspond to the same points that
+            were passed to the call to ``set_reference_points``.
+
+            Might be passed in either row-major (preferred) or column-major order. If sparse, only CSC
+            format is supported.
+
+            This is ignored if the model has no stored reference points.
 
         Returns
         -------
@@ -2527,9 +2621,21 @@ class IsolationForest:
             try:
                 self.ntrees = 1
                 self.fit(X = X, sample_weights = sample_weights, column_weights = column_weights)
+                if X_ref is not None:
+                    self.set_reference_points(X_ref)
             finally:
                 self.ntrees = trees_restore
             return self
+
+        if self.is_fitted_:
+            if (X_ref is None) and (self.has_indexer_) and (self._cpp_obj.has_reference_points()):
+                msg  = "Must pass either pass 'X_ref' in order to maintain reference points in indexer,"
+                msg += " or drop reference points through 'drop_reference_points'."
+                raise ValueError(msg)
+            if (X_ref is not None) and (not self.has_indexer_ or not self._cpp_obj.has_reference_points()):
+                warnings.warn("Passed 'X_ref', but model object has no reference points. Will be ignored.")
+                X_ref = None
+
         
         X_num, X_cat, nrows = self._process_data_new(X, allow_csr = False, prefer_row_major = False, keep_new_cat_levels = True)
         if sample_weights is not None:
@@ -2586,6 +2692,27 @@ class IsolationForest:
             seed = self.random_seed
         seed += self._ntrees
 
+        if X_ref is None:
+            ref_X_num = None
+            ref_X_cat = None
+        else:
+            ref_X_num, ref_X_cat, ref_nrows = self._process_data_new(X_ref, allow_csr = False, prefer_row_major = True, keep_new_cat_levels = True)
+            expected_ref_nrows = self._cpp_obj.get_n_reference_points()
+            if ref_nrows != expected_ref_nrows:
+                raise ValueError("'X_ref' as %d rows, but previous reference data had %d rows."
+                                 % (ref_nrows, expected_ref_nrows))
+            if ref_X_num is not None:
+                matching_num_dtype = _get_num_dtype(X_num, sample_weights, column_weights)
+                if ref_X_num.data.dtype != matching_num_dtype.dtype:
+                    ref_X_num = ref_X_num.astype(matching_num_dtype.dtype)
+                if issparse(ref_X_num):
+                    matching_int_dtype = _get_int_dtype(X_num)
+                    if ref_X_num.indptr.dtype != matching_int_dtype.dtype:
+                        ref_X_num = ref_X_num.copy()
+                        ref_X_num.indices = ref_X_num.indices.astype(matching_int_dtype.dtype)
+                        ref_X_num.indptr = ref_X_num.indptr.astype(matching_int_dtype.dtype)
+
+
         self._cpp_obj.fit_tree(_get_num_dtype(X_num, sample_weights, column_weights),
                                _get_int_dtype(X_num),
                                X_num, X_cat, ncat, sample_weights, column_weights,
@@ -2616,6 +2743,8 @@ class IsolationForest:
                                self.depth_imp,
                                self.weigh_imp_rows,
                                ctypes.c_bool(self.all_perm).value,
+                               ref_X_num,
+                               ref_X_cat,
                                ctypes.c_int(seed).value)
         self._ntrees += 1
         return self
@@ -3179,12 +3308,30 @@ class IsolationForest:
         The indexer, if constructed, is likely to be a very heavy object which might
         not be needed for all purposes.
 
+        Note that reference points as added through ``set_reference_points`` are
+        associated with the indexer object and will also be dropped if any were added.
+
         Returns
         -------
         self : obj
             This object
         """
         self._cpp_obj.drop_indexer()
+        return self
+
+    def drop_reference_points(self):
+        """
+        Drops reference points from this model
+
+        Drops any reference points used for distance and/or kernel calculations
+        from the model object, if any were set through ``set_reference_points``.
+
+        Returns
+        -------
+        self : obj
+            This object
+        """
+        self._cpp_obj.drop_reference_points()
         return self
 
     def build_indexer(self, with_distances = False):
@@ -3217,7 +3364,7 @@ class IsolationForest:
         assert self.is_fitted_
         if self.missing_action_ == "divide":
             raise ValueError("Cannot build tree indexer when using missing_action='divide'.")
-        if self.new_categ_action_ == "weighted":
+        if self.new_categ_action_ == "weighted" and self.categ_split_type_ != "single_categ":
             if self._ncols_categ or self.cols_categ_.shape[0]:
                 raise ValueError("Cannot build tree indexer when using new_categ_action='weighted'.")
         self._cpp_obj.build_tree_indices(self._is_extended_, bool(with_distances), _process_nthreads(self.nthreads))
@@ -3226,7 +3373,62 @@ class IsolationForest:
     @property
     def has_indexer_(self):
         return self._cpp_obj.has_indexer()
-    
+
+    @property
+    def has_reference_points_(self):
+        return self._cpp_obj.has_reference_points()
+
+    def set_reference_points(self, X, with_distances=False):
+        """
+        Set reference points to calculate distances or kernels with
+
+        Sets some points as pre-defined landmarks with respect to which distances and/or
+        isolation kernel values will be calculated for arbitrary new points in calls to
+        ``predict_distance`` and/or ``predict_kernel``. If any points have already been set
+        as references in the model object, they will be overwritten with the new points passed here.
+
+        Be aware that adding reference points requires building a tree indexer.
+
+        Parameters
+        ----------
+        X : array or array-like (n_samples, n_features)
+            Observations to set as references for future distance and/or isolation kernel calculations.
+            Can pass a NumPy array, Pandas DataFrame, or SciPy sparse CSC matrix.
+        with_distances : bool
+            Whether to pre-calculate node distances (this is required to calculate distance
+            from arbitrary points to the reference points).
+
+            Note that reference points for distances can only be set when using `assume_full_distr=False`
+            (which is the default).
+
+        Returns
+        -------
+        self : obj
+            This object
+        """
+        assert self.is_fitted_
+        with_distances = bool(with_distances)
+
+        if with_distances and (not self.assume_full_distr):
+            raise ValueError("Cannot set reference points for distance when using 'assume_full_distr=False'.")
+
+        if self.missing_action_ == "divide":
+            raise ValueError("Cannot set reference points when using missing_action='divide'.")
+        if self.new_categ_action_ == "weighted" and self.categ_split_type_ != "single_categ":
+            if self._ncols_categ or self.cols_categ_.shape[0]:
+                raise ValueError("Cannot set reference points when using new_categ_action='weighted'.")
+
+        nthreads_use = _process_nthreads(self.nthreads)
+        X_num, X_cat, nrows = self._process_data_new(X, prefer_row_major = True, keep_new_cat_levels = True, allow_csr = False)
+        self._cpp_obj.set_reference_points(
+                            _get_num_dtype(X_num, None, None), _get_int_dtype(X_num),
+                            X_num, X_cat, self._is_extended_,
+                            ctypes.c_size_t(nrows).value,
+                            ctypes.c_int(nthreads_use).value,
+                            ctypes.c_bool(with_distances).value
+                    )
+        return self
+
 
     def subset_trees(self, trees_take):
         """
@@ -3251,7 +3453,7 @@ class IsolationForest:
         trees_take = np.array(trees_take).reshape(-1).astype(ctypes.c_size_t)
         if not trees_take.shape[0]:
             raise ValueError("'trees_take' is empty.")
-        if trees_take.max() >= self.ntrees:
+        if trees_take.max() >= self._ntrees:
             raise ValueError("Attempting to take tree indices that the model does not have.")
         new_cpp_obj = self._cpp_obj.subset_model(trees_take, self._is_extended_, self.build_imputer)
         old_cpp_obj = self._cpp_obj

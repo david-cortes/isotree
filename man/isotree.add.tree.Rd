@@ -4,7 +4,13 @@
 \alias{isotree.add.tree}
 \title{Add additional (single) tree to isolation forest model}
 \usage{
-isotree.add.tree(model, data, sample_weights = NULL, column_weights = NULL)
+isotree.add.tree(
+  model,
+  data,
+  sample_weights = NULL,
+  column_weights = NULL,
+  refdata = NULL
+)
 }
 \arguments{
 \item{model}{An Isolation Forest object as returned by \link{isolation.forest}, to which an additional tree will be added.
@@ -21,6 +27,12 @@ point twice). If not `NULL`, model must have been built with `weights_as_sample_
 \item{column_weights}{Sampling weights for each column in `data`. Ignored when picking columns by deterministic criterion.
 If passing `NULL`, each column will have a uniform weight. If used along with kurtosis weights, the
 effect is multiplicative.}
+
+\item{refdata}{Reference points for distance and/or kernel calculations, if these were previously added to
+the model object through \link{isotree.set.reference.points}. Must correspond to the same points that
+were passed in the call to that function. If sparse, only CSC format is supported.
+
+This is ignored if the model has no stored reference points.}
 }
 \value{
 The same `model` object now modified, as invisible.

@@ -34,6 +34,10 @@
 *     [13] Cortes, David.
 *          "Isolation forests: looking beyond tree depth."
 *          arXiv preprint arXiv:2111.11639 (2021).
+*     [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou.
+*          "Isolation kernel and its effect on SVM"
+*          Proceedings of the 24th ACM SIGKDD
+*          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2022, David Cortes
@@ -170,7 +174,7 @@ enum EndingIndicator {
 
 #ifdef _MSC_VER
 #include <stdlib.h>
-void swap16b(char *bytes)
+void swap16b(char *bytes) noexcept
 {
     if (std::numeric_limits<unsigned short>::max() == UINT16_MAX) {
         unsigned short temp;
@@ -183,7 +187,7 @@ void swap16b(char *bytes)
         std::swap(bytes[0], bytes[1]);
     }
 }
-void swap32b(char *bytes)
+void swap32b(char *bytes) noexcept
 {
     if (std::numeric_limits<unsigned long>::max() == UINT32_MAX) {
         unsigned long temp;
@@ -197,7 +201,7 @@ void swap32b(char *bytes)
         std::swap(bytes[1], bytes[2]);
     }
 }
-void swap64b(char *bytes)
+void swap64b(char *bytes) noexcept
 {
     unsigned __int64 temp;
     memcpy(&temp, bytes, sizeof(unsigned __int64));
@@ -205,21 +209,21 @@ void swap64b(char *bytes)
     memcpy(bytes, &temp, sizeof(unsigned __int64));
 }
 #elif defined(__GNUC__) && (__GNUC__ >= 5) && !defined(_WIN32)
-void swap16b(char *bytes)
+void swap16b(char *bytes) noexcept
 {
     uint16_t temp;
     memcpy(&temp, bytes, sizeof(uint16_t));
     temp = __builtin_bswap16(temp);
     memcpy(bytes, &temp, sizeof(uint16_t));
 }
-void swap32b(char *bytes)
+void swap32b(char *bytes) noexcept
 {
     uint32_t temp;
     memcpy(&temp, bytes, sizeof(uint32_t));
     temp = __builtin_bswap32(temp);
     memcpy(bytes, &temp, sizeof(uint32_t));
 }
-void swap64b(char *bytes)
+void swap64b(char *bytes) noexcept
 {
     uint64_t temp;
     memcpy(&temp, bytes, sizeof(uint64_t));
@@ -227,16 +231,16 @@ void swap64b(char *bytes)
     memcpy(bytes, &temp, sizeof(uint64_t));
 }
 #else
-void swap16b(char *bytes)
+void swap16b(char *bytes) noexcept
 {
     std::swap(bytes[0], bytes[1]);
 }
-void swap32b(char *bytes)
+void swap32b(char *bytes) noexcept
 {
     std::swap(bytes[0], bytes[3]);
     std::swap(bytes[1], bytes[2]);
 }
-void swap64b(char *bytes)
+void swap64b(char *bytes) noexcept
 {
     std::swap(bytes[0], bytes[7]);
     std::swap(bytes[1], bytes[6]);
@@ -244,7 +248,7 @@ void swap64b(char *bytes)
     std::swap(bytes[3], bytes[4]);
 }
 #endif
-void endian_swap(float &bytes)
+void endian_swap(float &bytes) noexcept
 {
     #ifdef HAS_IEEE_DOUBLE
     swap32b((char*)&bytes);
@@ -252,7 +256,7 @@ void endian_swap(float &bytes)
     std::reverse((char*)&bytes, (char*)&bytes + sizeof(float));
     #endif
 }
-void endian_swap(double &bytes)
+void endian_swap(double &bytes) noexcept
 {
     #ifdef HAS_IEEE_DOUBLE
     swap64b((char*)&bytes);
@@ -260,35 +264,35 @@ void endian_swap(double &bytes)
     std::reverse((char*)&bytes, (char*)&bytes + sizeof(double));
     #endif
 }
-void endian_swap(uint8_t &bytes)
+void endian_swap(uint8_t &bytes) noexcept
 {
     return;
 }
-void endian_swap(uint16_t &bytes)
+void endian_swap(uint16_t &bytes) noexcept
 {
     swap16b((char*)&bytes);
 }
-void endian_swap(uint32_t &bytes)
+void endian_swap(uint32_t &bytes) noexcept
 {
     swap32b((char*)&bytes);
 }
-void endian_swap(uint64_t &bytes)
+void endian_swap(uint64_t &bytes) noexcept
 {
     swap64b((char*)&bytes);
 }
-void endian_swap(int8_t &bytes)
+void endian_swap(int8_t &bytes) noexcept
 {
     return;
 }
-void endian_swap(int16_t &bytes)
+void endian_swap(int16_t &bytes) noexcept
 {
     swap16b((char*)&bytes);
 }
-void endian_swap(int32_t &bytes)
+void endian_swap(int32_t &bytes) noexcept
 {
     swap32b((char*)&bytes);
 }
-void endian_swap(int64_t &bytes)
+void endian_swap(int64_t &bytes) noexcept
 {
     swap64b((char*)&bytes);
 }
@@ -296,7 +300,7 @@ void endian_swap(int64_t &bytes)
    hence it needs a separate one. However, in other compiler and platforms this
    leads to a a duplicated function definition, and thus needs this separation
    in names (otherwise, compilers such as GCC will not compile it). */
-void endian_swap_size_t(char *bytes)
+void endian_swap_size_t(char *bytes) noexcept
 {
     #if (SIZE_MAX == UINT32_MAX)
     swap32b(bytes);
@@ -306,7 +310,7 @@ void endian_swap_size_t(char *bytes)
     std::reverse(bytes, bytes + sizeof(size_t));
     #endif
 }
-void endian_swap_int(char *bytes)
+void endian_swap_int(char *bytes) noexcept
 {
     #if (INT_MAX == INT16_MAX)
     swap16b(bytes);
@@ -319,13 +323,13 @@ void endian_swap_int(char *bytes)
     #endif
 }
 template <class T>
-void endian_swap(T &bytes)
+void endian_swap(T &bytes) noexcept
 {
     std::reverse((char*)&bytes, (char*)&bytes + sizeof(T));
 }
 
 template <class dtype>
-void swap_endianness(dtype *ptr, size_t n_els)
+void swap_endianness(dtype *ptr, size_t n_els) noexcept
 {
     #ifndef __GNUC__
     if (std::is_same<dtype, size_t>::value)
@@ -347,12 +351,12 @@ void swap_endianness(dtype *ptr, size_t n_els)
         endian_swap(ptr[ix]);
 }
 
-const char* set_return_position(const char *in)
+const char* set_return_position(const char *in) noexcept
 {
     return in;
 }
 
-char* set_return_position(char *in)
+char* set_return_position(char *in) noexcept
 {
     return in;
 }
@@ -374,12 +378,12 @@ pos_type_istream set_return_position(std::ostream &in)
     return in.tellp();
 }
 
-void return_to_position(const char *&in, const char *saved_position)
+void return_to_position(const char *&in, const char *saved_position) noexcept
 {
     in = saved_position;
 }
 
-void return_to_position(char *&in, char *saved_position)
+void return_to_position(char *&in, char *saved_position) noexcept
 {
     in = saved_position;
 }
@@ -400,7 +404,7 @@ void return_to_position(std::ostream &in, pos_type_istream saved_position)
 }
 
 
-bool has_wchar_t_file_serializers()
+bool has_wchar_t_file_serializers()  noexcept
 {
     #ifdef WCHAR_T_FUNS
     return true;
@@ -436,7 +440,7 @@ void convert_dtype(void *ptr_write_, std::vector<char> &buffer, size_t n_els)
     {
         const saved_type maxval = (saved_type) std::numeric_limits<dtype>::max();
         for (size_t el = 0; el < n_els; el++)
-            if (ptr_read[el] > maxval)
+            if (unlikely(ptr_read[el] > maxval))
                 throw std::runtime_error("Error: serialized model has values too large for the current machine's types.\n");
     }
 
@@ -445,7 +449,7 @@ void convert_dtype(void *ptr_write_, std::vector<char> &buffer, size_t n_els)
 }
 
 template <class dtype>
-void write_bytes(const void *ptr, const size_t n_els, char *&out)
+void write_bytes(const void *ptr, const size_t n_els, char *&out) noexcept
 {
     if (n_els == 0) return;
     memcpy(out, ptr, n_els * sizeof(dtype));
@@ -457,7 +461,7 @@ void write_bytes(const void *ptr, const size_t n_els, std::ostream &out)
 {
     if (n_els == 0) return;
     out.write((char*)ptr, n_els * sizeof(dtype));
-    if (out.bad()) throw_errno();
+    if (unlikely(out.bad())) throw_errno();
 }
 
 template <class dtype>
@@ -469,7 +473,7 @@ void write_bytes(const void *ptr, const size_t n_els, FILE *&out)
 }
 
 template <class dtype>
-void read_bytes(void *ptr, const size_t n_els, const char *&in)
+void read_bytes(void *ptr, const size_t n_els, const char *&in) noexcept
 {
     if (n_els == 0) return;
     memcpy(ptr, in, n_els * sizeof(dtype));
@@ -482,21 +486,21 @@ void read_bytes(void *ptr, const size_t n_els, const char *&in, std::vector<char
     if (std::is_same<dtype, saved_type>::value)
     {
         read_bytes<dtype>(ptr, n_els, in);
-        if (diff_endian) swap_endianness((dtype*)ptr, n_els);
+        if (unlikely(diff_endian)) swap_endianness((dtype*)ptr, n_els);
         return;
     }
     if (n_els == 0) return;
-    if (buffer.size() < n_els * sizeof(saved_type))
+    if (unlikely(buffer.size() < n_els * sizeof(saved_type)))
         buffer.resize((size_t)2 * n_els * sizeof(saved_type));
     memcpy(buffer.data(), in, n_els * sizeof(saved_type));
     in += n_els * sizeof(saved_type);
 
-    if (diff_endian) swap_endianness((saved_type*)buffer.data(), n_els);
+    if (unlikely(diff_endian)) swap_endianness((saved_type*)buffer.data(), n_els);
     convert_dtype<dtype, saved_type>(ptr, buffer, n_els);
 }
 
 template <class dtype>
-void read_bytes(void *ptr, const size_t n_els, char *&in)
+void read_bytes(void *ptr, const size_t n_els, char *&in) noexcept
 {
     if (n_els == 0) return;
     memcpy(ptr, in, n_els * sizeof(dtype));
@@ -509,16 +513,16 @@ void read_bytes(void *ptr, const size_t n_els, char *&in, std::vector<char> &buf
     if (std::is_same<dtype, saved_type>::value)
     {
         read_bytes<dtype>(ptr, n_els, in);
-        if (diff_endian) swap_endianness((dtype*)ptr, n_els);
+        if (unlikely(diff_endian)) swap_endianness((dtype*)ptr, n_els);
         return;
     }
     if (n_els == 0) return;
-    if (buffer.size() < n_els * sizeof(saved_type))
+    if (unlikely(buffer.size() < n_els * sizeof(saved_type)))
         buffer.resize((size_t)2 * n_els * sizeof(saved_type));
     memcpy(buffer.data(), in, n_els * sizeof(saved_type));
     in += n_els * sizeof(saved_type);
 
-    if (diff_endian) swap_endianness((saved_type*)buffer.data(), n_els);
+    if (unlikely(diff_endian)) swap_endianness((saved_type*)buffer.data(), n_els);
     convert_dtype<dtype, saved_type>(ptr, buffer, n_els);
 }
 
@@ -527,7 +531,7 @@ void read_bytes(void *ptr, const size_t n_els, std::istream &in)
 {
     if (n_els == 0) return;
     in.read((char*)ptr, n_els * sizeof(dtype));
-    if (in.bad()) throw_errno();
+    if (unlikely(in.bad())) throw_errno();
 }
 
 template <class dtype, class saved_type>
@@ -536,16 +540,16 @@ void read_bytes(void *ptr, const size_t n_els, std::istream &in, std::vector<cha
     if (std::is_same<dtype, saved_type>::value)
     {
         read_bytes<dtype>(ptr, n_els, in);
-        if (diff_endian) swap_endianness((dtype*)ptr, n_els);
+        if (unlikely(diff_endian)) swap_endianness((dtype*)ptr, n_els);
         return;
     }
     if (n_els == 0) return;
-    if (buffer.size() < n_els * sizeof(saved_type))
+    if (unlikely(buffer.size() < n_els * sizeof(saved_type)))
         buffer.resize((size_t)2 * n_els * sizeof(saved_type));
     in.read((char*)buffer.data(), n_els * sizeof(saved_type));
-    if (in.bad()) throw_errno();
+    if (unlikely(in.bad())) throw_errno();
 
-    if (diff_endian) swap_endianness((saved_type*)buffer.data(), n_els);
+    if (unlikely(diff_endian)) swap_endianness((saved_type*)buffer.data(), n_els);
     convert_dtype<dtype, saved_type>(ptr, buffer, n_els);
 }
 
@@ -553,9 +557,9 @@ template <class dtype>
 void read_bytes(void *ptr, const size_t n_els, FILE *&in)
 {
     if (n_els == 0) return;
-    if (feof(in)) throw_feoferr();
+    if (unlikely(feof(in))) throw_feoferr();
     size_t n_read = fread(ptr, sizeof(dtype), n_els, in);
-    if (n_read != n_els || ferror(in)) throw_ferror(in);
+    if (unlikely(n_read != n_els || ferror(in))) throw_ferror(in);
 }
 
 template <class dtype, class saved_type>
@@ -564,17 +568,17 @@ void read_bytes(void *ptr, const size_t n_els, FILE *&in, std::vector<char> &buf
     if (std::is_same<dtype, saved_type>::value)
     {
         read_bytes<dtype>(ptr, n_els, in);
-        if (diff_endian) swap_endianness((dtype*)ptr, n_els);
+        if (unlikely(diff_endian)) swap_endianness((dtype*)ptr, n_els);
         return;
     }
     if (n_els == 0) return;
-    if (feof(in)) throw_feoferr();
-    if (buffer.size() < n_els * sizeof(saved_type))
+    if (unlikely(feof(in))) throw_feoferr();
+    if (unlikely(buffer.size() < n_els * sizeof(saved_type)))
         buffer.resize((size_t)2 * n_els * sizeof(saved_type));
     size_t n_read = fread(buffer.data(), sizeof(saved_type), n_els, in);
-    if (n_read != n_els || ferror(in)) throw_ferror(in);
+    if (unlikely(n_read != n_els || ferror(in))) throw_ferror(in);
 
-    if (diff_endian) swap_endianness((saved_type*)buffer.data(), n_els);
+    if (unlikely(diff_endian)) swap_endianness((saved_type*)buffer.data(), n_els);
     convert_dtype<dtype, saved_type>(ptr, buffer, n_els);
 }
 
@@ -595,17 +599,17 @@ void read_bytes(std::vector<dtype> &vec, const size_t n_els, const char *&in, st
     if (std::is_same<dtype, saved_type>::value)
     {
         read_bytes<dtype>(vec, n_els, in);
-        if (diff_endian) swap_endianness(vec.data(), n_els);
+        if (unlikely(diff_endian)) swap_endianness(vec.data(), n_els);
         return;
     }
     if (n_els) {
-        if (buffer.size() < n_els * sizeof(saved_type))
+        if (unlikely(buffer.size() < n_els * sizeof(saved_type)))
             buffer.resize((size_t)2 * n_els * sizeof(saved_type));
         read_bytes<saved_type>(buffer.data(), n_els, in);
         vec.resize(n_els);
         vec.shrink_to_fit();
         
-        if (diff_endian) swap_endianness((saved_type*)buffer.data(), n_els);
+        if (unlikely(diff_endian)) swap_endianness((saved_type*)buffer.data(), n_els);
         convert_dtype<dtype, saved_type>(vec.data(), buffer, n_els);
     }
     
@@ -625,7 +629,7 @@ void read_bytes(std::vector<dtype> &vec, const size_t n_els, std::istream &in)
 
     if (n_els) {
         in.read((char*)vec.data(), n_els * sizeof(dtype));
-        if (in.bad()) throw_errno();
+        if (unlikely(in.bad())) throw_errno();
     }
 }
 
@@ -635,19 +639,19 @@ void read_bytes(std::vector<dtype> &vec, const size_t n_els, std::istream &in, s
     if (std::is_same<dtype, saved_type>::value)
     {
         read_bytes<dtype>(vec, n_els, in);
-        if (diff_endian) swap_endianness(vec.data(), n_els);
+        if (unlikely(diff_endian)) swap_endianness(vec.data(), n_els);
         return;
     }
     vec.resize(n_els);
     vec.shrink_to_fit();
 
     if (n_els) {
-        if (buffer.size() < n_els * sizeof(saved_type))
+        if (unlikely(buffer.size() < n_els * sizeof(saved_type)))
             buffer.resize((size_t)2 * n_els * sizeof(saved_type));
         in.read(buffer.data(), n_els * sizeof(saved_type));
-        if (in.bad()) throw_errno();
+        if (unlikely(in.bad())) throw_errno();
 
-        if (diff_endian) swap_endianness((saved_type*)buffer.data(), n_els);
+        if (unlikely(diff_endian)) swap_endianness((saved_type*)buffer.data(), n_els);
         convert_dtype<dtype, saved_type>(vec.data(), buffer, n_els);
     }
 }
@@ -659,9 +663,9 @@ void read_bytes(std::vector<dtype> &vec, const size_t n_els, FILE *&in)
     vec.shrink_to_fit();
     
     if (n_els) {
-        if (feof(in)) throw_feoferr();
+        if (unlikely(feof(in))) throw_feoferr();
         size_t n_read = fread(vec.data(), sizeof(dtype), n_els, in);
-        if (n_read != n_els || ferror(in)) throw_ferror(in);
+        if (unlikely(n_read != n_els || ferror(in))) throw_ferror(in);
     }
 }
 
@@ -671,26 +675,26 @@ void read_bytes(std::vector<dtype> &vec, const size_t n_els, FILE *&in, std::vec
     if (std::is_same<dtype, saved_type>::value)
     {
         read_bytes<dtype>(vec, n_els, in);
-        if (diff_endian) swap_endianness(vec.data(), n_els);
+        if (unlikely(diff_endian)) swap_endianness(vec.data(), n_els);
         return;
     }
     vec.resize(n_els);
     vec.shrink_to_fit();
 
     if (n_els) {
-        if (feof(in)) throw_feoferr();
-        if (buffer.size() < n_els * sizeof(saved_type))
+        if (unlikely(feof(in))) throw_feoferr();
+        if (unlikely(buffer.size() < n_els * sizeof(saved_type)))
             buffer.resize((size_t)2 * n_els * sizeof(saved_type));
 
         size_t n_read = fread(buffer.data(), sizeof(saved_type), n_els, in);
-        if (n_read != n_els || ferror(in)) throw_ferror(in);
+        if (unlikely(n_read != n_els || ferror(in))) throw_ferror(in);
 
-        if (diff_endian) swap_endianness((saved_type*)buffer.data(), n_els);
+        if (unlikely(diff_endian)) swap_endianness((saved_type*)buffer.data(), n_els);
         convert_dtype<dtype, saved_type>(vec.data(), buffer, n_els);
     }
 }
 
-size_t get_size_node(const IsoTree &node)
+size_t get_size_node(const IsoTree &node) noexcept
 {
     size_t n_bytes = 0;
     n_bytes += sizeof(uint8_t);
@@ -789,7 +793,7 @@ void deserialize_node(IsoTree &node, itype &in, std::vector<char> &buffer, const
     read_bytes<signed char, signed char>(node.cat_split, data_sizets[3], in, buffer, diff_endian);
 }
 
-size_t get_size_node(const IsoHPlane &node)
+size_t get_size_node(const IsoHPlane &node) noexcept
 {
     size_t n_bytes = 0;
     n_bytes += sizeof(double) * 5;
@@ -974,7 +978,7 @@ void deserialize_node(IsoHPlane &node, itype &in, std::vector<uint8_t> &buffer, 
     read_bytes<double, double>(node.fill_new, data_sizets[9], in, buffer2, diff_endian);
 }
 
-size_t get_size_node(const ImputeNode &node)
+size_t get_size_node(const ImputeNode &node) noexcept
 {
     size_t n_bytes = 0;
     n_bytes += sizeof(size_t) * 5;
@@ -1072,7 +1076,7 @@ void deserialize_node(ImputeNode &node, itype &in, std::vector<char> &buffer, co
     read_bytes<double, double>(node.cat_weight, data_sizets[4], in, buffer, diff_endian);
 }
 
-size_t get_size_node(const SingleTreeIndex &node)
+size_t get_size_node(const SingleTreeIndex &node) noexcept
 {
     size_t n_bytes = 0;
     n_bytes += sizeof(size_t);
@@ -1184,7 +1188,7 @@ void deserialize_node(SingleTreeIndex &node, itype &in, std::vector<char> &buffe
     read_bytes<size_t, saved_size_t>((void*)&node.n_terminal, (size_t)1, in, buffer, diff_endian);
 }
 
-size_t get_size_model(const IsoForest &model)
+size_t get_size_model(const IsoForest &model) noexcept
 {
     size_t n_bytes = 0;
     n_bytes += sizeof(uint8_t) * 5;
@@ -1338,7 +1342,7 @@ void serialize_additional_trees(const IsoForest &model, otype &out, size_t trees
     }
 }
 
-size_t determine_serialized_size_additional_trees(const IsoForest &model, size_t old_ntrees)
+size_t determine_serialized_size_additional_trees(const IsoForest &model, size_t old_ntrees) noexcept
 {
     size_t n_bytes = 0;
     for (size_t ix = 0; ix < model.trees.size(); ix++) {
@@ -1349,7 +1353,7 @@ size_t determine_serialized_size_additional_trees(const IsoForest &model, size_t
     return n_bytes;
 }
 
-size_t get_size_model(const ExtIsoForest &model)
+size_t get_size_model(const ExtIsoForest &model) noexcept
 {
     size_t n_bytes = 0;
     n_bytes += sizeof(uint8_t) * 5;
@@ -1509,7 +1513,7 @@ void serialize_additional_trees(const ExtIsoForest &model, otype &out, size_t tr
     }
 }
 
-size_t determine_serialized_size_additional_trees(const ExtIsoForest &model, size_t old_ntrees)
+size_t determine_serialized_size_additional_trees(const ExtIsoForest &model, size_t old_ntrees) noexcept
 {
     size_t n_bytes = 0;
     for (size_t ix = 0; ix < model.hplanes.size(); ix++) {
@@ -1520,7 +1524,7 @@ size_t determine_serialized_size_additional_trees(const ExtIsoForest &model, siz
     return n_bytes;
 }
 
-size_t get_size_model(const Imputer &model)
+size_t get_size_model(const Imputer &model) noexcept
 {
     size_t n_bytes = 0;
     n_bytes += sizeof(size_t) * 6;
@@ -1649,7 +1653,7 @@ void serialize_additional_trees(const Imputer &model, otype &out, size_t trees_p
     }
 }
 
-size_t determine_serialized_size_additional_trees(const Imputer &model, size_t old_ntrees)
+size_t determine_serialized_size_additional_trees(const Imputer &model, size_t old_ntrees) noexcept
 {
     size_t n_bytes = 0;
     for (size_t ix = 0; ix < model.imputer_tree.size(); ix++) {
@@ -1660,7 +1664,7 @@ size_t determine_serialized_size_additional_trees(const Imputer &model, size_t o
     return n_bytes;
 }
 
-size_t get_size_model(const TreesIndexer &model)
+size_t get_size_model(const TreesIndexer &model) noexcept
 {
     size_t n_bytes = 0;
     n_bytes += sizeof(size_t);
@@ -1716,7 +1720,7 @@ void serialize_additional_trees(const TreesIndexer &model, otype &out, size_t tr
         serialize_node(model.indices[ix], out);
 }
 
-size_t determine_serialized_size_additional_trees(const TreesIndexer &model, size_t old_ntrees)
+size_t determine_serialized_size_additional_trees(const TreesIndexer &model, size_t old_ntrees) noexcept
 {
     size_t n_bytes = 0;
     for (size_t ix = 0; ix < model.indices.size(); ix++)
@@ -1724,13 +1728,13 @@ size_t determine_serialized_size_additional_trees(const TreesIndexer &model, siz
     return n_bytes;
 }
 
-bool get_is_little_endian()
+bool get_is_little_endian() noexcept
 {
     const int one = 1;
     return *((unsigned char*)&one) != 0;
 }
 
-size_t get_size_setup_info()
+size_t get_size_setup_info() noexcept
 {
     size_t n_bytes = 0;
     n_bytes += sizeof(unsigned char) * SIZE_WATERMARK;
@@ -2001,7 +2005,7 @@ void check_setup_info
         throw std::runtime_error("Error: input format is incompatible.\n");
 }
 
-size_t get_size_ending_metadata()
+size_t get_size_ending_metadata() noexcept
 {
     size_t n_bytes = 0;
     n_bytes += sizeof(uint8_t);
@@ -2010,7 +2014,7 @@ size_t get_size_ending_metadata()
 }
 
 template <class Model>
-size_t determine_serialized_size(const Model &model)
+size_t determine_serialized_size(const Model &model) noexcept
 {
     size_t n_bytes = 0;
     n_bytes += get_size_setup_info();
@@ -2021,22 +2025,22 @@ size_t determine_serialized_size(const Model &model)
     return n_bytes;
 }
 
-uint8_t get_model_code(const IsoForest &model)
+uint8_t get_model_code(const IsoForest &model) noexcept
 {
     return IsoForestModel;
 }
 
-uint8_t get_model_code(const ExtIsoForest &model)
+uint8_t get_model_code(const ExtIsoForest &model) noexcept
 {
     return ExtIsoForestModel;
 }
 
-uint8_t get_model_code(const Imputer &model)
+uint8_t get_model_code(const Imputer &model) noexcept
 {
     return ImputerModel;
 }
 
-uint8_t get_model_code(const TreesIndexer &model)
+uint8_t get_model_code(const TreesIndexer &model) noexcept
 {
     return IndexerModel;
 }
@@ -2515,22 +2519,22 @@ void serialization_pipeline_ToFile(const Model &model, const wchar_t *fname)
 }
 #endif
 
-size_t determine_serialized_size(const IsoForest &model)
+size_t determine_serialized_size(const IsoForest &model) noexcept
 {
     return determine_serialized_size<IsoForest>(model);
 }
 
-size_t determine_serialized_size(const ExtIsoForest &model)
+size_t determine_serialized_size(const ExtIsoForest &model) noexcept
 {
     return determine_serialized_size<ExtIsoForest>(model);
 }
 
-size_t determine_serialized_size(const Imputer &model)
+size_t determine_serialized_size(const Imputer &model) noexcept
 {
     return determine_serialized_size<Imputer>(model);
 }
 
-size_t determine_serialized_size(const TreesIndexer &model)
+size_t determine_serialized_size(const TreesIndexer &model) noexcept
 {
     return determine_serialized_size<TreesIndexer>(model);
 }
@@ -3450,7 +3454,7 @@ size_t determine_serialized_size_combined
     const Imputer *imputer,
     const TreesIndexer *indexer,
     const size_t size_optional_metadata
-)
+) noexcept
 {
     size_t n_bytes = get_size_setup_info();
     n_bytes += 3 * sizeof(uint8_t);
@@ -3709,7 +3713,7 @@ size_t determine_serialized_size_combined
     const char *serialized_imputer,
     const char *serialized_indexer,
     const size_t size_optional_metadata
-)
+) noexcept
 {
     size_t n_bytes = get_size_setup_info();
     n_bytes += 3 * sizeof(uint8_t);
@@ -4364,7 +4368,7 @@ void deserialize_combined
     );
 }
 
-bool check_model_has_range_penalty(const IsoForest &model)
+bool check_model_has_range_penalty(const IsoForest &model) noexcept
 {
     for (const auto &tree : model.trees)
     {
@@ -4381,7 +4385,7 @@ bool check_model_has_range_penalty(const IsoForest &model)
     return false;
 }
 
-bool check_model_has_range_penalty(const ExtIsoForest &model)
+bool check_model_has_range_penalty(const ExtIsoForest &model) noexcept
 {
     for (const auto &tree : model.hplanes)
     {
@@ -4398,22 +4402,22 @@ bool check_model_has_range_penalty(const ExtIsoForest &model)
     return false;
 }
 
-void add_range_penalty(IsoForest &model)
+void add_range_penalty(IsoForest &model) noexcept
 {
     model.has_range_penalty = check_model_has_range_penalty(model);
 }
 
-void add_range_penalty(ExtIsoForest &model)
+void add_range_penalty(ExtIsoForest &model) noexcept
 {
     model.has_range_penalty = check_model_has_range_penalty(model);
 }
 
-void add_range_penalty(Imputer &model)
+void add_range_penalty(Imputer &model) noexcept
 {
     
 }
 
-void add_range_penalty(TreesIndexer &model)
+void add_range_penalty(TreesIndexer &model) noexcept
 {
     
 }

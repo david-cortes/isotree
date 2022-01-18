@@ -34,6 +34,10 @@
 *     [13] Cortes, David.
 *          "Isolation forests: looking beyond tree depth."
 *          arXiv preprint arXiv:2111.11639 (2021).
+*     [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou.
+*          "Isolation kernel and its effect on SVM"
+*          Proceedings of the 24th ACM SIGKDD
+*          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2022, David Cortes
@@ -284,7 +288,8 @@ void IsolationForest::predict(double X_sparse[], int X_ind[], int X_indptr[], bo
 }
 
 std::vector<double> IsolationForest::predict_distance(double X[], size_t nrows,
-                                                      bool assume_full_distr, bool standardize_dist,
+                                                      bool as_kernel,
+                                                      bool assume_full_distr, bool standardize,
                                                       bool triangular)
 {
     this->check_is_fitted();
@@ -294,20 +299,35 @@ std::vector<double> IsolationForest::predict_distance(double X[], size_t nrows,
 
     calc_similarity(X, (int*)nullptr,
                     (double*)nullptr, (int*)nullptr, (int*)nullptr,
-                    nrows, this->nthreads, assume_full_distr, standardize_dist,
+                    nrows, this->nthreads, assume_full_distr, standardize, as_kernel,
                     (!this->model.trees.empty())? &this->model : nullptr,
                     (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
-                    tmat.data(), (double*)nullptr, (size_t)0,
+                    tmat.data(), (double*)nullptr, (size_t)0, false,
                     (!this->indexer.indices.empty())? &this->indexer : nullptr,
                     true, (size_t)0, (size_t)0);
-    if (!triangular)
-        tmat_to_dense(tmat.data(), dmat.data(), nrows, false, !standardize_dist);
+    if (!triangular) {
+        double diag_filler;
+        if (as_kernel) {
+            if (standardize)
+                diag_filler = 1.;
+            else
+                diag_filler = std::max(this->model.trees.size(), this->model_ext.hplanes.size());
+        }
+        else {
+            if (standardize)
+                diag_filler = 0;
+            else
+                diag_filler = std::numeric_limits<double>::infinity();
+        }
+        tmat_to_dense(tmat.data(), dmat.data(), nrows, diag_filler);
+    }
     return (triangular? tmat : dmat);
 }
 
 void IsolationForest::predict_distance(double numeric_data[], int categ_data[],
                                        size_t nrows,
-                                       bool assume_full_distr, bool standardize_dist,
+                                       bool as_kernel,
+                                       bool assume_full_distr, bool standardize,
                                        bool triangular,
                                        double dist_matrix[])
 {
@@ -317,20 +337,35 @@ void IsolationForest::predict_distance(double numeric_data[], int categ_data[],
 
     calc_similarity(numeric_data, categ_data,
                     (double*)nullptr, (int*)nullptr, (int*)nullptr,
-                    nrows, this->nthreads, assume_full_distr, standardize_dist,
+                    nrows, this->nthreads, assume_full_distr, standardize, as_kernel,
                     (!this->model.trees.empty())? &this->model : nullptr,
                     (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                     triangular? dist_matrix : tmat.data(),
-                    (double*)nullptr,
-                    (size_t)0,
+                    (double*)nullptr, (size_t)0, false,
                     (!this->indexer.indices.empty())? &this->indexer : nullptr,
                     true, (size_t)0, (size_t)0);
-    if (!triangular)
-        tmat_to_dense(tmat.data(), dist_matrix, nrows, false, !standardize_dist);
+    if (!triangular) {
+        double diag_filler;
+        if (as_kernel) {
+            if (standardize)
+                diag_filler = 1.;
+            else
+                diag_filler = std::max(this->model.trees.size(), this->model_ext.hplanes.size());
+        }
+        else {
+            if (standardize)
+                diag_filler = 0;
+            else
+                diag_filler = std::numeric_limits<double>::infinity();
+        }
+        tmat_to_dense(tmat.data(), dist_matrix, nrows, diag_filler);
+    }
 }
 
 void IsolationForest::predict_distance(double Xc[], int Xc_ind[], int Xc_indptr[], int categ_data[],
-                                       size_t nrows, bool assume_full_distr, bool standardize_dist,
+                                       size_t nrows,
+                                       bool as_kernel,
+                                       bool assume_full_distr, bool standardize,
                                        bool triangular,
                                        double dist_matrix[])
 {
@@ -340,16 +375,29 @@ void IsolationForest::predict_distance(double Xc[], int Xc_ind[], int Xc_indptr[
 
     calc_similarity((double*)nullptr, (int*)nullptr,
                     Xc, Xc_ind, Xc_indptr,
-                    nrows, this->nthreads, assume_full_distr, standardize_dist,
+                    nrows, this->nthreads, assume_full_distr, standardize, as_kernel,
                     (!this->model.trees.empty())? &this->model : nullptr,
                     (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                     triangular? dist_matrix : tmat.data(),
-                    (double*)nullptr,
-                    (size_t)0,
+                    (double*)nullptr, (size_t)0, false,
                     (!this->indexer.indices.empty())? &this->indexer : nullptr,
                     true, (size_t)0, (size_t)0);
-    if (!triangular)
-        tmat_to_dense(tmat.data(), dist_matrix, nrows, false, !standardize_dist);
+    if (!triangular) {
+        double diag_filler;
+        if (as_kernel) {
+            if (standardize)
+                diag_filler = 1.;
+            else
+                diag_filler = std::max(this->model.trees.size(), this->model_ext.hplanes.size());
+        }
+        else {
+            if (standardize)
+                diag_filler = 0;
+            else
+                diag_filler = std::numeric_limits<double>::infinity();
+        }
+        tmat_to_dense(tmat.data(), dist_matrix, nrows, diag_filler);
+    }
 }
 
 void IsolationForest::impute(double X[], size_t nrows)
@@ -402,7 +450,7 @@ void IsolationForest::build_indexer(const bool with_distances)
         return;
     if (this->missing_action == Divide)
         throw std::runtime_error("Cannot build tree indexer when using 'missing_action=Divide'.\n");
-    if (!this->model.trees.empty() && this->new_cat_action == Weighted)
+    if (!this->model.trees.empty() && this->new_cat_action == Weighted && this->cat_split_type == SubSet)
         throw std::runtime_error("Cannot build tree indexer when using 'new_cat_action=Weighted' with single-variable model.\n");
     
     if (!this->model.trees.empty())
@@ -411,6 +459,81 @@ void IsolationForest::build_indexer(const bool with_distances)
         build_tree_indices(this->indexer, this->model_ext, this->nthreads, with_distances);
     else
         unexpected_error();
+}
+
+void IsolationForest::set_as_reference_points(double numeric_data[], int categ_data[], bool is_col_major,
+                                              size_t nrows, size_t ld_numeric, size_t ld_categ,
+                                              const bool with_distances)
+{
+    this->check_is_fitted();
+    if (!this->model.trees.empty())
+        set_reference_points(&this->model, (ExtIsoForest*)NULL, &this->indexer,
+                             with_distances,
+                             numeric_data, categ_data,
+                             is_col_major, ld_numeric, ld_categ,
+                             (double*)NULL, (int*)NULL, (int*)NULL,
+                             (double*)NULL, (int*)NULL, (int*)NULL,
+                             nrows, this->nthreads);
+    else
+        set_reference_points((IsoForest*)NULL, &this->model_ext, &this->indexer,
+                             with_distances,
+                             numeric_data, categ_data,
+                             is_col_major, ld_numeric, ld_categ,
+                             (double*)NULL, (int*)NULL, (int*)NULL,
+                             (double*)NULL, (int*)NULL, (int*)NULL,
+                             nrows, this->nthreads);
+}
+
+void IsolationForest::set_as_reference_points(double Xc[], int Xc_ind[], int Xc_indptr[], int categ_data[],
+                                              size_t nrows, const bool with_distances)
+{
+    this->check_is_fitted();
+    if (!this->model.trees.empty())
+        set_reference_points(&this->model, (ExtIsoForest*)NULL, &this->indexer,
+                             with_distances,
+                             (double*)NULL, (int*)NULL,
+                             true, (size_t)0, (size_t)0,
+                             Xc, Xc_ind, Xc_indptr,
+                             (double*)NULL, (int*)NULL, (int*)NULL,
+                             nrows, this->nthreads);
+    else
+        set_reference_points((IsoForest*)NULL, &this->model_ext, &this->indexer,
+                             with_distances,
+                             (double*)NULL, (int*)NULL,
+                             true, (size_t)0, (size_t)0,
+                             Xc, Xc_ind, Xc_indptr,
+                             (double*)NULL, (int*)NULL, (int*)NULL,
+                             nrows, this->nthreads);
+}
+
+size_t IsolationForest::get_num_reference_points() const noexcept
+{
+    return get_number_of_reference_points(this->indexer);
+}
+
+void IsolationForest::predict_distance_to_ref_points(double numeric_data[], int categ_data[],
+                                                     double Xc[], int Xc_ind[], int Xc_indptr[],
+                                                     size_t nrows, bool is_col_major, size_t ld_numeric, size_t ld_categ,
+                                                     bool as_kernel, bool standardize,
+                                                     double dist_matrix[])
+{
+    this->check_is_fitted();
+    if (this->indexer.indices.empty())
+        throw std::runtime_error("Model has no indexer. Cannot predict distances to indexer.\n");
+    if (!as_kernel && this->indexer.indices.front().node_distances.empty())
+        throw std::runtime_error("Model's indexer was built without distances. Cannot calculate distances to reference points.\n");
+    if (this->indexer.indices.front().reference_points.empty())
+        throw std::runtime_error("Model's indexer has no reference points. Cannot calculate distances to reference points.\n");
+    if (dist_matrix == NULL)
+        throw std::runtime_error("Passed a NULL pointer for 'dist_matrix'.\n");
+
+    calc_similarity(numeric_data, categ_data,
+                    Xc, Xc_ind, Xc_indptr,
+                    nrows, this->nthreads, true, standardize, as_kernel,
+                    (!this->model.trees.empty())? &this->model : NULL,
+                    (!this->model_ext.hplanes.empty())? &this->model_ext : NULL,
+                    (double*)NULL, dist_matrix, (size_t)0, true,
+                    &this->indexer, is_col_major, ld_numeric, ld_categ);
 }
 
 void IsolationForest::serialize(FILE *out) const

@@ -33,6 +33,7 @@ Methods
 * `decision_function <#isotree.IsolationForest.decision_function>`_
 * `drop_imputer <#isotree.IsolationForest.drop_imputer>`_
 * `drop_indexer <#isotree.IsolationForest.drop_indexer>`_
+* `drop_reference_points <#isotree.IsolationForest.drop_reference_points>`_
 * `export_model <#isotree.IsolationForest.export_model>`_
 * `fit <#isotree.IsolationForest.fit>`_
 * `fit_predict <#isotree.IsolationForest.fit_predict>`_
@@ -44,7 +45,9 @@ Methods
 * `partial_fit <#isotree.IsolationForest.partial_fit>`_
 * `predict <#isotree.IsolationForest.predict>`_
 * `predict_distance <#isotree.IsolationForest.predict_distance>`_
+* `predict_kernel <#isotree.IsolationForest.predict_kernel>`_
 * `set_params <#isotree.IsolationForest.set_params>`_
+* `set_reference_points <#isotree.IsolationForest.set_reference_points>`_
 * `subset_trees <#isotree.IsolationForest.subset_trees>`_
 * `to_treelite <#isotree.IsolationForest.to_treelite>`_
 * `transform <#isotree.IsolationForest.transform>`_

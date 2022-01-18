@@ -34,6 +34,10 @@
 *     [13] Cortes, David.
 *          "Isolation forests: looking beyond tree depth."
 *          arXiv preprint arXiv:2111.11639 (2021).
+*     [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou.
+*          "Isolation kernel and its effect on SVM"
+*          Proceedings of the 24th ACM SIGKDD
+*          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2022, David Cortes
@@ -277,7 +281,7 @@ void get_isotree_parameters
 }
 
 
-
+ISOTREE_EXPORTED
 void* isotree_fit
 (
     const void *isotree_parameters,
@@ -361,12 +365,14 @@ void* isotree_fit
     }
 }
 
+ISOTREE_EXPORTED
 void delete_isotree_model(void *isotree_model)
 {
     IsolationForest *ptr = (IsolationForest*)isotree_model;
     delete ptr;
 }
 
+ISOTREE_EXPORTED
 int isotree_predict
 (
     void *isotree_model,
@@ -422,11 +428,13 @@ int isotree_predict
     return IsoTreeError;
 }
 
+ISOTREE_EXPORTED
 int isotree_predict_distance
 (
     void *isotree_model,
     uint8_t output_triangular,
-    uint8_t standardize_distance,
+    uint8_t as_kernel,
+    uint8_t standardize,
     uint8_t assume_full_distr,
     double *output_dist,
     size_t nrows,
@@ -451,15 +459,15 @@ int isotree_predict_distance
     {
         if (!csc_indptr) {
             model->predict_distance(numeric_data, categ_data,
-                                    nrows,
-                                    (bool) assume_full_distr, (bool) standardize_distance,
+                                    nrows, as_kernel,
+                                    (bool) assume_full_distr, (bool) standardize,
                                     (bool) output_triangular,
                                     output_dist);
         }
 
         else {
             model->predict_distance(csc_values, csc_indices, csc_indptr, categ_data,
-                                    nrows, (bool) assume_full_distr, (bool) standardize_distance,
+                                    nrows, as_kernel, (bool) assume_full_distr, (bool) standardize,
                                     (bool) output_triangular,
                                     output_dist);
         }
@@ -476,6 +484,7 @@ int isotree_predict_distance
     return IsoTreeError;
 }
 
+ISOTREE_EXPORTED
 int isotree_impute
 (
     void *isotree_model,
@@ -518,6 +527,110 @@ int isotree_impute
     return IsoTreeError;
 }
 
+ISOTREE_EXPORTED
+int isotree_set_reference_points
+(
+    void* isotree_model,
+    uint8_t with_distances,
+    size_t nrows,
+    uint8_t is_col_major,
+    double *numeric_data,
+    size_t ld_numeric,
+    int *categ_data,
+    size_t ld_categ,
+    uint8_t is_csc,
+    double *csc_values,
+    int *csc_indices,
+    int *csc_indptr
+)
+{
+    if (!isotree_model) {
+        cerr << "Passed NULL 'isotree_model' to 'isotree_serialize_to_file'." << std::endl;
+        return IsoTreeError;
+    }
+
+    IsolationForest *model = (IsolationForest*)isotree_model;
+    try
+    {
+        if (csc_indptr == NULL)
+            model->set_as_reference_points(numeric_data, categ_data, (bool)is_col_major,
+                                           nrows, ld_numeric, ld_categ,
+                                           (bool)with_distances);
+        else
+            model->set_as_reference_points(csc_values, csc_indices, csc_indptr, categ_data,
+                                           nrows, (bool)with_distances);
+        return IsoTreeSuccess;
+    }
+
+    catch (std::exception &e)
+    {
+        cerr << e.what();
+        cerr.flush();
+    }
+
+    return IsoTreeError;
+}
+
+ISOTREE_EXPORTED
+size_t isotree_get_num_reference_points(void* isotree_model)
+{
+    if (!isotree_model) {
+        cerr << "Passed NULL 'isotree_model' to 'isotree_get_n_reference_points'." << std::endl;
+        return 0;
+    }
+
+    IsolationForest *model = (IsolationForest*)isotree_model;
+    return model->get_num_reference_points();
+}
+
+ISOTREE_EXPORTED
+int isotree_predict_distance_to_ref_points
+(
+    void* isotree_model,
+    double *output_dist, /* <- output goes here */
+    uint8_t as_kernel,
+    uint8_t standardize,
+    size_t nrows,
+    uint8_t is_col_major,
+    double *numeric_data,
+    size_t ld_numeric,
+    int *categ_data,
+    size_t ld_categ,
+    double *csc_values,
+    int *csc_indices,
+    int *csc_indptr
+)
+{
+    if (!isotree_model) {
+        cerr << "Passed NULL 'isotree_model' to 'isotree_predict_distance_to_ref_points'." << std::endl;
+        return IsoTreeError;
+    }
+    if (!output_dist) {
+        cerr << "Passed NULL 'output_dist' to 'isotree_predict_distance_to_ref_points'." << std::endl;
+        return IsoTreeError;
+    }
+
+    IsolationForest *model = (IsolationForest*)isotree_model;
+    try
+    {
+        model->predict_distance_to_ref_points(numeric_data, categ_data,
+                                              csc_values, csc_indices, csc_indptr,
+                                              nrows, is_col_major, ld_numeric, ld_categ,
+                                              as_kernel, standardize,
+                                              output_dist);
+        return IsoTreeSuccess;
+    }
+
+    catch (std::exception &e)
+    {
+        cerr << e.what();
+        cerr.flush();
+    }
+
+    return IsoTreeError;
+}
+
+ISOTREE_EXPORTED
 int isotree_serialize_to_file(const void *isotree_model, FILE *output)
 {
     if (!isotree_model) {
@@ -546,6 +659,7 @@ int isotree_serialize_to_file(const void *isotree_model, FILE *output)
     return IsoTreeError;
 }
 
+ISOTREE_EXPORTED
 void* isotree_deserialize_from_file(FILE *serialized_model, int nthreads)
 {
     if (!serialized_model) {
@@ -573,6 +687,7 @@ void* isotree_deserialize_from_file(FILE *serialized_model, int nthreads)
     }
 }
 
+ISOTREE_EXPORTED
 size_t isotree_serialize_get_raw_size(const void *isotree_model)
 {
     if (!isotree_model) {
@@ -600,6 +715,7 @@ size_t isotree_serialize_get_raw_size(const void *isotree_model)
     }
 }
 
+ISOTREE_EXPORTED
 int isotree_serialize_to_raw(const void *isotree_model, char *output)
 {
     if (!isotree_model) {
@@ -632,7 +748,7 @@ int isotree_serialize_to_raw(const void *isotree_model, char *output)
     return IsoTreeError;
 }
 
-
+ISOTREE_EXPORTED
 void* isotree_deserialize_from_raw(const char *serialized_model, int nthreads)
 {
     if (!serialized_model) {

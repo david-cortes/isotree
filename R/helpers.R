@@ -774,13 +774,14 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, data, model, pdata) {
 
 export.metadata <- function(model) {
     data_info <- list(
-        ncols_numeric  =  model$metadata$ncols_num, ## is in c++
-        ncols_categ    =  model$metadata$ncols_cat,  ## is in c++
-        cols_numeric   =  as.list(model$metadata$cols_num),
-        cols_categ     =  as.list(model$metadata$cols_cat),
-        cat_levels     =  unname(as.list(model$metadata$cat_levs)),
-        categ_cols     =  model$metadata$categ_cols,
-        categ_max      =  model$metadata$categ_max
+        ncols_numeric    =  model$metadata$ncols_num, ## is in c++
+        ncols_categ      =  model$metadata$ncols_cat,  ## is in c++
+        cols_numeric     =  as.list(model$metadata$cols_num),
+        cols_categ       =  as.list(model$metadata$cols_cat),
+        cat_levels       =  unname(as.list(model$metadata$cat_levs)),
+        categ_cols       =  model$metadata$categ_cols,
+        categ_max        =  model$metadata$categ_max,
+        reference_names  =  model$metadata$reference_names
     )
     
     if (NROW(data_info$cat_levels)) {
@@ -866,7 +867,8 @@ take.metadata <- function(metadata) {
             cols_cat   =  unlist(metadata$data_info$cols_categ),
             cat_levs   =  metadata$data_info$cat_levels,
             categ_cols =  metadata$data_info$categ_cols,
-            categ_max  =  metadata$data_info$categ_max
+            categ_max  =  metadata$data_info$categ_max,
+            reference_names = coerce.null(metadata$data_info$reference_names, character())
         ),
         random_seed  =  metadata$params$random_seed,
         nthreads     =  metadata$model_info$nthreads,

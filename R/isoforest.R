@@ -696,6 +696,7 @@
 #' \item Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
 #' \item Guha, Sudipto, et al. "Robust random cut forest based anomaly detection on streams." International conference on machine learning. PMLR, 2016.
 #' \item Cortes, David. "Isolation forests: looking beyond tree depth." arXiv preprint arXiv:2111.11639 (2021).
+#' \item Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou. "Isolation kernel and its effect on SVM." Proceedings of the 24th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining. 2018.
 #' }
 #' @examples
 #' ### Example 1: detect an obvious outlier
@@ -1230,7 +1231,8 @@ isolation.forest <- function(data,
             cols_cat   =  pdata$cols_cat,
             cat_levs   =  pdata$cat_levs,
             categ_cols =  pdata$categ_cols,
-            categ_max  =  pdata$categ_max
+            categ_max  =  pdata$categ_max,
+            reference_names = character()
         ),
         random_seed  =  seed,
         nthreads     =  nthreads,
@@ -1295,8 +1297,8 @@ isolation.forest <- function(data,
 #' @title Predict method for Isolation Forest
 #' @param object An Isolation Forest object as returned by \link{isolation.forest}.
 #' @param newdata A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`,
-#' CSC/dgCMatrix supported for distance and outlierness, CSR/dgRMatrix supported for outlierness and imputations)
-#' for which to predict outlierness, distance, or imputations of missing values.
+#' CSC/dgCMatrix supported for distance, kernels, and outlierness; CSR/dgRMatrix supported for outlierness and imputations)
+#' for which to predict outlierness, distance, kernels, or imputations of missing values.
 #' 
 #' If `newdata` is sparse and one wants to obtain the outlier score or average depth or tree
 #' numbers, it's highly recommended to pass it in CSC (`dgCMatrix`) format as it will be much faster
@@ -1319,6 +1321,15 @@ isolation.forest <- function(data,
 #'   \item `"avg_sep"` for the non-standardized average separation depth.
 #'   To make this computation faster, it is highly recommended to build a node indexer with
 #'   \link{isotree.build.indexer} (with `with_distances=TRUE`) before calling this function.
+#'   \item `"kernel"` for pairwise or between-points isolation kernel calculations (also known as
+#'   proximity matrix), which denotes the fraction of trees in which two observations end up in
+#'   the same terminal node. This is typically not as good quality as the separation distance, but
+#'   it's much faster to calculate. Note that building an indexer will not speed up kernel/proximity
+#'   calculations unless it has reference points. Note that this calculation can be sped up signficantly
+#'   by setting reference points in the model object through \link{isotree.set.reference.points},
+#'   and it's highly recommended to do so if this calculation is going to be performed repeatedly.
+#'   \item `"kernel_raw"` for the isolation kernel or proximity matrix, but having as output the
+#'   number of trees instead of the fraction of total trees.
 #'   \item `"tree_num"` for the terminal node number for each tree - if choosing this option,
 #'   will return a list containing both the average isolation depth and the terminal node numbers, under entries
 #'   `avg_depth` and `tree_num`, respectively. If this calculation is going to be perform frequently, it's recommended to
@@ -1328,30 +1339,45 @@ isolation.forest <- function(data,
 #'   See the documentation for `scoring_metric` for more details about the calculations for density-based metrics.
 #'   \item `"impute"` for imputation of missing values in `newdata`.
 #' }
-#' @param square_mat When passing `type` = `"dist` or `"avg_sep"` with no `refdata`, whether to return a
-#' full square matrix (returned as a numeric `matrix` object) or
+#' @param square_mat When passing `type` = `"dist` or `"avg_sep"` or `"kernel"` or `"kernel_raw"`
+#' with no `refdata`, whether to return a full square matrix (returned as a numeric `matrix` object) or
 #' just its upper-triangular part (returned as a `dist` object and compatible with functions such as `hclust`),
 #' in which the entry for pair (i,j) with 1 <= i < j <= n is located at position
 #' p(i, j) = ((i - 1) * (n - i/2) + j - i).
-#' Ignored when not predicting distance/separation or when passing `refdata`.
-#' @param refdata If passing this and calculating distance or average separation depth, will calculate distances
+#' 
+#' Ignored when not predicting distance/separation/kernels or when passing `refdata` or `use_reference_points=TRUE` plus having reference points.
+#' @param refdata If passing this and calculating distances or average separation depths or kernels, will calculate distances
 #' between each point in `newdata` and each point in `refdata`, outputing a matrix in which points in `newdata`
 #' correspond to rows and points in `refdata` correspond to columns. Must be of the same type as `newdata` (e.g.
 #' `data.frame`, `matrix`, `dgCMatrix`, etc.). If this is not passed, and type is `"dist"`
-#' or `"avg_sep"`, will calculate pairwise distances/separation between the points in `newdata`.
+#' or `"avg_sep"` or `"kernel"` or `"kernel_raw"`, will calculate pairwise distances/separation between the points in `newdata`.
+#' 
+#' Note that, if `refdata` is passed and and the model object has an indexer with reference points
+#' added (through \link{isotree.set.reference.points}), those reference points will be ignored for the
+#' calculation.
+#' @param use_reference_points When the model object has an indexer with reference points (which can be added through
+#' \link{isotree.set.reference.points}) and passing `type="dist"` or `"avg_sep"` or `"kernel"` or `"kernel_raw"`, whether to calculate the distances/kernels from `newdata` to those reference
+#' points instead of the pairwise distances between points in `newdata`.
+#' 
+#' This is ignored when passing `refdata` or when the model object does not contain an indexer
+#' or the indexer does not contain reference points.
 #' @param ... Not used.
 #' @return The requested prediction type, which can be: \itemize{
-#' \item A numeric vector with one entry per row in `newdata` (for output types `"score"`, `"avg_depth"`).
+#' \item A numeric vector with one entry per row in `newdata` (for output types `"score"` and `"avg_depth"`).
 #' \item An integer matrix with number of rows matching to rows in `newdata` and number of columns matching
 #' to the number of trees in the model, indicating the terminal node number under each tree for each
-#' observation, with trees as columns), for output type `"tree_num"`.
+#' observation, with trees as columns, for output type `"tree_num"`.
 #' \item A numeric matrix with rows matching to those in `newdata` and one column per tree in the
 #' model, for output type `"tree_depths"`.
-#' \item A numeric square matrix or `dist` object containing a vector with the upper triangular
-#' part of a square matrix
-#' (for output types `"dist"`, `"avg_sep"`, with no `refdata`).
+#' \item A numeric square matrix or `dist` object which consists of a vector with the upper triangular
+#' part of a square matrix,
+#' (for output types `"dist"`, `"avg_sep"`, `"kernel"`, `"kernel_raw"`; with no `refdata` and no reference points or
+#' `use_reference_points=FALSE`).
 #' \item A numeric matrix with points in `newdata` as rows and points in `refdata` as columns
-#' (for output types `"dist"`, `"avg_sep"`, with `refdata`).
+#' (for output types `"dist"`, `"avg_sep"`, `"kernel"`, `"kernel_raw"`; with `refdata`).
+#' \item A numeric matrix with points in `newdata` as rows and reference points set through
+#' \link{isotree.set.reference.points} as columns
+#' (for output types `"dist"`, `"avg_sep"`, `"kernel"`, `"kernel_raw"`; with `use_reference_points=TRUE` and no `refdata`).
 #' \item The same type as the input `newdata` (for output type `"impute"`).}
 #' @section Model serving considerations:
 #' If the model was built with `nthreads>1`, this prediction function will
@@ -1393,7 +1419,8 @@ isolation.forest <- function(data,
 #' the scores are unlikely to be centered around zero.
 #' 
 #' The more threads that are set for the model, the higher the memory requirement will be as each
-#' thread will allocate an array with one entry per row (outlierness) or combination (distance).
+#' thread will allocate an array with one entry per row (outlierness) or combination (distance),
+#' with an exception being calculation of distances/kernels to reference points, which do not do this.
 #' 
 #' For multi-threaded predictions on many rows, it is recommended to set the number of threads
 #' to the number of physical cores of the CPU rather than the number of logical cores, as it
@@ -1411,7 +1438,8 @@ isolation.forest <- function(data,
 #' In order to save memory when fitting and serializing models, the functionality for outputting
 #' terminal node numbers will generate index mappings on the fly for all tree nodes, even if passing only
 #' 1 row, so it's only recommended for batch predictions. If this type of prediction is desired, it can
-#' be sped up by building an index of terminal nodes through \link{isotree.build.indexer}.
+#' be sped up by building an index of terminal nodes through \link{isotree.build.indexer}, which will avoid
+#' having to recompute these every time.
 #' 
 #' The outlier scores/depth predict functionality is optimized for making predictions on one or a
 #' few rows at a time - for making large batches of predictions, it might be faster to use the
@@ -1429,20 +1457,21 @@ isolation.forest <- function(data,
 #' called repeatedly and/or it is going to be called for a large number of rows, it's highly
 #' recommended to build node distance indexes beforehand through \link{isotree.build.indexer} with
 #' option `with_distances=TRUE`, as then the computation will be done based on terminal node
-#' indices instead, which is a much faster procedure.
+#' indices instead, which is a much faster procedure. If distance calculations are all going to be performed
+#' with respect to a fixed set of points, it's highly recommended to set those points as references
+#' through \link{isotree.set.reference.points}.
 #' 
 #' If using `assume_full_distr=FALSE` (not recommended to use such option), distance predictions with
 #' and without an indexer will differ slightly due to differences in what they count towards
 #' "additional" observations in the calculation.
-#' @seealso \link{isolation.forest} \link{isotree.restore.handle} \link{isotree.build.indexer}
+#' @seealso \link{isolation.forest} \link{isotree.restore.handle} \link{isotree.build.indexer} \link{isotree.set.reference.points}
 #' @export predict.isolation_forest
 #' @export
-predict.isolation_forest <- function(object, newdata, type="score", square_mat=FALSE, refdata=NULL, ...) {
+predict.isolation_forest <- function(object, newdata, type="score", square_mat=FALSE, refdata=NULL, use_reference_points=TRUE, ...) {
     isotree.restore.handle(object)
 
-    allowed_type <- c("score", "avg_depth", "dist", "avg_sep", "tree_num", "tree_depths", "impute")
+    allowed_type <- c("score", "avg_depth", "dist", "avg_sep", "kernel", "kernel_raw", "tree_num", "tree_depths", "impute")
     check.str.option(type, allowed_type)
-    check.is.bool(square_mat)
     if (!NROW(newdata)) stop("'newdata' must be a data.frame, matrix, or sparse matrix.")
     if ((object$metadata$ncols_cat > 0 && is.null(object$metadata$categ_cols)) && NROW(intersect(class(newdata), get.types.spmat(TRUE, TRUE, TRUE)))) {
         stop("Cannot pass sparse inputs if the model was fit to categorical variables in a data.frame.")
@@ -1464,7 +1493,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
     if (type %in% "impute" && (is.null(object$params$build_imputer) || !(object$params$build_imputer)))
         stop("Cannot impute missing values with model that was built with 'build_imputer=FALSE'.")
     
-    if (is.null(refdata) || !(type %in% c("dist", "avg_sep"))) {
+    if (is.null(refdata) || !(type %in% c("dist", "avg_sep", "kernel", "kernel_raw"))) {
         nobs_group1 <- 0L
     } else {
         nobs_group1 <- NROW(newdata)
@@ -1472,9 +1501,9 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
     }
     
     pdata <- process.data.new(newdata, object$metadata,
-                              !(type %in% c("dist", "avg_sep")),
+                              !(type %in% c("dist", "avg_sep", "kernel", "kernel_raw")),
                               type != "impute", type == "impute",
-                              ((object$params$new_categ_action  == "impute" &&
+                              ((object$params$new_categ_action == "impute" &&
                                 object$params$missing_action == "impute")
                                 ||
                                (object$params$new_categ_action == "weighted" &&
@@ -1501,9 +1530,30 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
         rnames <- NULL
     }
     
-    if (type %in% c("dist", "avg_sep")) {
-        if (NROW(newdata) == 1L) stop("Need more than 1 data point for distance predictions.")
-        if (is.null(refdata)) {
+    if (type %in% c("dist", "avg_sep", "kernel", "kernel_raw")) {
+        check.is.bool(square_mat)
+        check.is.bool(use_reference_points)
+
+        square_mat <- as.logical(square_mat)
+        use_reference_points <- as.logical(use_reference_points)
+        used_rmat <- FALSE
+
+        if (NROW(newdata) < 2L) stop("Need more than 1 data point for distance predictions.")
+        if (!is.null(refdata)) {
+            dist_rmat <- matrix(0, nrow=pdata$nrows-nobs_group1, ncol=nobs_group1)
+            used_rmat <- TRUE
+            if (NROW(rnames)) {
+                colnames(dist_rmat)   <-  rnames[1:nobs_group1]
+                row.names(dist_rmat)  <-  rnames[seq(nobs_group1+1L, NROW(rnames))]
+            }
+        } else if (use_reference_points && check_node_indexer_has_references(object$cpp_obj$indexer)) {
+            if (type %in% c("dist", "avg_sep") && !check_node_indexer_has_distances(object$cpp_obj$indexer))
+                stop("Model indexer was built without distances. Cannot calculate distances to reference points.")
+            dist_rmat <- matrix(0, ncol=pdata$nrows, nrow=get_num_references(object$cpp_obj$indexer))
+            used_rmat <- TRUE
+            if (NROW(object$metadata$reference_names)) row.names(dist_rmat) <- object$metadata$reference_names
+            if (NROW(rnames)) colnames(dist_rmat) <- rnames
+        } else {
             dist_tmat <- get_empty_tmat(pdata$nrows)
             if (square_mat) {
                 dist_dmat <- matrix(0, nrow=pdata$nrows, ncol=pdata$nrows)
@@ -1511,12 +1561,6 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
                     row.names(dist_dmat) <- rnames
                     colnames(dist_dmat)  <- rnames
                 }
-            }
-        } else {
-            dist_rmat <- matrix(0, nrow=pdata$nrows-nobs_group1, ncol=nobs_group1)
-            if (NROW(rnames)) {
-                colnames(dist_rmat)   <-  rnames[1:nobs_group1]
-                row.names(dist_rmat)  <-  rnames[seq(nobs_group1+1L, NROW(rnames))]
             }
         }
     } else {
@@ -1546,14 +1590,15 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
         } else {
             return(score_array)
         }
-    } else if (type %in% c("dist", "avg_sep")) {
+    } else if (type %in% c("dist", "avg_sep", "kernel", "kernel_raw")) {
         dist_iso(object$cpp_obj$ptr, object$cpp_obj$indexer, dist_tmat, dist_dmat, dist_rmat,
                  object$params$ndim > 1L,
                  pdata$X_num, pdata$X_cat,
                  pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
                  pdata$nrows, object$nthreads, object$params$assume_full_distr,
-                 type == "dist", square_mat, nobs_group1)
-        if (!is.null(refdata))
+                 type %in% c("dist", "kernel"), square_mat, nobs_group1,
+                 use_reference_points, type %in% c("kernel", "kernel_raw"))
+        if (used_rmat)
             return(t(dist_rmat))
         else if (square_mat)
             return(dist_dmat)
@@ -1562,7 +1607,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=F
             attr_D$Size    <-  pdata$nrows
             attr_D$Diag    <-  FALSE
             attr_D$Upper   <-  FALSE
-            attr_D$method  <-  ifelse(type == "dist", "sep_dist", "avg_sep")
+            attr_D$method  <-  switch(type, "dist"="dist", "avg_sep"="sep_dist", "kernel"="iso_kernel", "kernel_raw"="iso_kernel_raw")
             attr_D$call    <-  match.call()
             attr_D$class   <-  "dist"
             if (NROW(rnames))
@@ -1610,10 +1655,12 @@ print.isolation_forest <- function(x, ...) {
     if (x$metadata$ncols_num  > 0)  cat(sprintf("Numeric columns: %d\n",     x$metadata$ncols_num))
     if (x$metadata$ncols_cat  > 0)  cat(sprintf("Categorical columns: %d\n", x$metadata$ncols_cat))
     if (NROW(x$cpp_obj$ind_ser)) {
-        if (check_node_indexer_has_distances(x$cpp_obj$indexer))
-            cat("(Has node indexer with distances built-in)\n")
-        else
-            cat("(Has node indexer built-in)\n")
+        has_distances <- check_node_indexer_has_distances(x$cpp_obj$indexer)
+        has_references <- check_node_indexer_has_references(x$cpp_obj$indexer)
+        cat(sprintf("(Has node indexer%s%s%s built-in)\n",
+                    ifelse(has_distances, " with distances", ""),
+                    ifelse(has_distances && has_references, " and", ""),
+                    ifelse(has_references, " with reference points", "")))
     }
     if (NROW(x$cpp_obj$serialized)) {
         bytes <- length(x$cpp_obj$serialized) + NROW(x$cpp_obj$imp_ser)
@@ -1659,6 +1706,11 @@ summary.isolation_forest <- function(object, ...) {
 #' @param column_weights Sampling weights for each column in `data`. Ignored when picking columns by deterministic criterion.
 #' If passing `NULL`, each column will have a uniform weight. If used along with kurtosis weights, the
 #' effect is multiplicative.
+#' @param refdata Reference points for distance and/or kernel calculations, if these were previously added to
+#' the model object through \link{isotree.set.reference.points}. Must correspond to the same points that
+#' were passed in the call to that function. If sparse, only CSC format is supported.
+#' 
+#' This is ignored if the model has no stored reference points.
 #' @return The same `model` object now modified, as invisible.
 #' @details If constructing trees with different sample sizes, the outlier scores with depth-based metrics
 #' will not be centered around 0.5 and might have a very skewed distribution. The standardizing
@@ -1674,16 +1726,25 @@ summary.isolation_forest <- function(object, ...) {
 #' through function \link{isotree.deep.copy} before undergoing an in-place modification like this.
 #' @seealso \link{isolation.forest} \link{isotree.restore.handle}
 #' @export
-isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights = NULL) {
-    
+isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights = NULL, refdata = NULL) {
+    isotree.restore.handle(model)
+
     if (!is.null(sample_weights) && model$weights_as_sample_prob)
         stop("Cannot use sampling weights with 'partial_fit'.")
     if (typeof(model$params$ntrees) != "integer")
         stop("'model' has invalid structure.")
     if (is.na(model$params$ntrees) || model$params$ntrees >= .Machine$integer.max)
         stop("Resulting object would exceed number of trees limit.")
-    
-    isotree.restore.handle(model)
+
+    if (is.null(refdata)) {
+        if (check_node_indexer_has_references(model$cpp_obj$indexer))
+            stop(paste0("Must pass either pass 'X_ref' in order to maintain reference points in indexer,",
+                        " or drop reference points through 'isotree.drop.reference.points'."))
+    } else {
+        if (!check_node_indexer_has_references(model$cpp_obj$indexer))
+            warning("Passed 'refdata', but model object has no reference points. Will be ignored.")
+        refdata <- NULL
+    }
     
     
     if (!is.null(sample_weights))
@@ -1718,13 +1779,28 @@ isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights 
         ncat <- as.integer(ncat)
     }
 
-    serialized <- model$cpp_obj$serialized
-    if (!NROW(serialized))
-    
+    if (is.null(refdata)) {
+        ref_pdata <- list(
+            X_num = numeric(),
+            X_cat = integer(),
+            Xc = numeric(),
+            Xc_ind = integer(),
+            Xc_indptr = integer()
+        )
+    } else {
+        ref_pdata <- process.data.new(refdata, model$metadata, allow_csr=FALSE, allow_csc=TRUE)
+        expected_nref <- get_num_references(model$cpp_obj$indexer)
+        if (ref_pdata$nrows != expected_nref) {
+            stop(sprintf("'refdata' as %d rows, but previous reference data had %d rows.",
+                         ref_pdata$nrows, expected_nref))
+        }
+    }
+
     serialized <- raw()
-    imp_ser <- raw()
     if (NROW(model$cpp_obj$serialized))
         serialized <- model$cpp_obj$serialized
+
+    imp_ser <- raw()
     if (NROW(model$cpp_obj$imp_ser))
         imp_ser    <- model$cpp_obj$imp_ser
 
@@ -1760,7 +1836,10 @@ isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights 
              model$params$missing_action, model$params$build_imputer,
              model$params$min_imp_obs, model$cpp_obj$imp_ptr,
              model$params$depth_imp, model$params$weigh_imp_rows,
-             model$params$all_perm, model$random_seed + (model$params$ntrees-1L),
+             model$params$all_perm,
+             ref_pdata$X_num, ref_pdata$X_cat,
+             ref_pdata$Xc, ref_pdata$Xc_ind, ref_pdata$Xc_indptr,
+             model$random_seed + (model$params$ntrees-1L),
              model$cpp_obj, model$params)
     
     return(invisible(model))
@@ -2055,8 +2134,7 @@ isotree.export.model <- function(model, file, add_metadata_file=FALSE) {
                              pretty=TRUE, auto_unbox=TRUE)
     }
 
-    # https://github.com/jeroen/jsonlite/issues/366
-    metadata <- jsonlite::toJSON(metadata, pretty=FALSE, auto_unbox=TRUE)
+    metadata <- jsonlite::toJSON(metadata, pretty=TRUE, auto_unbox=TRUE)
     metadata <- enc2utf8(metadata)
     metadata <- charToRaw(metadata)
 
@@ -2390,6 +2468,8 @@ isotree.drop.imputer <- function(model) {
 #' @return The same `model` object, but now with the indexer removed. \bold{Note that `model` is modified in-place
 #' in any event}.
 #' @seealso \link{isotree.build.indexer}
+#' @details Note that reference points as added through \link{isotree.set.reference.points} are
+#' associated with the indexer object and will also be dropped if any were added.
 #' @export
 isotree.drop.indexer <- function(model) {
     if (!inherits(model, "isolation_forest"))
@@ -2397,6 +2477,25 @@ isotree.drop.indexer <- function(model) {
     if (!is.null(model$cpp_obj$indexer))
         set.list.elt(model$cpp_obj, "indexer", drop_indexer(model$cpp_obj$indexer))
     set.list.elt(model$cpp_obj, "ind_ser", raw())
+    set.list.elt(model$metadata, "reference_names", character())
+    return(invisible(model))
+}
+
+#' @title Drop Reference Points from Isolation Forest Model Object
+#' @description Drops any reference points used for distance and/or kernel calculations
+#' from the model object, if any were set through \link{isotree.set.reference.points}.
+#' @param model An `isolation_forest` model object.
+#' @return The same `model` object, but now with the reference points removed. \bold{Note that `model` is modified in-place
+#' in any event}.
+#' @seealso \link{isotree.set.reference.points}
+#' @export
+isotree.drop.reference.points <- function(model) {
+    isotree.restore.handle(model)
+    res <- drop_reference_points(model$cpp_obj$indexer)
+    if (is.null(res)) return(invisible(model))
+    set.list.elt(model$cpp_obj, "indexer", res$indexer)
+    set.list.elt(model$cpp_obj, "ind_ser", res$ind_ser)
+    set.list.elt(model$metadata, "reference_names", character())
     return(invisible(model))
 }
 
@@ -2424,7 +2523,7 @@ isotree.build.indexer <- function(model, with_distances = FALSE) {
     isotree.restore.handle(model)
     if (model$params$missing_action == "divide")
         stop("Cannot build tree indexer when using missing_action='divide'.")
-    if (model$params$new_categ_action == "weighted" && (model$metadata$ncols_cat > 0 || NROW(model$metadata$cols_cat)))
+    if (model$params$new_categ_action == "weighted" && model$params$categ_split_type != "single_categ" && (model$metadata$ncols_cat > 0 || NROW(model$metadata$cols_cat)))
         stop("Cannot build tree indexer when using new_categ_action='weighted'.")
     check.is.bool(with_distances)
     res <- build_tree_indices(
@@ -2435,6 +2534,74 @@ isotree.build.indexer <- function(model, with_distances = FALSE) {
     )
     set.list.elt(model$cpp_obj, "ind_ser", res$ind_ser)
     set.list.elt(model$cpp_obj, "indexer", res$indexer)
+    return(invisible(model))
+}
+
+#' @title Set Reference Points to Calculate Distances or Kernels With
+#' @description Sets some points as pre-defined landmarks with respect to which distances and/or
+#' isolation kernel values will be calculated for arbitrary new points in calls to
+#' `predict` with types `"dist"`, `"avg_sep"`, `"kernel"`. If any points have already been set
+#' as references in the model object, they will be overwritten with the new points passed here.
+#' 
+#' Be aware that adding reference points requires building a tree indexer.
+#' @param model An Isolation Forest model (as returned by function \link{isolation.forest})
+#' for which reference points for distance and/or kernel calculations will be set.
+#' 
+#' \bold{The object will be modified in-place}.
+#' @param data Observations to set as reference points for future distance and/or isolation kernel calculations.
+#' Same format as for \link{predict.isolation_forest}.
+#' @param with_distances Whether to pre-calculate node distances (this is required to calculate distance
+#' from arbitrary points to the reference points).
+#' 
+#' Note that reference points for distances can only be set when using ``assume_full_distr=FALSE``
+#' (which is the default).
+#' @return The same `model` object (as invisible), but now with added reference points that
+#' can be used for new distance and/or kernel calculations with respect to other arbitrary points.
+#' @seealso \link{isotree.build.indexer}
+#' @export
+isotree.set.reference.points <- function(model, data, with_distances=FALSE) {
+    isotree.restore.handle(model)
+    check.is.bool(with_distances)
+    with_distances <- as.logical(with_distances)
+
+    if (with_distances && !model$params$assume_full_distr)
+        stop("Cannot set reference points for distance when using 'assume_full_distr=FALSE'.")
+
+    if (model$params$missing_action == "divide")
+        stop("Cannot set reference points when using missing_action='divide'.")
+    if (model$params$new_categ_action == "weighted" && model$params$categ_split_type != "single_categ" && (model$metadata$ncols_cat > 0 || NROW(model$metadata$cols_cat)))
+        stop("Cannot set reference points when using new_categ_action='weighted'.")
+    
+    if (!NROW(data)) stop("'data' must be a data.frame, matrix, or sparse matrix.")
+    if (inherits(data, "numeric") && is.null(dim(data))) {
+        data <- matrix(data, nrow=1)
+    }
+    pdata <- process.data.new(data, model$metadata,
+                              FALSE, TRUE, FALSE,
+                              ((model$params$new_categ_action == "impute" &&
+                                model$params$missing_action == "impute")
+                                ||
+                               (model$params$new_categ_action == "weighted" &&
+                                model$params$categ_split_type != "single_categ" &&
+                                model$params$missing_action == "divide")))
+
+    if (model$params$new_categ_action == "random" && NROW(pdata$X_cat) &&
+        NROW(model$metadata$cat_levs) && NROW(pdata$cat_levs)
+    ) {
+        set.list.elt(model$metadata, "cat_levs", pdata$cat_levs)
+    }
+
+    if (!NROW(model$cpp_obj$ind_ser))
+        isotree.build.indexer(model, with_distances=with_distances)
+
+    res <- set_reference_points(model$cpp_obj$ptr, model$params$ndim > 1, model$cpp_obj$indexer,
+                                pdata$X_num, pdata$X_cat,
+                                pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
+                                pdata$nrows, model$nthreads, as.logical(with_distances))
+    set.list.elt(model$cpp_obj, "ind_ser", res$ind_ser)
+    set.list.elt(model$cpp_obj, "indexer", res$indexer)
+    if (!is.null(row.names(data)))
+        set.list.elt(model$metadata, "reference_names", row.names(data))
     return(invisible(model))
 }
 

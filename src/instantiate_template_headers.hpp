@@ -34,6 +34,10 @@
 *     [13] Cortes, David.
 *          "Isolation forests: looking beyond tree depth."
 *          arXiv preprint arXiv:2111.11639 (2021).
+*     [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou.
+*          "Isolation kernel and its effect on SVM"
+*          Proceedings of the 24th ACM SIGKDD
+*          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2022, David Cortes
@@ -120,6 +124,9 @@ ISOTREE_EXPORTED int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outp
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
              bool   all_perm, Imputer *imputer, size_t min_imp_obs,
              TreesIndexer *indexer,
+             real_t ref_numeric_data[], int ref_categ_data[],
+             bool ref_is_col_major, size_t ref_ld_numeric, size_t ref_ld_categ,
+             real_t ref_Xc[], sparse_ix ref_Xc_ind[], sparse_ix ref_Xc_indptr[],
              uint64_t random_seed)
 {
     return add_tree<real_t, sparse_ix>
@@ -141,6 +148,9 @@ ISOTREE_EXPORTED int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outp
              depth_imp, weigh_imp_rows,
              all_perm, imputer, min_imp_obs,
              indexer,
+             ref_numeric_data, ref_categ_data,
+             ref_is_col_major, ref_ld_numeric, ref_ld_categ,
+             ref_Xc, ref_Xc_ind, ref_Xc_indptr,
              random_seed);
 }
 ISOTREE_EXPORTED void predict_iforest(real_t numeric_data[], int categ_data[],
@@ -166,17 +176,19 @@ ISOTREE_EXPORTED void predict_iforest(real_t numeric_data[], int categ_data[],
 }
 ISOTREE_EXPORTED void calc_similarity(real_t numeric_data[], int categ_data[],
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                     size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
+                     size_t nrows, int nthreads,
+                     bool assume_full_distr, bool standardize_dist, bool as_kernel,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                     double tmat[], double rmat[], size_t n_from,
+                     double tmat[], double rmat[], size_t n_from, bool use_indexed_references,
                      TreesIndexer *indexer, bool is_col_major, size_t ld_numeric, size_t ld_categ)
 {
     calc_similarity<real_t, sparse_ix>
                     (numeric_data, categ_data,
                      Xc, Xc_ind, Xc_indptr,
-                     nrows, nthreads, assume_full_distr, standardize_dist,
+                     nrows, nthreads,
+                     assume_full_distr, standardize_dist, as_kernel,
                      model_outputs, model_outputs_ext,
-                     tmat, rmat, n_from,
+                     tmat, rmat, n_from, use_indexed_references,
                      indexer, is_col_major, ld_numeric, ld_categ);
 }
 ISOTREE_EXPORTED void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
@@ -193,12 +205,30 @@ ISOTREE_EXPORTED void impute_missing_values(real_t numeric_data[], int categ_dat
                            imputer);
 }
 
+ISOTREE_EXPORTED void set_reference_points(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext, TreesIndexer *indexer,
+                          const bool with_distances,
+                          real_t *numeric_data, int *categ_data,
+                          bool is_col_major, size_t ld_numeric, size_t ld_categ,
+                          real_t *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr,
+                          real_t *Xr, sparse_ix *Xr_ind, sparse_ix *Xr_indptr,
+                          size_t nrows, int nthreads)
+{
+    set_reference_points<real_t, sparse_ix>
+                        (model_outputs, model_outputs_ext, indexer,
+                         with_distances,
+                         numeric_data, categ_data,
+                         is_col_major, ld_numeric, ld_categ,
+                         Xc, Xc_ind, Xc_indptr,
+                         Xr, Xr_ind, Xr_indptr,
+                         nrows, nthreads);
+}
+
 #ifndef _NO_REAL_T
-ISOTREE_EXPORTED void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads)
+ISOTREE_EXPORTED void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads) noexcept
 {
     get_num_nodes<sparse_ix>(model_outputs, n_nodes, n_terminal, nthreads);
 }
-ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads)
+ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads) noexcept
 {
     get_num_nodes<sparse_ix>(model_outputs, n_nodes, n_terminal, nthreads);
 }

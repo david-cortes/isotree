@@ -34,6 +34,10 @@
 *     [13] Cortes, David.
 *          "Isolation forests: looking beyond tree depth."
 *          arXiv preprint arXiv:2111.11639 (2021).
+*     [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou.
+*          "Isolation kernel and its effect on SVM"
+*          Proceedings of the 24th ACM SIGKDD
+*          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2022, David Cortes
@@ -99,7 +103,7 @@ void calc_mean_and_sd_t(size_t ix_arr[], size_t st, size_t end, real_t_ *restric
         for (size_t row = st; row <= end; row++)
         {
             xval = x[ix_arr[row]];
-            if (!is_na_or_inf(xval))
+            if (likely(!is_na_or_inf(xval)))
             {
                 cnt++;
                 m += (xval - m) / (real_t)cnt;
@@ -122,7 +126,7 @@ double calc_mean_only(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict 
     for (size_t row = st; row <= end; row++)
     {
         xval = x[ix_arr[row]];
-        if (!is_na_or_inf(xval))
+        if (likely(!is_na_or_inf(xval)))
         {
             cnt++;
             m += (xval - m) / (double)cnt;
@@ -161,7 +165,7 @@ void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *
     for (size_t row = st; row <= end; row++)
     {
         xval = x[ix_arr[row]];
-        if (!is_na_or_inf(xval))
+        if (likely(!is_na_or_inf(xval)))
         {
             w_this = w[ix_arr[row]];
             cnt += w_this;
@@ -183,7 +187,7 @@ double calc_mean_only_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *
     double m = 0;
     for (size_t row = st; row <= end; row++)
     {
-        if (!is_na_or_inf(x[ix_arr[row]]))
+        if (likely(!is_na_or_inf(x[ix_arr[row]])))
         {
             w_this = w[ix_arr[row]];
             cnt += w_this;
@@ -225,7 +229,7 @@ void calc_mean_and_sd(size_t *restrict ix_arr, size_t st, size_t end, size_t col
     {
         if (Xc_ind[curr_pos] == (sparse_ix)(*row))
         {
-            if (is_na_or_inf(Xc[curr_pos]))
+            if (unlikely(is_na_or_inf(Xc[curr_pos])))
             {
                 cnt--;
             }
@@ -309,7 +313,7 @@ double calc_mean_only(size_t *restrict ix_arr, size_t st, size_t end, size_t col
     {
         if (Xc_ind[curr_pos] == (sparse_ix)(*row))
         {
-            if (is_na_or_inf(Xc[curr_pos]))
+            if (unlikely(is_na_or_inf(Xc[curr_pos])))
                 cnt--;
             else
                 m += (Xc[curr_pos] - m) / (double)(++added);
@@ -369,7 +373,7 @@ void calc_mean_and_sd_weighted(size_t *restrict ix_arr, size_t st, size_t end, s
     {
         if (Xc_ind[curr_pos] == (sparse_ix)(*row))
         {
-            if (is_na_or_inf(Xc[curr_pos]))
+            if (unlikely(is_na_or_inf(Xc[curr_pos])))
             {
                 cnt -= w[*row];
             }
@@ -447,7 +451,7 @@ double calc_mean_only_weighted(size_t *restrict ix_arr, size_t st, size_t end, s
     {
         if (Xc_ind[curr_pos] == (sparse_ix)(*row))
         {
-            if (is_na_or_inf(Xc[curr_pos])) {
+            if (unlikely(is_na_or_inf(Xc[curr_pos]))) {
                 cnt -= w[*row];
             }
 
@@ -511,7 +515,7 @@ void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict re
         {
             for (size_t row = st; row <= end; row++)
             {
-                if (!is_na_or_inf(x[ix_arr[row]]))
+                if (likely(!is_na_or_inf(x[ix_arr[row]])))
                 {
                     res_write[row]     =  std::fma(x[ix_arr[row]] - x_mean, coef, res_write[row]);
                     buffer_arr[cnt++]  =  x[ix_arr[row]];
@@ -589,7 +593,7 @@ void add_linear_comb_weighted(size_t ix_arr[], size_t st, size_t end, double *re
         {
             for (size_t row = st; row <= end; row++)
             {
-                if (!is_na_or_inf(x[ix_arr[row]]))
+                if (likely(!is_na_or_inf(x[ix_arr[row]])))
                 {
                     w_this = w[ix_arr[row]];
                     res_write[row]     = std::fma(x[ix_arr[row]] - x_mean, coef, res_write[row]);
@@ -716,7 +720,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
             {
                 if (Xc_ind[curr_pos] == (sparse_ix)(*row))
                 {
-                    if (is_na_or_inf(Xc[curr_pos]))
+                    if (unlikely(is_na_or_inf(Xc[curr_pos])))
                     {
                         buffer_NAs[cnt_NA++] = row - ix_arr_plus_st;
                     }
@@ -887,7 +891,7 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
         size_t end_new = end - st + 1;
         for (size_t ix = 0; ix < end-st+1; ix++)
         {
-            if (is_na_or_inf(denseX[ix]))
+            if (unlikely(is_na_or_inf(denseX[ix])))
             {
                 std::swap(denseX[ix], denseX[--end_new]);
                 std::swap(obs_weight[ix], obs_weight[end_new]);
@@ -966,7 +970,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, double *res
                     {
                         for (size_t row = st; row <= end; row++)
                         {
-                            if (x[ix_arr[row]] < 0)
+                            if (unlikely(x[ix_arr[row]] < 0))
                             {
                                 cnt_NA++;
                             }
@@ -1106,7 +1110,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, double *res
 
                     if (buffer_cnt[ncat] > 0 && fill_val) /* NAs */
                         for (size_t row = st; row <= end; row++)
-                            if (x[ix_arr[row]] < 0)
+                            if (unlikely(x[ix_arr[row]] < 0))
                                 res_write[row] += fill_val;
                 }
             }
@@ -1154,7 +1158,7 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, do
                     {
                         for (size_t row = st; row <= end; row++)
                         {
-                            if (x[ix_arr[row]] < 0)
+                            if (unlikely(x[ix_arr[row]] < 0))
                             {
                                 has_NA = true;
                             }
@@ -1183,7 +1187,7 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, do
                     if (has_NA && fill_val)
                     {
                         for (size_t row = st; row <= end; row++)
-                            if (x[ix_arr[row]] < 0)
+                            if (unlikely(x[ix_arr[row]] < 0))
                                 res_write[row] += fill_val;
                     }
                     return;
@@ -1245,7 +1249,7 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, do
                 {
                     for (size_t row = st; row <= end; row++)
                     {
-                        if (x[ix_arr[row]] >= 0)
+                        if (likely(x[ix_arr[row]] >= 0))
                         {
                             buffer_cnt[x[ix_arr[row]]] += w[ix_arr[row]];
                             res_write[row] += cat_coef[x[ix_arr[row]]];
@@ -1300,7 +1304,7 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, do
 
                     if (buffer_cnt[ncat] > 0 && fill_val) /* NAs */
                         for (size_t row = st; row <= end; row++)
-                            if (x[ix_arr[row]] < 0)
+                            if (unlikely(x[ix_arr[row]] < 0))
                                 res_write[row] += fill_val;
                 }
             }

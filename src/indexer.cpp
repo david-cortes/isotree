@@ -34,6 +34,10 @@
 *     [13] Cortes, David.
 *          "Isolation forests: looking beyond tree depth."
 *          arXiv preprint arXiv:2111.11639 (2021).
+*     [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou.
+*          "Isolation kernel and its effect on SVM"
+*          Proceedings of the 24th ACM SIGKDD
+*          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2022, David Cortes
@@ -194,7 +198,7 @@ void build_dindex_recursive
             }
         }
 
-        if (frontier == st) unexpected_error();
+        if (unlikely(frontier == st)) unexpected_error();
 
         curr_depth++;
         build_dindex_recursive<Node>(get_idx_tree_left(tree[curr_node]),
@@ -383,21 +387,31 @@ void build_tree_indices(TreesIndexer &indexer, const Model &model, int nthreads,
         }
     }
 
-    if (with_distances) {
-        build_distance_mappings(indexer, model, nthreads);
-    }
-
-    else {
-        if (!indexer.indices.empty() && !indexer.indices.front().node_distances.empty())
-        {
-            for (auto &ind : indexer.indices)
-            {
-                ind.node_distances.clear();
-                ind.node_depths.clear();
-            }
+    
+    try
+    {
+        if (with_distances) {
+            build_distance_mappings(indexer, model, nthreads);
         }
 
-        build_terminal_node_mappings(indexer, model);
+        else {
+            if (!indexer.indices.empty() && !indexer.indices.front().node_distances.empty())
+            {
+                for (auto &ind : indexer.indices)
+                {
+                    ind.node_distances.clear();
+                    ind.node_depths.clear();
+                }
+            }
+
+            build_terminal_node_mappings(indexer, model);
+        }
+    }
+
+    catch (...)
+    {
+        indexer.indices.clear();
+        throw;
     }
 }
 
@@ -407,7 +421,7 @@ void build_tree_indices(TreesIndexer &indexer, const IsoForest &model, int nthre
         throw std::runtime_error("Cannot build indexed for unfitted model.\n");
     if (model.missing_action == Divide)
         throw std::runtime_error("Cannot build tree indexer with 'missing_action=Divide'.\n");
-    if (model.new_cat_action == Weighted)
+    if (model.new_cat_action == Weighted && model.cat_split_type == SubSet)
     {
         for (const std::vector<IsoTree> &tree : model.trees)
         {
@@ -461,81 +475,41 @@ void build_tree_indices
         build_tree_indices(*indexer, *model_outputs_ext, nthreads, with_distances);
 }
 
-// template <class Model, class real_t, class sparse_ix>
-// void set_reference_points(TreesIndexer &indexer, Model &model, const bool with_distances, const bool with_kernel,
-//                           real_t *restrict numeric_data, int *restrict categ_data,
-//                           bool is_col_major, size_t ld_numeric, size_t ld_categ,
-//                           real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
-//                           real_t *restrict Xr, sparse_ix *restrict Xr_ind, sparse_ix *restrict Xr_indptr,
-//                           size_t nrows, int nthreads)
-// {
-//     if (indexer.indices.empty())
-//     {
-//         build_tree_indices(indexer, model, nthreads, with_distances);
-//     }
+/* Gets the number of reference points stored in an indexer object */
+size_t get_number_of_reference_points(const TreesIndexer &indexer) noexcept
+{
+    if (indexer.indices.empty()) return 0;
+    return indexer.indices.front().reference_points.size();
+}
 
-//     size_t ntrees = get_ntrees(model);
-//     for (size_t tree = 0; tree < ntrees; tree++)
-//     {
-//         indexer.indices[tree].reference_points.resize(nrows);
-//         indexer.indices[tree].reference_points.shrink_to_fit();
-//     }
+/* This assumes it already has the indexer and 'reference_points' were just added.
+   It builds up 'reference_mapping' and 'reference_indptr' from it. */
+void build_ref_node(SingleTreeIndex &node)
+{
+    node.reference_mapping.resize(node.reference_points.size());
+    node.reference_mapping.shrink_to_fit();
+    std::iota(node.reference_mapping.begin(), node.reference_mapping.end(), (size_t)0);
+    std::sort(node.reference_mapping.begin(), node.reference_mapping.end(),
+              [&node](const size_t a, const size_t b)
+              {return node.reference_points[a] < node.reference_points[b];});
 
-//     std::vector<double> ignored(nrows);
-//     std::vector<sparse_ix> node_indices_predict(nrows * ntrees);
-//     void *model_ptr = (std::is_same<Model, IsoForest>::value)? &model : NULL;
-//     void *model_ext_ptr = (std::is_same<Model, ExtIsoForest>::value)? &model : NULL;
-//     predict_iforest(numeric_data, categ_data,
-//                     is_col_major, ld_numeric, ld_categ,
-//                     Xc, Xc_ind, Xc_indptr,
-//                     Xr, Xr_ind, Xr_indptr,
-//                     nrows, nthreads, false,
-//                     (IsoForest*)model_ptr, (ExtIsoForest*)model_ext_ptr,
-//                     ignored.data(), node_indices_predict.data(),
-//                     (double*)NULL);
+    size_t n_terminal = node.n_terminal;
+    node.reference_indptr.assign(n_terminal+1, (size_t)0);
+    node.reference_indptr.shrink_to_fit();
 
-//     for (size_t tree = 0; tree < ntrees; tree++)
-//     {
-//         indexer.indices[tree].reference_points.assign(node_indices_predict.begin() + tree*nrows,
-//                                                       node_indices_predict.begin() + (tree+1)*nrows);
-//     }
+    std::vector<size_t>::iterator curr_begin = node.reference_mapping.begin();
+    std::vector<size_t>::iterator new_begin;
+    size_t curr_node;
+    while (curr_begin != node.reference_mapping.end())
+    {
+        curr_node = node.reference_points[*curr_begin];
+        new_begin = std::upper_bound(curr_begin, node.reference_mapping.end(), curr_node,
+                                     [&node](const size_t a, const size_t b)
+                                     {return a < node.reference_points[b];});
+        node.reference_indptr[curr_node+1] = std::distance(curr_begin, new_begin);
+        curr_begin = new_begin;
+    }
 
-
-//     if (with_kernel)
-//     {
-//         std::vector<size_t> argsorted(nrows);
-//         for (size_t tree = 0; tree < ntrees; tree++)
-//         {
-//             std::iota(argsorted.begin(), argsorted.end(), (size_t)0);
-//             std::sort(argsorted.begin(), argsorted.end(),
-//                       [&indexer, &tree](const size_t a, const size_t b)
-//                       {indexer.indices[tree].reference_points[a] < indexer.indices[tree].reference_points[b];});
-//             indexer.indices[tree].reference_mapping.resize(nrows);
-//             indexer.indices[tree].reference_mapping.shrink_to_fit();
-//             for (size_t row = 0; row < nrows; row++)
-//                 indexer.indices[tree].reference_mapping[row] = argsorted[row];
-
-//             size_t n_terminal = *std::max_element(indexer.indices[tree].terminal_node_mappings.begin(),
-//                                                   indexer.indices[tree].terminal_node_mappings.end());
-//             indexer.indices[tree].reference_indptr.resize(n_terminal+1);
-//             indexer.indices[tree].reference_indptr.shrink_to_fit();
-//             indexer.indices[tree].reference_indptr[0] = 0;
-//             size_t curr_node = 0;
-//             std::vector<size_t>::iterator curr_begin = argsorted.begin();
-//             for (size_t node = 1; node < n_terminal; node++)
-//             {
-//                 curr_begin = std::lower_bound(curr_begin, argsorted.end(), node);
-//                 indexer.indices[tree].reference_indptr[node] = std::distance(argsorted.begin(), curr_begin);
-//                 if (curr_begin == argsorted.end() && node < n_terminal - 1)
-//                 {
-//                     std::fill(indexer.indices[tree].reference_indptr.begin() + node + 1,
-//                               indexer.indices[tree].reference_indptr.begin() + n_terminal,
-//                               indexer.indices[tree].reference_indptr[node]);
-//                     break;
-//                 }
-//             }
-//             for (size_t node = 1; node < n_terminal; node++)
-//                 indexer.indices[tree].reference_indptr[node+1] += indexer.indices[tree].reference_indptr[node];
-//         }
-//     }
-// }
+    for (size_t ix = 1; ix < n_terminal; ix++)
+        node.reference_indptr[ix+1] += node.reference_indptr[ix];
+}

@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.12.4)
-project (isotree VERSION 0.5.8)
+project (isotree VERSION 0.5.9)
 set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -39,16 +39,46 @@ if (AVOID_LONG_DOUBLE)
     add_compile_definitions(AVOID_LONG_DOUBLE)
 endif()
 
+## set to OFF to export all symbols
+include(CheckCXXSourceCompiles)
+option(HIDE_INTERNAL_SYMBOLS "Set hidden visibility for non-exported symbols" ON)
+if (HIDE_INTERNAL_SYMBOLS AND NOT WIN32)
+    set(OLD_FLAGS ${CMAKE_REQUIRED_FLAGS})
+    set(CMAKE_REQUIRED_FLAGS " -fvisibility=hidden")
+    check_cxx_source_compiles(
+        "
+        __attribute__((visibility (\"default\")))
+        int myfun() {
+            return 0;
+        }
+
+        int main(int argc, char **argv)
+        {
+            return myfun();
+        }
+        "
+        SUPPORTS_FVISIBILITY_HIDDEN
+    )
+    set(CMAKE_REQUIRED_FLAGS ${OLD_FLAGS})
+    if (SUPPORTS_FVISIBILITY_HIDDEN)
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fvisibility=hidden")
+        add_compile_definitions(EXPLICITLTY_EXPORT_SYMBOLS)
+    else()
+        message(STATUS "Hidden symbols visibility not supported by the compiler, will export all symbols.")
+    endif()
+else()
+    message(STATUS "Making all symbols in the library visible.")
+endif()
+
 ## https://cliutils.gitlab.io/modern-cmake/chapters/packages/OpenMP.html
 find_package(OpenMP)
-if(OpenMP_CXX_FOUND)
+if (OpenMP_CXX_FOUND)
     target_link_libraries(isotree PUBLIC OpenMP::OpenMP_CXX)
 else()
     message(STATUS "OpenMP not found - will compile without multi-threading support")
 endif()
 
 # check if the robin-map library is available under /src
-include(CheckCXXSourceCompiles)
 set(CMAKE_REQUIRED_INCLUDES ${PROJECT_SOURCE_DIR}/src)
 check_cxx_source_compiles(
     "
@@ -249,20 +279,24 @@ endif()
 
 include(GNUInstallDirs)
 
-install(TARGETS isotree
+install(
+    TARGETS isotree
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 
 configure_file(isotree.pc.in isotree.pc @ONLY)
 install(FILES ${CMAKE_BINARY_DIR}/isotree.pc DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/pkgconfig)
 
 # uninstall target
-if(NOT TARGET uninstall)
+if (NOT TARGET uninstall)
     configure_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
         "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
-        IMMEDIATE @ONLY)
-
-    add_custom_target(uninstall
-        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+        IMMEDIATE @ONLY
+    )
+    add_custom_target(
+        uninstall
+        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake
+    )
 endif()

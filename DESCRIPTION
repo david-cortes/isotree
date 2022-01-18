@@ -1,7 +1,7 @@
 Package: isotree
 Type: Package
 Title: Isolation-Based Outlier Detection
-Version: 0.5.8
+Version: 0.5.9
 Authors@R: c(
   person(given="David", family="Cortes", role=c("aut", "cre", "cph"),
          email="david.cortes.rivera@gmail.com"),
@@ -23,6 +23,7 @@ Description: Fast and multi-threaded implementation of
 	robust random-cut forest (Guha, Mishra, Roy, Schrijvers (2016) <http://proceedings.mlr.press/v48/guha16.html>),
 	and customizable variations of them, for isolation-based outlier detection, clustered outlier detection,
 	distance or similarity approximation (Cortes (2019) <arXiv:1910.12362>),
+	isolation kernel calculation (Ting, Zhu, Zhou (2018) <doi:10.1145/3219819.3219990>),
 	and imputation of missing values (Cortes (2019) <arXiv:1911.06646>),
 	based on random or guided decision tree splitting, and providing different metrics for
 	scoring anomalies based on isolation depth or density (Cortes (2021) <arXiv:2111.11639>).
@@ -30,7 +31,7 @@ Description: Fast and multi-threaded implementation of
 	and offers options for varying between random and guided splits, and for using different splitting criteria.
 License: BSD_2_clause + file LICENSE
 Imports: Rcpp (>= 1.0.1)
-Suggests: MASS, outliertree, jsonlite
+Suggests: MASS, outliertree, jsonlite (>= 1.7.3)
 Enhances: Matrix, SparseM
 LinkingTo: Rcpp
 RoxygenNote: 7.1.2

@@ -18,6 +18,10 @@ Drops the indexer sub-object from an isolation forest model object, if it was co
 The indexer, if constructed, is likely to be a very heavy object which might
 not be needed for all purposes.
 }
+\details{
+Note that reference points as added through \link{isotree.set.reference.points} are
+associated with the indexer object and will also be dropped if any were added.
+}
 \seealso{
 \link{isotree.build.indexer}
 }

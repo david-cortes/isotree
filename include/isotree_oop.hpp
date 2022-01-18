@@ -34,6 +34,10 @@
 *     [13] Cortes, David.
 *          "Isolation forests: looking beyond tree depth."
 *          arXiv preprint arXiv:2111.11639 (2021).
+*     [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou.
+*          "Isolation kernel and its effect on SVM"
+*          Proceedings of the 24th ACM SIGKDD
+*          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2021, David Cortes
@@ -90,8 +94,7 @@
 
 namespace isotree {
 
-ISOTREE_EXPORTED
-class IsolationForest
+class ISOTREE_EXPORTED IsolationForest
 {
 public:
     /*  Note: if passing nthreads<0, will reset it to 'max_threads + nthreads + 1',
@@ -241,18 +244,22 @@ public:
         representing an upper diagonal (length is nrows*(nrows-1)/2), or as a full
         square matrix (length is nrows^2).  */
     std::vector<double> predict_distance(double X[], size_t nrows,
-                                         bool assume_full_distr, bool standardize_dist,
+                                         bool as_kernel,
+                                         bool assume_full_distr, bool standardize,
                                          bool triangular);
 
     void predict_distance(double numeric_data[], int categ_data[],
                           size_t nrows,
-                          bool assume_full_distr, bool standardize_dist,
+                          bool as_kernel,
+                          bool assume_full_distr, bool standardize,
                           bool triangular,
                           double dist_matrix[]);
 
     /*  Sparse data is only supported in CSC format.  */
     void predict_distance(double Xc[], int Xc_ind[], int Xc_indptr[], int categ_data[],
-                          size_t nrows, bool assume_full_distr, bool standardize_dist,
+                          size_t nrows,
+                          bool as_kernel,
+                          bool assume_full_distr, bool standardize,
                           bool triangular,
                           double dist_matrix[]);
 
@@ -272,6 +279,29 @@ public:
                 int categ_data[], bool is_col_major, size_t nrows);
 
     void build_indexer(const bool with_distances);
+
+    /*  Sets points as reference to later calculate distances or kernel from arbitrary points
+        to these ones, without having to save these reference points's original features.  */
+    void set_as_reference_points(double numeric_data[], int categ_data[], bool is_col_major,
+                                 size_t nrows, size_t ld_numeric, size_t ld_categ,
+                                 const bool with_distances);
+
+    void set_as_reference_points(double Xc[], int Xc_ind[], int Xc_indptr[], int categ_data[],
+                                 size_t nrows, const bool with_distances);
+
+    size_t get_num_reference_points() const noexcept;
+
+    /*  Must call 'set_as_reference_points' to make this method available.
+
+        Here 'dist_matrix' should have dimension [nrows, n_references],
+        and will be filled in row-major order.
+
+        This will always take 'assume_full_distr=true'.  */
+    void predict_distance_to_ref_points(double numeric_data[], int categ_data[],
+                                        double Xc[], int Xc_ind[], int Xc_indptr[],
+                                        size_t nrows, bool is_col_major, size_t ld_numeric, size_t ld_categ,
+                                        bool as_kernel, bool standardize,
+                                        double dist_matrix[]);
 
     /*  Serialize (save) the model to a file. See 'isotree.hpp' for compatibility
         details. Note that this does not save all the details of the object, but
@@ -352,7 +382,9 @@ private:
 
 };
 
+ISOTREE_EXPORTED
 std::ostream& operator<<(std::ostream &ost, const IsolationForest &model);
+ISOTREE_EXPORTED
 std::istream& operator>>(std::istream &ist, IsolationForest &model);
 
 }

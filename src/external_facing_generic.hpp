@@ -34,6 +34,10 @@
 *     [13] Cortes, David.
 *          "Isolation forests: looking beyond tree depth."
 *          arXiv preprint arXiv:2111.11639 (2021).
+*     [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou.
+*          "Isolation kernel and its effect on SVM"
+*          Proceedings of the 24th ACM SIGKDD
+*          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2022, David Cortes
@@ -94,6 +98,9 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
              bool   all_perm, std::vector<ImputeNode> *impute_nodes, size_t min_imp_obs,
              TreesIndexer *indexer,
+             real_t ref_numeric_data[], int ref_categ_data[],
+             bool ref_is_col_major, size_t ref_ld_numeric, size_t ref_ld_categ,
+             real_t ref_Xc[], sparse_ix ref_Xc_ind[], sparse_ix ref_Xc_indptr[],
              uint64_t random_seed);
 ISOTREE_EXPORTED
 void predict_iforest(real_t numeric_data[], int categ_data[],
@@ -105,14 +112,14 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
                      double output_depths[],   sparse_ix tree_num[],
                      double per_tree_depths[],
                      TreesIndexer *indexer);
-ISOTREE_EXPORTED void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads);
-ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads);
-ISOTREE_EXPORTED
+ISOTREE_EXPORTED void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads) noexcept;
+ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads) noexcept;
 void calc_similarity(real_t numeric_data[], int categ_data[],
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                     size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
+                     size_t nrows, int nthreads,
+                     bool assume_full_distr, bool standardize_dist, bool as_kernel,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                     double tmat[], double rmat[], size_t n_from,
+                     double tmat[], double rmat[], size_t n_from, bool use_indexed_references,
                      TreesIndexer *indexer, bool is_col_major, size_t ld_numeric, size_t ld_categ);
 ISOTREE_EXPORTED
 void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
@@ -145,11 +152,13 @@ std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *mo
                                       int nthreads);
 
 ISOTREE_EXPORTED
-size_t determine_serialized_size(const IsoForest &model);
+size_t determine_serialized_size(const IsoForest &model) noexcept;
 ISOTREE_EXPORTED
-size_t determine_serialized_size(const ExtIsoForest &model);
+size_t determine_serialized_size(const ExtIsoForest &model) noexcept;
 ISOTREE_EXPORTED
-size_t determine_serialized_size(const Imputer &model);
+size_t determine_serialized_size(const Imputer &model) noexcept;
+ISOTREE_EXPORTED
+size_t determine_serialized_size(const TreesIndexer &model) noexcept;
 ISOTREE_EXPORTED
 void serialize_IsoForest(const IsoForest &model, char *out);
 ISOTREE_EXPORTED
@@ -199,27 +208,46 @@ void deserialize_Imputer(Imputer &model, std::istream &in);
 ISOTREE_EXPORTED
 void deserialize_Imputer(Imputer &model, const std::string &in);
 ISOTREE_EXPORTED
+void serialize_Indexer(const TreesIndexer &model, char *out);
+ISOTREE_EXPORTED
+void serialize_Indexer(const TreesIndexer &model, FILE *out);
+ISOTREE_EXPORTED
+void serialize_Indexer(const TreesIndexer &model, std::ostream &out);
+ISOTREE_EXPORTED
+std::string serialize_Indexer(const TreesIndexer &model);
+ISOTREE_EXPORTED
+void deserialize_Indexer(TreesIndexer &model, const char *in);
+ISOTREE_EXPORTED
+void deserialize_Indexer(TreesIndexer &model, FILE *in);
+ISOTREE_EXPORTED
+void deserialize_Indexer(TreesIndexer &model, std::istream &in);
+ISOTREE_EXPORTED
+void deserialize_Indexer(TreesIndexer &model, const std::string &in);
+ISOTREE_EXPORTED
 size_t determine_serialized_size_combined
 (
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const size_t size_optional_metadata
-);
+) noexcept;
 ISOTREE_EXPORTED
 size_t determine_serialized_size_combined
 (
     const char *serialized_model,
     const char *serialized_model_ext,
     const char *serialized_imputer,
+    const char *serialized_indexer,
     const size_t size_optional_metadata
-);
+) noexcept;
 ISOTREE_EXPORTED
 void serialize_combined
 (
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     char *out
@@ -230,6 +258,7 @@ void serialize_combined
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     FILE *out
@@ -240,6 +269,7 @@ void serialize_combined
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     std::ostream &out
@@ -250,6 +280,7 @@ std::string serialize_combined
     const IsoForest *model,
     const ExtIsoForest *model_ext,
     const Imputer *imputer,
+    const TreesIndexer *indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata
 );
@@ -259,6 +290,7 @@ void serialize_combined
     const char *serialized_model,
     const char *serialized_model_ext,
     const char *serialized_imputer,
+    const char *serialized_indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     FILE *out
@@ -269,6 +301,7 @@ void serialize_combined
     const char *serialized_model,
     const char *serialized_model_ext,
     const char *serialized_imputer,
+    const char *serialized_indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata,
     std::ostream &out
@@ -279,6 +312,7 @@ std::string serialize_combined
     const char *serialized_model,
     const char *serialized_model_ext,
     const char *serialized_imputer,
+    const char *serialized_indexer,
     const char *optional_metadata,
     const size_t size_optional_metadata
 );
@@ -289,6 +323,7 @@ void deserialize_combined
     IsoForest *model,
     ExtIsoForest *model_ext,
     Imputer *imputer,
+    TreesIndexer *indexer,
     char *optional_metadata
 );
 ISOTREE_EXPORTED
@@ -298,6 +333,7 @@ void deserialize_combined
     IsoForest *model,
     ExtIsoForest *model_ext,
     Imputer *imputer,
+    TreesIndexer *indexer,
     char *optional_metadata
 );
 ISOTREE_EXPORTED
@@ -307,6 +343,7 @@ void deserialize_combined
     IsoForest *model,
     ExtIsoForest *model_ext,
     Imputer *imputer,
+    TreesIndexer *indexer,
     char *optional_metadata
 );
 ISOTREE_EXPORTED
@@ -316,6 +353,7 @@ void deserialize_combined
     IsoForest *model,
     ExtIsoForest *model_ext,
     Imputer *imputer,
+    TreesIndexer *indexer,
     char *optional_metadata
 );
 ISOTREE_EXPORTED
@@ -323,13 +361,13 @@ bool check_can_undergo_incremental_serialization(const IsoForest &model, const c
 ISOTREE_EXPORTED
 bool check_can_undergo_incremental_serialization(const ExtIsoForest &model, const char *serialized_bytes);
 ISOTREE_EXPORTED
-bool check_can_undergo_incremental_serialization(const Imputer &model, const char *serialized_bytes);
+size_t determine_serialized_size_additional_trees(const IsoForest &model, size_t old_ntrees) noexcept;
 ISOTREE_EXPORTED
-size_t determine_serialized_size_additional_trees(const IsoForest &model, size_t old_ntrees);
+size_t determine_serialized_size_additional_trees(const ExtIsoForest &model, size_t old_ntrees) noexcept;
 ISOTREE_EXPORTED
-size_t determine_serialized_size_additional_trees(const ExtIsoForest &model, size_t old_ntrees);
+size_t determine_serialized_size_additional_trees(const Imputer &model, size_t old_ntrees) noexcept;
 ISOTREE_EXPORTED
-size_t determine_serialized_size_additional_trees(const Imputer &model, size_t old_ntrees);
+size_t determine_serialized_size_additional_trees(const TreesIndexer &model, size_t old_ntrees) noexcept;
 ISOTREE_EXPORTED
 void incremental_serialize_IsoForest(const IsoForest &model, char *old_bytes_reallocated);
 ISOTREE_EXPORTED
@@ -337,9 +375,22 @@ void incremental_serialize_ExtIsoForest(const ExtIsoForest &model, char *old_byt
 ISOTREE_EXPORTED
 void incremental_serialize_Imputer(const Imputer &model, char *old_bytes_reallocated);
 ISOTREE_EXPORTED
+void incremental_serialize_Indexer(const TreesIndexer &model, char *old_bytes_reallocated);
+ISOTREE_EXPORTED
 void incremental_serialize_IsoForest(const IsoForest &model, std::string &old_bytes);
 ISOTREE_EXPORTED
 void incremental_serialize_ExtIsoForest(const ExtIsoForest &model, std::string &old_bytes);
 ISOTREE_EXPORTED
 void incremental_serialize_Imputer(const Imputer &model, std::string &old_bytes);
+ISOTREE_EXPORTED
+void incremental_serialize_Indexer(const TreesIndexer &model, std::string &old_bytes);
+
+ISOTREE_EXPORTED
+void set_reference_points(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext, TreesIndexer *indexer,
+                          const bool with_distances,
+                          real_t *numeric_data, int *categ_data,
+                          bool is_col_major, size_t ld_numeric, size_t ld_categ,
+                          real_t *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr,
+                          real_t *Xr, sparse_ix *Xr_ind, sparse_ix *Xr_indptr,
+                          size_t nrows, int nthreads);
 

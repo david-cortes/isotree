@@ -34,6 +34,10 @@
 *     [13] Cortes, David.
 *          "Isolation forests: looking beyond tree depth."
 *          arXiv preprint arXiv:2111.11639 (2021).
+*     [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou.
+*          "Isolation kernel and its effect on SVM"
+*          Proceedings of the 24th ACM SIGKDD
+*          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
 *     Copyright (c) 2019-2022, David Cortes
@@ -138,6 +142,14 @@ using std::memcpy;
     #endif
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+    #define likely(x) __builtin_expect((bool)(x), true)
+    #define unlikely(x) __builtin_expect((bool)(x), false)
+#else
+    #define likely(x) (x)
+    #define unlikely(x) (x)
+#endif
+
 #if defined(__GNUC__)  || defined(__clang__) || defined(_MSC_VER)
     #define unexpected_error() throw std::runtime_error(\
         std::string("Unexpected error in ") + \
@@ -231,6 +243,8 @@ using std::memcpy;
         #pragma GCC diagnostic pop
     #elif defined(__clang__)
         #pragma clang diagnostic pop
+        #pragma clang diagnostic push
+        #pragma clang diagnostic ignored "-Wunknown-attributes"
     #endif
 #endif
 using std::isinf;
@@ -256,14 +270,22 @@ using std::isnan;
     #define size_t_for size_t
 #endif
 
-#if defined(_FOR_R) || defined(_FOR_PYTHON) || !defined(_WIN32)
+#if defined(_FOR_R) || defined(_FOR_PYTHON)
     #define ISOTREE_EXPORTED 
 #else
-    #ifdef ISOTREE_COMPILE_TIME
-        #define ISOTREE_EXPORTED __declspec(dllexport)
+    #if defined(_WIN32)
+        #ifdef ISOTREE_COMPILE_TIME
+            #define ISOTREE_EXPORTED __declspec(dllexport)
+        #else
+            #define ISOTREE_EXPORTED __declspec(dllimport)
+        #endif
     #else
-        #define ISOTREE_EXPORTED __declspec(dllimport)
-    #endif 
+        #if defined(EXPLICITLTY_EXPORT_SYMBOLS) && defined(ISOTREE_COMPILE_TIME)
+            #define ISOTREE_EXPORTED __attribute__((visibility ("default")))
+        #else
+            #define ISOTREE_EXPORTED 
+        #endif
+    #endif
 #endif
 
 
@@ -912,6 +934,9 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
              bool   all_perm, Imputer *imputer, size_t min_imp_obs,
              TreesIndexer *indexer,
+             real_t ref_numeric_data[], int ref_categ_data[],
+             bool ref_is_col_major, size_t ref_ld_numeric, size_t ref_ld_categ,
+             real_t ref_Xc[], sparse_ix ref_Xc_ind[], sparse_ix ref_Xc_indptr[],
              uint64_t random_seed);
 template <class InputData, class WorkerMemory>
 void fit_itree(std::vector<IsoTree>    *tree_root,
@@ -969,7 +994,7 @@ void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
                                double &restrict      output_depth,
                                sparse_ix *restrict   tree_num,
                                double *restrict      tree_depth,
-                               size_t                row);
+                               size_t                row) noexcept;
 template <class PredictionData, class sparse_ix, class ImputedData>
 [[gnu::hot]]
 double traverse_itree(std::vector<IsoTree>     &tree,
@@ -981,7 +1006,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                       size_t                   row,
                       sparse_ix *restrict      tree_num,
                       double *restrict         tree_depth,
-                      size_t                   curr_lev);
+                      size_t                   curr_lev) noexcept;
 template <class PredictionData, class sparse_ix>
 [[gnu::hot]]
 void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
@@ -990,7 +1015,7 @@ void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
                           double &restrict        output_depth,
                           sparse_ix *restrict     tree_num,
                           double *restrict        tree_depth,
-                          size_t                  row);
+                          size_t                  row) noexcept;
 template <class PredictionData, class sparse_ix, class ImputedData>
 [[gnu::hot]]
 void traverse_hplane(std::vector<IsoHPlane>   &hplane,
@@ -1001,7 +1026,7 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
                      ImputedData             *imputed_data,
                      sparse_ix *restrict      tree_num,
                      double *restrict         tree_depth,
-                     size_t                   row);
+                     size_t                   row) noexcept;
 template <class real_t, class sparse_ix>
 void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int nthreads,
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -1033,34 +1058,37 @@ void add_csc_range_penalty(WorkerForPredictCSC  &workspace,
                            double               range_low,
                            double               range_high);
 template <class PredictionData>
-double extract_spC(PredictionData &prediction_data, size_t row, size_t col_num);
+double extract_spC(PredictionData &prediction_data, size_t row, size_t col_num) noexcept;
 template <class PredictionData, class sparse_ix>
-double extract_spR(PredictionData &prediction_data, sparse_ix *row_st, sparse_ix *row_end, size_t col_num);
+double extract_spR(PredictionData &prediction_data, sparse_ix *row_st, sparse_ix *row_end, size_t col_num) noexcept;
 template <class sparse_ix>
-void get_num_nodes(IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads);
+void get_num_nodes(IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads) noexcept;
 template <class sparse_ix>
-void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads);
+void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads) noexcept;
 
 /* dist.cpp */
 template <class real_t, class sparse_ix>
 void calc_similarity(real_t numeric_data[], int categ_data[],
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                     size_t nrows, int nthreads, bool assume_full_distr, bool standardize_dist,
+                     size_t nrows, int nthreads,
+                     bool assume_full_distr, bool standardize_dist, bool as_kernel,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                     double tmat[], double rmat[], size_t n_from,
+                     double tmat[], double rmat[], size_t n_from, bool use_indexed_references,
                      TreesIndexer *indexer, bool is_col_major, size_t ld_numeric, size_t ld_categ);
 template <class PredictionData>
 void traverse_tree_sim(WorkerForSimilarity   &workspace,
                        PredictionData        &prediction_data,
                        IsoForest             &model_outputs,
                        std::vector<IsoTree>  &trees,
-                       size_t                curr_tree);
+                       size_t                curr_tree,
+                       const bool            as_kernel);
 template <class PredictionData>
 void traverse_hplane_sim(WorkerForSimilarity     &workspace,
                          PredictionData          &prediction_data,
                          ExtIsoForest            &model_outputs,
                          std::vector<IsoHPlane>  &hplanes,
-                         size_t                  curr_tree);
+                         size_t                  curr_tree,
+                         const bool              as_kernel);
 template <class PredictionData, class InputData, class WorkerMemory>
 #ifndef _FOR_R
 [[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
@@ -1071,7 +1099,7 @@ void gather_sim_result(std::vector<WorkerForSimilarity> *worker_memory,
                        IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                        double *restrict tmat, double *restrict rmat, size_t n_from,
                        size_t ntrees, bool assume_full_distr,
-                       bool standardize_dist, int nthreads);
+                       bool standardize_dist, bool as_kernel, int nthreads);
 template <class PredictionData>
 void initialize_worker_for_sim(WorkerForSimilarity  &workspace,
                                PredictionData       &prediction_data,
@@ -1092,6 +1120,28 @@ void calc_similarity_from_indexer
     double *restrict tmat, double *restrict rmat, size_t n_from,
     TreesIndexer *indexer, bool is_col_major, size_t ld_numeric, size_t ld_categ
 );
+template <class real_t, class sparse_ix>
+#ifndef _FOR_R
+[[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+#endif
+void calc_similarity_from_indexer_with_references
+(
+    real_t *restrict numeric_data, int *restrict categ_data,
+    real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+    size_t nrows, int nthreads, bool standardize_dist,
+    IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+    double *restrict rmat,
+    TreesIndexer *indexer, bool is_col_major, size_t ld_numeric, size_t ld_categ
+);
+template <class real_t, class sparse_ix>
+void kernel_to_references(TreesIndexer &indexer,
+                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                          real_t *restrict numeric_data, int *restrict categ_data,
+                          real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+                          bool is_col_major, size_t ld_numeric, size_t ld_categ,
+                          size_t nrows, int nthreads,
+                          double *restrict rmat,
+                          bool standardize);
 
 /* impute.cpp */
 template <class real_t, class sparse_ix>
@@ -1249,7 +1299,7 @@ void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, siz
                                      double counter[], double exp_remainder);
 void increase_comb_counter_in_groups(size_t ix_arr[], size_t st, size_t end, size_t split_ix, size_t n,
                                      double *restrict counter, double *restrict weights, double exp_remainder);
-void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, bool diag_to_one, bool diag_to_inf);
+void tmat_to_dense(double *restrict tmat, double *restrict dmat, size_t n, double fill_diag);
 template <class real_t=double>
 void build_btree_sampler(std::vector<double> &btree_weights, real_t *restrict sample_weights,
                          size_t nrows, size_t &restrict log2_n, size_t &restrict btree_offset);
@@ -1260,41 +1310,41 @@ void sample_random_rows(std::vector<size_t> &restrict ix_arr, size_t nrows, bool
                         size_t log2_n, size_t btree_offset, std::vector<bool> &is_repeated);
 template <class real_t=double>
 void weighted_shuffle(size_t *restrict outp, size_t n, real_t *restrict weights, double *restrict buffer_arr, RNG_engine &rnd_generator);
-double sample_random_uniform(double xmin, double xmax, RNG_engine &rng);
-size_t divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, double split_point);
+double sample_random_uniform(double xmin, double xmax, RNG_engine &rng) noexcept;
+size_t divide_subset_split(size_t ix_arr[], double x[], size_t st, size_t end, double split_point) noexcept;
 template <class real_t=double>
 void divide_subset_split(size_t *restrict ix_arr, real_t x[], size_t st, size_t end, double split_point,
-                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix);
+                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix) noexcept;
 template <class real_t, class sparse_ix>
 void divide_subset_split(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                          real_t Xc[], sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr, double split_point,
-                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix);
+                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix) noexcept;
 void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end, signed char split_categ[],
-                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix);
+                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix) noexcept;
 void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end, signed char split_categ[],
                          int ncat, MissingAction missing_action, NewCategAction new_cat_action,
-                         bool move_new_to_left, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix);
+                         bool move_new_to_left, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix) noexcept;
 void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end, int split_categ,
-                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix);
+                         MissingAction missing_action, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix) noexcept;
 void divide_subset_split(size_t *restrict ix_arr, int x[], size_t st, size_t end,
                          MissingAction missing_action, NewCategAction new_cat_action,
-                         bool move_new_to_left, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix);
+                         bool move_new_to_left, size_t &restrict st_NA, size_t &restrict end_NA, size_t &restrict split_ix) noexcept;
 template <class real_t=double>
 void get_range(size_t ix_arr[], real_t *restrict x, size_t st, size_t end,
-               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable);
+               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable) noexcept;
 template <class real_t>
 void get_range(real_t *restrict x, size_t n,
-               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable);
+               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable) noexcept;
 template <class real_t, class sparse_ix>
 void get_range(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
-               MissingAction missing_action, double &restrict xmin_, double &restrict xmax_, bool &unsplittable);
+               MissingAction missing_action, double &restrict xmin_, double &restrict xmax_, bool &unsplittable) noexcept;
 template <class real_t, class sparse_ix>
 void get_range(size_t col_num, size_t nrows,
                real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
-               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable);
+               MissingAction missing_action, double &restrict xmin, double &restrict xmax, bool &unsplittable) noexcept;
 void get_categs(size_t *restrict ix_arr, int x[], size_t st, size_t end, int ncat,
-                MissingAction missing_action, signed char categs[], size_t &restrict npresent, bool &unsplittable);
+                MissingAction missing_action, signed char categs[], size_t &restrict npresent, bool &unsplittable) noexcept;
 template <class real_t>
 bool check_more_than_two_unique_values(size_t ix_arr[], size_t st, size_t end, real_t x[], MissingAction missing_action);
 bool check_more_than_two_unique_values(size_t ix_arr[], size_t st, size_t end, int x[], MissingAction missing_action);
@@ -1628,6 +1678,26 @@ void build_tree_indices
     int nthreads,
     const bool with_distances
 );
+ISOTREE_EXPORTED
+size_t get_number_of_reference_points(const TreesIndexer &indexer) noexcept;
+void build_ref_node(SingleTreeIndex &node);
+
+/* ref_indexer.hpp */
+template <class Model, class real_t, class sparse_ix>
+void set_reference_points(TreesIndexer &indexer, Model &model, const bool with_distances,
+                          real_t *restrict numeric_data, int *restrict categ_data,
+                          bool is_col_major, size_t ld_numeric, size_t ld_categ,
+                          real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+                          real_t *restrict Xr, sparse_ix *restrict Xr_ind, sparse_ix *restrict Xr_indptr,
+                          size_t nrows, int nthreads);
+template <class real_t, class sparse_ix>
+void set_reference_points(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext, TreesIndexer *indexer,
+                          const bool with_distances,
+                          real_t *restrict numeric_data, int *restrict categ_data,
+                          bool is_col_major, size_t ld_numeric, size_t ld_categ,
+                          real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+                          real_t *restrict Xr, sparse_ix *restrict Xr_ind, sparse_ix *restrict Xr_indptr,
+                          size_t nrows, int nthreads);
 
 /* merge_models.cpp */
 ISOTREE_EXPORTED
@@ -1645,8 +1715,11 @@ void subset_model(IsoForest*     model,      IsoForest*     model_new,
                   size_t *trees_take, size_t ntrees_take);
 
 /* serialize.cpp */
+[[noreturn]]
 void throw_errno();
+[[noreturn]]
 void throw_ferror(FILE *file);
+[[noreturn]]
 void throw_feoferr();
 class FileHandle
 {
@@ -1694,15 +1767,15 @@ public:
     };
 #endif
 ISOTREE_EXPORTED
-bool has_wchar_t_file_serializers();
+bool has_wchar_t_file_serializers() noexcept;
 ISOTREE_EXPORTED
-size_t determine_serialized_size(const IsoForest &model);
+size_t determine_serialized_size(const IsoForest &model) noexcept;
 ISOTREE_EXPORTED
-size_t determine_serialized_size(const ExtIsoForest &model);
+size_t determine_serialized_size(const ExtIsoForest &model) noexcept;
 ISOTREE_EXPORTED
-size_t determine_serialized_size(const Imputer &model);
+size_t determine_serialized_size(const Imputer &model) noexcept;
 ISOTREE_EXPORTED
-size_t determine_serialized_size(const TreesIndexer &model);
+size_t determine_serialized_size(const TreesIndexer &model) noexcept;
 ISOTREE_EXPORTED
 void serialize_IsoForest(const IsoForest &model, char *out);
 ISOTREE_EXPORTED
@@ -1900,13 +1973,13 @@ bool check_can_undergo_incremental_serialization(const Imputer &model, const cha
 ISOTREE_EXPORTED
 bool check_can_undergo_incremental_serialization(const TreesIndexer &model, const char *serialized_bytes);
 ISOTREE_EXPORTED
-size_t determine_serialized_size_additional_trees(const IsoForest &model, size_t old_ntrees);
+size_t determine_serialized_size_additional_trees(const IsoForest &model, size_t old_ntrees) noexcept;
 ISOTREE_EXPORTED
-size_t determine_serialized_size_additional_trees(const ExtIsoForest &model, size_t old_ntrees);
+size_t determine_serialized_size_additional_trees(const ExtIsoForest &model, size_t old_ntrees) noexcept;
 ISOTREE_EXPORTED
-size_t determine_serialized_size_additional_trees(const Imputer &model, size_t old_ntrees);
+size_t determine_serialized_size_additional_trees(const Imputer &model, size_t old_ntrees) noexcept;
 ISOTREE_EXPORTED
-size_t determine_serialized_size_additional_trees(const TreesIndexer &model, size_t old_ntrees);
+size_t determine_serialized_size_additional_trees(const TreesIndexer &model, size_t old_ntrees) noexcept;
 ISOTREE_EXPORTED
 void incremental_serialize_IsoForest(const IsoForest &model, char *old_bytes_reallocated);
 ISOTREE_EXPORTED
@@ -1923,7 +1996,7 @@ size_t determine_serialized_size_combined
     const Imputer *imputer,
     const TreesIndexer *indexer,
     const size_t size_optional_metadata
-);
+) noexcept;
 ISOTREE_EXPORTED
 size_t determine_serialized_size_combined
 (
@@ -1932,7 +2005,7 @@ size_t determine_serialized_size_combined
     const char *serialized_imputer,
     const char *serialized_indexer,
     const size_t size_optional_metadata
-);
+) noexcept;
 ISOTREE_EXPORTED
 void serialize_combined
 (
@@ -2048,12 +2121,12 @@ void deserialize_combined
     TreesIndexer *indexer,
     char *optional_metadata
 );
-bool check_model_has_range_penalty(const IsoForest &model);
-bool check_model_has_range_penalty(const ExtIsoForest &model);
-void add_range_penalty(IsoForest &model);
-void add_range_penalty(ExtIsoForest &model);
-void add_range_penalty(Imputer &model);
-void add_range_penalty(TreesIndexer &model);
+bool check_model_has_range_penalty(const IsoForest &model) noexcept;
+bool check_model_has_range_penalty(const ExtIsoForest &model) noexcept;
+void add_range_penalty(IsoForest &model) noexcept;
+void add_range_penalty(ExtIsoForest &model) noexcept;
+void add_range_penalty(Imputer &model) noexcept;
+void add_range_penalty(TreesIndexer &model) noexcept;
 
 /* sql.cpp */
 ISOTREE_EXPORTED
@@ -2080,4 +2153,10 @@ void extract_cond_ext_isotree(ExtIsoForest &model, IsoHPlane &hplane,
                               std::string &cond_left, std::string &cond_right,
                               std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
                               std::vector<std::vector<std::string>> &categ_levels);
+
+#ifndef _FOR_R
+    #if defined(__clang__)
+        #pragma clang diagnostic pop
+    #endif
+#endif
 #endif /* ISOTREE_H */
