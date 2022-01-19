@@ -1703,7 +1703,7 @@ void calc_similarity_from_indexer_with_references
 
     #pragma omp parallel for schedule(static) num_threads(nthreads) \
             shared(rmat, terminal_indices, nrows, n_ref, indexer, ntrees)
-    for (size_t_for row = 0; row < nrows; row++)
+    for (size_t_for row = 0; row < (decltype(row))nrows; row++)
     {
         if (interrupt_switch) continue;
 
@@ -1793,7 +1793,7 @@ void kernel_to_references(TreesIndexer &indexer,
 
     #pragma omp parallel for schedule(static) num_threads(nthreads) \
             shared(indexer, terminal_indices, nrows, ntrees, n_ref, rmat)
-    for (size_t_for row = 0; row < nrows; row++)
+    for (size_t_for row = 0; row < (decltype(row))nrows; row++)
     {
         if (interrupt_switch) continue;
 

@@ -104,7 +104,7 @@ void set_reference_points(TreesIndexer &indexer, Model &model, const bool with_d
 
     #pragma omp parallel for schedule(dynamic) num_threads(nthreads) \
             shared(indexer, node_indices_predict, ntrees)
-    for (size_t_for tree = 0; tree < ntrees; tree++)
+    for (size_t_for tree = 0; tree < (decltype(tree))ntrees; tree++)
     {
         indexer.indices[tree].reference_points.assign(node_indices_predict.get() + tree*nrows,
                                                       node_indices_predict.get() + (tree+1)*nrows);

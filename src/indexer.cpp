@@ -332,7 +332,7 @@ void build_distance_mappings(TreesIndexer &indexer, const Model &model, int nthr
     bool threw_exception = false;
     std::exception_ptr ex = NULL;
     #pragma omp parallel for schedule(dynamic) num_threads(nthreads) shared(indexer, model, n_terminal, threw_exception, ex)
-    for (size_t_for tree = 0; tree < ntrees; tree++)
+    for (size_t_for tree = 0; tree < (decltype(tree))ntrees; tree++)
     {
         if (interrupt_switch || threw_exception) continue;
 

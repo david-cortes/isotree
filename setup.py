@@ -26,7 +26,7 @@ class build_ext_subclass( build_ext ):
 
         if is_msvc:
             for e in self.extensions:
-                e.extra_compile_args = ['/openmp', '/O2', '/std:c++14', '/fp:except-', '/wd4244', '/wd4267', '/wd4018']
+                e.extra_compile_args = ['/openmp', '/O2', '/std:c++14', '/fp:except-', '/wd4244', '/wd4267', '/wd4018', '/wd5030']
                 ### Note: MSVC never implemented C++11
         else:
             self.add_march_native()

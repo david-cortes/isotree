@@ -1065,7 +1065,6 @@ void drop_imputer(Rcpp::List lst_modify, Rcpp::List lst_modify2)
 {
     Rcpp::RawVector empty_ser = Rcpp::RawVector();
     Rcpp::LogicalVector FalseObj = Rcpp::LogicalVector::create(false);
-    Imputer *imputer_ptr = NULL;
     Rcpp::XPtr<Imputer> imp_ptr = lst_modify["imp_ptr"];
     imp_ptr.release();
 
@@ -1079,7 +1078,6 @@ void drop_indexer(Rcpp::List lst_modify, Rcpp::List lst_modify2)
     Rcpp::XPtr<TreesIndexer> empty_ptr = Rcpp::XPtr<TreesIndexer>(nullptr, false);
     Rcpp::RawVector empty_ser = Rcpp::RawVector();
     Rcpp::CharacterVector empty_char = Rcpp::CharacterVector();
-    TreesIndexer *indexer_ptr = NULL;
     Rcpp::XPtr<TreesIndexer> indexer = lst_modify["indexer"];
     indexer.release();
 
