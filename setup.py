@@ -185,11 +185,12 @@ class build_ext_subclass( build_ext ):
         return is_supported
 
     def is_arch_in_cflags(self):
-        if "CFLAGS" in os.environ:
-            arch_list = '-march -msse -msse2 -msse3 -mssse3 -msse4 -msse4a -msse4.1 -msse4.2 -mavx -mavx2'.split()
-            for flag in arch_list:
-                if flag in os.environ["CFLAGS"]:
-                    return True
+        arch_flags = '-march -msse -msse2 -msse3 -mssse3 -msse4 -msse4a -msse4.1 -msse4.2 -mavx -mavx2 -mcpu'.split()
+        for env_var in ("CFLAGS", "CXXFLAGS"):
+            if env_var in os.environ:
+                for flag in arch_flags:
+                    if flag in os.environ[env_var]:
+                        return True
 
         return False
 
