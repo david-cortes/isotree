@@ -29,7 +29,9 @@ class build_ext_subclass( build_ext ):
                 e.extra_compile_args = ['/openmp', '/O2', '/std:c++14', '/fp:except-', '/wd4244', '/wd4267', '/wd4018', '/wd5030']
                 ### Note: MSVC never implemented C++11
         else:
-            self.add_march_native()
+            if not self.is_arch_in_cflags():
+                self.add_march_native()
+
             self.add_openmp_linkage()
             self.add_restrict_qualifier()
             self.add_no_math_errno()
@@ -181,6 +183,16 @@ class build_ext_subclass( build_ext ):
         except:
             pass
         return is_supported
+
+    def is_arch_in_cflags(self):
+        arch_flags = '-march -msse -msse2 -msse3 -mssse3 -msse4 -msse4a -msse4.1 -msse4.2 -mavx -mavx2 -mcpu'.split()
+        for env_var in ("CFLAGS", "CXXFLAGS"):
+            if env_var in os.environ:
+                for flag in arch_flags:
+                    if flag in os.environ[env_var]:
+                        return True
+
+        return False
 
     def add_restrict_qualifier(self):
         supports_restrict = False
