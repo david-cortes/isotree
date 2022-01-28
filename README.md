@@ -111,6 +111,20 @@ There's already many available implementations of isolation forests for both Pyt
 
 # Installation
 
+* R:
+
+Latest version (recommended):
+```r
+remotes::install_github("david-cortes/isotree")
+```
+
+Older version from CRAN:
+```r
+install.packages("isotree")
+```
+** *
+
+
 * Python:
 
 ```
@@ -129,19 +143,21 @@ brew install libomp
 And then reinstall this package: `pip install --force-reinstall isotree`.
 
 ** *
+**IMPORTANT:** the setup script will try to add compilation flag `-march=native`. This instructs the compiler to tune the package for the CPU in which it is being installed, but the result might not be usable in other computers. If building a binary wheel of this package or putting it into a docker image which will be used in different machines, this can be overriden by manually supplying compilation `CFLAGS` and `CXXFLAGS` as environment variables with something related to architecture. For maximum compatibility (but slowest speed), assuming `x86-64` computers, it's possible to do something like this:
 
-
-* R:
-
-Latest version (recommended):
-```r
-remotes::install_github("david-cortes/isotree")
+```
+export CFLAGS="-march=x86-64"
+export CXXFLAGS="-march=x86-64"
+pip install isotree
 ```
 
-Older version from CRAN:
-```r
-install.packages("isotree")
+or for creating wheels:
 ```
+export CFLAGS="-march=x86-64"
+export CXXFLAGS="-march=x86-64"
+python setup.py bwheel
+```
+** *
 
 * C and C++:
 ```

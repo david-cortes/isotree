@@ -18,7 +18,7 @@
 \item{object}{An Isolation Forest object as returned by \link{isolation.forest}.}
 
 \item{newdata}{A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`,
-CSC/dgCMatrix supported for distance, kernels, and outlierness; CSR/dgRMatrix supported for outlierness and imputations)
+CSC/dgCMatrix supported for outlierness, distance, kernels; CSR/dgRMatrix supported for outlierness and imputations)
 for which to predict outlierness, distance, kernels, or imputations of missing values.
 
 If `newdata` is sparse and one wants to obtain the outlier score or average depth or tree
@@ -46,7 +46,10 @@ when the number of trees or rows is large.}
   \item `"kernel"` for pairwise or between-points isolation kernel calculations (also known as
   proximity matrix), which denotes the fraction of trees in which two observations end up in
   the same terminal node. This is typically not as good quality as the separation distance, but
-  it's much faster to calculate. Note that building an indexer will not speed up kernel/proximity
+  it's much faster to calculate, and has other potential uses - for example, this "kernel" can
+  be used as an estimate of the correlations between residuals for a generalized least-squares
+  regression, for which distance might not be as appropirate.
+  Note that building an indexer will not speed up kernel/proximity
   calculations unless it has reference points. This calculation can be sped up significantly
   by setting reference points in the model object through \link{isotree.set.reference.points},
   and it's highly recommended to do so if this calculation is going to be performed repeatedly.
@@ -126,7 +129,7 @@ For density-based matrics, see the documentation for `scoring_metric` in \link{i
 details about the score calculations.
 
 The distribution of outlier scores for isolation-based metrics should be centered around 0.5, unless
-using non-random splits (parameters `prob_pick_avg_gain`, `prob_pick_pooled_gain`)
+using non-random splits (parameters `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_pick_full_gain`, `prob_pick_dens`)
 and/or range penalizations, or having distributions which are too skewed. For `scoring_metric="density"`,
 most of the values should be negative, and while zero can be used as a natural score threshold,
 the scores are unlikely to be centered around zero.
@@ -197,7 +200,8 @@ serialized bytes after having loaded a model through `readRDS` or similar (note 
 C++ object will first require calling \link{isotree.restore.handle}, which is done automatically when
 calling `predict` and similar), as they can increase memory usage by a large amount. These redundant raw bytes
 can be dropped as follows: `model$cpp_obj$serialized <- NULL` (and an additional
-`model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE`). After that, one might want to force garbage
+`model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE` and `model$cpp_obj$ind_ser <- NULL`
+when building a node indexer). After that, one might want to force garbage
 collection through `gc()`.
 }
 

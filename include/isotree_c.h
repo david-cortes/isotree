@@ -164,6 +164,8 @@ typedef struct isotree_parameters {
     bool   weigh_by_kurt; /* default=false */
     double prob_pick_by_gain_pl; /* default=0 */
     double prob_pick_by_gain_avg; /* default=0 */
+    double prob_pick_by_full_gain; /* default=0 */
+    double prob_pick_by_dens; /* default=0 */
     double prob_pick_col_by_range; /* default=0 */
     double prob_pick_col_by_var; /* default=0 */
     double prob_pick_col_by_kurt; /* default=0 */
@@ -245,7 +247,7 @@ static inline isotree_parameters get_default_isotree_parameters()
 {
     return (isotree_parameters) {
         -1, 1, 3, 1, Normal, false, true, 0, 500, 0, 0, true, false,
-        true, Depth, true, false, 0., 0., 0., 0., 0., 0., Impute, SubSet, Weighted,
+        true, Depth, true, false, 0., 0., 0., 0., 0., 0., 0., 0., Impute, SubSet, Weighted,
         false, false, false, 3, Higher, Inverse
     };
 }
@@ -295,6 +297,8 @@ void set_isotree_parameters
     isotree_bool*   weigh_by_kurt,
     double*    prob_pick_by_gain_pl,
     double*    prob_pick_by_gain_avg,
+    double*    prob_pick_by_full_gain,
+    double*    prob_pick_by_dens,
     double*    prob_pick_col_by_range,
     double*    prob_pick_col_by_var,
     double*    prob_pick_col_by_kurt,
@@ -335,6 +339,8 @@ void get_isotree_parameters
     isotree_bool*   weigh_by_kurt,
     double*    prob_pick_by_gain_pl,
     double*    prob_pick_by_gain_avg,
+    double*    prob_pick_by_full_gain,
+    double*    prob_pick_by_dens,
     double*    prob_pick_col_by_range,
     double*    prob_pick_col_by_var,
     double*    prob_pick_col_by_kurt,
@@ -375,6 +381,7 @@ static inline isotree_parameters_t allocate_isotree_parameters(isotree_parameter
         &parameters.ncols_per_tree, &limit_depth, &penalize_range, &standardize_data,
         &scoring_metric, &fast_bratio, &weigh_by_kurt,
         &parameters.prob_pick_by_gain_pl, &parameters.prob_pick_by_gain_avg,
+        &parameters.prob_pick_by_full_gain, &parameters.prob_pick_by_dens,
         &parameters.prob_pick_col_by_range, &parameters.prob_pick_col_by_var,
         &parameters.prob_pick_col_by_kurt,
         &parameters.min_gain, &missing_action, &cat_split_type, &new_cat_action, &coef_by_prop,

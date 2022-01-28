@@ -70,7 +70,7 @@ int main()
                 false, NULL,
                 NULL, false,
                 NULL, false,
-                0., 0., 0., 0., 0.,
+                0., 0., 0., 0., 0., 0., 0.,
                 0., Impute,
                 SubSet, Smallest,
                 false, NULL, 0,

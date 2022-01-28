@@ -92,6 +92,8 @@ struct IsoTree_Params {
     bool   weigh_by_kurt = false;
     double prob_pick_by_gain_pl = 0.;
     double prob_pick_by_gain_avg = 0.;
+    double prob_pick_by_full_gain = 0.;
+    double prob_pick_by_dens = 0.;
     double prob_pick_col_by_range = 0.;
     double prob_pick_col_by_var = 0.;
     double prob_pick_col_by_kurt = 0.;
@@ -149,6 +151,8 @@ void set_isotree_parameters
     uint8_t*   weigh_by_kurt,
     double*    prob_pick_by_gain_pl,
     double*    prob_pick_by_gain_avg,
+    double*    prob_pick_by_full_gain,
+    double*    prob_pick_by_dens,
     double*    prob_pick_col_by_range,
     double*    prob_pick_col_by_var,
     double*    prob_pick_col_by_kurt,
@@ -188,6 +192,8 @@ void set_isotree_parameters
     if (weigh_by_kurt) params->weigh_by_kurt = *weigh_by_kurt;
     if (prob_pick_by_gain_avg) params->prob_pick_by_gain_avg = *prob_pick_by_gain_avg;
     if (prob_pick_by_gain_pl) params->prob_pick_by_gain_pl = *prob_pick_by_gain_pl;
+    if (prob_pick_by_full_gain) params->prob_pick_by_full_gain = *prob_pick_by_full_gain;
+    if (prob_pick_by_dens) params->prob_pick_by_dens = *prob_pick_by_dens;
     if (prob_pick_col_by_range) params->prob_pick_col_by_range = *prob_pick_col_by_range;
     if (prob_pick_col_by_var) params->prob_pick_col_by_var = *prob_pick_col_by_var;
     if (prob_pick_col_by_kurt) params->prob_pick_col_by_kurt = *prob_pick_col_by_kurt;
@@ -226,6 +232,8 @@ void get_isotree_parameters
     uint8_t*   weigh_by_kurt,
     double*    prob_pick_by_gain_pl,
     double*    prob_pick_by_gain_avg,
+    double*    prob_pick_by_full_gain,
+    double*    prob_pick_by_dens,
     double*    prob_pick_col_by_range,
     double*    prob_pick_col_by_var,
     double*    prob_pick_col_by_kurt,
@@ -265,6 +273,8 @@ void get_isotree_parameters
     if (weigh_by_kurt) *weigh_by_kurt = params->weigh_by_kurt;
     if (prob_pick_by_gain_avg) *prob_pick_by_gain_avg = params->prob_pick_by_gain_avg;
     if (prob_pick_by_gain_pl) *prob_pick_by_gain_pl = params->prob_pick_by_gain_pl;
+    if (prob_pick_by_full_gain) *prob_pick_by_full_gain = params->prob_pick_by_full_gain;
+    if (prob_pick_by_dens) *prob_pick_by_dens = params->prob_pick_by_dens;
     if (prob_pick_col_by_range) *prob_pick_col_by_range = params->prob_pick_col_by_range;
     if (prob_pick_col_by_var) *prob_pick_col_by_var = params->prob_pick_col_by_var;
     if (prob_pick_col_by_kurt) *prob_pick_col_by_kurt = params->prob_pick_col_by_kurt;
@@ -323,6 +333,7 @@ void* isotree_fit
                 params->limit_depth, params->penalize_range,
                 params->standardize_data, params->scoring_metric, params->fast_bratio, params->weigh_by_kurt,
                 params->prob_pick_by_gain_pl, params->prob_pick_by_gain_avg,
+                params->prob_pick_by_full_gain, params->prob_pick_by_dens,
                 params->prob_pick_col_by_range, params->prob_pick_col_by_var,
                 params->prob_pick_col_by_kurt,
                 params->min_gain, params->missing_action,

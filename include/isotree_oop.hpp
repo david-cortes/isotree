@@ -121,6 +121,8 @@ public:
     bool   weigh_by_kurt = false;
     double prob_pick_by_gain_pl = 0.;
     double prob_pick_by_gain_avg = 0.;
+    double prob_pick_by_full_gain = 0.;
+    double prob_pick_by_dens = 0.;
     double prob_pick_col_by_range = 0.;
     double prob_pick_col_by_var = 0.;
     double prob_pick_col_by_kurt = 0.;

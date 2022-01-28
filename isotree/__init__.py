@@ -231,10 +231,10 @@ class IsolationForest:
         each step as suggested in [4]_, which makes the models slightly different than in [3]_.
 
         In general, when the data has categorical variables, models with ``ndim=1`` plus
-        ``categ_split_type=="single_categ"`` tend to produce better results, while models ``ndim>1``
+        ``categ_split_type="single_categ"`` tend to produce better results, while models ``ndim>1``
         tend to produce better results for numerical-only data, especially in the presence of missing values.
     ntry : int
-        When using ``prob_pick_pooled_gain`` and/or ``prob_pick_avg_gain``, how many variables (with ``ndim=1``)
+        When using any of ``prob_pick_pooled_gain``, ``prob_pick_avg_gain``, ``prob_pick_full_gain``, ``prob_pick_dens``, how many variables (with ``ndim=1``)
         or linear combinations (with ``ndim>1``) to try for determining the best one according to gain.
         
         Recommended value in reference [4]_ is 10 (with ``prob_pick_avg_gain``, for outlier detection), while the
@@ -292,8 +292,8 @@ class IsolationForest:
         under this type of splits.
         
         Note that, since this makes the trees more even and thus it takes more steps to produce isolated nodes,
-        the resulting object will be heavier. When splits are not made according to any of ``prob_pick_avg_gain``
-        or ``prob_pick_pooled_gain``, both the column and the split point are decided at random. Note that, if
+        the resulting object will be heavier. When splits are not made according to any of ``prob_pick_avg_gain``,
+        ``prob_pick_pooled_gain``, ``prob_pick_full_gain``, ``prob_pick_dens``, both the column and the split point are decided at random. Note that, if
         passing value 1 (100%) with no sub-sampling and using the single-variable model,
         every single tree will have the exact same splits.
 
@@ -303,7 +303,8 @@ class IsolationForest:
         Alternatively, one can also control the depth through ``min_gain`` (for which one might want to
         set ``max_depth=None``).
 
-        Important detail: if using either ``prob_pick_avg_gain`` or ``prob_pick_pooled_gain``, the distribution of
+        Important detail: if using any of ``prob_pick_avg_gain``, ``prob_pick_pooled_gain``,
+        ``prob_pick_full_gain``, ``prob_pick_dens``, the distribution of
         outlier scores is unlikely to be centered around 0.5.
     prob_pick_avg_gain : float[0, 1]
         This parameter indicates the probability of choosing the threshold on which to split a variable
@@ -326,7 +327,7 @@ class IsolationForest:
         will be lighter (use less memory).
         
         When splits are
-        not made according to any of ``prob_pick_avg_gain`` or ``prob_pick_pooled_gain``,
+        not made according to any of ``prob_pick_avg_gain``, ``prob_pick_pooled_gain``, ``prob_pick_full_gain``, ``prob_pick_dens``,
         both the column and the split point are decided at random. Default setting for [1]_, [2]_, [3]_ is
         zero, and default for [4]_ is 1. This is the randomization parameter that can be passed to the author's original code in [5]_,
         but note that the code in [5]_ suffers from a mathematical error in the calculation of running standard deviations,
@@ -337,8 +338,42 @@ class IsolationForest:
 
         Under this option, models are likely to produce better results when increasing ``max_depth``.
 
-        Important detail: if using either ``prob_pick_avg_gain`` or ``prob_pick_pooled_gain``, the distribution of
+        Important detail: if using any of ``prob_pick_avg_gain``, ``prob_pick_pooled_gain``,
+        ``prob_pick_full_gain``, ``prob_pick_dens``, the distribution of
         outlier scores is unlikely to be centered around 0.5.
+    prob_pick_full_gain : float[0,1]
+        This parameter indicates the probability of choosing the threshold on which to split a variable
+        (with ``ndim=1``) or a linear combination of variables (when using ``ndim>1``) as the threshold
+        that minimizes the pooled sums of variances of all columns (or a subset of them if using
+        ``ncols_per_tree``).
+
+        In general, this is much slower to evaluate than the other gain types, and does not tend to
+        lead to better results. When using this option, one might want to use a different scoring
+        metric (particulatly ``"density"``, ``"boxed_density2"`` or ``"boxed_ratio"``). Note that
+        the calculations are all done through the (exact) sorted-indices approach, while is much
+        slower than the (approximate) histogram approach used by other decision tree software.
+
+        Be aware that the data is not standardized in any way for the variance calculations, thus the scales
+        of features will make a large difference under this option, which might not make it suitable for
+        all types of data.
+
+        This option is not compatible with categorical data, and ``min_gain`` does not apply to it.
+
+        When splits are
+        not made according to any of ``prob_pick_avg_gain``, ``prob_pick_pooled_gain``, ``prob_pick_full_gain``, ``prob_pick_dens``,
+        both the column and the split point are decided at random. Default setting for [1]_, [2]_, [3]_, [4]_ is
+        zero.
+    prob_pick_dens : float[0,1]
+        This parameter indicates the probability of choosing the threshold on which to split a variable
+        (with ``ndim=1``) or a linear combination of variables (when using ``ndim>1``) as the threshold
+        that maximizes the pooled densities of the branch distributions.
+
+        The ``min_gain`` option does not apply to this type of splits.
+
+        When splits are
+        not made according to any of ``prob_pick_avg_gain``, ``prob_pick_pooled_gain``, ``prob_pick_full_gain``, ``prob_pick_dens``,
+        both the column and the split point are decided at random. Default setting for [1]_, [2]_, [3]_, [4]_ is
+        zero.
     prob_pick_col_by_range : float[0, 1]
         When using ``ndim=1``, this denotes the probability of choosing the column to split with a probability
         proportional to the range spanned by each column within a node as proposed in reference [12]_.
@@ -413,8 +448,10 @@ class IsolationForest:
 
         Be aware that kurtosis can be a rather slow metric to calculate.
     min_gain : float > 0
-        Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
-        are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
+        Minimum gain that a split threshold needs to produce in order to proceed with a split.
+        Only used when the splits are decided by a variance gain criterion (``prob_pick_pooled_gain``
+        or ``prob_pick_avg_gain``, but not ``prob_pick_full_gain`` nor ``prob_pick_dens``).
+        If the highest possible gain in the evaluated
         splits at a node is below this  threshold, that node becomes a terminal node.
 
         This can be used as a more sophisticated depth control when using pooled gain (note that ``max_depth``
@@ -799,6 +836,7 @@ class IsolationForest:
     def __init__(self, sample_size = "auto", ntrees = 500, ndim = 3, ntry = 1,
                  categ_cols = None, max_depth = "auto", ncols_per_tree = None,
                  prob_pick_pooled_gain = 0.0, prob_pick_avg_gain = 0.0,
+                 prob_pick_full_gain = 0.0, prob_pick_dens = 0.0,
                  prob_pick_col_by_range = 0.0, prob_pick_col_by_var = 0.0,
                  prob_pick_col_by_kurt = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
@@ -822,6 +860,8 @@ class IsolationForest:
         self.ncols_per_tree = ncols_per_tree
         self.prob_pick_avg_gain = prob_pick_avg_gain
         self.prob_pick_pooled_gain = prob_pick_pooled_gain
+        self.prob_pick_full_gain = prob_pick_full_gain
+        self.prob_pick_dens = prob_pick_dens
         self.prob_pick_col_by_range = prob_pick_col_by_range
         self.prob_pick_col_by_var = prob_pick_col_by_var
         self.prob_pick_col_by_kurt = prob_pick_col_by_kurt
@@ -867,6 +907,7 @@ class IsolationForest:
                  categ_cols = self.categ_cols,
                  max_depth = self.max_depth, ncols_per_tree = self.ncols_per_tree,
                  prob_pick_avg_gain = self.prob_pick_avg_gain, prob_pick_pooled_gain = self.prob_pick_pooled_gain,
+                 prob_pick_full_gain = self.prob_pick_full_gain, prob_pick_dens = self.prob_pick_dens,
                  prob_pick_col_by_range = self.prob_pick_col_by_range,
                  prob_pick_col_by_var = self.prob_pick_col_by_var,
                  prob_pick_col_by_kurt = self.prob_pick_col_by_kurt,
@@ -887,6 +928,7 @@ class IsolationForest:
     def _initialize_full(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 1,
                  categ_cols = None, max_depth = "auto", ncols_per_tree = None,
                  prob_pick_avg_gain = 0.0, prob_pick_pooled_gain = 0.0,
+                 prob_pick_full_gain = 0.0, prob_pick_dens = 0.0,
                  prob_pick_col_by_range = 0.0, prob_pick_col_by_var = 0.0,
                  prob_pick_col_by_kurt = 0.0,
                  min_gain = 0., missing_action = "auto", new_categ_action = "auto",
@@ -941,15 +983,19 @@ class IsolationForest:
 
         assert prob_pick_avg_gain     >= 0
         assert prob_pick_pooled_gain  >= 0
+        assert prob_pick_full_gain    >= 0
+        assert prob_pick_dens         >= 0
         assert prob_pick_col_by_range >= 0
         assert prob_pick_col_by_var   >= 0
         assert prob_pick_col_by_kurt  >= 0
         assert min_gain               >= 0
-        s = prob_pick_avg_gain + prob_pick_pooled_gain
+        s = prob_pick_avg_gain + prob_pick_pooled_gain + prob_pick_full_gain + prob_pick_dens
         if s > 1:
             warnings.warn("Split type probabilities sum to more than 1, will standardize them")
             prob_pick_avg_gain     /= s
             prob_pick_pooled_gain  /= s
+            prob_pick_full_gain    /= s
+            prob_pick_dens         /= s
 
         s = prob_pick_col_by_range + prob_pick_col_by_var + prob_pick_col_by_kurt
         if s > 1:
@@ -961,11 +1007,16 @@ class IsolationForest:
         if weigh_by_kurtosis and prob_pick_col_by_kurt:
             raise ValueError("'weigh_by_kurtosis' is incompatible with 'prob_pick_col_by_kurt'.")
 
-        if (ndim == 1) and ((sample_size is None) or (sample_size == "auto")) and ((prob_pick_avg_gain >= 1) or (prob_pick_pooled_gain >= 1)) and (not sample_with_replacement):
+        if (
+            (ndim == 1) and
+            ((sample_size is None) or (sample_size == "auto")) and
+            (max([prob_pick_avg_gain, prob_pick_pooled_gain, prob_pick_full_gain, prob_pick_dens]) >= 1) and
+            (not sample_with_replacement)
+        ):
             msg  = "Passed parameters for deterministic single-variable splits"
             msg += " with no sub-sampling. "
             msg += "Every tree fitted will end up doing exactly the same splits. "
-            msg += "It's recommended to set 'prob_pick_avg_gain' < 1, 'prob_pick_pooled_gain' < 1, "
+            msg += "It's recommended to set non-random split probabilities to less than 1, "
             msg += "or to use the extended model (ndim > 1)."
             warnings.warn(msg)
 
@@ -1003,7 +1054,14 @@ class IsolationForest:
 
         if categ_cols is not None:
             categ_cols = np.array(categ_cols).reshape(-1).astype(int)
-            categ_cols.sort()
+            if categ_cols.shape[0]:
+                if prob_pick_col_by_range:
+                    raise ValueError("'prob_pick_col_by_range' is incompatible with categorical data.")
+                if prob_pick_full_gain:
+                    raise ValueError("'prob_pick_full_gain' is incompatible with categorical data.")
+                categ_cols.sort()
+            else:
+                categ_cols = None
 
         ## TODO: for better sklearn compatibility, should have versions of
         ## these with underscores at the end
@@ -1011,14 +1069,16 @@ class IsolationForest:
         self.ntrees                  =  ntrees
         self.ndim                    =  ndim
         self.ntry                    =  ntry
-        self.categ_cols              =  categ_cols
+        self.categ_cols_             =  categ_cols
         self.max_depth               =  max_depth
         self.ncols_per_tree          =  ncols_per_tree
-        self.prob_pick_avg_gain      =  float(prob_pick_avg_gain)
-        self.prob_pick_pooled_gain   =  float(prob_pick_pooled_gain)
-        self.prob_pick_col_by_range  =  float(prob_pick_col_by_range)
-        self.prob_pick_col_by_var    =  float(prob_pick_col_by_var)
-        self.prob_pick_col_by_kurt   =  float(prob_pick_col_by_kurt)
+        self.prob_pick_avg_gain_     =  float(prob_pick_avg_gain)
+        self.prob_pick_pooled_gain_  =  float(prob_pick_pooled_gain)
+        self.prob_pick_full_gain_    =  float(prob_pick_full_gain)
+        self.prob_pick_dens_         =  float(prob_pick_dens)
+        self.prob_pick_col_by_range_ =  float(prob_pick_col_by_range)
+        self.prob_pick_col_by_var_   =  float(prob_pick_col_by_var)
+        self.prob_pick_col_by_kurt_  =  float(prob_pick_col_by_kurt)
         self.min_gain                =  min_gain
         self.missing_action_         =  missing_action
         self.new_categ_action_       =  new_categ_action
@@ -1139,7 +1199,7 @@ class IsolationForest:
         if self._is_extended_:
             msg += "Extended "
         msg += "Isolation Forest model"
-        if (self.prob_pick_avg_gain + self.prob_pick_pooled_gain) > 0:
+        if (self.prob_pick_avg_gain_ + self.prob_pick_pooled_gain_ + self.prob_pick_full_gain_ + self.prob_pick_dens_) > 0:
             msg += " (using guided splits)"
         msg += "\n"
         ndim = self.ndim_ if hasattr(self, "ndim_") else self.ndim
@@ -1241,6 +1301,12 @@ class IsolationForest:
         self._reset_obj()
         X_num, X_cat, ncat, sample_weights, column_weights, nrows = self._process_data(X, sample_weights, column_weights)
 
+        if X_cat is not None:
+            if self.prob_pick_col_by_range_:
+                raise ValueError("'prob_pick_col_by_range' is incompatible with categorical data.")
+            if self.prob_pick_full_gain:
+                raise ValueError("'prob_pick_full_gain' is incompatible with categorical data.")
+
         self._check_can_use_imputer(X_cat)
 
         if self.sample_size is None:
@@ -1282,7 +1348,12 @@ class IsolationForest:
         else:
             ncols_per_tree = self.ncols_per_tree
 
-        if (self.prob_pick_pooled_gain or self.prob_pick_avg_gain) and self.ndim_ == 1:
+        if (
+            self.prob_pick_pooled_gain_ or
+            self.prob_pick_avg_gain_ or
+            self.prob_pick_full_gain_ or
+            self.prob_pick_dens_
+        ) and self.ndim_ == 1:
             ncols_tot = (X_num.shape[1] if X_num is not None else 0) + (X_cat.shape[1] if X_cat is not None else 0)
             if self.ntry > ncols_tot:
                 warnings.warn("Passed 'ntry' larger than number of columns, will decrease it.")
@@ -1319,11 +1390,13 @@ class IsolationForest:
                                 ctypes.c_bool(False).value,
                                 ctypes.c_bool(False).value,
                                 ctypes.c_bool(self.weigh_by_kurtosis).value,
-                                ctypes.c_double(self.prob_pick_pooled_gain).value,
-                                ctypes.c_double(self.prob_pick_avg_gain).value,
-                                ctypes.c_double(self.prob_pick_col_by_range).value,
-                                ctypes.c_double(self.prob_pick_col_by_var).value,
-                                ctypes.c_double(self.prob_pick_col_by_kurt).value,
+                                ctypes.c_double(self.prob_pick_pooled_gain_).value,
+                                ctypes.c_double(self.prob_pick_avg_gain_).value,
+                                ctypes.c_double(self.prob_pick_full_gain_).value,
+                                ctypes.c_double(self.prob_pick_dens_).value,
+                                ctypes.c_double(self.prob_pick_col_by_range_).value,
+                                ctypes.c_double(self.prob_pick_col_by_var_).value,
+                                ctypes.c_double(self.prob_pick_col_by_kurt_).value,
                                 ctypes.c_double(self.min_gain).value,
                                 self.missing_action_,
                                 self.categ_split_type_,
@@ -1462,6 +1535,9 @@ class IsolationForest:
         self._reset_obj()
         X_num, X_cat, ncat, sample_weights, column_weights, nrows = self._process_data(X, None, column_weights)
 
+        if (X_cat is not None) and (self.prob_pick_col_by_range_):
+            raise ValueError("'prob_pick_col_by_range' is incompatible with categorical data.")
+
         self._check_can_use_imputer(X_cat)
 
         if (output_imputed) and (issparse(X_num)):
@@ -1494,7 +1570,12 @@ class IsolationForest:
         else:
             ncols_per_tree = self.ncols_per_tree
 
-        if (self.prob_pick_pooled_gain or self.prob_pick_avg_gain) and self.ndim_ == 1:
+        if (
+            self.prob_pick_pooled_gain_ or
+            self.prob_pick_avg_gain_ or
+            self.prob_pick_full_gain_ or
+            self.prob_pick_dens_
+        ) and self.ndim_ == 1:
             ncols_tot = (X_num.shape[1] if X_num is not None else 0) + (X_cat.shape[1] if X_cat is not None else 0)
             if self.ntry > ncols_tot:
                 warnings.warn("Passed 'ntry' larger than number of columns, will decrease it.")
@@ -1531,11 +1612,13 @@ class IsolationForest:
                                                                    ctypes.c_bool(output_outlierness is not None).value,
                                                                    ctypes.c_bool(output_outlierness == "score").value,
                                                                    ctypes.c_bool(self.weigh_by_kurtosis).value,
-                                                                   ctypes.c_double(self.prob_pick_pooled_gain).value,
-                                                                   ctypes.c_double(self.prob_pick_avg_gain).value,
-                                                                   ctypes.c_double(self.prob_pick_col_by_range).value,
-                                                                   ctypes.c_double(self.prob_pick_col_by_var).value,
-                                                                   ctypes.c_double(self.prob_pick_col_by_kurt).value,
+                                                                   ctypes.c_double(self.prob_pick_pooled_gain_).value,
+                                                                   ctypes.c_double(self.prob_pick_avg_gain_).value,
+                                                                   ctypes.c_double(self.prob_pick_full_gain_).value,
+                                                                   ctypes.c_double(self.prob_pick_dens_).value,
+                                                                   ctypes.c_double(self.prob_pick_col_by_range_).value,
+                                                                   ctypes.c_double(self.prob_pick_col_by_var_).value,
+                                                                   ctypes.c_double(self.prob_pick_col_by_kurt_).value,
                                                                    ctypes.c_double(self.min_gain).value,
                                                                    self.missing_action_,
                                                                    self.categ_split_type_,
@@ -1570,9 +1653,10 @@ class IsolationForest:
 
         if X.__class__.__name__ == "DataFrame":
 
-            if self.categ_cols is not None:
+            ### TODO: this should also have a version with underscores
+            if self.categ_cols_ is not None:
                 warnings.warn("'categ_cols' is ignored when passing a DataFrame as input.")
-                self.categ_cols = None
+                self.categ_cols_ = None
 
             ### https://stackoverflow.com/questions/25039626/how-do-i-find-numeric-columns-in-pandas
             X_num = X.select_dtypes(include = [np.number, np.datetime64]).to_numpy()
@@ -1625,7 +1709,7 @@ class IsolationForest:
                         X_cat = X_cat.assign(**{X_cat.columns[cl] : cl})
                     if (self.all_perm
                         and (self.ndim_ == 1)
-                        and (self.prob_pick_pooled_gain)
+                        and (self.prob_pick_pooled_gain_)
                     ):
                         if np.math.factorial(self._cat_mapping[cl].shape[0]) > np.iinfo(ctypes.c_size_t).max:
                             msg  = "Number of permutations for categorical variables is larger than "
@@ -1649,13 +1733,13 @@ class IsolationForest:
             self.n_features_in_ = X.shape[1]
 
             X_cat = None
-            if self.categ_cols is not None:
-                if np.max(self.categ_cols) >= X.shape[1]:
+            if self.categ_cols_ is not None:
+                if np.max(self.categ_cols_) >= X.shape[1]:
                     raise ValueError("'categ_cols' contains indices higher than the number of columns in 'X'.")
-                self.cols_numeric_ = np.setdiff1d(np.arange(X.shape[1]), self.categ_cols)
+                self.cols_numeric_ = np.setdiff1d(np.arange(X.shape[1]), self.categ_cols_)
                 if issparse(X) and not isspmatrix_csc(X):
                     X = csc_matrix(X)
-                X_cat = X[:, self.categ_cols]
+                X_cat = X[:, self.categ_cols_]
                 X = X[:, self.cols_numeric_]
 
             if X.shape[1]:
@@ -1693,7 +1777,7 @@ class IsolationForest:
 
             self._ncols_numeric = X.shape[1]
             self._ncols_categ   = 0 if (X_cat is None) else X_cat.shape[1]
-            if self.categ_cols is None:
+            if self.categ_cols_ is None:
                 self.cols_numeric_  = np.array([])
             self.cols_categ_    = np.array([])
             self._cat_mapping   = list()
@@ -1731,7 +1815,7 @@ class IsolationForest:
                 warnings.warn("Input data has fewer rows than sample_size, will forego sub-sampling.")
 
         if X_cat is not None:
-            if self.categ_cols is None:
+            if self.categ_cols_ is None:
                 ncat = np.array([self._cat_mapping[cl].shape[0] for cl in range(X_cat.shape[1])], dtype = ctypes.c_int)
             else:
                 if self._cat_max_lev is None:
@@ -1797,8 +1881,8 @@ class IsolationForest:
     def _process_data_new(self, X, allow_csr = True, allow_csc = True, prefer_row_major = False,
                           keep_new_cat_levels = False):
         if X.__class__.__name__ == "DataFrame":
-            if ((self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]) > 0) and (self.categ_cols is None):
-                if self.categ_cols is None:
+            if ((self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]) > 0) and (self.categ_cols_ is None):
+                if self.categ_cols_ is None:
                     missing_cols = np.setdiff1d(np.r_[self.cols_numeric_, self.cols_categ_], np.array(X.columns.values))
                     if missing_cols.shape[0] > 0:
                         raise ValueError("Input data is missing %d columns - example: [%s]" % (missing_cols.shape[0], ", ".join(missing_cols[:3])))
@@ -1808,7 +1892,7 @@ class IsolationForest:
                                          ((self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]), X.shape[1]))
 
                 if self._ncols_numeric > 0:
-                    if self.categ_cols is None:
+                    if self.categ_cols_ is None:
                         X_num = X[self.cols_numeric_].to_numpy()
                     else:
                         X_num = X.iloc[:, self.cols_numeric_].to_numpy()
@@ -1822,7 +1906,7 @@ class IsolationForest:
                     X_num = None
 
                 if self._ncols_categ > 0:
-                    if self.categ_cols is None:
+                    if self.categ_cols_ is None:
                         X_cat = X[self.cols_categ_]
 
                         if (not keep_new_cat_levels) and \
@@ -1852,7 +1936,7 @@ class IsolationForest:
                                 })
 
                     else:
-                        X_cat = X.iloc[:, self.categ_cols]
+                        X_cat = X.iloc[:, self.categ_cols_]
                     
                     X_cat = X_cat.to_numpy()
                     if X_cat.dtype != ctypes.c_int:
@@ -1886,7 +1970,7 @@ class IsolationForest:
             else:
                 nrows = X.shape[0]
                 X_num = X.iloc[:, self.cols_numeric_].to_numpy()
-                X_cat = X.iloc[:, self.categ_cols].to_numpy()
+                X_cat = X.iloc[:, self.categ_cols_].to_numpy()
                 if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
                     X_num = X_num.astype(ctypes.c_double)
                 if (not prefer_row_major) and (not _is_col_major(X_num)):
@@ -1905,19 +1989,19 @@ class IsolationForest:
                     X_cat = np.asfortranarray(X_cat)
 
         else:
-            if (self._ncols_categ > 0) and (self.categ_cols is None):
+            if (self._ncols_categ > 0) and (self.categ_cols_ is None):
                 raise ValueError("Model was fit to DataFrame with categorical columns, but new input is a numeric array/matrix.")
             if len(X.shape) != 2:
                 raise ValueError("Input data must be two-dimensional.")
-            if (self.categ_cols is None) and (X.shape[1] < self._ncols_numeric):
+            if (self.categ_cols_ is None) and (X.shape[1] < self._ncols_numeric):
                 raise ValueError("Input has different number of columns than data to which model was fit.")
             
-            if self.categ_cols is None:
+            if self.categ_cols_ is None:
                 X_cat = None
             else:
                 if issparse(X) and (not isspmatrix_csc(X)) and (not isspmatrix_csr(X)):
                     X = csc_matrix(X)
-                X_cat = X[:, self.categ_cols]
+                X_cat = X[:, self.categ_cols_]
                 if issparse(X_cat):
                     X_cat = X_cat.toarray()
                 X = X[:, self.cols_numeric_]
@@ -1992,7 +2076,7 @@ class IsolationForest:
                 prefer_row_major = False
 
 
-            if (self.categ_cols is not None) and np.any(X_cat > self._cat_max_lev.reshape((1,-1))):
+            if (self.categ_cols_ is not None) and np.any(X_cat > self._cat_max_lev.reshape((1,-1))):
                 X_cat[X_cat > self._cat_max_lev] = -1
             if X_cat.dtype != ctypes.c_int:
                 X_cat = X_cat.astype(ctypes.c_int)
@@ -2021,21 +2105,21 @@ class IsolationForest:
             ncols_imputed = 0
             if X_num is not None:
                 if (self.cols_numeric_ is not None) and (self.cols_numeric_.shape[0]):
-                    df_num = pd.DataFrame(X_num, columns = self.cols_numeric_ if (self.categ_cols is None) else orig.columns.values[self.cols_numeric_])
+                    df_num = pd.DataFrame(X_num, columns = self.cols_numeric_ if (self.categ_cols_ is None) else orig.columns.values[self.cols_numeric_])
                 else:
                     df_num = pd.DataFrame(X_num)
                 ncols_imputed += df_num.shape[1]
             if X_cat is not None:
-                if self.categ_cols is None:
+                if self.categ_cols_ is None:
                     df_cat = pd.DataFrame(X_cat, columns = self.cols_categ_)
                     for cl in range(self.cols_categ_.shape[0]):
                         df_cat[self.cols_categ_[cl]] = pd.Categorical.from_codes(df_cat[self.cols_categ_[cl]], self._cat_mapping[cl])
                 else:
-                    df_cat = pd.DataFrame(X_cat, columns = orig.columns.values[self.categ_cols])
+                    df_cat = pd.DataFrame(X_cat, columns = orig.columns.values[self.categ_cols_])
                 ncols_imputed += df_cat.shape[1]
             
             if orig.columns.values.shape[0] != ncols_imputed:
-                if self.categ_cols is None:
+                if self.categ_cols_ is None:
                     cols_new = np.setdiff1d(orig.columns.values, np.r_[self.cols_numeric_, self.cols_categ_])
                 else:
                     cols_new = orig.columns[(self._ncols_numeric + self._ncols_categ):]
@@ -2061,9 +2145,9 @@ class IsolationForest:
 
             if issparse(orig):
                 outp = orig.copy()
-                if (self.categ_cols is None) and (orig.shape[1] == self._ncols_numeric):
+                if (self.categ_cols_ is None) and (orig.shape[1] == self._ncols_numeric):
                     outp.data[:] = X_num.data
-                elif self.categ_cols is None:
+                elif self.categ_cols_ is None:
                     if isspmatrix_csr(orig):
                         _reconstruct_csr_sliced(
                             outp.data,
@@ -2085,7 +2169,7 @@ class IsolationForest:
                             X_num.indptr if (X_num is not None) else np.zeros(1, dtype=outp.indptr.dtype),
                             X_cat,
                             self.cols_numeric_.astype(ctypes.c_size_t) if (self.cols_numeric_ is not None) else np.empty(0, dtype=ctypes.c_size_t),
-                            self.categ_cols.astype(ctypes.c_size_t),
+                            self.categ_cols_.astype(ctypes.c_size_t),
                             outp.shape[0], outp.shape[1],
                              _is_col_major(X_cat),
                         )
@@ -2093,15 +2177,15 @@ class IsolationForest:
                         if np.any(X_cat < 0):
                             X_cat = X_cat.astype("float")
                             X_cat[X_cat < 0] = np.nan
-                        outp[:, self.categ_cols] = X_cat
+                        outp[:, self.categ_cols_] = X_cat
                         if X_num is not None:
                             outp[:, self.cols_numeric_] = X_num
                 return outp
             
             else:
-                if (self.categ_cols is None) and (orig.shape[1] == self._ncols_numeric):
+                if (self.categ_cols_ is None) and (orig.shape[1] == self._ncols_numeric):
                     return X_num
-                elif self.categ_cols is None:
+                elif self.categ_cols_ is None:
                     outp = orig.copy()
                     outp[:, :self._ncols_numeric] = X_num[:, :self._ncols_numeric]
                 else:
@@ -2109,7 +2193,7 @@ class IsolationForest:
                     if np.any(X_cat < 0):
                         X_cat = X_cat.astype("float")
                         X_cat[X_cat < 0] = np.nan
-                    outp[:, self.categ_cols] = X_cat
+                    outp[:, self.categ_cols_] = X_cat
                     if X_num is not None:
                         outp[:, self.cols_numeric_] = X_num[:, :self._ncols_numeric]
                 return outp
@@ -2176,7 +2260,7 @@ class IsolationForest:
 
         Note
         ----
-        If using non-random splits (parameters ``prob_pick_avg_gain``, ``prob_pick_pooled_gain``)
+        If using non-random splits (parameters ``prob_pick_avg_gain``, ``prob_pick_pooled_gain``, ``prob_pick_full_gain``, ``prob_pick_dens``)
         and/or range penalizations (which are off by default), the distribution of scores might
         not be centered around 0.5.
 
@@ -2282,8 +2366,10 @@ class IsolationForest:
 
         Predict approximate pairwise distances between points, or individual distances between
         two sets of points based on how many splits it takes to separate them, or isolation
-        kernels (a.k.a. proximity matrix) from the model based on the number of trees in which
-        two observations end up in the same terminal node. Can output either the average number
+        kernels (a.k.a. proximity matrix, which for example can be used for a generalized least-squares
+        regressions as a rough estimate of residual correlations) from the model based on the number
+        of trees in which two observations end up in the same terminal node.
+        Can output either the average number
         of paths/steps it takes to separate two observations,
         or a standardized metric (in the same way as the outlier score) in which values closer
         to zero indicate nearer points, closer to one further away points, and closer to 0.5
@@ -2543,10 +2629,10 @@ class IsolationForest:
             Input data 'X' with missing values imputed according to the model.
         """
         if (self.sample_size is None) or (self.sample_size == "auto"):
-            outp = self.fit_predict(X = X, column_weights = column_weights, output_imputed = True)
+            outp = self.fit_predict(X = X, column_weights = column_weights, categ_cols = categ_cols, output_imputed = True)
             return outp["imputed"]
         else:
-            self.fit(X = X, column_weights = column_weights)
+            self.fit(X = X, column_weights = column_weights, categ_cols = categ_cols)
             return self.transform(X)
 
     def partial_fit(self, X, sample_weights = None, column_weights = None, X_ref = None):
@@ -2681,7 +2767,12 @@ class IsolationForest:
         else:
             ncols_per_tree = self.ncols_per_tree
 
-        if (self.prob_pick_pooled_gain or self.prob_pick_avg_gain) and self.ndim_ == 1:
+        if (
+            self.prob_pick_pooled_gain_ or
+            self.prob_pick_avg_gain_ or
+            self.prob_pick_full_gain_ or
+            self.prob_pick_dens_
+        ) and self.ndim_ == 1:
             ncols_tot = (X_num.shape[1] if X_num is not None else 0) + (X_cat.shape[1] if X_cat is not None else 0)
             if self.ntry > ncols_tot:
                 warnings.warn("Passed 'ntry' larger than number of columns, will decrease it.")
@@ -2729,11 +2820,13 @@ class IsolationForest:
                                ctypes.c_bool(self.penalize_range).value,
                                ctypes.c_bool(self.standardize_data),
                                ctypes.c_bool(self.weigh_by_kurtosis).value,
-                               ctypes.c_double(self.prob_pick_pooled_gain).value,
-                               ctypes.c_double(self.prob_pick_avg_gain).value,
-                               ctypes.c_double(getattr(self, "prob_pick_col_by_range", 0.)).value,
-                               ctypes.c_double(getattr(self, "prob_pick_col_by_var", 0.)).value,
-                               ctypes.c_double(getattr(self, "prob_pick_col_by_kurt", 0.)).value,
+                               ctypes.c_double(self.prob_pick_pooled_gain_).value,
+                               ctypes.c_double(self.prob_pick_avg_gain_).value,
+                               ctypes.c_double(getattr(self, "prob_pick_full_gain_", 0.)).value,
+                               ctypes.c_double(getattr(self, "prob_pick_gain_avg_", 0.)).value,
+                               ctypes.c_double(getattr(self, "prob_pick_col_by_range_", 0.)).value,
+                               ctypes.c_double(getattr(self, "prob_pick_col_by_var_", 0.)).value,
+                               ctypes.c_double(getattr(self, "prob_pick_col_by_kurt_", 0.)).value,
                                ctypes.c_double(self.min_gain).value,
                                self.missing_action_,
                                self.categ_split_type_,
@@ -3227,13 +3320,13 @@ class IsolationForest:
         num_node_info = np.empty(6, dtype=ctypes.c_double)
         n_nodes = self.get_num_nodes()[0]
 
-        if self.categ_cols is None:
+        if self.categ_cols_ is None:
             mapping_num_cols = np.arange(self._ncols_numeric)
             mapping_cat_cols = np.arange(self._ncols_numeric, self._ncols_numeric + self._ncols_categ)
         else:
             mapping_num_cols = np.setdiff1d(np.arange(self._ncols_numeric + self._ncols_categ),
-                                            self.categ_cols, assume_unique=True)
-            mapping_cat_cols = np.array(self.categ_cols).reshape(-1).astype(int)
+                                            self.categ_cols_, assume_unique=True)
+            mapping_cat_cols = np.array(self.categ_cols_).reshape(-1).astype(int)
 
         if self.scoring_metric in ["depth", "adj_depth", "adj_density"]:
             builder = treelite.ModelBuilder(
@@ -3499,7 +3592,7 @@ class IsolationForest:
             "cols_numeric" : list(self.cols_numeric_),
             "cols_categ" : list(self.cols_categ_),
             "cat_levels" : [list(m) for m in self._cat_mapping],
-            "categ_cols" : [] if self.categ_cols is None else list(self.categ_cols),
+            "categ_cols" : [] if self.categ_cols_ is None else list(self.categ_cols_),
             "categ_max" : [] if self._cat_max_lev is None else list(self._cat_max_lev)
         }
 
@@ -3529,11 +3622,13 @@ class IsolationForest:
             "ntry" : int(self.ntry),
             "max_depth" : self.max_depth,
             "ncols_per_tree" : self.ncols_per_tree,
-            "prob_pick_avg_gain" : float(self.prob_pick_avg_gain),
-            "prob_pick_pooled_gain" : float(self.prob_pick_pooled_gain),
-            "prob_pick_col_by_range" : float(self.prob_pick_col_by_range),
-            "prob_pick_col_by_var" : float(self.prob_pick_col_by_var),
-            "prob_pick_col_by_kurt" : float(self.prob_pick_col_by_kurt),
+            "prob_pick_avg_gain" : float(self.prob_pick_avg_gain_),
+            "prob_pick_pooled_gain" : float(self.prob_pick_pooled_gain_),
+            "prob_pick_full_gain" : float(self.prob_pick_full_gain_),
+            "prob_pick_dens" : float(self.prob_pick_dens_),
+            "prob_pick_col_by_range" : float(self.prob_pick_col_by_range_),
+            "prob_pick_col_by_var" : float(self.prob_pick_col_by_var_),
+            "prob_pick_col_by_kurt" : float(self.prob_pick_col_by_kurt_),
             "min_gain" : float(self.min_gain),
             "missing_action" : self.missing_action_,  ## is in c++
             "new_categ_action" : self.new_categ_action_,  ## is in c++
@@ -3567,7 +3662,8 @@ class IsolationForest:
         self.cols_categ_ = np.array(metadata["data_info"]["cols_categ"])
         self._cat_mapping = [np.array(lst) for lst in metadata["data_info"]["cat_levels"]]
         self.categ_cols = np.array(metadata["data_info"]["categ_cols"]).reshape(-1).astype(int) if len(metadata["data_info"]["categ_cols"]) else None
-        self._cat_max_lev = np.array(metadata["data_info"]["categ_max"]).reshape(-1).astype(int) if (self.categ_cols is not None) else []
+        self.categ_cols_ = self.categ_cols
+        self._cat_max_lev = np.array(metadata["data_info"]["categ_max"]).reshape(-1).astype(int) if (self.categ_cols_ is not None) else []
 
         self.ndim = metadata["model_info"]["ndim"]
         self.ndim_ = self.ndim
@@ -3583,6 +3679,14 @@ class IsolationForest:
         self.prob_pick_avg_gain = metadata["params"]["prob_pick_avg_gain"]
         self.prob_pick_pooled_gain = metadata["params"]["prob_pick_pooled_gain"]
         try:
+            self.prob_pick_full_gain = metadata["params"]["prob_pick_full_gain"]
+        except:
+            self.prob_pick_full_gain = 0.0
+        try:
+            self.prob_pick_dens = metadata["params"]["prob_pick_dens"]
+        except:
+            self.prob_pick_dens = 0.0
+        try:
             self.prob_pick_col_by_range = metadata["params"]["prob_pick_col_by_range"]
         except:
             self.prob_pick_col_by_range = 0.0
@@ -3594,6 +3698,13 @@ class IsolationForest:
             self.prob_pick_col_by_kurt = metadata["params"]["prob_pick_col_by_kurt"]
         except:
             self.prob_pick_col_by_kurt = 0.0
+        self.prob_pick_avg_gain_ = self.prob_pick_avg_gain
+        self.prob_pick_pooled_gain_ = self.prob_pick_pooled_gain
+        self.prob_pick_full_gain_ = self.prob_pick_full_gain
+        self.prob_pick_dens_ = self.prob_pick_dens
+        self.prob_pick_col_by_range_ = self.prob_pick_col_by_range
+        self.prob_pick_col_by_var_ = self.prob_pick_col_by_var
+        self.prob_pick_col_by_kurt_ = self.self.prob_pick_col_by_kurt
         self.min_gain = metadata["params"]["min_gain"]
         self.missing_action = metadata["params"]["missing_action"]
         self.missing_action_ = self.missing_action

@@ -6,15 +6,17 @@
 \usage{
 isolation.forest(
   data,
-  sample_size = min(NROW(data), 10000L),
+  sample_size = min(nrow(data), 10000L),
   ntrees = 500,
-  ndim = min(3, NCOL(data)),
+  ndim = min(3, ncol(data)),
   ntry = 1,
   categ_cols = NULL,
   max_depth = ceiling(log2(sample_size)),
-  ncols_per_tree = NCOL(data),
+  ncols_per_tree = ncol(data),
   prob_pick_pooled_gain = 0,
   prob_pick_avg_gain = 0,
+  prob_pick_full_gain = 0,
+  prob_pick_dens = 0,
   prob_pick_col_by_range = 0,
   prob_pick_col_by_var = 0,
   prob_pick_col_by_kurt = 0,
@@ -104,10 +106,10 @@ Note that, when using `ndim>1` plus `standardize_data=TRUE`, the variables are s
 as suggested in [4], which makes the models slightly different than in [3].
 
 In general, when the data has categorical variables, models with `ndim=1` plus
-`categ_split_type=="single_categ"` tend to produce better results, while models `ndim>1`
+`categ_split_type="single_categ"` tend to produce better results, while models `ndim>1`
 tend to produce better results for numerical-only data, especially in the presence of missing values.}
 
-\item{ntry}{When using `prob_pick_pooled_gain` and/or `prob_pick_avg_gain`, how many variables (with `ndim=1`)
+\item{ntry}{When using any of `prob_pick_pooled_gain`, `prob_pick_avg_gain`, `prob_pick_full_gain`, `prob_pick_dens`, how many variables (with `ndim=1`)
 or linear combinations (with `ndim>1`) to try for determining the best one according to gain.
 
 Recommended value in reference [4] is 10 (with `prob_pick_avg_gain`, for outlier detection), while the
@@ -151,7 +153,7 @@ In general, this is only relevant when using non-random splits and/or weighted c
 
 If passing a number between zero and one, will assume it means taking a sample size that represents
 that proportion of the columns in the data. Note that, if passing exactly 1, will assume it means taking
-100\% of the columns, not taking a single columns.
+100\% of the columns, rather than taking a single column.
 
 If passing `NULL`, will use the full number of columns in the data.}
 
@@ -171,8 +173,8 @@ When used for outlier detection, datasets with multimodal distributions usually 
 under this type of splits.
 
 Note that, since this makes the trees more even and thus it takes more steps to produce isolated nodes,
-the resulting object will be heavier. When splits are not made according to any of `prob_pick_avg_gain`
-or `prob_pick_pooled_gain`, both the column and the split point are decided at random. Note that, if
+the resulting object will be heavier. When splits are not made according to any of `prob_pick_avg_gain`,
+`prob_pick_pooled_gain`, `prob_pick_full_gain`, `prob_pick_dens`, both the column and the split point are decided at random. Note that, if
 passing value 1 (100\%) with no sub-sampling and using the single-variable model,
 every single tree will have the exact same splits.
 
@@ -182,7 +184,8 @@ Under this option, models are likely to produce better results when increasing `
 Alternatively, one can also control the depth through `min_gain` (for which one might want to
 set `max_depth=NULL`).
 
-Important detail: if using either `prob_pick_avg_gain` or `prob_pick_pooled_gain`, the distribution of
+Important detail: if using any of `prob_pick_avg_gain` or `prob_pick_pooled_gain`,
+`prob_pick_full_gain`, `prob_pick_dens`, the distribution of
 outlier scores is unlikely to be centered around 0.5.}
 
 \item{prob_pick_avg_gain}{This parameter indicates the probability of choosing the threshold on which to split a variable
@@ -205,7 +208,7 @@ passing this parameter. Note that, since this will create isolated nodes faster,
 will be lighter (use less memory).
 
 When splits are
-not made according to any of `prob_pick_avg_gain` or `prob_pick_pooled_gain`,
+not made according to any of `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_pick_full_gain`, `prob_pick_dens`,
 both the column and the split point are decided at random. Default setting for [1], [2], [3] is
 zero, and default for [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5],
 but note that the code in [5] suffers from a mathematical error in the calculation of running standard deviations,
@@ -216,8 +219,42 @@ the exact same splits.
 
 Under this option, models are likely to produce better results when increasing `max_depth`.
 
-Important detail: if using either `prob_pick_avg_gain` or `prob_pick_pooled_gain`, the distribution of
+Important detail: if using either `prob_pick_avg_gain`, `prob_pick_pooled_gain`,
+`prob_pick_full_gain`, `prob_pick_dens`, the distribution of
 outlier scores is unlikely to be centered around 0.5.}
+
+\item{prob_pick_full_gain}{This parameter indicates the probability of choosing the threshold on which to split a variable
+(with `ndim=1`) or a linear combination of variables (when using `ndim>1`) as the threshold
+that minimizes the pooled sums of variances of all columns (or a subset of them if using
+`ncols_per_tree`).
+
+In general, this is much slower to evaluate than the other gain types, and does not tend to
+lead to better results. When using this option, one might want to use a different scoring
+metric (particulatly `"density"`, `"boxed_density2"` or `"boxed_ratio"`). Note that
+the calculations are all done through the (exact) sorted-indices approach, while is much
+slower than the (approximate) histogram approach used by other decision tree software.
+
+Be aware that the data is not standardized in any way for the variance calculations, thus the scales
+of features will make a large difference under this option, which might not make it suitable for
+all types of data.
+
+his option is not compatible with categorical data, and `min_gain` does not apply to it.
+
+When splits are
+not made according to any of `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_pick_full_gain`, `prob_pick_dens`,
+both the column and the split point are decided at random. Default setting for references [1], [2], [3], [4] is
+zero.}
+
+\item{prob_pick_dens}{This parameter indicates the probability of choosing the threshold on which to split a variable
+(with `ndim=1`) or a linear combination of variables (when using `ndim>1`) as the threshold
+that maximizes the pooled densities of the branch distributions.
+
+The `min_gain` option does not apply to this type of splits.
+
+When splits are
+not made according to any of `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_pick_full_gain`, `prob_pick_dens`,
+both the column and the split point are decided at random. Default setting for [1], [2], [3], [4] is
+zero.}
 
 \item{prob_pick_col_by_range}{When using `ndim=1`, this denotes the probability of choosing the column to split with a probability
 proportional to the range spanned by each column within a node as proposed in reference [12].
@@ -291,8 +328,10 @@ the same central value).
 
 Be aware that kurtosis can be a rather slow metric to calculate.}
 
-\item{min_gain}{Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
-are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
+\item{min_gain}{Minimum gain that a split threshold needs to produce in order to proceed with a split.
+Only used when the splits are decided by a variance gain criterion (`prob_pick_pooled_gain`
+or `prob_pick_avg_gain`, but not `prob_pick_full_gain` nor `prob_pick_dens`).
+If the highest possible gain in the evaluated
 splits at a node is below this  threshold, that node becomes a terminal node.
 
 This can be used as a more sophisticated depth control when using pooled gain (note that `max_depth`
@@ -665,7 +704,7 @@ If passing `TRUE` to any of the former options, will output a list with entries:
 \itemize{
   \item `model`: the `isolation_forest` object from which new predictions can be made.
   \item `scores`: a vector with the outlier score for each inpuit observation (if passing `output_score` = `TRUE`).
-  \item `dist`: the distances (either a 1-d vector with the upper-triangular part or a square matrix), if
+  \item `dist`: the distances (either a `dist` object or a square matrix), if
   passing `output_dist` = `TRUE`.
   \item `imputed`: the input data with missing values imputed according to the model (if passing `output_imputations` = `TRUE`).
 }
@@ -725,11 +764,6 @@ and `penalize_range=TRUE`.
 If requesting outlier scores or depths or separation/distance while fitting the
 model and using multiple threads, there can be small differences in the predicted
 scores/depth/separation/distance between runs due to roundoff error.
-
-While it's not possible to get a quick overview of the size of the resulting
-model object, one can get a lower bound of its size in RAM by checking the
-following: `2*NROW(model$cpp_obj$serialized) / 1024^2` (which should estimate
-the size in megabytes).
 }
 \section{Matching models from references}{
 
@@ -773,7 +807,8 @@ serialized bytes after having loaded a model through `readRDS` or similar (note 
 C++ object will first require calling \link{isotree.restore.handle}, which is done automatically when
 calling `predict` and similar), as they can increase memory usage by a large amount. These redundant raw bytes
 can be dropped as follows: `model$cpp_obj$serialized <- NULL` (and an additional
-`model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE`). After that, one might want to force garbage
+`model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE` and `model$cpp_obj$ind_ser <- NULL`
+when building a node indexer). After that, one might want to force garbage
 collection through `gc()`.
 }
 

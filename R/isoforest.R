@@ -93,16 +93,12 @@
 #' C++ object will first require calling \link{isotree.restore.handle}, which is done automatically when
 #' calling `predict` and similar), as they can increase memory usage by a large amount. These redundant raw bytes
 #' can be dropped as follows: `model$cpp_obj$serialized <- NULL` (and an additional
-#' `model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE`). After that, one might want to force garbage
+#' `model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE` and `model$cpp_obj$ind_ser <- NULL`
+#' when building a node indexer). After that, one might want to force garbage
 #' collection through `gc()`.
 #' @details If requesting outlier scores or depths or separation/distance while fitting the
 #' model and using multiple threads, there can be small differences in the predicted
 #' scores/depth/separation/distance between runs due to roundoff error.
-#' 
-#' While it's not possible to get a quick overview of the size of the resulting
-#' model object, one can get a lower bound of its size in RAM by checking the
-#' following: `2*NROW(model$cpp_obj$serialized) / 1024^2` (which should estimate
-#' the size in megabytes).
 #' @param data Data to which to fit the model. Supported inputs type are:\itemize{
 #' \item A `data.frame`, also accepted as `data.table` or `tibble`.
 #' \item A `matrix` object from base R.
@@ -155,9 +151,9 @@
 #' as suggested in [4], which makes the models slightly different than in [3].
 #' 
 #' In general, when the data has categorical variables, models with `ndim=1` plus
-#' `categ_split_type=="single_categ"` tend to produce better results, while models `ndim>1`
+#' `categ_split_type="single_categ"` tend to produce better results, while models `ndim>1`
 #' tend to produce better results for numerical-only data, especially in the presence of missing values.
-#' @param ntry When using `prob_pick_pooled_gain` and/or `prob_pick_avg_gain`, how many variables (with `ndim=1`)
+#' @param ntry When using any of `prob_pick_pooled_gain`, `prob_pick_avg_gain`, `prob_pick_full_gain`, `prob_pick_dens`, how many variables (with `ndim=1`)
 #' or linear combinations (with `ndim>1`) to try for determining the best one according to gain.
 #' 
 #' Recommended value in reference [4] is 10 (with `prob_pick_avg_gain`, for outlier detection), while the
@@ -198,7 +194,7 @@
 #' 
 #' If passing a number between zero and one, will assume it means taking a sample size that represents
 #' that proportion of the columns in the data. Note that, if passing exactly 1, will assume it means taking
-#' 100\% of the columns, not taking a single columns.
+#' 100\% of the columns, rather than taking a single column.
 #' 
 #' If passing `NULL`, will use the full number of columns in the data.
 #' @param prob_pick_pooled_gain his parameter indicates the probability of choosing the threshold on which to split a variable
@@ -217,8 +213,8 @@
 #' under this type of splits.
 #' 
 #' Note that, since this makes the trees more even and thus it takes more steps to produce isolated nodes,
-#' the resulting object will be heavier. When splits are not made according to any of `prob_pick_avg_gain`
-#' or `prob_pick_pooled_gain`, both the column and the split point are decided at random. Note that, if
+#' the resulting object will be heavier. When splits are not made according to any of `prob_pick_avg_gain`,
+#' `prob_pick_pooled_gain`, `prob_pick_full_gain`, `prob_pick_dens`, both the column and the split point are decided at random. Note that, if
 #' passing value 1 (100\%) with no sub-sampling and using the single-variable model,
 #' every single tree will have the exact same splits.
 #' 
@@ -228,7 +224,8 @@
 #' Alternatively, one can also control the depth through `min_gain` (for which one might want to
 #' set `max_depth=NULL`).
 #' 
-#' Important detail: if using either `prob_pick_avg_gain` or `prob_pick_pooled_gain`, the distribution of
+#' Important detail: if using any of `prob_pick_avg_gain` or `prob_pick_pooled_gain`,
+#' `prob_pick_full_gain`, `prob_pick_dens`, the distribution of
 #' outlier scores is unlikely to be centered around 0.5.
 #' @param prob_pick_avg_gain This parameter indicates the probability of choosing the threshold on which to split a variable
 #' (with `ndim=1`) or a linear combination of variables (when using `ndim>1`) as the threshold
@@ -250,7 +247,7 @@
 #' will be lighter (use less memory).
 #' 
 #' When splits are
-#' not made according to any of `prob_pick_avg_gain` or `prob_pick_pooled_gain`,
+#' not made according to any of `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_pick_full_gain`, `prob_pick_dens`,
 #' both the column and the split point are decided at random. Default setting for [1], [2], [3] is
 #' zero, and default for [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5],
 #' but note that the code in [5] suffers from a mathematical error in the calculation of running standard deviations,
@@ -261,8 +258,40 @@
 #' 
 #' Under this option, models are likely to produce better results when increasing `max_depth`.
 #' 
-#' Important detail: if using either `prob_pick_avg_gain` or `prob_pick_pooled_gain`, the distribution of
+#' Important detail: if using either `prob_pick_avg_gain`, `prob_pick_pooled_gain`,
+#' `prob_pick_full_gain`, `prob_pick_dens`, the distribution of
 #' outlier scores is unlikely to be centered around 0.5.
+#' @param prob_pick_full_gain This parameter indicates the probability of choosing the threshold on which to split a variable
+#' (with `ndim=1`) or a linear combination of variables (when using `ndim>1`) as the threshold
+#' that minimizes the pooled sums of variances of all columns (or a subset of them if using
+#' `ncols_per_tree`).
+#' 
+#' In general, this is much slower to evaluate than the other gain types, and does not tend to
+#' lead to better results. When using this option, one might want to use a different scoring
+#' metric (particulatly `"density"`, `"boxed_density2"` or `"boxed_ratio"`). Note that
+#' the calculations are all done through the (exact) sorted-indices approach, while is much
+#' slower than the (approximate) histogram approach used by other decision tree software.
+#' 
+#' Be aware that the data is not standardized in any way for the variance calculations, thus the scales
+#' of features will make a large difference under this option, which might not make it suitable for
+#' all types of data.
+#' 
+#' his option is not compatible with categorical data, and `min_gain` does not apply to it.
+#' 
+#' When splits are
+#' not made according to any of `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_pick_full_gain`, `prob_pick_dens`,
+#' both the column and the split point are decided at random. Default setting for references [1], [2], [3], [4] is
+#' zero.
+#' @param prob_pick_dens This parameter indicates the probability of choosing the threshold on which to split a variable
+#' (with `ndim=1`) or a linear combination of variables (when using `ndim>1`) as the threshold
+#' that maximizes the pooled densities of the branch distributions.
+#' 
+#' The `min_gain` option does not apply to this type of splits.
+#' 
+#' When splits are
+#' not made according to any of `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_pick_full_gain`, `prob_pick_dens`,
+#' both the column and the split point are decided at random. Default setting for [1], [2], [3], [4] is
+#' zero.
 #' @param prob_pick_col_by_range When using `ndim=1`, this denotes the probability of choosing the column to split with a probability
 #' proportional to the range spanned by each column within a node as proposed in reference [12].
 #' 
@@ -332,8 +361,10 @@
 #' the same central value).
 #' 
 #' Be aware that kurtosis can be a rather slow metric to calculate.
-#' @param min_gain Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
-#' are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
+#' @param min_gain Minimum gain that a split threshold needs to produce in order to proceed with a split.
+#' Only used when the splits are decided by a variance gain criterion (`prob_pick_pooled_gain`
+#' or `prob_pick_avg_gain`, but not `prob_pick_full_gain` nor `prob_pick_dens`).
+#' If the highest possible gain in the evaluated
 #' splits at a node is below this  threshold, that node becomes a terminal node.
 #' 
 #' This can be used as a more sophisticated depth control when using pooled gain (note that `max_depth`
@@ -677,7 +708,7 @@
 #' \itemize{
 #'   \item `model`: the `isolation_forest` object from which new predictions can be made.
 #'   \item `scores`: a vector with the outlier score for each inpuit observation (if passing `output_score` = `TRUE`).
-#'   \item `dist`: the distances (either a 1-d vector with the upper-triangular part or a square matrix), if
+#'   \item `dist`: the distances (either a `dist` object or a square matrix), if
 #'   passing `output_dist` = `TRUE`.
 #'   \item `imputed`: the input data with missing values imputed according to the model (if passing `output_imputations` = `TRUE`).
 #' }
@@ -895,11 +926,12 @@
 #' }
 #' @export
 isolation.forest <- function(data,
-                             sample_size = min(NROW(data), 10000L), ntrees = 500, ndim = min(3, NCOL(data)),
+                             sample_size = min(nrow(data), 10000L), ntrees = 500, ndim = min(3, ncol(data)),
                              ntry = 1, categ_cols = NULL,
                              max_depth = ceiling(log2(sample_size)),
-                             ncols_per_tree = NCOL(data),
+                             ncols_per_tree = ncol(data),
                              prob_pick_pooled_gain = 0.0, prob_pick_avg_gain = 0.0,
+                             prob_pick_full_gain = 0.0, prob_pick_dens = 0.0,
                              prob_pick_col_by_range = 0.0, prob_pick_col_by_var = 0.0,
                              prob_pick_col_by_kurt = 0.0,
                              min_gain = 0, missing_action = ifelse(ndim > 1, "impute", "divide"),
@@ -981,6 +1013,8 @@ isolation.forest <- function(data,
     
     check.is.prob(prob_pick_avg_gain)
     check.is.prob(prob_pick_pooled_gain)
+    check.is.prob(prob_pick_full_gain)
+    check.is.prob(prob_pick_dens)
     check.is.prob(prob_pick_col_by_range)
     check.is.prob(prob_pick_col_by_var)
     check.is.prob(prob_pick_col_by_kurt)
@@ -1001,11 +1035,13 @@ isolation.forest <- function(data,
     check.is.bool(build_imputer)
     check.is.bool(output_imputations)
     
-    s <- prob_pick_avg_gain + prob_pick_pooled_gain
+    s <- prob_pick_avg_gain + prob_pick_pooled_gain + prob_pick_full_gain + prob_pick_dens
     if (s > 1) {
         warning("Split type probabilities sum to more than 1, will standardize them")
         prob_pick_avg_gain      <- as.numeric(prob_pick_avg_gain)     /  s
         prob_pick_pooled_gain   <- as.numeric(prob_pick_pooled_gain)  /  s
+        prob_pick_full_gain     <- as.numeric(prob_pick_full_gain)    /  s
+        prob_pick_dens          <- as.numeric(prob_pick_dens)         /  s
     }
 
     s <- prob_pick_col_by_range + prob_pick_col_by_var + prob_pick_col_by_kurt
@@ -1019,14 +1055,19 @@ isolation.forest <- function(data,
     if (is.null(min_gain) || NROW(min_gain) > 1 || is.na(min_gain) || min_gain < 0)
         stop("'min_gain' must be a decimal non-negative number.")
 
-    if ((ndim == 1) && (sample_size == NROW(data)) && (prob_pick_avg_gain >= 1 || prob_pick_pooled_gain >= 1) && !sample_with_replacement) {
+    if (
+        (ndim == 1) &&
+        (sample_size == NROW(data)) &&
+        (max(c(prob_pick_avg_gain, prob_pick_pooled_gain, prob_pick_full_gain, prob_pick_dens)) >= 1) &&
+        !sample_with_replacement
+    ) {
         warning(paste0("Passed parameters for deterministic single-variable splits ",
                        "with no sub-sampling. ",
                        "Every tree fitted will end up doing exactly the same splits. ",
-                       "It's recommended to set 'prob_pick_avg_gain' < 1, 'prob_pick_pooled_gain' < 1, ",
+                       "It's recommended to set non-random split probabilities to less than 1, ",
                        "or to use the extended model (ndim > 1)."))
     }
-    
+
     if (ndim == 1) {
         if (categ_split_type != "single_categ" && new_categ_action == "impute")
             stop("'new_categ_action' = 'impute' not supported in single-variable model.")
@@ -1040,6 +1081,13 @@ isolation.forest <- function(data,
     nthreads <- check.nthreads(nthreads)
 
     categ_cols <- check.categ.cols(categ_cols, data)
+    if (NROW(categ_cols)) {
+        if (prob_pick_col_by_range)
+            stop("'prob_pick_col_by_range' is incompatible with categorical data.")
+        if (prob_pick_full_gain)
+            stop("'prob_pick_full_gain' is incompatible with categorical data.")
+    }
+
 
     if (is.data.frame(data)) {
         subst_sample_weights <- head(as.character(substitute(sample_weights)), 1L)
@@ -1089,7 +1137,7 @@ isolation.forest <- function(data,
         warning(msg)
     }
 
-    if ((prob_pick_pooled_gain > 0 || prob_pick_avg_gain > 0) && ndim == 1L) {
+    if ((max(c(prob_pick_pooled_gain, prob_pick_avg_gain, prob_pick_full_gain, prob_pick_dens)) > 0) && ndim == 1L) {
         if (ntry > NCOL(data)) {
             warning("Passed 'ntry' larger than number of columns, will decrease it.")
             ntry <- NCOL(data)
@@ -1115,7 +1163,7 @@ isolation.forest <- function(data,
     } else {
         column_weights <- numeric()
     }
-    
+
     sample_size     <-  as.integer(sample_size)
     ntrees          <-  deepcopy_int(as.integer(ntrees))
     ndim            <-  as.integer(ndim)
@@ -1125,14 +1173,16 @@ isolation.forest <- function(data,
     seed            <-  as.integer(seed)
     nthreads        <-  as.integer(nthreads)
     ncols_per_tree  <-  as.integer(ncols_per_tree)
-    
+
     prob_pick_avg_gain       <-  as.numeric(prob_pick_avg_gain)
     prob_pick_pooled_gain    <-  as.numeric(prob_pick_pooled_gain)
+    prob_pick_full_gain      <-  as.numeric(prob_pick_full_gain)
+    prob_pick_dens           <-  as.numeric(prob_pick_dens)
     prob_pick_col_by_range   <-  as.numeric(prob_pick_col_by_range)
     prob_pick_col_by_var     <-  as.numeric(prob_pick_col_by_var)
     prob_pick_col_by_kurt    <-  as.numeric(prob_pick_col_by_kurt)
     min_gain                 <-  as.numeric(min_gain)
-    
+
     fast_bratio              <-  as.logical(fast_bratio)
     all_perm                 <-  as.logical(all_perm)
     coef_by_prop             <-  as.logical(coef_by_prop)
@@ -1142,7 +1192,7 @@ isolation.forest <- function(data,
     standardize_data         <-  as.logical(standardize_data)
     weigh_by_kurtosis        <-  as.logical(weigh_by_kurtosis)
     assume_full_distr        <-  as.logical(assume_full_distr)
-    
+
     ### split column types
     pdata <- process.data(data, sample_weights, column_weights, recode_categ, categ_cols)
 
@@ -1155,6 +1205,12 @@ isolation.forest <- function(data,
         } else if (missing_action == "divide") {
             stop("Cannot build imputer with 'ndim=1' + 'missing_action=divide'.")
         }
+    }
+    if (NROW(pdata$X_cat)) {
+        if (prob_pick_col_by_range)
+            stop("'prob_pick_col_by_range' is incompatible with categorical data.")
+        if (prob_pick_full_gain)
+            stop("'prob_pick_full_gain' is incompatible with categorical data.")
     }
     
     ### extra check for potential integer overflow
@@ -1180,6 +1236,7 @@ isolation.forest <- function(data,
                              output_dist, TRUE, square_dist,
                              output_score, TRUE, weigh_by_kurtosis,
                              prob_pick_pooled_gain, prob_pick_avg_gain,
+                             prob_pick_full_gain, prob_pick_dens,
                              prob_pick_col_by_range, prob_pick_col_by_var,
                              prob_pick_col_by_kurt, min_gain,
                              categ_split_type, new_categ_action,
@@ -1206,6 +1263,8 @@ isolation.forest <- function(data,
             ncols_per_tree = ncols_per_tree,
             prob_pick_avg_gain = prob_pick_avg_gain,
             prob_pick_pooled_gain = prob_pick_pooled_gain,
+            prob_pick_full_gain = prob_pick_full_gain,
+            prob_pick_dens = prob_pick_dens,
             prob_pick_col_by_range = prob_pick_col_by_range,
             prob_pick_col_by_var = prob_pick_col_by_var,
             prob_pick_col_by_kurt = prob_pick_col_by_kurt,
@@ -1297,7 +1356,7 @@ isolation.forest <- function(data,
 #' @title Predict method for Isolation Forest
 #' @param object An Isolation Forest object as returned by \link{isolation.forest}.
 #' @param newdata A `data.frame`, `data.table`, `tibble`, `matrix`, or sparse matrix (from package `Matrix` or `SparseM`,
-#' CSC/dgCMatrix supported for distance, kernels, and outlierness; CSR/dgRMatrix supported for outlierness and imputations)
+#' CSC/dgCMatrix supported for outlierness, distance, kernels; CSR/dgRMatrix supported for outlierness and imputations)
 #' for which to predict outlierness, distance, kernels, or imputations of missing values.
 #' 
 #' If `newdata` is sparse and one wants to obtain the outlier score or average depth or tree
@@ -1324,7 +1383,10 @@ isolation.forest <- function(data,
 #'   \item `"kernel"` for pairwise or between-points isolation kernel calculations (also known as
 #'   proximity matrix), which denotes the fraction of trees in which two observations end up in
 #'   the same terminal node. This is typically not as good quality as the separation distance, but
-#'   it's much faster to calculate. Note that building an indexer will not speed up kernel/proximity
+#'   it's much faster to calculate, and has other potential uses - for example, this "kernel" can
+#'   be used as an estimate of the correlations between residuals for a generalized least-squares
+#'   regression, for which distance might not be as appropirate.
+#'   Note that building an indexer will not speed up kernel/proximity
 #'   calculations unless it has reference points. This calculation can be sped up significantly
 #'   by setting reference points in the model object through \link{isotree.set.reference.points},
 #'   and it's highly recommended to do so if this calculation is going to be performed repeatedly.
@@ -1397,7 +1459,8 @@ isolation.forest <- function(data,
 #' C++ object will first require calling \link{isotree.restore.handle}, which is done automatically when
 #' calling `predict` and similar), as they can increase memory usage by a large amount. These redundant raw bytes
 #' can be dropped as follows: `model$cpp_obj$serialized <- NULL` (and an additional
-#' `model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE`). After that, one might want to force garbage
+#' `model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE` and `model$cpp_obj$ind_ser <- NULL`
+#' when building a node indexer). After that, one might want to force garbage
 #' collection through `gc()`.
 #' @details The standardized outlier score for isolation-based metrics is calculated according to the
 #' original paper's formula:
@@ -1413,7 +1476,7 @@ isolation.forest <- function(data,
 #' details about the score calculations.
 #' 
 #' The distribution of outlier scores for isolation-based metrics should be centered around 0.5, unless
-#' using non-random splits (parameters `prob_pick_avg_gain`, `prob_pick_pooled_gain`)
+#' using non-random splits (parameters `prob_pick_avg_gain`, `prob_pick_pooled_gain`, `prob_pick_full_gain`, `prob_pick_dens`)
 #' and/or range penalizations, or having distributions which are too skewed. For `scoring_metric="density"`,
 #' most of the values should be negative, and while zero can be used as a natural score threshold,
 #' the scores are unlikely to be centered around zero.
@@ -1646,7 +1709,12 @@ print.isolation_forest <- function(x, ...) {
     
     if (x$params$ndim > 1) cat("Extended ")
     cat("Isolation Forest model")
-    if (x$params$prob_pick_avg_gain + x$params$prob_pick_pooled_gain > 0) {
+    if (
+        x$params$prob_pick_avg_gain + x$params$prob_pick_pooled_gain +
+        coerce.null(x$params$prob_pick_full_gain, 0.0) +
+        coerce.null(x$params$prob_pick_dens, 0.0)
+        > 0
+    ) {
         cat(" (using guided splits)")
     }
     cat("\n")
@@ -1828,6 +1896,8 @@ isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights 
              FALSE, model$params$penalize_range, model$params$standardize_data,
              fast_bratio, model$params$weigh_by_kurtosis,
              model$params$prob_pick_pooled_gain, model$params$prob_pick_avg_gain,
+             coerce.null(model$params$prob_pick_full_gain, 0.0),
+             coerce.null(model$params$prob_pick_dens, 0.0),
              coerce.null(model$params$prob_pick_col_by_range, 0.0),
              coerce.null(model$params$prob_pick_col_by_var, 0.0),
              coerce.null(model$params$prob_pick_col_by_kurt, 0.0),
@@ -2653,4 +2723,29 @@ isotree.subset.trees <- function(model, trees_take) {
         categ_max  =  model$metadata$categ_max
     )
     return(new_model)
+}
+
+#' @title Set Number of Threads for Isolation Forest Model Object
+#' @description Changes the number of threads that an isolation forest model object
+#' will use when calling functions such as `predict`.
+#' @param model An Isolation Forest model (as returned by function \link{isolation.forest})
+#' for which an indexer for terminal node numbers and/or distances will be added.
+#' 
+#' \bold{The object will be modified in-place}.
+#' @param nthreads Number of threads to set for this model object to use.
+#' @return The same `model` object (as invisible), but now with a different configured number of threadst. Note
+#' the input object is modified in-place regardless.
+#' @export
+isotree.set.nthreads <- function(model, nthreads = 1L) {
+    isotree.restore.handle(model)
+    nthreads <- check.nthreads(nthreads)
+    if (nthreads > 1 && !R_has_openmp()) {
+        msg <- paste0("Setting the model object to use more than 1 thread, but ",
+                      "package was compiled without OpenMP support.")
+        if (tolower(Sys.info()[["sysname"]]) == "darwin")
+            msg <- paste0(msg, " See https://mac.r-project.org/openmp/")
+        warning(msg)
+    }
+    set.list.elt(model, "nthreads", nthreads)
+    return(invisible(model))
 }

@@ -111,7 +111,9 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
             workspace.prob_split_type
                 < (
                     model_params.prob_pick_by_gain_avg +
-                    model_params.prob_pick_by_gain_pl
+                    model_params.prob_pick_by_gain_pl +
+                    model_params.prob_pick_by_full_gain +
+                    model_params.prob_pick_by_dens
                   )
         )
     {
@@ -119,8 +121,15 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         hplanes.back().score = -HUGE_VAL; /* this keeps track of the gain */
         if (workspace.prob_split_type < model_params.prob_pick_by_gain_avg)
             workspace.criterion = Averaged;
-        else
+        else if (workspace.prob_split_type < model_params.prob_pick_by_gain_avg +
+                                             model_params.prob_pick_by_gain_pl)
             workspace.criterion = Pooled;
+        else if (workspace.prob_split_type < model_params.prob_pick_by_gain_avg +
+                                             model_params.prob_pick_by_gain_pl +
+                                             model_params.prob_pick_by_full_gain)
+            workspace.criterion = FullGain;
+        else
+            workspace.criterion = DensityCrit;
     }
 
     else
@@ -264,6 +273,11 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         }
     }
 
+    if (workspace.criterion == FullGain)
+    {
+        workspace.col_sampler.get_array_remaining_cols(workspace.col_indices);
+    }
+
     workspace.ntaken_best = 0;
 
     for (size_t attempt = 0; attempt < workspace.ntry; attempt++)
@@ -359,19 +373,46 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                 workspace.this_gain = eval_guided_crit(workspace.comb_val.data(), workspace.end - workspace.st + 1,
                                                        workspace.criterion, model_params.min_gain, workspace.ntry == 1,
                                                        workspace.buffer_dbl.data(), workspace.this_split_point,
-                                                       workspace.xmin, workspace.xmax);
+                                                       workspace.xmin, workspace.xmax,
+                                                       workspace.ix_arr.data() + workspace.st,
+                                                       workspace.col_indices.data(),
+                                                       workspace.col_sampler.get_remaining_cols(),
+                                                       model_params.ncols_per_tree < input_data.ncols_numeric,
+                                                       input_data.X_row_major.data(),
+                                                       input_data.ncols_numeric,
+                                                       input_data.Xr.data(),
+                                                       input_data.Xr_ind.data(),
+                                                       input_data.Xr_indptr.data());
             else if (!workspace.weights_arr.empty())
                 workspace.this_gain = eval_guided_crit_weighted(workspace.comb_val.data(), workspace.end - workspace.st + 1,
                                                                 workspace.criterion, model_params.min_gain, workspace.ntry == 1,
                                                                 workspace.buffer_dbl.data(), workspace.this_split_point,
                                                                 workspace.xmin, workspace.xmax,
-                                                                workspace.sample_weights.data(), workspace.buffer_szt.data());
+                                                                workspace.sample_weights.data(), workspace.buffer_szt.data(),
+                                                                workspace.ix_arr.data() + workspace.st,
+                                                                workspace.col_indices.data(),
+                                                                workspace.col_sampler.get_remaining_cols(),
+                                                                model_params.ncols_per_tree < input_data.ncols_numeric,
+                                                                input_data.X_row_major.data(),
+                                                                input_data.ncols_numeric,
+                                                                input_data.Xr.data(),
+                                                                input_data.Xr_ind.data(),
+                                                                input_data.Xr_indptr.data());
             else
                 workspace.this_gain = eval_guided_crit_weighted(workspace.comb_val.data(), workspace.end - workspace.st + 1,
                                                                 workspace.criterion, model_params.min_gain, workspace.ntry == 1,
                                                                 workspace.buffer_dbl.data(), workspace.this_split_point,
                                                                 workspace.xmin, workspace.xmax,
-                                                                workspace.sample_weights.data(), workspace.buffer_szt.data());
+                                                                workspace.sample_weights.data(), workspace.buffer_szt.data(),
+                                                                workspace.ix_arr.data() + workspace.st,
+                                                                workspace.col_indices.data(),
+                                                                workspace.col_sampler.get_remaining_cols(),
+                                                                model_params.ncols_per_tree < input_data.ncols_numeric,
+                                                                input_data.X_row_major.data(),
+                                                                input_data.ncols_numeric,
+                                                                input_data.Xr.data(),
+                                                                input_data.Xr_ind.data(),
+                                                                input_data.Xr_indptr.data());
         }
         
         /* pass to the output object */

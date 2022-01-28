@@ -1038,6 +1038,27 @@ size_t ColumnSampler::get_remaining_cols()
         return this->n_cols - this->n_dropped;
 }
 
+void ColumnSampler::get_array_remaining_cols(std::vector<size_t> &restrict cols)
+{
+    if (!this->has_weights())
+    {
+        cols.assign(this->col_indices.begin(), this->col_indices.begin() + this->curr_pos);
+        std::sort(cols.begin(), cols.begin() + this->curr_pos);
+    }
+
+    else
+    {
+        size_t n_rem = 0;
+        for (size_t col = 0; col < this->n_cols; col++)
+        {
+            if (this->tree_weights[col + this->offset] > 0)
+            {
+                cols[n_rem++] = col;
+            }
+        }
+    }
+}
+
 bool SingleNodeColumnSampler::initialize
 (
     double *restrict weights,
@@ -3545,6 +3566,68 @@ void todense(size_t *restrict ix_arr, size_t st, size_t end,
                 curr_pos = std::lower_bound(Xc_ind + curr_pos + 1, Xc_ind + end_col + 1, *row) - Xc_ind;
         }
     }
+}
+
+
+template <class real_t>
+void colmajor_to_rowmajor(real_t *restrict X, size_t nrows, size_t ncols, std::vector<double> &X_row_major)
+{
+    X_row_major.resize(nrows * ncols);
+    for (size_t row = 0; row < nrows; row++)
+        for (size_t col = 0; col < ncols; col++)
+            X_row_major[row + col*nrows] = X[col + row*ncols];
+}
+
+template <class real_t, class sparse_ix>
+void colmajor_to_rowmajor(real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+                          size_t nrows, size_t ncols,
+                          std::vector<double> &Xr, std::vector<size_t> &Xr_ind, std::vector<size_t> &Xr_indptr)
+{
+    /* First convert to COO */
+    size_t nnz = Xc_indptr[ncols];
+    std::vector<size_t> row_indices(nnz);
+    for (size_t col = 0; col < ncols; col++)
+    {
+        for (sparse_ix ix = Xc_indptr[col]; ix < Xc_indptr[col+1]; ix++)
+        {
+            row_indices[ix] = Xc_ind[ix];
+        }
+    }
+
+    /* Then copy the data argsorted by rows */
+    std::vector<size_t> argsorted_indices(nnz);
+    std::iota(argsorted_indices.begin(), argsorted_indices.end(), (size_t)0);
+    std::sort(argsorted_indices.begin(), argsorted_indices.end(),
+              [&row_indices](const size_t a, const size_t b)
+              {return row_indices[a] < row_indices[b];});
+    Xr.resize(nnz);
+    Xr_ind.resize(nnz);
+    for (size_t ix = 0; ix < nnz; ix++)
+    {
+        Xr[ix] = Xc[argsorted_indices[ix]];
+        Xr_ind[ix] = Xc_ind[argsorted_indices[ix]];
+    }
+
+    /* Now build the index pointer */
+    Xr_indptr.resize(nrows+1);
+    size_t curr_row = 0;
+    size_t curr_n = 0;
+    for (size_t ix = 0; ix < nnz; ix++)
+    {
+        if (row_indices[argsorted_indices[ix]] != curr_row)
+        {
+            Xr_indptr[curr_row+1] = curr_n;
+            curr_n = 0;
+            curr_row = row_indices[argsorted_indices[ix]];
+        }
+
+        else
+        {
+            curr_n++;
+        }
+    }
+    for (size_t row = 1; row < nrows; row++)
+        Xr_indptr[row+1] += Xr_indptr[row];
 }
 
 

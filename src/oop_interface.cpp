@@ -75,6 +75,7 @@ IsolationForest::IsolationForest
     bool penalize_range, bool standardize_data,
     ScoringMetric scoring_metric, bool fast_bratio, bool weigh_by_kurt,
     double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+    double prob_pick_by_full_gain, double prob_pick_by_dens,
     double prob_pick_col_by_range, double prob_pick_col_by_var,
     double prob_pick_col_by_kurt,
     double min_gain, MissingAction missing_action,
@@ -102,6 +103,8 @@ IsolationForest::IsolationForest
         weigh_by_kurt(weigh_by_kurt),
         prob_pick_by_gain_pl(prob_pick_by_gain_pl),
         prob_pick_by_gain_avg(prob_pick_by_gain_avg),
+        prob_pick_by_full_gain(prob_pick_by_full_gain),
+        prob_pick_by_dens(prob_pick_by_dens),
         prob_pick_col_by_range(prob_pick_col_by_range),
         prob_pick_col_by_var(prob_pick_col_by_var),
         prob_pick_col_by_kurt(prob_pick_col_by_kurt),
@@ -140,6 +143,8 @@ void IsolationForest::fit(double X[], size_t nrows, size_t ncols)
         (double*)nullptr, this->weigh_by_kurt,
         this->prob_pick_by_gain_pl,
         this->prob_pick_by_gain_avg,
+        this->prob_pick_by_full_gain,
+        this->prob_pick_by_dens,
         this->prob_pick_col_by_range,
         this->prob_pick_col_by_var,
         this->prob_pick_col_by_kurt,
@@ -177,6 +182,8 @@ void IsolationForest::fit(double numeric_data[],   size_t ncols_numeric,  size_t
         col_weights, this->weigh_by_kurt,
         this->prob_pick_by_gain_pl,
         this->prob_pick_by_gain_avg,
+        this->prob_pick_by_full_gain,
+        this->prob_pick_by_dens,
         this->prob_pick_col_by_range,
         this->prob_pick_col_by_var,
         this->prob_pick_col_by_kurt,
@@ -215,6 +222,8 @@ void IsolationForest::fit(double Xc[], int Xc_ind[], int Xc_indptr[],
         col_weights, this->weigh_by_kurt,
         this->prob_pick_by_gain_pl,
         this->prob_pick_by_gain_avg,
+        this->prob_pick_by_full_gain,
+        this->prob_pick_by_dens,
         this->prob_pick_col_by_range,
         this->prob_pick_col_by_var,
         this->prob_pick_col_by_kurt,
@@ -676,11 +685,13 @@ void IsolationForest::check_params()
 
     if (this->prob_pick_by_gain_avg < 0) throw std::runtime_error("'prob_pick_by_gain_avg' must be >= 0.\n");
     if (this->prob_pick_by_gain_pl < 0) throw std::runtime_error("'prob_pick_by_gain_pl' must be >= 0.\n");
+    if (this->prob_pick_by_full_gain < 0) throw std::runtime_error("'prob_pick_by_full_gain' must be >= 0.\n");
+    if (this->prob_pick_by_dens < 0) throw std::runtime_error("'prob_pick_by_dens' must be >= 0.\n");
     if (this->prob_pick_col_by_range < 0) throw std::runtime_error("'prob_pick_col_by_range' must be >= 0.\n");
     if (this->prob_pick_col_by_var < 0) throw std::runtime_error("'prob_pick_col_by_var' must be >= 0.\n");
     if (this->prob_pick_col_by_kurt < 0) throw std::runtime_error("'prob_pick_col_by_kurt' must be >= 0.\n");
 
-    if (prob_pick_by_gain_avg + prob_pick_by_gain_pl
+    if (prob_pick_by_gain_avg + prob_pick_by_gain_pl + prob_pick_by_full_gain + prob_pick_by_dens
         > 1. + 2. * std::numeric_limits<double>::epsilon())
         throw std::runtime_error("Probabilities for gain-based splits sum to more than 1.\n");
 

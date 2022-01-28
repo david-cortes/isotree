@@ -118,6 +118,8 @@ public:
     bool   weigh_by_kurt = false;
     double prob_pick_by_gain_pl = 0.;
     double prob_pick_by_gain_avg = 0.;
+    double prob_pick_by_full_gain = 0.;
+    double prob_pick_by_dens = 0.;
     double prob_pick_col_by_range = 0.;
     double prob_pick_col_by_var = 0.;
     double prob_pick_col_by_kurt = 0.;
@@ -152,6 +154,7 @@ public:
         bool penalize_range, bool standardize_datam,
         ScoringMetric scoring_metric, bool fast_bratio, bool weigh_by_kurt,
         double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+        double prob_pick_by_full_gain, double prob_pick_by_dens,
         double prob_pick_col_by_range, double prob_pick_col_by_var,
         double prob_pick_col_by_kurt,
         double min_gain, MissingAction missing_action,

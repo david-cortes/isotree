@@ -271,11 +271,11 @@ typedef struct TreesIndexer {
 *       the single-variable model. Note that the model object pointer passed must also
 *       agree with the value passed to 'ndim'.
 * - ntry
-*       When using 'prob_pick_pooled_gain' and/or 'prob_pick_avg_gain', how many variables (with 'ndim=1')
+*       When using any of 'prob_pick_by_gain_pl', 'prob_pick_by_gain_avg', 'prob_pick_by_full_gain', 'prob_pick_by_dens', how many variables (with 'ndim=1')
 *       or linear combinations (with 'ndim>1') to try for determining the best one according to gain.
-*       Recommended value in reference [4] is 10 (with 'prob_pick_avg_gain', for outlier detection), while the
-*       recommended value in reference [11] is 1 (with 'prob_pick_pooled_gain', for outlier detection), and the
-*       recommended value in reference [9] is 10 to 20 (with 'prob_pick_pooled_gain', for missing value imputations).
+*       Recommended value in reference [4] is 10 (with 'prob_pick_by_gain_avg', for outlier detection), while the
+*       recommended value in reference [11] is 1 (with 'prob_pick_by_gain_pl', for outlier detection), and the
+*       recommended value in reference [9] is 10 to 20 (with 'prob_pick_by_gain_pl', for missing value imputations).
 * - coef_type
 *       For the extended model, whether to sample random coefficients according to a normal distribution ~ N(0, 1)
 *       (as proposed in [4]) or according to a uniform distribution ~ Unif(-1, +1) as proposed in [3]. Ignored for the
@@ -312,7 +312,7 @@ typedef struct TreesIndexer {
 *       Models that use 'prob_pick_by_gain_pl' or 'prob_pick_by_gain_avg' are likely to benefit from
 *       deeper trees (larger 'max_depth'), but deeper trees can result in much slower model fitting and
 *       predictions.
-*       Note that models that use 'prob_pick_pooled_gain' or 'prob_pick_avg_gain' are likely to benefit from
+*       Note that models that use 'prob_pick_by_gain_pl' or 'prob_pick_by_gain_avg' are likely to benefit from
 *       deeper trees (larger 'max_depth'), but deeper trees can result in much slower model fitting and
 *       predictions.
 *       If using pooled gain, one might want to substitute 'max_depth' with 'min_gain'.
@@ -335,7 +335,7 @@ typedef struct TreesIndexer {
 *       reasonable range in the data being split (given by 2 * range in data and centered around the split point),
 *       as proposed in [4] and implemented in the authors' original code in [5]. Not used in single-variable model
 *       when splitting by categorical variables. Note that this can make a very large difference in the results
-*       when using 'prob_pick_pooled_gain'.
+*       when using 'prob_pick_by_gain_pl'.
 *       This option is not supported when using density-based outlier scoring metrics.
 * - standardize_data
 *       Whether to standardize the features at each node before creating a linear combination of them as suggested
@@ -498,18 +498,18 @@ typedef struct TreesIndexer {
 *       When used for outlier detection, datasets with multimodal distributions usually see better performance
 *       under this type of splits.
 *       Note that, since this makes the trees more even and thus it takes more steps to produce isolated nodes,
-*       the resulting object will be heavier. When splits are not made according to any of 'prob_pick_avg_gain'
-*       or 'prob_pick_pooled_gain', both the column and the split point are decided at random. Note that, if
-*       passing value 1 (100%) with no sub-sampling and using the single-variable model,
+*       the resulting object will be heavier. When splits are not made according to any of 'prob_pick_by_gain_avg',
+*       'prob_pick_by_gain_pl', 'prob_pick_by_full_gain', 'prob_pick_by_dens', both the column and the split point are decided at random.
+*       Note that, if passing value 1 (100%) with no sub-sampling and using the single-variable model,
 *       every single tree will have the exact same splits.
-*       Be aware that 'penalize_range' can also have a large impact when using 'prob_pick_pooled_gain'.
+*       Be aware that 'penalize_range' can also have a large impact when using 'prob_pick_by_gain_pl'.
 *       Be aware also that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable
 *       model, every single tree will have the exact same splits.
 *       Under this option, models are likely to produce better results when increasing 'max_depth'.
 *       Alternatively, one can also control the depth through 'min_gain' (for which one might want to
 *       set 'max_depth=0').
-*       Important detail: if using either 'prob_pick_avg_gain' or 'prob_pick_pooled_gain', the distribution of
-*       outlier scores is unlikely to be centered around 0.5.
+*       Important detail: if using any of 'prob_pick_by_gain_avg', 'prob_pick_by_gain_pl', 'prob_pick_by_full_gain',
+*       'prob_pick_by_dens', the distribution of outlier scores is unlikely to be centered around 0.5.
 * - prob_pick_by_gain_avg
 *       This parameter indicates the probability of choosing the threshold on which to split a variable
 *       (with 'ndim=1') or a linear combination of variables (when using 'ndim>1') as the threshold
@@ -526,16 +526,42 @@ typedef struct TreesIndexer {
 *       of split. Recommended to use sub-samples (parameter 'sample_size') when
 *       passing this parameter. Note that, since this will create isolated nodes faster, the resulting object
 *       will be lighter (use less memory).
-*       When splits are not made according to any of 'prob_pick_avg_gain' or 'prob_pick_pooled_gain',
-*       both the column and the split point are decided at random. Default setting for [1], [2], [3] is
-*       zero, and default for [4] is 1. This is the randomization parameter that can be passed to the author's original code in [5],
+*       When splits are not made according to any of 'prob_pick_by_gain_avg', 'prob_pick_by_gain_pl',
+*       'prob_pick_by_full_gain', 'prob_pick_by_dens', both the column and the split point are decided at random.
+*       Default setting for [1], [2], [3] is zero, and default for [4] is 1.
+*       This is the randomization parameter that can be passed to the author's original code in [5],
 *       but note that the code in [5] suffers from a mathematical error in the calculation of running standard deviations,
 *       so the results from it might not match with this library's.
-*       Be aware that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable model, every single tree will have
-*       the exact same splits.
+*       Be aware that, if passing a value of 1 (100%) with no sub-sampling and using the single-variable model,
+*       every single tree will have the exact same splits.
 *       Under this option, models are likely to produce better results when increasing 'max_depth'.
-*       Important detail: if using either 'prob_pick_avg_gain' or 'prob_pick_pooled_gain', the distribution of
-*       outlier scores is unlikely to be centered around 0.5.
+*       Important detail: if using any of 'prob_pick_by_gain_avg', 'prob_pick_by_gain_pl',
+*       'prob_pick_by_full_gain', 'prob_pick_by_dens', the distribution of outlier scores is unlikely to be centered around 0.5.
+* - prob_pick_by_full_gain
+*       This parameter indicates the probability of choosing the threshold on which to split a variable
+*       (with 'ndim=1') or a linear combination of variables (when using 'ndim>1') as the threshold
+*       that minimizes the pooled sums of variances of all columns (or a subset of them if using
+*       'ncols_per_tree').
+*       In general, 'prob_pick_by_full_gain' is much slower to evaluate than the other gain types, and does not tend to
+*       lead to better results. When using 'prob_pick_by_full_gain', one might want to use a different scoring
+*       metric (particulatly 'Density', 'BoxedDensity2' or 'BoxedRatio'). Note that
+*       the variance calculations are all done through the (exact) sorted-indices approach, while is much
+*       slower than the (approximate) histogram approach used by other decision tree software.
+*       Be aware that the data is not standardized in any way for the range calculations, thus the scales
+*       of features will make a large difference under 'prob_pick_by_full_gain', which might not make it suitable for
+*       all types of data.
+*       'prob_pick_by_full_gain' is not compatible with categorical data, and 'min_gain' does not apply to it.
+*       When splits are not made according to any of 'prob_pick_by_gain_avg', 'prob_pick_by_gain_pl',
+*       'prob_pick_by_full_gain', 'prob_pick_by_dens', both the column and the split point are decided at random.
+*       Default setting for [1], [2], [3], [4] is zero.
+* - prob_pick_dens
+*       This parameter indicates the probability of choosing the threshold on which to split a variable
+*       (with 'ndim=1') or a linear combination of variables (when using 'ndim>1') as the threshold
+*       that maximizes the pooled densities of the branch distributions.
+*       The 'min_gain' option does not apply to this type of splits.
+*       When splits are not made according to any of 'prob_pick_by_gain_avg', 'prob_pick_by_gain_pl',
+*       'prob_pick_by_full_gain', 'prob_pick_by_dens', both the column and the split point are decided at random.
+*       Default setting for [1], [2], [3], [4] is zero.
 * - prob_pick_col_by_range
 *       When using 'ndim=1', this denotes the probability of choosing the column to split with a probability
 *       proportional to the range spanned by each column within a node as proposed in reference [12].
@@ -546,8 +572,6 @@ typedef struct TreesIndexer {
 *       Be aware that the data is not standardized in any way for the range calculations, thus the scales
 *       of features will make a large difference under this option, which might not make it suitable for
 *       all types of data.
-*       If there are infinite values, all columns having infinite values will be treated as having the
-*       same weight, and will be chosen before every other column with non-infinite values.
 *       Note that the proposed RRCF model from [12] uses a different scoring metric for producing anomaly
 *       scores, while this library uses isolation depth regardless of how columns are chosen, thus results
 *       are likely to be different from those of other software implementations. Nevertheless, as explored
@@ -567,7 +591,9 @@ typedef struct TreesIndexer {
 *       calculation used for dense inputs, and as such, the results might differ slightly.
 *       Be aware that this calculated variance is not standardized in any way, so the scales of
 *       features will make a large difference under this option.
-*       If passing column weights, the effect will be multiplicative.
+*       If there are infinite values, all columns having infinite values will be treated as having the
+*       same weight, and will be chosen before every other column with non-infinite values.
+*       If passing column weights , the effect will be multiplicative.
 *       If passing a 'missing_action' different than 'fail', infinite values will be ignored for the
 *       variance calculation. Otherwise, all columns with infinite values will have the same probability
 *       and will be chosen before columns with non-infinite values.
@@ -585,16 +611,18 @@ typedef struct TreesIndexer {
 *       If passing column weights, the effect will be multiplicative. This option is not compatible
 *       with 'weigh_by_kurtosis'.
 *       If passing a 'missing_action' different than 'fail', infinite values will be ignored for the
-*       kurtosis calculation. Otherwise, all columns with infinite values will have the same probability
+*       variance calculation. Otherwise, all columns with infinite values will have the same probability
 *       and will be chosen before columns with non-infinite values.
 *       If using 'missing_action=Impute', the calculation of kurtosis will not use imputed values
 *       in order not to favor columns with missing values (which would increase kurtosis by all having
 *       the same central value).
 *       Be aware that kurtosis can be a rather slow metric to calculate.
 * - min_gain
-*       Minimum gain that a split threshold needs to produce in order to proceed with a split. Only used when the splits
-*       are decided by a gain criterion (either pooled or averaged). If the highest possible gain in the evaluated
-*       splits at a node is below this  threshold, that node becomes a terminal node.
+*       Minimum gain that a split threshold needs to produce in order to proceed with a split.
+*       Only used when the splits are decided by a variance gain criterion ('prob_pick_by_gain_pl' or
+*       'prob_pick_by_gain_avg', but not 'prob_pick_by_full_gain' nor 'prob_pick_by_dens').
+*       If the highest possible gain in the evaluated splits at a node is below this  threshold,
+*       that node becomes a terminal node.
 *       This can be used as a more sophisticated depth control when using pooled gain (note that 'max_depth'
 *       still applies on top of this heuristic).
 * - missing_action
@@ -678,6 +706,7 @@ typedef struct TreesIndexer {
 *       (e.g. large sparse matrices with small sample sizes), adding more threads might result
 *       in only a very modest speed up (e.g. 1.5x faster with 4x more threads),
 *       even if all threads look fully utilized.
+*       Ignored when not building with OpenMP support.
 * 
 * Returns
 * =======
@@ -687,25 +716,6 @@ typedef struct TreesIndexer {
 * what these values correspond to, you can use the functions
 * 'return_EXIT_SUCESS' and 'return_EXIT_FAILURE', which will return them
 * as integers.
-* 
-* References
-* ==========
-* [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
-*     "Isolation forest."
-*     2008 Eighth IEEE International Conference on Data Mining. IEEE, 2008.
-* [2] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
-*     "Isolation-based anomaly detection."
-*     ACM Transactions on Knowledge Discovery from Data (TKDD) 6.1 (2012): 3.
-* [3] Hariri, Sahand, Matias Carrasco Kind, and Robert J. Brunner.
-*     "Extended Isolation Forest."
-*     arXiv preprint arXiv:1811.02141 (2018).
-* [4] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
-*     "On detecting clustered anomalies using SCiForest."
-*     Joint European Conference on Machine Learning and Knowledge Discovery in Databases. Springer, Berlin, Heidelberg, 2010.
-* [5] https://sourceforge.net/projects/iforest/
-* [6] https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
-* [7] Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
-* [8] Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
 */
 ISOTREE_EXPORTED
 int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -722,6 +732,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 real_t output_depths[], bool standardize_depth,
                 real_t col_weights[], bool weigh_by_kurt,
                 double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+                double prob_pick_by_full_gain, double prob_pick_by_dens,
                 double prob_pick_col_by_range, double prob_pick_col_by_var,
                 double prob_pick_col_by_kurt,
                 double min_gain, MissingAction missing_action,
@@ -836,6 +847,12 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 * - prob_pick_by_gain_avg
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
+* - prob_pick_by_full_gain
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
+* - prob_pick_by_dens
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
 * - prob_pick_col_by_range
 *       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
 *       what was originally passed to 'fit_iforest'.
@@ -945,6 +962,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              bool   fast_bratio,
              real_t col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+             double prob_pick_by_full_gain, double prob_pick_by_dens,
              double prob_pick_col_by_range, double prob_pick_col_by_var,
              double prob_pick_col_by_kurt,
              double min_gain, MissingAction missing_action,

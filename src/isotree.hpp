@@ -312,9 +312,8 @@ typedef enum  ScoringMetric  {Depth=0,     Density=92,     BoxedDensity=94, Boxe
                               AdjDepth=91, AdjDensity=93}              ScoringMetric;
 
 /* These are only used internally */
-typedef enum  GainCriterion  {Averaged=51, Pooled=52,      NoCrit=0}   Criterion;      /* For guided splits */
 typedef enum  ColCriterion   {Uniformly,   ByRange, ByVar, ByKurt}     ColCriterion;   /* For proportional choices */
-
+typedef enum  GainCriterion  {Averaged, Pooled, FullGain, DensityCrit, NoCrit=0} Criterion; /* For guided splits */
 
 
 /* Notes about new categorical action:
@@ -469,6 +468,11 @@ struct InputData {
     double*     range_high;  /* only when calculating variable ranges or boxed densities with no sub-sampling */
     int*        ncat_;       /* only when calculating boxed densities with no sub-sampling */
     std::vector<double> all_kurtoses; /* only when using 'prob_pick_col_by_kurtosis' or mixing 'weigh_by_kurt' with 'prob_pick_col*' with no sub-sampling */
+
+    std::vector<double>  X_row_major; /* created by this library, only used when calculating full gain */
+    std::vector<double>  Xr;          /* created by this library, only used when calculating full gain */
+    std::vector<size_t>  Xr_ind;      /* created by this library, only used when calculating full gain */
+    std::vector<size_t>  Xr_indptr;   /* created by this library, only used when calculating full gain */
 };
 
 
@@ -500,6 +504,8 @@ typedef struct {
     bool      weigh_by_kurt;
     double    prob_pick_by_gain_avg;
     double    prob_pick_by_gain_pl;
+    double    prob_pick_by_full_gain;
+    double    prob_pick_by_dens;
     double    prob_pick_col_by_range;
     double    prob_pick_col_by_var;
     double    prob_pick_col_by_kurt;
@@ -587,6 +593,7 @@ public:
     void shuffle_remainder(RNG_engine &rnd_generator);
     bool has_weights();
     size_t get_remaining_cols();
+    void get_array_remaining_cols(std::vector<size_t> &restrict cols);
     ColumnSampler() = default;
 };
 
@@ -801,6 +808,7 @@ struct WorkerMemory {
     double               best_xmedian;
     int                  saved_cat_mode;
     int                  best_cat_mode;
+    std::vector<size_t>  col_indices;    /* only for full gain calculation */
 
     /* for weighted column choices */
     std::vector<double>  node_col_weights;
@@ -908,6 +916,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 double output_depths[], bool standardize_depth,
                 real_t col_weights[], bool weigh_by_kurt,
                 double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+                double prob_pick_by_full_gain, double prob_pick_by_dens,
                 double prob_pick_col_by_range, double prob_pick_col_by_var,
                 double prob_pick_col_by_kurt,
                 double min_gain, MissingAction missing_action,
@@ -927,6 +936,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              bool   fast_bratio,
              real_t col_weights[], bool weigh_by_kurt,
              double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+             double prob_pick_by_full_gain, double prob_pick_by_dens,
              double prob_pick_col_by_range, double prob_pick_col_by_var,
              double prob_pick_col_by_kurt,
              double min_gain, MissingAction missing_action,
@@ -986,6 +996,15 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
                      double *restrict output_depths,   sparse_ix *restrict tree_num,
                      double *restrict per_tree_depths,
                      TreesIndexer *indexer);
+template <class real_t, class sparse_ix>
+[[gnu::hot]]
+void traverse_itree_fast(std::vector<IsoTree>  &tree,
+                         IsoForest             &model_outputs,
+                         real_t *restrict      row_numeric_data,
+                         double &restrict      output_depth,
+                         sparse_ix *restrict   tree_num,
+                         double *restrict      tree_depth,
+                         size_t                row) noexcept;
 template <class PredictionData, class sparse_ix>
 [[gnu::hot]]
 void traverse_itree_no_recurse(std::vector<IsoTree>  &tree,
@@ -1009,13 +1028,22 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                       size_t                   curr_lev) noexcept;
 template <class PredictionData, class sparse_ix>
 [[gnu::hot]]
-void traverse_hplane_fast(std::vector<IsoHPlane>  &hplane,
-                          ExtIsoForest            &model_outputs,
-                          PredictionData          &prediction_data,
-                          double &restrict        output_depth,
-                          sparse_ix *restrict     tree_num,
-                          double *restrict        tree_depth,
-                          size_t                  row) noexcept;
+void traverse_hplane_fast_colmajor(std::vector<IsoHPlane>  &hplane,
+                                   ExtIsoForest            &model_outputs,
+                                   PredictionData          &prediction_data,
+                                   double &restrict        output_depth,
+                                   sparse_ix *restrict     tree_num,
+                                   double *restrict        tree_depth,
+                                   size_t                  row) noexcept;
+template <class real_t, class sparse_ix>
+[[gnu::hot]]
+void traverse_hplane_fast_rowmajor(std::vector<IsoHPlane>  &hplane,
+                                   ExtIsoForest            &model_outputs,
+                                   real_t *restrict        row_numeric_data,
+                                   double &restrict        output_depth,
+                                   sparse_ix *restrict     tree_num,
+                                   double *restrict        tree_depth,
+                                   size_t                  row) noexcept;
 template <class PredictionData, class sparse_ix, class ImputedData>
 [[gnu::hot]]
 void traverse_hplane(std::vector<IsoHPlane>   &hplane,
@@ -1395,6 +1423,12 @@ template <class real_t, class sparse_ix>
 void todense(size_t *restrict ix_arr, size_t st, size_t end,
              size_t col_num, real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
              double *restrict buffer_arr);
+template <class real_t>
+void colmajor_to_rowmajor(real_t *restrict X, size_t nrows, size_t ncols, std::vector<double> &X_row_major);
+template <class real_t, class sparse_ix>
+void colmajor_to_rowmajor(real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+                          size_t nrows, size_t ncols,
+                          std::vector<double> &Xr, std::vector<size_t> &Xr_ind, std::vector<size_t> &Xr_indptr);
 template <class sparse_ix=size_t>
 bool check_indices_are_sorted(sparse_ix indices[], size_t n);
 template <class real_t, class sparse_ix>
@@ -1410,10 +1444,10 @@ void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict 
 template <class real_t_>
 double calc_mean_only(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x);
 template <class real_t_, class mapping>
-void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x, mapping &w,
+void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x, mapping &restrict w,
                                MissingAction missing_action, double &restrict x_sd, double &restrict x_mean);
 template <class real_t_, class mapping>
-double calc_mean_only_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x, mapping &w);
+double calc_mean_only_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x, mapping &restrict w);
 template <class real_t_, class sparse_ix, class real_t>
 void calc_mean_and_sd(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                       real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
@@ -1428,11 +1462,11 @@ double calc_mean_only(size_t *restrict ix_arr, size_t st, size_t end, size_t col
 template <class real_t_, class sparse_ix, class mapping>
 void calc_mean_and_sd_weighted(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                                real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
-                               double &restrict x_sd, double &restrict x_mean, mapping &w);
+                               double &restrict x_sd, double &restrict x_mean, mapping &restrict w);
 template <class real_t_, class sparse_ix, class mapping>
 double calc_mean_only_weighted(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                                real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
-                               mapping &w);
+                               mapping &restrict w);
 template <class real_t_>
 void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict res,
                      real_t_ *restrict x, double &restrict coef, double x_sd, double x_mean, double &restrict fill_val,
@@ -1442,7 +1476,7 @@ template <class real_t_, class mapping>
 void add_linear_comb_weighted(size_t ix_arr[], size_t st, size_t end, double *restrict res,
                               real_t_ *restrict x, double &restrict coef, double x_sd, double x_mean, double &restrict fill_val,
                               MissingAction missing_action, double *restrict buffer_arr,
-                              size_t *restrict buffer_NAs, bool first_run, mapping &w);
+                              size_t *restrict buffer_NAs, bool first_run, mapping &restrict w);
 template <class real_t_, class sparse_ix>
 void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num, double *restrict res,
                      real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
@@ -1452,13 +1486,13 @@ template <class real_t_, class sparse_ix, class mapping>
 void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num, double *restrict res,
                               real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                               double &restrict coef, double x_sd, double x_mean, double &restrict fill_val, MissingAction missing_action,
-                              double *restrict buffer_arr, size_t *restrict buffer_NAs, bool first_run, mapping &w);
+                              double *restrict buffer_arr, size_t *restrict buffer_NAs, bool first_run, mapping &restrict w);
 template <class mapping>
 void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, double *restrict res,
                               int x[], int ncat, double *restrict cat_coef, double single_cat_coef, int chosen_cat,
                               double &restrict fill_val, double &restrict fill_new, size_t *restrict buffer_pos,
                               NewCategAction new_cat_action, MissingAction missing_action, CategSplit cat_split_type,
-                              bool first_run, mapping &w);
+                              bool first_run, mapping &restrict w);
 
 /* crit.cpp */
 template <class real_t=double>
@@ -1467,7 +1501,7 @@ template <class real_t>
 double calc_kurtosis(real_t x[], size_t n, MissingAction missing_action);
 template <class real_t, class mapping>
 double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, real_t x[],
-                              MissingAction missing_action, mapping &w);
+                              MissingAction missing_action, mapping &restrict w);
 template <class real_t>
 double calc_kurtosis_weighted(real_t *restrict x, size_t n_, MissingAction missing_action, real_t *restrict w);
 template <class real_t, class sparse_ix>
@@ -1485,7 +1519,7 @@ double calc_kurtosis_weighted(size_t col_num, size_t nrows,
 template <class real_t, class sparse_ix, class mapping>
 double calc_kurtosis_weighted(size_t col_num, size_t nrows,
                               real_t Xc[], sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
-                              MissingAction missing_action, mapping &w);
+                              MissingAction missing_action, mapping &restrict w);
 double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[], double buffer_prob[],
                               MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator);
 double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat, size_t *restrict buffer_cnt, double buffer_prob[],
@@ -1495,29 +1529,31 @@ double calc_kurtosis(size_t nrows, int x[], int ncat, size_t buffer_cnt[], doubl
 template <class mapping>
 double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, int x[], int ncat,
                                        double buffer_prob[], MissingAction missing_action, CategSplit cat_split_type,
-                                       RNG_engine &rnd_generator, mapping &w);
+                                       RNG_engine &rnd_generator, mapping &restrict w);
 template <class mapping>
 double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, int x[], int ncat, double buffer_prob[],
-                              MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator, mapping &w);
+                              MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator, mapping &restrict w);
 template <class real_t>
 double calc_kurtosis_weighted(size_t nrows, int x[], int ncat, double *restrict buffer_prob,
                               MissingAction missing_action, CategSplit cat_split_type,
                               RNG_engine &rnd_generator, real_t *restrict w);
-double expected_sd_cat(double p[], size_t n, size_t pos[]);
-template <class number>
-double expected_sd_cat(number *restrict counts, double *restrict p, size_t n, size_t *restrict pos);
-template <class number>
-double expected_sd_cat_single(number *restrict counts, double *restrict p, size_t n, size_t *restrict pos, size_t cat_exclude, number cnt);
-template <class number>
+template <class int_t>
+double expected_sd_cat(double p[], size_t n, int_t pos[]);
+template <class number, class int_t>
+double expected_sd_cat(number *restrict counts, double *restrict p, size_t n, int_t *restrict pos);
+template <class number, class int_t>
+double expected_sd_cat_single(number *restrict counts, double *restrict p, size_t n, int_t *restrict pos, size_t cat_exclude, number cnt);
+template <class number, class int_t>
 double expected_sd_cat_internal(int ncat, number *restrict buffer_cnt, ldouble_safe cnt_l,
-                                size_t *restrict buffer_pos, double *restrict buffer_prob);
+                                int_t *restrict buffer_pos, double *restrict buffer_prob);
+template <class int_t>
 double expected_sd_cat(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat,
                        MissingAction missing_action,
-                       size_t *restrict buffer_cnt, size_t *restrict buffer_pos, double buffer_prob[]);
-template <class mapping>
+                       size_t *restrict buffer_cnt, int_t *restrict buffer_pos, double buffer_prob[]);
+template <class mapping, class int_t>
 double expected_sd_cat_weighted(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat,
-                                MissingAction missing_action, mapping &w,
-                                double *restrict buffer_cnt, size_t *restrict buffer_pos, double *restrict buffer_prob);
+                                MissingAction missing_action, mapping &restrict w,
+                                double *restrict buffer_cnt, int_t *restrict buffer_pos, double *restrict buffer_prob);
 template <class number>
 double categ_gain(number cnt_left, number cnt_right,
                   ldouble_safe s_left, ldouble_safe s_right,
@@ -1531,9 +1567,9 @@ double find_split_rel_gain_t(real_t_ *restrict x, real_t_ xmean, size_t *restric
 template <class real_t_=double>
 double find_split_rel_gain(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double &split_point, size_t &split_ix);
 template <class real_t, class real_t_, class mapping>
-double find_split_rel_gain_weighted_t(real_t_ *restrict x, real_t_ xmean, size_t *restrict ix_arr, size_t st, size_t end, double &split_point, size_t &restrict split_ix, mapping &w);
+double find_split_rel_gain_weighted_t(real_t_ *restrict x, real_t_ xmean, size_t *restrict ix_arr, size_t st, size_t end, double &split_point, size_t &restrict split_ix, mapping &restrict w);
 template <class real_t_, class mapping>
-double find_split_rel_gain_weighted(real_t_ *restrict x, real_t_ xmean, size_t *restrict ix_arr, size_t st, size_t end, double &restrict split_point, size_t &restrict split_ix, mapping &w);
+double find_split_rel_gain_weighted(real_t_ *restrict x, real_t_ xmean, size_t *restrict ix_arr, size_t st, size_t end, double &restrict split_point, size_t &restrict split_ix, mapping &restrict w);
 template <class real_t, class real_t_=double>
 real_t calc_sd_right_to_left(real_t_ *restrict x, size_t n, double *restrict sd_arr);
 template <class real_t_>
@@ -1543,7 +1579,7 @@ template <class real_t, class real_t_>
 real_t calc_sd_right_to_left(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr);
 template <class real_t_, class mapping>
 ldouble_safe calc_sd_right_to_left_weighted(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end,
-                                           double *restrict sd_arr, mapping &w, ldouble_safe &cumw);
+                                           double *restrict sd_arr, mapping &restrict w, ldouble_safe &cumw);
 template <class real_t, class real_t_>
 double find_split_std_gain_t(real_t_ *restrict x, size_t n, double *restrict sd_arr,
                              GainCriterion criterion, double min_gain, double &restrict split_point);
@@ -1562,42 +1598,115 @@ double find_split_std_gain(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], 
                            GainCriterion criterion, double min_gain, double &restrict split_point, size_t &restrict split_ix);
 template <class real_t, class mapping>
 double find_split_std_gain_weighted(real_t *restrict x, real_t xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
-                                    GainCriterion criterion, double min_gain, double &restrict split_point, size_t &restrict split_ix, mapping &w);
+                                    GainCriterion criterion, double min_gain, double &restrict split_point, size_t &restrict split_ix, mapping &restrict w);
+template <class real_t>
+double find_split_full_gain(real_t *restrict x, size_t st, size_t end, size_t *restrict ix_arr,
+                            size_t *restrict cols_use, size_t ncols_use, bool force_cols_use,
+                            double *restrict X_row_major, size_t ncols,
+                            double *restrict Xr, size_t *restrict Xr_ind, size_t *restrict Xr_indptr,
+                            double *restrict buffer_sum_left, double *restrict buffer_sum_tot,
+                            size_t &restrict split_ix, double &restrict split_point,
+                            bool x_uses_ix_arr);
+template <class real_t, class mapping>
+double find_split_full_gain_weighted(real_t *restrict x, size_t st, size_t end, size_t *restrict ix_arr,
+                                     size_t *restrict cols_use, size_t ncols_use, bool force_cols_use,
+                                     double *restrict X_row_major, size_t ncols,
+                                     double *restrict Xr, size_t *restrict Xr_ind, size_t *restrict Xr_indptr,
+                                     double *restrict buffer_sum_left, double *restrict buffer_sum_tot,
+                                     size_t &restrict split_ix, double &restrict split_point,
+                                     bool x_uses_ix_arr,
+                                     mapping &restrict w);
+template <class real_t_, class real_t>
+double find_split_dens_shortform_t(real_t *restrict x, size_t n, double &restrict split_point);
+template <class real_t>
+double find_split_dens_shortform(real_t *restrict x, size_t n, double &restrict split_point);
+template <class real_t_, class real_t, class mapping>
+double find_split_dens_shortform_weighted_t(real_t *restrict x, size_t n, double &restrict split_point, mapping &restrict w, size_t *restrict buffer_indices);
+template <class real_t, class mapping>
+double find_split_dens_shortform_weighted(real_t *restrict x, size_t n, double &restrict split_point, mapping &restrict w, size_t *restrict buffer_indices);
+template <class real_t>
+double find_split_dens_shortform(real_t *restrict x, size_t *restrict ix_arr, size_t st, size_t end,
+                                 double &restrict split_point, size_t &restrict split_ix);
+template <class real_t, class mapping>
+double find_split_dens_shortform_weighted(real_t *restrict x, size_t *restrict ix_arr, size_t st, size_t end,
+                                          double &restrict split_point, size_t &restrict split_ix, mapping &restrict w);
+template <class real_t>
+double find_split_dens_longform(real_t *restrict x, size_t *restrict ix_arr, size_t st, size_t end,
+                                double &restrict split_point, size_t &restrict split_ix);
+template <class real_t, class mapping>
+double find_split_dens_longform_weighted(real_t *restrict x, size_t *restrict ix_arr, size_t st, size_t end,
+                                         double &restrict split_point, size_t &restrict split_ix, mapping &restrict w);
+template <class real_t>
+double find_split_dens(real_t *restrict x, size_t *restrict ix_arr, size_t st, size_t end,
+                       double &restrict split_point, size_t &restrict split_ix);
+template <class real_t, class mapping>
+double find_split_dens_weighted(real_t *restrict x, size_t *restrict ix_arr, size_t st, size_t end,
+                                double &restrict split_point, size_t &restrict split_ix, mapping &restrict w);
+template <class int_t>
+double find_split_dens_longform(int *restrict x, int ncat, size_t *restrict ix_arr, size_t st, size_t end,
+                                CategSplit cat_split_type, MissingAction missing_action,
+                                int &restrict chosen_cat, signed char *restrict split_categ, int *restrict saved_cat_mode,
+                                size_t *restrict buffer_cnt, int_t *restrict buffer_indices);
+template <class mapping, class int_t>
+double find_split_dens_longform_weighted(int *restrict x, int ncat, size_t *restrict ix_arr, size_t st, size_t end,
+                                         CategSplit cat_split_type, MissingAction missing_action,
+                                         int &restrict chosen_cat, signed char *restrict split_categ, int *restrict saved_cat_mode,
+                                         int_t *restrict buffer_indices, mapping &restrict w);
 double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
                         double min_gain, bool as_relative_gain, double *restrict buffer_sd,
-                        double &restrict split_point, double &restrict xmin, double &restrict xmax);
+                        double &restrict split_point, double &restrict xmin, double &restrict xmax,
+                        size_t *restrict ix_arr_plus_st,
+                        size_t *restrict cols_use, size_t ncols_use, bool force_cols_use,
+                        double *restrict X_row_major, size_t ncols,
+                        double *restrict Xr, size_t *restrict Xr_ind, size_t *restrict Xr_indptr);
 double eval_guided_crit_weighted(double *restrict x, size_t n, GainCriterion criterion,
                                  double min_gain, bool as_relative_gain, double *restrict buffer_sd,
                                  double &restrict split_point, double &restrict xmin, double &restrict xmax,
-                                 double *restrict w, size_t *restrict buffer_indices);
+                                 double *restrict w, size_t *restrict buffer_indices,
+                                 size_t *restrict ix_arr_plus_st,
+                                 size_t *restrict cols_use, size_t ncols_use, bool force_cols_use,
+                                 double *restrict X_row_major, size_t ncols,
+                                 double *restrict Xr, size_t *restrict Xr_ind, size_t *restrict Xr_indptr);
 template <class real_t_>
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, real_t_ *restrict x,
                         double *restrict buffer_sd, bool as_relative_gain,
                         double *restrict buffer_imputed_x, double *restrict saved_xmedian,
                         size_t &split_ix, double &restrict split_point, double &restrict xmin, double &restrict xmax,
-                        GainCriterion criterion, double min_gain, MissingAction missing_action);
+                        GainCriterion criterion, double min_gain, MissingAction missing_action,
+                        size_t *restrict cols_use, size_t ncols_use, bool force_cols_use,
+                        double *restrict X_row_major, size_t ncols,
+                        double *restrict Xr, size_t *restrict Xr_ind, size_t *restrict Xr_indptr);
 template <class real_t_, class mapping>
 double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end, real_t_ *restrict x,
                                  double *restrict buffer_sd, bool as_relative_gain,
                                  double *restrict buffer_imputed_x, double *restrict saved_xmedian,
                                  size_t &split_ix, double &restrict split_point, double &restrict xmin, double &restrict xmax,
                                  GainCriterion criterion, double min_gain, MissingAction missing_action,
-                                 mapping &w);
+                                 size_t *restrict cols_use, size_t ncols_use, bool force_cols_use,
+                                 double *restrict X_row_major, size_t ncols,
+                                 double *restrict Xr, size_t *restrict Xr_ind, size_t *restrict Xr_indptr,
+                                 mapping &restrict w);
 template <class real_t_, class sparse_ix>
 double eval_guided_crit(size_t ix_arr[], size_t st, size_t end,
                         size_t col_num, real_t_ Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                         double buffer_arr[], size_t buffer_pos[], bool as_relative_gain,
                         double *restrict saved_xmedian,
                         double &split_point, double &xmin, double &xmax,
-                        GainCriterion criterion, double min_gain, MissingAction missing_action);
+                        GainCriterion criterion, double min_gain, MissingAction missing_action,
+                        size_t *restrict cols_use, size_t ncols_use, bool force_cols_use,
+                        double *restrict X_row_major, size_t ncols,
+                        double *restrict Xr, size_t *restrict Xr_ind, size_t *restrict Xr_indptr);
 template <class real_t_, class sparse_ix, class mapping>
 double eval_guided_crit_weighted(size_t ix_arr[], size_t st, size_t end,
                                  size_t col_num, real_t_ Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                                  double buffer_arr[], size_t buffer_pos[], bool as_relative_gain,
                                  double *restrict saved_xmedian,
-                                 double &split_point, double &xmin, double &xmax,
+                                 double &restrict split_point, double &restrict xmin, double &restrict xmax,
                                  GainCriterion criterion, double min_gain, MissingAction missing_action,
-                                 mapping &w);
+                                 size_t *restrict cols_use, size_t ncols_use, bool force_cols_use,
+                                 double *restrict X_row_major, size_t ncols,
+                                 double *restrict Xr, size_t *restrict Xr_ind, size_t *restrict Xr_indptr,
+                                 mapping &restrict w);
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *restrict x, int ncat,
                         int *restrict saved_cat_mode,
                         size_t *restrict buffer_cnt, size_t *restrict buffer_pos, double *restrict buffer_prob,
@@ -1611,7 +1720,7 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                                  int &restrict chosen_cat, signed char *restrict split_categ, signed char *restrict buffer_split,
                                  GainCriterion criterion, double min_gain, bool all_perm,
                                  MissingAction missing_action, CategSplit cat_split_type,
-                                 mapping &w);
+                                 mapping &restrict w);
 
 /* indexer.cpp */
 template <class Tree>

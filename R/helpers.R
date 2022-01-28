@@ -809,6 +809,8 @@ export.metadata <- function(model) {
         ncols_per_tree = model$params$ncols_per_tree,
         prob_pick_avg_gain = model$params$prob_pick_avg_gain,
         prob_pick_pooled_gain = model$params$prob_pick_pooled_gain,
+        prob_pick_full_gain = model$params$prob_pick_full_gain,
+        prob_pick_dens = model$params$prob_pick_dens,
         prob_pick_col_by_range = model$params$prob_pick_col_by_range,
         min_gain = model$params$min_gain,
         missing_action = model$params$missing_action,  ## is in c++
@@ -842,6 +844,8 @@ take.metadata <- function(metadata) {
             ncols_per_tree = metadata$params$ncols_per_tree,
             prob_pick_avg_gain = metadata$params$prob_pick_avg_gain,
             prob_pick_pooled_gain = metadata$params$prob_pick_pooled_gain,
+            prob_pick_full_gain = metadata$params$prob_pick_full_gain,
+            prob_pick_dens = metadata$params$prob_pick_dens,
             prob_pick_col_by_range = metadata$params$prob_pick_col_by_range,
             prob_pick_col_by_var = metadata$params$prob_pick_col_by_var,
             prob_pick_col_by_kurt = metadata$params$prob_pick_col_by_kurt,
@@ -882,6 +886,8 @@ take.metadata <- function(metadata) {
         )
     )
 
+    this$params$prob_pick_full_gain     <-  coerce.null(this$params$prob_pick_full_gain, 0.0)
+    this$params$prob_pick_dens          <-  coerce.null(this$params$prob_pick_dens,   0.0)
     this$params$prob_pick_col_by_range  <-  coerce.null(this$params$prob_pick_col_by_range, 0.0)
     this$params$prob_pick_col_by_var    <-  coerce.null(this$params$prob_pick_col_by_var,   0.0)
     this$params$prob_pick_col_by_kurt   <-  coerce.null(this$params$prob_pick_col_by_kurt,  0.0)
