@@ -886,13 +886,13 @@ take.metadata <- function(metadata) {
         )
     )
 
-    this$params$prob_pick_full_gain     <-  coerce.null(this$params$prob_pick_full_gain, 0.0)
-    this$params$prob_pick_dens          <-  coerce.null(this$params$prob_pick_dens,   0.0)
+    this$params$prob_pick_full_gain     <-  coerce.null(this$params$prob_pick_full_gain,    0.0)
+    this$params$prob_pick_dens          <-  coerce.null(this$params$prob_pick_dens,         0.0)
     this$params$prob_pick_col_by_range  <-  coerce.null(this$params$prob_pick_col_by_range, 0.0)
     this$params$prob_pick_col_by_var    <-  coerce.null(this$params$prob_pick_col_by_var,   0.0)
     this$params$prob_pick_col_by_kurt   <-  coerce.null(this$params$prob_pick_col_by_kurt,  0.0)
-    this$params$scoring_metric          <-  coerce.null(this$params$scoring_metric, "depth")
-    this$params$fast_bratio             <-  coerce.null(this$params$fast_bratio, TRUE)
+    this$params$scoring_metric          <-  coerce.null(this$params$scoring_metric,         "depth")
+    this$params$fast_bratio             <-  coerce.null(this$params$fast_bratio,            TRUE)
 
     if (!NROW(this$metadata$standardize_data))
         this$metadata$standardize_data <- TRUE

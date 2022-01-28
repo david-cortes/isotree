@@ -3597,9 +3597,9 @@ void colmajor_to_rowmajor(real_t *restrict Xc, sparse_ix *restrict Xc_ind, spars
     /* Then copy the data argsorted by rows */
     std::vector<size_t> argsorted_indices(nnz);
     std::iota(argsorted_indices.begin(), argsorted_indices.end(), (size_t)0);
-    std::sort(argsorted_indices.begin(), argsorted_indices.end(),
-              [&row_indices](const size_t a, const size_t b)
-              {return row_indices[a] < row_indices[b];});
+    std::stable_sort(argsorted_indices.begin(), argsorted_indices.end(),
+                     [&row_indices](const size_t a, const size_t b)
+                     {return row_indices[a] < row_indices[b];});
     Xr.resize(nnz);
     Xr_ind.resize(nnz);
     for (size_t ix = 0; ix < nnz; ix++)

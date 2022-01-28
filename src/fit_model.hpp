@@ -585,10 +585,10 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 uint64_t random_seed, int nthreads)
 {
     if (
-        prob_pick_by_gain_avg < 0 || prob_pick_by_gain_pl < 0 ||
-        prob_pick_by_full_gain < 0 || prob_pick_by_dens < 0 ||
+        prob_pick_by_gain_avg  < 0 || prob_pick_by_gain_pl  < 0 ||
+        prob_pick_by_full_gain < 0 || prob_pick_by_dens     < 0 ||
         prob_pick_col_by_range < 0 ||
-        prob_pick_col_by_var < 0 || prob_pick_col_by_kurt < 0
+        prob_pick_col_by_var   < 0 || prob_pick_col_by_kurt < 0
     ) {
         throw std::runtime_error("Cannot pass negative probabilities.\n");
     }
@@ -697,7 +697,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     )
     {
         bool avoid_col_weights = (model_outputs != NULL && model_params.ntry >= model_params.ncols_per_tree &&
-                                  model_params.prob_pick_by_gain_avg + model_params.prob_pick_by_gain_pl >= 1)
+                                  model_params.prob_pick_by_gain_avg  + model_params.prob_pick_by_gain_pl +
+                                  model_params.prob_pick_by_full_gain + model_params.prob_pick_by_dens >= 1)
                                     ||
                                  (model_outputs == NULL && model_params.ndim >= model_params.ncols_per_tree)
                                     ||
@@ -1295,9 +1296,10 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              uint64_t random_seed)
 {
     if (
-        prob_pick_by_gain_avg < 0 || prob_pick_by_gain_pl < 0 || prob_pick_col_by_range < 0 ||
-        prob_pick_by_full_gain < 0 || prob_pick_by_dens < 0 ||
-        prob_pick_col_by_var < 0 || prob_pick_col_by_kurt < 0
+        prob_pick_by_gain_avg  < 0  || prob_pick_by_gain_pl  < 0 ||
+        prob_pick_by_full_gain < 0  || prob_pick_by_dens     < 0 ||
+        prob_pick_col_by_range < 0  ||
+        prob_pick_col_by_var   < 0  || prob_pick_col_by_kurt < 0
     ) {
         throw std::runtime_error("Cannot pass negative probabilities.\n");
     }
@@ -1570,7 +1572,8 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     /* in some cases, it's not possible to use column weights even if they are given,
        because every single column will always need to be checked or end up being used. */
     bool avoid_col_weights = (tree_root != NULL && model_params.ntry >= model_params.ncols_per_tree &&
-                              model_params.prob_pick_by_gain_avg + model_params.prob_pick_by_gain_pl >= 1)
+                              model_params.prob_pick_by_gain_avg  + model_params.prob_pick_by_gain_pl +
+                              model_params.prob_pick_by_full_gain + model_params.prob_pick_by_dens >= 1)
                                 ||
                              (tree_root == NULL && model_params.ndim >= model_params.ncols_per_tree)
                                 ||
@@ -1748,11 +1751,13 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
 
     /* make space for buffers if not already allocated */
     if (
-            (model_params.prob_pick_by_gain_avg > 0 ||
-             model_params.prob_pick_by_gain_pl > 0  ||
-             model_params.prob_pick_col_by_range > 0  ||
-             model_params.prob_pick_col_by_var > 0  ||
-             model_params.prob_pick_col_by_kurt > 0  ||
+            (model_params.prob_pick_by_gain_avg    > 0  ||
+             model_params.prob_pick_by_gain_pl     > 0  ||
+             model_params.prob_pick_by_full_gain   > 0  ||
+             model_params.prob_pick_by_dens        > 0  ||
+             model_params.prob_pick_col_by_range   > 0  ||
+             model_params.prob_pick_col_by_var     > 0  ||
+             model_params.prob_pick_col_by_kurt    > 0  ||
              model_params.weigh_by_kurt || hplane_root != NULL)
                 &&
             (workspace.buffer_dbl.empty() && workspace.buffer_szt.empty() && workspace.buffer_chr.empty())
@@ -1762,8 +1767,10 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         size_t min_size_szt = 0;
         size_t min_size_chr = 0;
 
-        bool gain = model_params.prob_pick_by_gain_avg > 0 ||
-                    model_params.prob_pick_by_gain_pl  > 0;
+        bool gain = model_params.prob_pick_by_gain_avg  > 0 ||
+                    model_params.prob_pick_by_gain_pl   > 0 ||
+                    model_params.prob_pick_by_full_gain > 0 ||
+                    model_params.prob_pick_by_dens      > 0;
 
         if (input_data.ncols_categ)
         {
@@ -1846,7 +1853,9 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
             model_params.cat_split_type == SubSet &&
             (
                 model_params.prob_pick_by_gain_avg  || 
-                model_params.prob_pick_by_gain_pl
+                model_params.prob_pick_by_gain_pl   ||
+                model_params.prob_pick_by_full_gain ||
+                model_params.prob_pick_by_dens
             )
            )
         {
@@ -1858,7 +1867,8 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     /* Other potentially necessary buffers */
     if (
         tree_root != NULL && model_params.missing_action == Impute &&
-        (model_params.prob_pick_by_gain_avg || model_params.prob_pick_by_gain_pl) &&
+        (model_params.prob_pick_by_gain_avg  || model_params.prob_pick_by_gain_pl ||
+         model_params.prob_pick_by_full_gain || model_params.prob_pick_by_dens) &&
         input_data.Xc_indptr == NULL && input_data.ncols_numeric && workspace.imputed_x_buffer.empty()
     )
     {
