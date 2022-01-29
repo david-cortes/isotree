@@ -77,7 +77,7 @@ struct IsoTree_Params {
     /*  General tree construction parameters  */
     size_t ndim = 3;
     size_t ntry = 1;
-    CoefType coef_type = Normal; /* only for ndim>1 */
+    CoefType coef_type = Uniform; /* only for ndim>1 */
     bool   with_replacement = false;
     bool   weight_as_sample = true;
     size_t sample_size = 0;

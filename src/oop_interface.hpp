@@ -103,7 +103,7 @@ public:
 
     size_t ndim = 3;
     size_t ntry = 1;
-    CoefType coef_type = Normal;
+    CoefType coef_type = Uniform;
     bool   with_replacement = false;
     bool   weight_as_sample = true;
     size_t sample_size = 0;

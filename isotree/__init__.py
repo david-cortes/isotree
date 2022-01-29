@@ -845,7 +845,7 @@ class IsolationForest:
                  weights_as_sample_prob = True, sample_with_replacement = False,
                  penalize_range = False, standardize_data = True,
                  scoring_metric = "depth", fast_bratio = True, weigh_by_kurtosis = False,
-                 coefs = "normal", assume_full_distr = True,
+                 coefs = "uniform", assume_full_distr = True,
                  build_imputer = False, min_imp_obs = 3,
                  depth_imp = "higher", weigh_imp_rows = "inverse",
                  random_seed = 1, nthreads = -1,

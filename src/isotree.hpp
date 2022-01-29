@@ -1088,6 +1088,8 @@ void add_csc_range_penalty(WorkerForPredictCSC  &workspace,
 template <class PredictionData>
 double extract_spC(PredictionData &prediction_data, size_t row, size_t col_num) noexcept;
 template <class PredictionData, class sparse_ix>
+static inline double extract_spR(PredictionData &prediction_data, sparse_ix *row_st, sparse_ix *row_end, size_t col_num, size_t lb, size_t ub) noexcept;
+template <class PredictionData, class sparse_ix>
 double extract_spR(PredictionData &prediction_data, sparse_ix *row_st, sparse_ix *row_end, size_t col_num) noexcept;
 template <class sparse_ix>
 void get_num_nodes(IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads) noexcept;

@@ -941,7 +941,7 @@ isolation.forest <- function(data,
                              weights_as_sample_prob = TRUE, sample_with_replacement = FALSE,
                              penalize_range = FALSE, standardize_data = TRUE,
                              scoring_metric = "depth", fast_bratio = TRUE, weigh_by_kurtosis = FALSE,
-                             coefs = "normal", assume_full_distr = TRUE,
+                             coefs = "uniform", assume_full_distr = TRUE,
                              build_imputer = FALSE, output_imputations = FALSE, min_imp_obs = 3,
                              depth_imp = "higher", weigh_imp_rows = "inverse",
                              output_score = FALSE, output_dist = FALSE, square_dist = FALSE,
@@ -1530,7 +1530,7 @@ isolation.forest <- function(data,
 #' @seealso \link{isolation.forest} \link{isotree.restore.handle} \link{isotree.build.indexer} \link{isotree.set.reference.points}
 #' @export predict.isolation_forest
 #' @export
-predict.isolation_forest <- function(object, newdata, type="score", square_mat=FALSE, refdata=NULL, use_reference_points=TRUE, ...) {
+predict.isolation_forest <- function(object, newdata, type="score", square_mat=ifelse(type == "kernel", TRUE, FALSE), refdata=NULL, use_reference_points=TRUE, ...) {
     isotree.restore.handle(object)
 
     allowed_type <- c("score", "avg_depth", "dist", "avg_sep", "kernel", "kernel_raw", "tree_num", "tree_depths", "impute")

@@ -62,7 +62,7 @@ int main()
                 X.data(),  ncol,
                 NULL,    0,    NULL,
                 NULL, NULL, NULL,
-                2, 3, Normal, false,
+                2, 3, Uniform, false,
                 NULL, false, false,
                 nrow, nrow, 500, 0, 0,
                 true, true, true,

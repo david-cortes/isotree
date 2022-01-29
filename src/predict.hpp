@@ -1075,10 +1075,13 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
         numeric_config = DenseRowMajor;
 
     sparse_ix *row_st = NULL, *row_end = NULL;
+    size_t lb, ub;
     if (numeric_config == SparseCSR)
     {
         row_st  = prediction_data.Xr_ind + prediction_data.Xr_indptr[row];
         row_end = prediction_data.Xr_ind + prediction_data.Xr_indptr[row + 1];
+        lb = *row_st;
+        ub = *(row_end-1);
     }
 
     while (true)
@@ -1124,7 +1127,7 @@ void traverse_hplane(std::vector<IsoHPlane>   &hplane,
 
                             case SparseCSR:
                             {
-                                xval = extract_spR(prediction_data, row_st, row_end, hplane[curr_lev].col_num[col]);
+                                xval = extract_spR(prediction_data, row_st, row_end, hplane[curr_lev].col_num[col], lb, ub);
                                 break;
                             }
 
@@ -1871,6 +1874,18 @@ double extract_spC(PredictionData &prediction_data, size_t row, size_t col_num) 
         return 0.;
     else
         return prediction_data.Xc[search_res - prediction_data.Xc_ind];
+}
+
+template <class PredictionData, class sparse_ix>
+static inline double extract_spR(PredictionData &prediction_data, sparse_ix *row_st, sparse_ix *row_end, size_t col_num, size_t lb, size_t ub) noexcept
+{
+    if (row_end == row_st || col_num < lb || col_num > ub)
+        return 0.;
+    sparse_ix *search_res = std::lower_bound(row_st, row_end, (sparse_ix) col_num);
+    if (search_res == row_end || *search_res != (sparse_ix)col_num)
+        return 0.;
+    else
+        return prediction_data.Xr[search_res - prediction_data.Xr_ind];
 }
 
 template <class PredictionData, class sparse_ix>
