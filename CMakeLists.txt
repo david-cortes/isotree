@@ -2,7 +2,15 @@ cmake_minimum_required (VERSION 3.12.4)
 project (isotree VERSION 0.5.12)
 set(CMAKE_BUILD_TYPE Release)
 
-set(CMAKE_CXX_STANDARD 11)
+if ("${CMAKE_CXX_COMPILE_FEATURES}" MATCHES "cxx_std_17")
+    set(CMAKE_CXX_STANDARD 17)
+else()
+    if ("${CMAKE_CXX_COMPILE_FEATURES}" MATCHES "cxx_std_14")
+        set(CMAKE_CXX_STANDARD 14)
+    else()
+        set(CMAKE_CXX_STANDARD 11)
+    endif()
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED False)
 
 set(SRC_FILES ${PROJECT_SOURCE_DIR}/src/instantiate_template_headers.cpp
