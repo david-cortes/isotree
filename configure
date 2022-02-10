@@ -614,6 +614,7 @@ PACKAGE_URL=''
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+CXX_SUPPORTED
 FNTP_FLAG
 FNE_FLAG
 SUPPORTS_RESTRICT
@@ -2708,6 +2709,56 @@ else $as_nop
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 CXXFLAGS="$OLD_CXXFLAGS"
+
+
+OLD_CXXFLAGS="$CXXFLAGS"
+CXXFLAGS="$CXXFLAGS -std=c++17"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"
+then :
+  CXX_SUPPORTED="CXX17"
+else $as_nop
+  CXX_SUPPORTED="CXX11"
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+CXXFLAGS="$OLD_CXXFLAGS"
+
+if test "$CXX_SUPPORTED" = "CXX11"; then
+    OLD_CXXFLAGS="$CXXFLAGS"
+    CXXFLAGS="$CXXFLAGS -std=gnu++14"
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"
+then :
+  CXX_SUPPORTED="CXX14"
+else $as_nop
+  CXX_SUPPORTED="CXX11"
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CXXFLAGS="$OLD_CXXFLAGS"
+fi
+
 
 
 ac_config_files="$ac_config_files src/Makevars"
