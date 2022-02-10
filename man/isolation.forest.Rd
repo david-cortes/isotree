@@ -34,7 +34,7 @@ isolation.forest(
   scoring_metric = "depth",
   fast_bratio = TRUE,
   weigh_by_kurtosis = FALSE,
-  coefs = "normal",
+  coefs = "uniform",
   assume_full_distr = TRUE,
   build_imputer = FALSE,
   output_imputations = FALSE,
@@ -899,6 +899,7 @@ plot.space(Z2, "Extended Isolation Forest")
 ### SCiForest
 iso_sci = isolation.forest(
      X, ndim=2, ntry=3,
+     coefs="normal",
      ntrees=100,
      nthreads=1,
      penalize_range=TRUE,

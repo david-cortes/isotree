@@ -8,7 +8,7 @@
   object,
   newdata,
   type = "score",
-  square_mat = FALSE,
+  square_mat = ifelse(type == "kernel", TRUE, FALSE),
   refdata = NULL,
   use_reference_points = TRUE,
   ...

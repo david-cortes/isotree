@@ -816,6 +816,7 @@
 #' ### SCiForest
 #' iso_sci = isolation.forest(
 #'      X, ndim=2, ntry=3,
+#'      coefs="normal",
 #'      ntrees=100,
 #'      nthreads=1,
 #'      penalize_range=TRUE,

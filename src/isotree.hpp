@@ -312,8 +312,8 @@ typedef enum  ScoringMetric  {Depth=0,     Density=92,     BoxedDensity=94, Boxe
                               AdjDepth=91, AdjDensity=93}              ScoringMetric;
 
 /* These are only used internally */
-typedef enum  ColCriterion   {Uniformly,   ByRange, ByVar, ByKurt}     ColCriterion;   /* For proportional choices */
-typedef enum  GainCriterion  {Averaged, Pooled, FullGain, DensityCrit, NoCrit=0} Criterion; /* For guided splits */
+typedef enum  ColCriterion   {Uniformly=0, ByRange=1, ByVar=2, ByKurt=3} ColCriterion;   /* For proportional choices */
+typedef enum  GainCriterion  {Averaged=1, Pooled=2, FullGain=3, DensityCrit=4, NoCrit=0} Criterion; /* For guided splits */
 
 
 /* Notes about new categorical action:
