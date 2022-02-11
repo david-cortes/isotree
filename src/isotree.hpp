@@ -246,7 +246,7 @@ using std::isnan;
 /* MSVC doesn't support long doubles, so this avoids unnecessarily increasing library size.
    MinGW supports them but has issues with their computations.
    See https://sourceforge.net/p/mingw-w64/bugs/909/ */
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(NO_LONG_DOUBLE)
     #define NO_LONG_DOUBLE
 #endif
 
