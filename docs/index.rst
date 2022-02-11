@@ -17,10 +17,10 @@ For the R version, see the CRAN webpage:
 Installation
 ============
 
-The Python version of this package can be easily installed from PyPI:
-``
-pip install isotree
-``
+The Python version of this package can be easily installed from PyPI
+::
+
+   pip install isotree
 
 (See the GitHub page for more details, esp. section "Reducing library size and compilation times")
 
