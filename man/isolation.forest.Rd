@@ -692,10 +692,10 @@ to `data`, will assume the column order is the same as in there, regardless of w
 standard deviations, means, ratios, weights, gain, and other potential aggregates. This makes
 such calculations accurate to a larger number of decimals (provided that the compiler used has
 wider long doubles than doubles) and it is highly recommended to use when the input data has
-a number of rows or columns exceeding \eqn{2^53} (an unlikely scenario), and also highly recommended
+a number of rows or columns exceeding \eqn{2^{53}}{2^53} (an unlikely scenario), and also highly recommended
 to use when the input data has problematic scales (e.g. numbers that differ from each other by
-something like \eqn{10^-100} or columns that include values like \eqn{10^100}, \eqn{10^-10}, and \eqn{10^-100} and still need to
-be sensitive to a difference of \eqn{10^-10}), but will make the calculations slower, the more so in
+something like \eqn{10^{-100}}{10^-100} or columns that include values like \eqn{10^{100}}{10^100}, \eqn{10^{-10}}{10^{-10}}, and \eqn{10^{-100}} and still need to
+be sensitive to a difference of \eqn{10^{-10}}{10^-10}), but will make the calculations slower, the more so in
 platforms in which 'long double' is a software-emulated type (e.g. Power8 platforms).
 Note that some platforms (most notably windows with the msvc compiler) do not make any difference
 between 'double' and 'long double'.

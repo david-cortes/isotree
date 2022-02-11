@@ -779,10 +779,10 @@ class IsolationForest:
         standard deviations, means, ratios, weights, gain, and other potential aggregates. This makes
         such calculations accurate to a larger number of decimals (provided that the compiler used has
         wider long doubles than doubles) and it is highly recommended to use when the input data has
-        a number of rows or columns exceeding :math:`2^53` (an unlikely scenario), and also highly recommended
+        a number of rows or columns exceeding :math:`2^{53}` (an unlikely scenario), and also highly recommended
         to use when the input data has problematic scales (e.g. numbers that differ from each other by
-        something like :math:`10^-100` or columns that include values like :math:`10^100`, :math:`10^-10`, and :math:`10^-100` and still need to
-        be sensitive to a difference of :math:`10^-10`), but will make the calculations slower, the more so in
+        something like :math:`10^{-100}` or columns that include values like :math:`10^{100}`, :math:`10^{-10}`, and :math:`10^{-100}` and still need to
+        be sensitive to a difference of :math:`10^{-10}`), but will make the calculations slower, the more so in
         platforms in which 'long double' is a software-emulated type (e.g. Power8 platforms).
         Note that some platforms (most notably windows with the msvc compiler) do not make any difference
         between 'double' and 'long double'.

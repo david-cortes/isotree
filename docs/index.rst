@@ -14,6 +14,18 @@ For the R version, see the CRAN webpage:
 
 `<https://cran.r-project.org/web/packages/isotree/index.html>`_
 
+Installation
+============
+
+The Python version of this package can be easily installed from PyPI:
+``
+pip install isotree
+``
+
+(See the GitHub page for more details, esp. section "Reducing library size and compilation times")
+
+Note that it is only available in source form (not in binary wheel form), which means you will need a toolchain for compiling C++ source code (e.g. GCC in linux, msys2 that comes with anaconda on windows, clang in mac).
+
 
 Quick example notebooks
 =======================
