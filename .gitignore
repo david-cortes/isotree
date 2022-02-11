@@ -42,3 +42,4 @@ config.log
 config.status
 configure~
 autom4te.cache/*
+isotree/cpp_interface.h

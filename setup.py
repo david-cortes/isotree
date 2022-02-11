@@ -72,6 +72,10 @@ class build_ext_subclass( build_ext ):
                     e.define_macros += [("NO_LONG_DOUBLE", None)]
 
 
+                # ## for testing
+                # e.extra_compile_args = ["-std=c++11", "-ggdb"]
+
+
 
                 # e.extra_compile_args = ['-fopenmp', '-O3', '-march=native', '-std=c++11']
                 # e.extra_link_args    = ['-fopenmp']

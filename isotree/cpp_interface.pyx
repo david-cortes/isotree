@@ -75,7 +75,11 @@ from libc.stdio cimport FILE, fopen, fclose
 from cython cimport boundscheck, nonecheck, wraparound
 import ctypes
 import os
+import warnings
 
+cdef public void cy_warning(const char *msg) nogil:
+    with gil:
+        warnings.warn((<bytes>msg).decode())
 
 cdef extern from "headers_joined.hpp":
 

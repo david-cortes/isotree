@@ -33,6 +33,7 @@ exclude src/isotree_exportable.hpp
 exclude src/oop_interface.cpp
 exclude src/oop_interface.hpp
 exclude src/c_interface.cpp
+exclude isotree/cpp_interface.h
 prune src/robinmap
 include src/robinmap/include/tsl/robin_growth_policy.h
 include src/robinmap/include/tsl/robin_hash.h
