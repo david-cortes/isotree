@@ -23,10 +23,12 @@ class build_ext_subclass( build_ext ):
         is_msvc = self.compiler.compiler_type == "msvc"
         is_clang = hasattr(self.compiler, 'compiler_cxx') and ("clang++" in self.compiler.compiler_cxx)
         is_windows = sys.platform[:3] == "win"
+        no_ld = "NO_LONG_DOUBLE" in os.environ
 
         if is_msvc:
             for e in self.extensions:
                 e.extra_compile_args = ['/openmp', '/O2', '/std:c++14', '/fp:except-', '/wd4244', '/wd4267', '/wd4018', '/wd5030']
+                e.define_macros += [("NO_LONG_DOUBLE", None)]
                 ### Note: MSVC never implemented C++11
         else:
             if not self.is_arch_in_cflags():
@@ -66,8 +68,8 @@ class build_ext_subclass( build_ext ):
                 if (os.path.exists("src/robinmap/include/tsl")):
                     e.define_macros += [("_USE_ROBIN_MAP", None)]
 
-                if is_windows:
-                    e.define_macros += [("AVOID_LONG_DOUBLE", None)]
+                if is_windows or no_ld:
+                    e.define_macros += [("NO_LONG_DOUBLE", None)]
 
 
 
@@ -230,7 +232,7 @@ class build_ext_subclass( build_ext ):
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.5.12',
+    version = '0.5.13',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',

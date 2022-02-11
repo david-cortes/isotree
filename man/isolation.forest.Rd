@@ -47,6 +47,7 @@ isolation.forest(
   sample_weights = NULL,
   column_weights = NULL,
   seed = 1,
+  use_long_double = FALSE,
   nthreads = parallel::detectCores()
 )
 }
@@ -687,6 +688,27 @@ to `data`, will assume the column order is the same as in there, regardless of w
 
 \item{seed}{Seed that will be used for random number generation.}
 
+\item{use_long_double}{Whether to use 'long double' (extended precision) type for more precise calculations about
+standard deviations, means, ratios, weights, gain, and other potential aggregates. This makes
+such calculations accurate to a larger number of decimals (provided that the compiler used has
+wider long doubles than doubles) and it is highly recommended to use when the input data has
+a number of rows or columns exceeding \eqn{2^53} (an unlikely scenario), and also highly recommended
+to use when the input data has problematic scales (e.g. numbers that differ from each other by
+something like \eqn{10^-100} or columns that include values like \eqn{10^100}, \eqn{10^-10}, and \eqn{10^-100} and still need to
+be sensitive to a difference of \eqn{10^-10}), but will make the calculations slower, the more so in
+platforms in which 'long double' is a software-emulated type (e.g. Power8 platforms).
+Note that some platforms (most notably windows with the msvc compiler) do not make any difference
+between 'double' and 'long double'.
+
+If 'long double' is not going to be used, the library can be compiled without support for it
+(making the library size smaller) by defining an environment variable `NO_LONG_DOUBLE` before
+installing this package (e.g. through `Sys.setenv("NO_LONG_DOUBLE" = "1")` before running the
+`install.packages` command). If R itself was compiled without 'long double' support, this library
+will follow suit and disable long double too.
+
+This option is not available on Windows, due to lack of support in some compilers (e.g. msvc)
+and lack of thread-safety in the calculations in others (e.g. mingw).}
+
 \item{nthreads}{Number of parallel threads to use. If passing a negative number, will use
 the maximum number of available threads in the system. Note that, the more threads,
 the more memory will be allocated, even if the thread does not end up being used.
@@ -898,7 +920,7 @@ plot.space(Z2, "Extended Isolation Forest")
 
 ### SCiForest
 iso_sci = isolation.forest(
-     X, ndim=2, ntry=3,
+     X, ndim=2, ntry=1,
      coefs="normal",
      ntrees=100,
      nthreads=1,

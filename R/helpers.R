@@ -798,7 +798,8 @@ export.metadata <- function(model) {
     model_info <- list(
         ndim = model$params$ndim,
         nthreads = model$nthreads,
-        build_imputer = model$params$build_imputer
+        build_imputer = model$params$build_imputer,
+        use_long_double = coerce.null(model$use_long_double, FALSE)
     )
     
     params <- list(
@@ -874,8 +875,9 @@ take.metadata <- function(metadata) {
             categ_max  =  metadata$data_info$categ_max,
             reference_names = coerce.null(metadata$data_info$reference_names, character())
         ),
-        random_seed  =  metadata$params$random_seed,
-        nthreads     =  metadata$model_info$nthreads,
+        use_long_double  =  coerce.null(metadata$model_info$use_long_double, FALSE),
+        random_seed      =  metadata$params$random_seed,
+        nthreads         =  metadata$model_info$nthreads,
         cpp_obj      =  list(
             ptr         =  NULL,
             serialized  =  NULL,

@@ -115,6 +115,11 @@
 *       Pass NULL if there are no sparse numeric columns in CSR format.
 * - nrows
 *       Number of rows in 'numeric_data', 'Xc', 'Xr, 'categ_data'.
+* - use_long_double
+*       Whether to use 'long double' (extended precision) type for the calculations. This makes them
+*       more accurate (provided that the compiler used has wider long doubles than doubles), but
+*       slower - especially in platforms in which 'long double' is a software-emulated type (e.g.
+*       Power8 platforms).
 * - nthreads
 *       Number of parallel threads to use. Note that, the more threads, the more memory will be
 *       allocated, even if the thread does not end up being used. Ignored when not building with
@@ -133,6 +138,40 @@
 */
 template <class real_t, class sparse_ix>
 void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
+                           real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
+                           size_t nrows, bool use_long_double, int nthreads,
+                           IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                           Imputer &imputer)
+{
+    if (use_long_double && !has_long_double()) {
+        use_long_double = false;
+        fprintf(stderr, "Passed 'use_long_double=true', but library was compiled without long double support.\n");
+    }
+    #ifndef NO_LONG_DOUBLE
+    if (likely(!use_long_double))
+    #endif
+        impute_missing_values_internal<real_t, sparse_ix, double>(
+            numeric_data, categ_data, is_col_major,
+            Xr, Xr_ind, Xr_indptr,
+            nrows, nthreads,
+            model_outputs, model_outputs_ext,
+            imputer
+        );
+    #ifndef NO_LONG_DOUBLE
+    else
+        impute_missing_values_internal<real_t, sparse_ix, long double>(
+            numeric_data, categ_data, is_col_major,
+            Xr, Xr_ind, Xr_indptr,
+            nrows, nthreads,
+            model_outputs, model_outputs_ext,
+            imputer
+        );
+    #endif
+}
+
+template <class real_t, class sparse_ix, class ldouble_safe>
+void impute_missing_values_internal(
+                           real_t numeric_data[], int categ_data[], bool is_col_major,
                            real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
                            size_t nrows, int nthreads,
                            IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -155,9 +194,9 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
     if ((size_t)nthreads > end)
         nthreads = (int)end;
     #ifdef _OPENMP
-        std::vector<ImputedData<sparse_ix>> imp_memory(nthreads);
+        std::vector<ImputedData<sparse_ix, ldouble_safe>> imp_memory(nthreads);
     #else
-        std::vector<ImputedData<sparse_ix>> imp_memory(1);
+        std::vector<ImputedData<sparse_ix, ldouble_safe>> imp_memory(1);
     #endif
 
     bool threw_exception = false;
@@ -254,7 +293,7 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
         std::rethrow_exception(ex);
 }
 
-template <class InputData>
+template <class InputData, class ldouble_safe>
 void initialize_imputer(Imputer &imputer, InputData &input_data, size_t ntrees, int nthreads)
 {
     imputer.ncols_numeric  =  input_data.ncols_numeric;
@@ -330,7 +369,7 @@ void initialize_imputer(Imputer &imputer, InputData &input_data, size_t ntrees, 
 
 
 /* https://en.wikipedia.org/wiki/Kahan_summation_algorithm */
-template <class InputData, class WorkerMemory>
+template <class InputData, class WorkerMemory, class ldouble_safe>
 void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
                        InputData  &input_data, ModelParams  &model_params,
                        std::vector<ImputeNode> &imputer_tree,
@@ -341,7 +380,8 @@ void build_impute_node(ImputeNode &imputer,    WorkerMemory &workspace,
     if (!has_weights)
         wsum = (double)(workspace.end - workspace.st + 1);
     else
-        wsum = calculate_sum_weights(workspace.ix_arr, workspace.st, workspace.end, curr_depth,
+        wsum = calculate_sum_weights<ldouble_safe>(
+                                     workspace.ix_arr, workspace.st, workspace.end, curr_depth,
                                      workspace.weights_arr, workspace.weights_map);
 
     imputer.num_sum.resize(input_data.ncols_numeric, 0);

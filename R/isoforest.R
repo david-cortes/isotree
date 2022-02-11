@@ -693,6 +693,26 @@
 #' to `data`, will assume the column order is the same as in there, regardless of whether the entries passed to
 #' `column_weights` are named or not.
 #' @param seed Seed that will be used for random number generation.
+#' @param use_long_double Whether to use 'long double' (extended precision) type for more precise calculations about
+#' standard deviations, means, ratios, weights, gain, and other potential aggregates. This makes
+#' such calculations accurate to a larger number of decimals (provided that the compiler used has
+#' wider long doubles than doubles) and it is highly recommended to use when the input data has
+#' a number of rows or columns exceeding \eqn{2^53} (an unlikely scenario), and also highly recommended
+#' to use when the input data has problematic scales (e.g. numbers that differ from each other by
+#' something like \eqn{10^-100} or columns that include values like \eqn{10^100}, \eqn{10^-10}, and \eqn{10^-100} and still need to
+#' be sensitive to a difference of \eqn{10^-10}), but will make the calculations slower, the more so in
+#' platforms in which 'long double' is a software-emulated type (e.g. Power8 platforms).
+#' Note that some platforms (most notably windows with the msvc compiler) do not make any difference
+#' between 'double' and 'long double'.
+#' 
+#' If 'long double' is not going to be used, the library can be compiled without support for it
+#' (making the library size smaller) by defining an environment variable `NO_LONG_DOUBLE` before
+#' installing this package (e.g. through `Sys.setenv("NO_LONG_DOUBLE" = "1")` before running the
+#' `install.packages` command). If R itself was compiled without 'long double' support, this library
+#' will follow suit and disable long double too.
+#' 
+#' This option is not available on Windows, due to lack of support in some compilers (e.g. msvc)
+#' and lack of thread-safety in the calculations in others (e.g. mingw).
 #' @param nthreads Number of parallel threads to use. If passing a negative number, will use
 #' the maximum number of available threads in the system. Note that, the more threads,
 #' the more memory will be allocated, even if the thread does not end up being used.
@@ -815,7 +835,7 @@
 #' 
 #' ### SCiForest
 #' iso_sci = isolation.forest(
-#'      X, ndim=2, ntry=3,
+#'      X, ndim=2, ntry=1,
 #'      coefs="normal",
 #'      ntrees=100,
 #'      nthreads=1,
@@ -947,7 +967,7 @@ isolation.forest <- function(data,
                              depth_imp = "higher", weigh_imp_rows = "inverse",
                              output_score = FALSE, output_dist = FALSE, square_dist = FALSE,
                              sample_weights = NULL, column_weights = NULL,
-                             seed = 1, nthreads = parallel::detectCores()) {
+                             seed = 1, use_long_double = FALSE, nthreads = parallel::detectCores()) {
     ### validate inputs
     if (NROW(data) < 3L)
         stop("Input data has too few rows.")
@@ -1035,6 +1055,7 @@ isolation.forest <- function(data,
     check.is.bool(square_dist)
     check.is.bool(build_imputer)
     check.is.bool(output_imputations)
+    check.is.bool(use_long_double)
     
     s <- prob_pick_avg_gain + prob_pick_pooled_gain + prob_pick_full_gain + prob_pick_dens
     if (s > 1) {
@@ -1193,6 +1214,7 @@ isolation.forest <- function(data,
     standardize_data         <-  as.logical(standardize_data)
     weigh_by_kurtosis        <-  as.logical(weigh_by_kurtosis)
     assume_full_distr        <-  as.logical(assume_full_distr)
+    use_long_double          <-  as.logical(use_long_double)
 
     ### split column types
     pdata <- process.data(data, sample_weights, column_weights, recode_categ, categ_cols)
@@ -1244,7 +1266,7 @@ isolation.forest <- function(data,
                              missing_action, all_perm,
                              build_imputer, output_imputations, min_imp_obs,
                              depth_imp, weigh_imp_rows,
-                             seed, nthreads)
+                             seed, use_long_double, nthreads)
     
     if (cpp_outputs$err)
         stop("Procedure was interrupted.")
@@ -1294,8 +1316,9 @@ isolation.forest <- function(data,
             categ_max  =  pdata$categ_max,
             reference_names = character()
         ),
-        random_seed  =  seed,
-        nthreads     =  nthreads,
+        use_long_double  =  use_long_double,
+        random_seed      =  seed,
+        nthreads         =  nthreads,
         cpp_obj      =  list(
             ptr         =  cpp_outputs$ptr,
             serialized  =  cpp_outputs$serialized,
@@ -1659,7 +1682,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=i
                  object$params$ndim > 1L,
                  pdata$X_num, pdata$X_cat,
                  pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
-                 pdata$nrows, object$nthreads, object$params$assume_full_distr,
+                 pdata$nrows, object$use_long_double, object$nthreads, object$params$assume_full_distr,
                  type %in% c("dist", "kernel"), square_mat, nobs_group1,
                  use_reference_points, type %in% c("kernel", "kernel_raw"))
         if (used_rmat)
@@ -1683,7 +1706,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=i
         imp <- impute_iso(object$cpp_obj$ptr, object$cpp_obj$imp_ptr, object$params$ndim > 1,
                           pdata$X_num, pdata$X_cat,
                           pdata$Xr, pdata$Xr_ind, pdata$Xr_indptr,
-                          pdata$nrows, object$nthreads)
+                          pdata$nrows, object$use_long_double, object$nthreads)
         return(reconstruct.from.imp(imp$X_num,
                                     imp$X_cat,
                                     newdata, object,
@@ -1911,6 +1934,7 @@ isotree.add.tree <- function(model, data, sample_weights = NULL, column_weights 
              ref_pdata$X_num, ref_pdata$X_cat,
              ref_pdata$Xc, ref_pdata$Xc_ind, ref_pdata$Xc_indptr,
              model$random_seed + (model$params$ntrees-1L),
+             model$use_long_double,
              model$cpp_obj, model$params)
     
     return(invisible(model))
@@ -1985,6 +2009,10 @@ isotree.restore.handle <- function(model)  {
         if (!("indexer" %in% names(model$cpp_obj)))
             set.list.elt(model$cpp_obj, "indexer", get_null_R_pointer())
         set.list.elt(model$cpp_obj, "indexer", deserialize_Indexer(model$cpp_obj$ind_ser))
+    }
+
+    if (is.null(model$use_long_double)) {
+        set.list.elt(model, "use_long_double", FALSE)
     }
     
     return(invisible(model))

@@ -275,6 +275,23 @@ See [external repository with wrapper](https://github.com/ankane/isotree).
 * C: interface is not documented per-se, but the same documentation from the C++ header applies to it. See also its header for some non-comprehensive comments about the parameters that functions take (`include/isotree_c.h`).
 * Ruby: see [external repository with wrapper](https://github.com/ankane/isotree) for the syntax and the [Python docs](http://isotree.readthedocs.io) for details about the parameters.
 
+# Reducing library size and compilation times
+
+By default, this library will compile with some functionalities that are unlikely to be used and which can significantly increase the size of the library and compilation times - if using this library in e.g. embedded devices, it is highly recommended to disable some options, and if creating a docker images for serving models, one might want to make it as minimal as possible. Being a C++ templated library, it generates multiple versions of its functions that are specialized for different types (such as C `double` and `float`), and in practice not all the supported types are likely to be used.
+
+In particular, the library supports usage of `long double` type for more precisse aggregated calculations (e.g. standard deviations), which is unlikely to end up used (its usage is determined by a user-passed function argument and not available in the C or C++-OOP interfaces). For a smaller library and faster compilation, support for `long double` can be disabled by:
+
+* Defining an environment variable `NO_LONG_DOUBLE`, which will be accepted by the Python and R build systems - e.g. first run `export NO_LONG_DOUBLE=1`, then a `pip` install; or for R, run `Sys.setenv("NO_LONG_DOUBLE" = "1")` before `install.packages`.
+* Passing option `NO_LONG_DOUBLE` to the CMake script - e.g. `cmake -DNO_LONG_DOUBLE=1 ..` (only when using the CMake system, which is not used by the Python and R versions).
+
+
+Additionally, the library will produce functions for different floating point and integer types of the input data. In practice, one usually ends up using only `double` and `int` types (these are the only types supported in the R interface and in the C and C++-OOP interfaces). When building it as a shared library through the CMake system, these can be disabled (leaving only `double` and `int` support) through option `NO_TEMPLATED_VERSIONS` - e.g.:
+```
+cmake -DNO_TEMPLATED_VERSIONS=1 ..
+```
+(this option is not available for the Python build system)
+
+
 # Help wanted
 
 The package does not currenly have any functionality for visualizing trees. Pull requests adding such functionality would be welcome.

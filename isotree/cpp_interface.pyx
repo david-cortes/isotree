@@ -328,7 +328,7 @@ cdef extern from "headers_joined.hpp":
                     CategSplit cat_split_type, NewCategAction new_cat_action,
                     bool_t all_perm, Imputer *imputer, size_t min_imp_obs,
                     UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool_t impute_at_fit,
-                    uint64_t random_seed, int nthreads) nogil except +
+                    uint64_t random_seed, bool_t use_long_double, int nthreads) nogil except +
 
     void predict_iforest[real_t_, sparse_ix_](
                          real_t_ *numeric_data, int *categ_data,
@@ -348,7 +348,7 @@ cdef extern from "headers_joined.hpp":
     void calc_similarity[real_t_, sparse_ix_](
                          real_t_ numeric_data[], int categ_data[],
                          real_t_ Xc[], sparse_ix_ Xc_ind[], sparse_ix_ Xc_indptr[],
-                         size_t nrows, int nthreads,
+                         size_t nrows, bool_t use_long_double, int nthreads,
                          bool_t assume_full_distr, bool_t standardize_dist, bool_t as_kernel,
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                          double tmat[], double rmat[], size_t n_from, bool_t use_indexed_references,
@@ -357,7 +357,7 @@ cdef extern from "headers_joined.hpp":
     void impute_missing_values[real_t_, sparse_ix_](
                                real_t_ *numeric_data, int *categ_data, bool_t is_col_major,
                                real_t_ *Xr, sparse_ix_ *Xr_ind, sparse_ix_ *Xr_indptr,
-                               size_t nrows, int nthreads,
+                               size_t nrows, bool_t use_long_double, int nthreads,
                                IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                Imputer &imputer) nogil except +
 
@@ -384,7 +384,7 @@ cdef extern from "headers_joined.hpp":
                  real_t_ ref_numeric_data[], int ref_categ_data[],
                  bool_t ref_is_col_major, size_t ref_ld_numeric, size_t ref_ld_categ,
                  real_t_ ref_Xc[], sparse_ix_ ref_Xc_ind[], sparse_ix_ ref_Xc_indptr[],
-                 uint64_t random_seed) nogil except +
+                 uint64_t random_seed, bool_t use_long_double) nogil except +
 
     void set_reference_points[real_t_, sparse_ix_](
                               IsoForest *model_outputs, ExtIsoForest *model_outputs_ext, TreesIndexer *indexer,
@@ -708,7 +708,7 @@ cdef class isoforest_cpp_obj:
                   double min_gain, missing_action, cat_split_type, new_cat_action,
                   bool_t build_imputer, size_t min_imp_obs,
                   depth_imp, weigh_imp_rows, bool_t impute_at_fit,
-                  bool_t all_perm, uint64_t random_seed,
+                  bool_t all_perm, uint64_t random_seed, bool_t use_long_double,
                   int nthreads):
         cdef real_t*     numeric_data_ptr    =  NULL
         cdef int*        categ_data_ptr      =  NULL
@@ -866,7 +866,7 @@ cdef class isoforest_cpp_obj:
                         cat_split_type_C, new_cat_action_C,
                         all_perm, imputer_ptr, min_imp_obs,
                         depth_imp_C, weigh_imp_rows_C, impute_at_fit,
-                        random_seed, nthreads)
+                        random_seed, use_long_double, nthreads)
 
         if cy_check_interrupt_switch():
             cy_tick_off_interrupt_switch()
@@ -898,7 +898,7 @@ cdef class isoforest_cpp_obj:
                  depth_imp, weigh_imp_rows,
                  bool_t all_perm,
                  ref_X_num, ref_X_cat,
-                 uint64_t random_seed):
+                 uint64_t random_seed, bool_t use_long_double):
         cdef real_t*     numeric_data_ptr    =  NULL
         cdef int*        categ_data_ptr      =  NULL
         cdef int*        ncat_ptr            =  NULL
@@ -1067,7 +1067,7 @@ cdef class isoforest_cpp_obj:
                      ref_numeric_data_ptr, ref_categ_data_ptr,
                      ref_is_col_major, ref_ncols_numeric, ref_ncols_categ,
                      ref_Xc_ptr, ref_Xc_ind_ptr, ref_Xc_indptr_ptr,
-                     random_seed)
+                     random_seed, use_long_double)
 
     def predict(self,
                 np.ndarray[real_t, ndim=1] placeholder_real_t,
@@ -1202,7 +1202,8 @@ cdef class isoforest_cpp_obj:
              np.ndarray[real_t, ndim=1] placeholder_real_t,
              np.ndarray[sparse_ix, ndim=1] placeholder_sparse_ix,
              X_num, X_cat, is_extended,
-             size_t nrows, int nthreads, bool_t assume_full_distr,
+             size_t nrows, bool_t use_long_double, int nthreads,
+             bool_t assume_full_distr,
              bool_t standardize_dist,    bool_t sq_dist,
              size_t n_from, bool_t use_reference_points,
              bool_t as_kernel):
@@ -1311,7 +1312,7 @@ cdef class isoforest_cpp_obj:
         with nogil, boundscheck(False), nonecheck(False), wraparound(False):
             calc_similarity(numeric_data_ptr, categ_data_ptr,
                             Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
-                            nrows, nthreads,
+                            nrows, use_long_double, nthreads,
                             assume_full_distr, standardize_dist, as_kernel,
                             model_ptr, ext_model_ptr,
                             tmat_ptr, rmat_ptr, n_from, use_reference_points,
@@ -1341,7 +1342,8 @@ cdef class isoforest_cpp_obj:
     def impute(self,
                np.ndarray[real_t, ndim=1] placeholder_real_t,
                np.ndarray[sparse_ix, ndim=1] placeholder_sparse_ix,
-               X_num, X_cat, bool_t is_extended, size_t nrows, int nthreads):
+               X_num, X_cat, bool_t is_extended, size_t nrows,
+               bool_t use_long_double, int nthreads):
         cdef real_t*     numeric_data_ptr  =  NULL
         cdef int*        categ_data_ptr    =  NULL
         cdef real_t*     Xr_ptr            =  NULL
@@ -1396,7 +1398,7 @@ cdef class isoforest_cpp_obj:
         with nogil, boundscheck(False), nonecheck(False), wraparound(False):
             impute_missing_values(numeric_data_ptr, categ_data_ptr, is_col_major,
                                   Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
-                                  nrows, nthreads,
+                                  nrows, use_long_double, nthreads,
                                   model_ptr, ext_model_ptr,
                                   self.imputer)
 

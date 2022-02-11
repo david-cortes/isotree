@@ -136,7 +136,7 @@ double calc_mean_only(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict 
     return m;
 }
 
-template <class real_t_>
+template <class real_t_, class ldouble_safe>
 void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x,
                       MissingAction missing_action, double &restrict x_sd, double &restrict x_mean)
 {
@@ -147,7 +147,7 @@ void calc_mean_and_sd(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict 
     x_sd = std::fmax(x_sd, SD_MIN);
 }
 
-template <class real_t_, class mapping>
+template <class real_t_, class mapping, class ldouble_safe>
 void calc_mean_and_sd_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *restrict x, mapping &restrict w,
                                MissingAction missing_action, double &restrict x_sd, double &restrict x_mean)
 {
@@ -200,7 +200,7 @@ double calc_mean_only_weighted(size_t ix_arr[], size_t st, size_t end, real_t_ *
 
 /* for sparse numerical */
 template <class real_t_, class sparse_ix, class real_t>
-void calc_mean_and_sd(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
+void calc_mean_and_sd_(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                       real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                       double &restrict x_sd, double &restrict x_mean)
 {
@@ -278,19 +278,19 @@ void calc_mean_and_sd(size_t *restrict ix_arr, size_t st, size_t end, size_t col
     x_sd   = std::sqrt(s / (real_t)cnt);
 }
 
-template <class real_t_, class sparse_ix>
+template <class real_t_, class sparse_ix, class ldouble_safe>
 void calc_mean_and_sd(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                       real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                       double &restrict x_sd, double &restrict x_mean)
 {
     if (end - st + 1 < THRESHOLD_LONG_DOUBLE)
-        calc_mean_and_sd<real_t_, sparse_ix, double>(ix_arr, st, end, col_num, Xc, Xc_ind, Xc_indptr, x_sd, x_mean);
+        calc_mean_and_sd_<real_t_, sparse_ix, double>(ix_arr, st, end, col_num, Xc, Xc_ind, Xc_indptr, x_sd, x_mean);
     else
-        calc_mean_and_sd<real_t_, sparse_ix, ldouble_safe>(ix_arr, st, end, col_num, Xc, Xc_ind, Xc_indptr, x_sd, x_mean);
+        calc_mean_and_sd_<real_t_, sparse_ix, ldouble_safe>(ix_arr, st, end, col_num, Xc, Xc_ind, Xc_indptr, x_sd, x_mean);
     x_sd = std::fmax(SD_MIN, x_sd);
 }
 
-template <class real_t_, class sparse_ix>
+template <class real_t_, class sparse_ix, class ldouble_safe>
 double calc_mean_only(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                       real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr)
 {
@@ -340,7 +340,7 @@ double calc_mean_only(size_t *restrict ix_arr, size_t st, size_t end, size_t col
     return m;
 }
 
-template <class real_t_, class sparse_ix, class mapping>
+template <class real_t_, class sparse_ix, class mapping, class ldouble_safe>
 void calc_mean_and_sd_weighted(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                                real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                                double &restrict x_sd, double &restrict x_mean, mapping &restrict w)
@@ -424,7 +424,7 @@ void calc_mean_and_sd_weighted(size_t *restrict ix_arr, size_t st, size_t end, s
     x_sd   = std::sqrt(s / (ldouble_safe)cnt);
 }
 
-template <class real_t_, class sparse_ix, class mapping>
+template <class real_t_, class sparse_ix, class mapping, class ldouble_safe>
 double calc_mean_only_weighted(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                                real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                                mapping &restrict w)
@@ -557,7 +557,7 @@ void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict re
 }
 
 /* for regular numerical */
-template <class real_t_, class mapping>
+template <class real_t_, class mapping, class ldouble_safe>
 void add_linear_comb_weighted(size_t ix_arr[], size_t st, size_t end, double *restrict res,
                               real_t_ *restrict x, double &coef, double x_sd, double x_mean, double &restrict fill_val,
                               MissingAction missing_action, double *restrict buffer_arr,
@@ -870,7 +870,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
     }
 }
 
-template <class real_t_, class sparse_ix, class mapping>
+template <class real_t_, class sparse_ix, class mapping, class ldouble_safe>
 void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num, double *restrict res,
                               real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                               double &restrict coef, double x_sd, double x_mean, double &restrict fill_val, MissingAction missing_action,
@@ -941,6 +941,7 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
 }
 
 /* for categoricals */
+template <class ldouble_safe>
 void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, double *restrict res,
                      int x[], int ncat, double *restrict cat_coef, double single_cat_coef, int chosen_cat,
                      double &restrict fill_val, double &restrict fill_new, size_t *restrict buffer_cnt, size_t *restrict buffer_pos,
@@ -1125,7 +1126,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, double *res
     }
 } 
 
-template <class mapping>
+template <class mapping, class ldouble_safe>
 void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, double *restrict res,
                               int x[], int ncat, double *restrict cat_coef, double single_cat_coef, int chosen_cat,
                               double &restrict fill_val, double &restrict fill_new, size_t *restrict buffer_pos,

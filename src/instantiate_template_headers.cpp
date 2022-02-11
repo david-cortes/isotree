@@ -77,6 +77,8 @@
 #undef real_t
 #undef sparse_ix
 
+#ifndef NO_TEMPLATED_VERSIONS
+
 #define real_t double
 #define sparse_ix int64_t
 #include "instantiate_template_headers.hpp"
@@ -110,5 +112,7 @@
 #undef sparse_ix
 
 #undef _NO_REAL_T
+
+#endif /* NO_TEMPLATED_VERSIONS */
 
 #endif

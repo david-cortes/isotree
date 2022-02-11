@@ -141,11 +141,11 @@ std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest
                                                 + std::to_string((size_t)std::distance(tree_conds.data(), &b) + (size_t)index1)
                                                 + std::string("---\n");});
     size_t ntrees = (model_outputs != NULL)? (model_outputs->trees.size()) : (model_outputs_ext->hplanes.size());
-   return
+    return
        out
         + std::string(") / ")
-        + std::to_string((ldouble_safe)ntrees * ((model_outputs != NULL)?
-                                                 (model_outputs->exp_avg_depth) : (model_outputs_ext->exp_avg_depth)))
+        + std::to_string((double)ntrees * ((model_outputs != NULL)?
+                                           (model_outputs->exp_avg_depth) : (model_outputs_ext->exp_avg_depth)))
         + std::string(") AS ")
         + select_as
         + std::string("\nFROM ")

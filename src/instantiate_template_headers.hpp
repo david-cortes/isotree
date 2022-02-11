@@ -82,7 +82,7 @@ ISOTREE_EXPORTED int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_o
                 CategSplit cat_split_type, NewCategAction new_cat_action,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
-                uint64_t random_seed, int nthreads)
+                uint64_t random_seed, bool use_long_double, int nthreads)
 {
     return fit_iforest<real_t, sparse_ix>
                (model_outputs, model_outputs_ext,
@@ -106,7 +106,7 @@ ISOTREE_EXPORTED int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_o
                 cat_split_type, new_cat_action,
                 all_perm, imputer, min_imp_obs,
                 depth_imp, weigh_imp_rows, impute_at_fit,
-                random_seed, nthreads);
+                random_seed, use_long_double, nthreads);
 }
 ISOTREE_EXPORTED int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              real_t numeric_data[],  size_t ncols_numeric,
@@ -130,7 +130,7 @@ ISOTREE_EXPORTED int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outp
              real_t ref_numeric_data[], int ref_categ_data[],
              bool ref_is_col_major, size_t ref_ld_numeric, size_t ref_ld_categ,
              real_t ref_Xc[], sparse_ix ref_Xc_ind[], sparse_ix ref_Xc_indptr[],
-             uint64_t random_seed)
+             uint64_t random_seed, bool use_long_double)
 {
     return add_tree<real_t, sparse_ix>
             (model_outputs, model_outputs_ext,
@@ -155,7 +155,7 @@ ISOTREE_EXPORTED int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outp
              ref_numeric_data, ref_categ_data,
              ref_is_col_major, ref_ld_numeric, ref_ld_categ,
              ref_Xc, ref_Xc_ind, ref_Xc_indptr,
-             random_seed);
+             random_seed, use_long_double);
 }
 ISOTREE_EXPORTED void predict_iforest(real_t numeric_data[], int categ_data[],
                      bool is_col_major, size_t ncols_numeric, size_t ncols_categ,
@@ -180,7 +180,7 @@ ISOTREE_EXPORTED void predict_iforest(real_t numeric_data[], int categ_data[],
 }
 ISOTREE_EXPORTED void calc_similarity(real_t numeric_data[], int categ_data[],
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                     size_t nrows, int nthreads,
+                     size_t nrows, bool use_long_double, int nthreads,
                      bool assume_full_distr, bool standardize_dist, bool as_kernel,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                      double tmat[], double rmat[], size_t n_from, bool use_indexed_references,
@@ -189,7 +189,7 @@ ISOTREE_EXPORTED void calc_similarity(real_t numeric_data[], int categ_data[],
     calc_similarity<real_t, sparse_ix>
                     (numeric_data, categ_data,
                      Xc, Xc_ind, Xc_indptr,
-                     nrows, nthreads,
+                     nrows, use_long_double, nthreads,
                      assume_full_distr, standardize_dist, as_kernel,
                      model_outputs, model_outputs_ext,
                      tmat, rmat, n_from, use_indexed_references,
@@ -197,14 +197,14 @@ ISOTREE_EXPORTED void calc_similarity(real_t numeric_data[], int categ_data[],
 }
 ISOTREE_EXPORTED void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
                            real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
-                           size_t nrows, int nthreads,
+                           size_t nrows, bool use_long_double, int nthreads,
                            IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                            Imputer &imputer)
 {
     impute_missing_values<real_t, sparse_ix>
                           (numeric_data, categ_data, is_col_major,
                            Xr, Xr_ind, Xr_indptr,
-                           nrows, nthreads,
+                           nrows, use_long_double, nthreads,
                            model_outputs, model_outputs_ext,
                            imputer);
 }

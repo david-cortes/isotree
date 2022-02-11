@@ -541,6 +541,18 @@
 *       'categ_data', and 'Xc', will get overwritten with the imputations produced.
 * - random_seed
 *       Seed that will be used to generate random numbers used by the model.
+* - use_long_double
+*       Whether to use 'long double' (extended precision) type for more precise calculations about
+*       standard deviations, means, ratios, weights, gain, and other potential aggregates. This makes
+*       such calculations accurate to a larger number of decimals (provided that the compiler used has
+*       wider long doubles than doubles) and it is highly recommended to use when the input data has
+*       a number of rows or columns exceeding 2^53 (an unlikely scenario), and also highly recommended
+*       to use when the input data has problematic scales (e.g. numbers that differ from each other by
+*       something like 10^-100 or columns that include values like 10^100 and 10^-100 and still need to
+*       be sensitive to a difference of 10^-100), but will make the calculations slower, the more so in
+*       platforms in which 'long double' is a software-emulated type (e.g. Power8 platforms).
+*       Note that some platforms (most notably windows with the msvc compiler) do not make any difference
+*       between 'double' and 'long double'.
 * - nthreads
 *       Number of parallel threads to use. Note that, the more threads, the more memory will be
 *       allocated, even if the thread does not end up being used.
@@ -562,6 +574,91 @@
 */
 template <class real_t, class sparse_ix>
 int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                real_t numeric_data[],  size_t ncols_numeric,
+                int    categ_data[],    size_t ncols_categ,    int ncat[],
+                real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
+                real_t sample_weights[], bool with_replacement, bool weight_as_sample,
+                size_t nrows, size_t sample_size, size_t ntrees,
+                size_t max_depth, size_t ncols_per_tree,
+                bool   limit_depth, bool penalize_range, bool standardize_data,
+                ScoringMetric scoring_metric, bool fast_bratio,
+                bool   standardize_dist, double tmat[],
+                double output_depths[], bool standardize_depth,
+                real_t col_weights[], bool weigh_by_kurt,
+                double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+                double prob_pick_by_full_gain, double prob_pick_by_dens,
+                double prob_pick_col_by_range, double prob_pick_col_by_var,
+                double prob_pick_col_by_kurt,
+                double min_gain, MissingAction missing_action,
+                CategSplit cat_split_type, NewCategAction new_cat_action,
+                bool   all_perm, Imputer *imputer, size_t min_imp_obs,
+                UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
+                uint64_t random_seed, bool use_long_double, int nthreads)
+{
+    if (use_long_double && !has_long_double()) {
+        use_long_double = false;
+        fprintf(stderr, "Passed 'use_long_double=true', but library was compiled without long double support.\n");
+    }
+    #ifndef NO_LONG_DOUBLE
+    if (likely(!use_long_double))
+    #endif
+        return fit_iforest_internal<real_t, sparse_ix, double>(
+            model_outputs, model_outputs_ext,
+            numeric_data,  ncols_numeric,
+            categ_data,    ncols_categ,    ncat,
+            Xc, Xc_ind, Xc_indptr,
+            ndim, ntry, coef_type, coef_by_prop,
+            sample_weights, with_replacement, weight_as_sample,
+            nrows, sample_size, ntrees,
+            max_depth, ncols_per_tree,
+            limit_depth, penalize_range, standardize_data,
+            scoring_metric, fast_bratio,
+            standardize_dist, tmat,
+            output_depths, standardize_depth,
+            col_weights, weigh_by_kurt,
+            prob_pick_by_gain_pl, prob_pick_by_gain_avg,
+            prob_pick_by_full_gain, prob_pick_by_dens,
+            prob_pick_col_by_range, prob_pick_col_by_var,
+            prob_pick_col_by_kurt,
+            min_gain, missing_action,
+            cat_split_type, new_cat_action,
+            all_perm, imputer, min_imp_obs,
+            depth_imp, weigh_imp_rows, impute_at_fit,
+            random_seed, nthreads
+        );
+    #ifndef NO_LONG_DOUBLE
+    else
+        return fit_iforest_internal<real_t, sparse_ix, long double>(
+            model_outputs, model_outputs_ext,
+            numeric_data,  ncols_numeric,
+            categ_data,    ncols_categ,    ncat,
+            Xc, Xc_ind, Xc_indptr,
+            ndim, ntry, coef_type, coef_by_prop,
+            sample_weights, with_replacement, weight_as_sample,
+            nrows, sample_size, ntrees,
+            max_depth, ncols_per_tree,
+            limit_depth, penalize_range, standardize_data,
+            scoring_metric, fast_bratio,
+            standardize_dist, tmat,
+            output_depths, standardize_depth,
+            col_weights, weigh_by_kurt,
+            prob_pick_by_gain_pl, prob_pick_by_gain_avg,
+            prob_pick_by_full_gain, prob_pick_by_dens,
+            prob_pick_col_by_range, prob_pick_col_by_var,
+            prob_pick_col_by_kurt,
+            min_gain, missing_action,
+            cat_split_type, new_cat_action,
+            all_perm, imputer, min_imp_obs,
+            depth_imp, weigh_imp_rows, impute_at_fit,
+            random_seed, nthreads
+        );
+    #endif
+}
+
+template <class real_t, class sparse_ix, class ldouble_safe>
+int fit_iforest_internal(
+                IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 real_t numeric_data[],  size_t ncols_numeric,
                 int    categ_data[],    size_t ncols_categ,    int ncat[],
                 real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
@@ -689,7 +786,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 
     /* same for column weights */
     /* TODO: this should also save the kurtoses when using 'prob_pick_col_by_kurt' */
-    ColumnSampler base_col_sampler;
+    ColumnSampler<ldouble_safe> base_col_sampler;
     if (
         col_weights != NULL ||
         (model_params.weigh_by_kurt && model_params.sample_size == input_data.nrows && !model_params.with_replacement &&
@@ -708,7 +805,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
             if (model_params.weigh_by_kurt && model_params.sample_size == input_data.nrows && !model_params.with_replacement)
             {
                 RNG_engine rnd_generator(random_seed);
-                std::vector<double> kurt_weights = calc_kurtosis_all_data(input_data, model_params, rnd_generator);
+                std::vector<double> kurt_weights = calc_kurtosis_all_data<InputData<real_t, sparse_ix>, ldouble_safe>(input_data, model_params, rnd_generator);
                 if (col_weights != NULL)
                 {
                     for (size_t col = 0; col < input_data.ncols_tot; col++)
@@ -834,8 +931,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     }
 
     /* if imputing missing values on-the-fly, need to determine which are missing */
-    std::vector<ImputedData<sparse_ix>> impute_vec;
-    hashed_map<size_t, ImputedData<sparse_ix>> impute_map;
+    std::vector<ImputedData<sparse_ix, ldouble_safe>> impute_vec;
+    hashed_map<size_t, ImputedData<sparse_ix, ldouble_safe>> impute_map;
     if (model_params.impute_at_fit)
         check_for_missing(input_data, impute_vec, impute_map, nthreads);
 
@@ -885,15 +982,17 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     }
 
     if (imputer != NULL)
-        initialize_imputer(*imputer, input_data, ntrees, nthreads);
+        initialize_imputer<decltype(input_data), ldouble_safe>(
+            *imputer, input_data, ntrees, nthreads
+        );
 
     /* initialize thread-private memory */
     if ((size_t)nthreads > ntrees)
         nthreads = (int)ntrees;
     #ifdef _OPENMP
-        std::vector<WorkerMemory<ImputedData<sparse_ix>>> worker_memory(nthreads);
+        std::vector<WorkerMemory<ImputedData<sparse_ix, ldouble_safe>, ldouble_safe, real_t>> worker_memory(nthreads);
     #else
-        std::vector<WorkerMemory<ImputedData<sparse_ix>>> worker_memory(1);
+        std::vector<WorkerMemory<ImputedData<sparse_ix, ldouble_safe>, ldouble_safe, real_t>> worker_memory(1);
     #endif
 
     /* Global variable that determines if the procedure receives a stop signal */
@@ -934,7 +1033,8 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 }
             }
 
-            fit_itree((model_outputs != NULL)? &model_outputs->trees[tree] : NULL,
+            fit_itree<decltype(input_data), typename std::remove_pointer<decltype(worker_memory.data())>::type, ldouble_safe>(
+                      (model_outputs != NULL)? &model_outputs->trees[tree] : NULL,
                       (model_outputs_ext != NULL)? &model_outputs_ext->hplanes[tree] : NULL,
                       worker_memory[omp_get_thread_num()],
                       input_data,
@@ -997,7 +1097,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         #ifdef _OPENMP
         if (nthreads > 1)
         {
-            for (WorkerMemory<ImputedData<sparse_ix>> &w : worker_memory)
+            for (auto &w : worker_memory)
             {
                 if (w.row_depths.size())
                 {
@@ -1040,7 +1140,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         #ifdef _OPENMP
         if (nthreads > 1)
         {
-            for (WorkerMemory<ImputedData<sparse_ix>> &w : worker_memory)
+            for (auto &w : worker_memory)
                 combine_tree_imputations(w, impute_vec, impute_map, input_data.has_missing, nthreads);
         }
 
@@ -1269,9 +1369,100 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Pass NULL if there are no sparse numeric columns in CSC format for reference points or no reference points.
 * - random_seed
 *       Seed that will be used to generate random numbers used by the model.
+* - use_long_double
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
 */
 template <class real_t, class sparse_ix>
 int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+             real_t numeric_data[],  size_t ncols_numeric,
+             int    categ_data[],    size_t ncols_categ,    int ncat[],
+             real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+             size_t ndim, size_t ntry, CoefType coef_type, bool coef_by_prop,
+             real_t sample_weights[], size_t nrows,
+             size_t max_depth,     size_t ncols_per_tree,
+             bool   limit_depth,   bool penalize_range, bool standardize_data,
+             bool   fast_bratio,
+             real_t col_weights[], bool weigh_by_kurt,
+             double prob_pick_by_gain_pl, double prob_pick_by_gain_avg,
+             double prob_pick_by_full_gain, double prob_pick_by_dens,
+             double prob_pick_col_by_range, double prob_pick_col_by_var,
+             double prob_pick_col_by_kurt,
+             double min_gain, MissingAction missing_action,
+             CategSplit cat_split_type, NewCategAction new_cat_action,
+             UseDepthImp depth_imp, WeighImpRows weigh_imp_rows,
+             bool   all_perm, Imputer *imputer, size_t min_imp_obs,
+             TreesIndexer *indexer,
+             real_t ref_numeric_data[], int ref_categ_data[],
+             bool ref_is_col_major, size_t ref_ld_numeric, size_t ref_ld_categ,
+             real_t ref_Xc[], sparse_ix ref_Xc_ind[], sparse_ix ref_Xc_indptr[],
+             uint64_t random_seed, bool use_long_double)
+{
+    if (use_long_double && !has_long_double()) {
+        use_long_double = false;
+        fprintf(stderr, "Passed 'use_long_double=true', but library was compiled without long double support.\n");
+    }
+    #ifndef NO_LONG_DOUBLE
+    if (likely(!use_long_double))
+    #endif
+        return add_tree_internal<real_t, sparse_ix, double>(
+            model_outputs, model_outputs_ext,
+            numeric_data,  ncols_numeric,
+            categ_data,    ncols_categ,    ncat,
+            Xc, Xc_ind, Xc_indptr,
+            ndim, ntry, coef_type, coef_by_prop,
+            sample_weights, nrows,
+            max_depth,     ncols_per_tree,
+            limit_depth,   penalize_range, standardize_data,
+            fast_bratio,
+            col_weights, weigh_by_kurt,
+            prob_pick_by_gain_pl, prob_pick_by_gain_avg,
+            prob_pick_by_full_gain, prob_pick_by_dens,
+            prob_pick_col_by_range, prob_pick_col_by_var,
+            prob_pick_col_by_kurt,
+            min_gain, missing_action,
+            cat_split_type, new_cat_action,
+            depth_imp, weigh_imp_rows,
+            all_perm, imputer, min_imp_obs,
+            indexer,
+            ref_numeric_data, ref_categ_data,
+            ref_is_col_major, ref_ld_numeric, ref_ld_categ,
+            ref_Xc, ref_Xc_ind, ref_Xc_indptr,
+            random_seed
+        );
+    #ifndef NO_LONG_DOUBLE
+    else
+        return add_tree_internal<real_t, sparse_ix, long double>(
+            model_outputs, model_outputs_ext,
+            numeric_data,  ncols_numeric,
+            categ_data,    ncols_categ,    ncat,
+            Xc, Xc_ind, Xc_indptr,
+            ndim, ntry, coef_type, coef_by_prop,
+            sample_weights, nrows,
+            max_depth,     ncols_per_tree,
+            limit_depth,   penalize_range, standardize_data,
+            fast_bratio,
+            col_weights, weigh_by_kurt,
+            prob_pick_by_gain_pl, prob_pick_by_gain_avg,
+            prob_pick_by_full_gain, prob_pick_by_dens,
+            prob_pick_col_by_range, prob_pick_col_by_var,
+            prob_pick_col_by_kurt,
+            min_gain, missing_action,
+            cat_split_type, new_cat_action,
+            depth_imp, weigh_imp_rows,
+            all_perm, imputer, min_imp_obs,
+            indexer,
+            ref_numeric_data, ref_categ_data,
+            ref_is_col_major, ref_ld_numeric, ref_ld_categ,
+            ref_Xc, ref_Xc_ind, ref_Xc_indptr,
+            random_seed
+        );
+    #endif
+}
+
+template <class real_t, class sparse_ix, class ldouble_safe>
+int add_tree_internal(
+             IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              real_t numeric_data[],  size_t ncols_numeric,
              int    categ_data[],    size_t ncols_categ,    int ncat[],
              real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
@@ -1364,7 +1555,9 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                  input_data.Xr, input_data.Xr_ind, input_data.Xr_indptr);
     }
 
-    std::unique_ptr<WorkerMemory<ImputedData<sparse_ix>>> workspace(new WorkerMemory<ImputedData<sparse_ix>>());
+    std::unique_ptr<WorkerMemory<ImputedData<sparse_ix, ldouble_safe>, ldouble_safe, real_t>> workspace(
+        new WorkerMemory<ImputedData<sparse_ix, ldouble_safe>, ldouble_safe, real_t>()
+    );
 
     size_t last_tree;
     bool added_tree = false;
@@ -1398,7 +1591,8 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
         SignalSwitcher ss = SignalSwitcher();
         check_interrupt_switch(ss);
 
-        fit_itree((model_outputs != NULL)? &model_outputs->trees.back() : NULL,
+        fit_itree<decltype(input_data), typename std::remove_pointer<decltype(workspace.get())>::type, ldouble_safe>(
+                  (model_outputs != NULL)? &model_outputs->trees.back() : NULL,
                   (model_outputs_ext != NULL)? &model_outputs_ext->hplanes.back() : NULL,
                   *workspace,
                   input_data,
@@ -1541,7 +1735,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
     return EXIT_SUCCESS;
 }
 
-template <class InputData, class WorkerMemory>
+template <class InputData, class WorkerMemory, class ldouble_safe>
 void fit_itree(std::vector<IsoTree>    *tree_root,
                std::vector<IsoHPlane>  *hplane_root,
                WorkerMemory             &workspace,
@@ -1561,7 +1755,8 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                                        input_data.btree_weights_init.end());
     workspace.rnd_generator.seed(model_params.random_seed + tree_num);
     workspace.rbin  = UniformUnitInterval(0, 1);
-    sample_random_rows(workspace.ix_arr, input_data.nrows, model_params.with_replacement,
+    sample_random_rows<typename std::remove_pointer<decltype(input_data.numeric_data)>::type, ldouble_safe>(
+                       workspace.ix_arr, input_data.nrows, model_params.with_replacement,
                        workspace.rnd_generator, workspace.ix_all,
                        (input_data.weight_as_sample)? input_data.sample_weights : NULL,
                        workspace.btree_weights, input_data.log2_n, input_data.btree_offset,
@@ -1914,15 +2109,19 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                 for (size_t col = 0; col < input_data.ncols_numeric; col++)
                 {
                     if (workspace.weights_arr.empty() && workspace.weights_map.empty())
-                        kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
+                        kurt_weights[col] = calc_kurtosis<typename std::remove_pointer<decltype(input_data.numeric_data)>::type, ldouble_safe>(
+                                                          workspace.ix_arr.data(), workspace.st, workspace.end,
                                                           input_data.numeric_data + col * input_data.nrows,
                                                           model_params.missing_action);
                     else if (!workspace.weights_arr.empty())
-                        kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                        kurt_weights[col] = calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type, decltype(workspace.weights_arr), ldouble_safe>(
+                                                                   workspace.ix_arr.data(), workspace.st, workspace.end,
                                                                    input_data.numeric_data + col * input_data.nrows,
                                                                    model_params.missing_action, workspace.weights_arr);
                     else
-                        kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                        kurt_weights[col] = calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                                                   decltype(workspace.weights_map), ldouble_safe>(
+                                                                   workspace.ix_arr.data(), workspace.st, workspace.end,
                                                                    input_data.numeric_data + col * input_data.nrows,
                                                                    model_params.missing_action, workspace.weights_map);
                 }
@@ -1934,15 +2133,24 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                 for (size_t col = 0; col < input_data.ncols_numeric; col++)
                 {
                     if (workspace.weights_arr.empty() && workspace.weights_map.empty())
-                        kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end, col,
+                        kurt_weights[col] = calc_kurtosis<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                                          typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                                          ldouble_safe>(
+                                                          workspace.ix_arr.data(), workspace.st, workspace.end, col,
                                                           input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                           model_params.missing_action);
                     else if (!workspace.weights_arr.empty())
-                        kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, col,
+                        kurt_weights[col] = calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                                                   typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                                                   decltype(workspace.weights_arr), ldouble_safe>(
+                                                                   workspace.ix_arr.data(), workspace.st, workspace.end, col,
                                                                    input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                                    model_params.missing_action, workspace.weights_arr);
                     else
-                        kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, col,
+                        kurt_weights[col] = calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                                                   typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                                                   decltype(workspace.weights_map), ldouble_safe>(
+                                                                   workspace.ix_arr.data(), workspace.st, workspace.end, col,
                                                                    input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                                    model_params.missing_action, workspace.weights_map);
                 }
@@ -1952,20 +2160,23 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
             {
                 if (workspace.weights_arr.empty() && workspace.weights_map.empty())
                     kurt_weights[col + input_data.ncols_numeric] =
-                        calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
+                        calc_kurtosis<ldouble_safe>(
+                                      workspace.ix_arr.data(), workspace.st, workspace.end,
                                       input_data.categ_data + col * input_data.nrows, input_data.ncat[col],
                                       workspace.buffer_szt.data(), workspace.buffer_dbl.data(),
                                       model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator);
                 else if (!workspace.weights_arr.empty())
                     kurt_weights[col + input_data.ncols_numeric] =
-                        calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                        calc_kurtosis_weighted<decltype(workspace.weights_arr), ldouble_safe>(
+                                               workspace.ix_arr.data(), workspace.st, workspace.end,
                                                input_data.categ_data + col * input_data.nrows, input_data.ncat[col],
                                                workspace.buffer_dbl.data(),
                                                model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator,
                                                workspace.weights_arr);
                 else
                     kurt_weights[col + input_data.ncols_numeric] =
-                        calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                        calc_kurtosis_weighted<decltype(workspace.weights_map), ldouble_safe>(
+                                               workspace.ix_arr.data(), workspace.st, workspace.end,
                                                input_data.categ_data + col * input_data.nrows, input_data.ncat[col],
                                                workspace.buffer_dbl.data(),
                                                model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator,
@@ -1992,7 +2203,8 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
             std::vector<size_t> cols_take(model_params.ncols_per_tree);
             std::vector<size_t> buffer1;
             std::vector<bool> buffer2;
-            sample_random_rows(cols_take, input_data.ncols_tot, false,
+            sample_random_rows<double, double>(
+                               cols_take, input_data.ncols_tot, false,
                                workspace.rnd_generator, buffer1,
                                (double*)NULL, kurt_weights, /* <- will not get used */
                                (size_t)0, (size_t)0, buffer2);
@@ -2018,15 +2230,20 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                     if (input_data.Xc_indptr == NULL)
                     {
                         if (workspace.weights_arr.empty() && workspace.weights_map.empty())
-                            kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
+                            kurt_weights[col] = calc_kurtosis<typename std::remove_pointer<decltype(input_data.numeric_data)>::type, ldouble_safe>(
+                                                              workspace.ix_arr.data(), workspace.st, workspace.end,
                                                               input_data.numeric_data + col * input_data.nrows,
                                                               model_params.missing_action);
                         else if (!workspace.weights_arr.empty())
-                            kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                            kurt_weights[col] = calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                                                       decltype(workspace.weights_arr), ldouble_safe>(
+                                                                       workspace.ix_arr.data(), workspace.st, workspace.end,
                                                                        input_data.numeric_data + col * input_data.nrows,
                                                                        model_params.missing_action, workspace.weights_arr);
                         else
-                            kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                            kurt_weights[col] = calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                                                       decltype(workspace.weights_map), ldouble_safe>(
+                                                                       workspace.ix_arr.data(), workspace.st, workspace.end,
                                                                        input_data.numeric_data + col * input_data.nrows,
                                                                        model_params.missing_action, workspace.weights_map);
                     }
@@ -2034,15 +2251,24 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                     else
                     {
                         if (workspace.weights_arr.empty() && workspace.weights_map.empty())
-                            kurt_weights[col] = calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end, col,
+                            kurt_weights[col] = calc_kurtosis<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                                              typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                                              ldouble_safe>(
+                                                              workspace.ix_arr.data(), workspace.st, workspace.end, col,
                                                               input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                               model_params.missing_action);
                         else if (!workspace.weights_arr.empty())
-                            kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, col,
+                            kurt_weights[col] = calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                                                       typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                                                       decltype(workspace.weights_arr), ldouble_safe>(
+                                                                       workspace.ix_arr.data(), workspace.st, workspace.end, col,
                                                                        input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                                        model_params.missing_action, workspace.weights_arr);
                         else
-                            kurt_weights[col] = calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, col,
+                            kurt_weights[col] = calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                                                       typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                                                       decltype(workspace.weights_map), ldouble_safe>(
+                                                                       workspace.ix_arr.data(), workspace.st, workspace.end, col,
                                                                        input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                                        model_params.missing_action, workspace.weights_map);
                     }
@@ -2052,27 +2278,30 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
                 {
                     if (workspace.weights_arr.empty() && workspace.weights_map.empty())
                         kurt_weights[col] =
-                            calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
+                            calc_kurtosis<ldouble_safe>(
+                                          workspace.ix_arr.data(), workspace.st, workspace.end,
                                           input_data.categ_data + (col - input_data.ncols_numeric) * input_data.nrows,
                                           input_data.ncat[col - input_data.ncols_numeric],
                                           workspace.buffer_szt.data(), workspace.buffer_dbl.data(),
                                           model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator);
                     else if (!workspace.weights_arr.empty())
                         kurt_weights[col] =
-                            calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                  input_data.categ_data + (col - input_data.ncols_numeric) * input_data.nrows,
-                                                  input_data.ncat[col - input_data.ncols_numeric],
-                                                  workspace.buffer_dbl.data(),
-                                                  model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator,
-                                                  workspace.weights_arr);
+                            calc_kurtosis_weighted<decltype(workspace.weights_arr), ldouble_safe>(
+                                                   workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                   input_data.categ_data + (col - input_data.ncols_numeric) * input_data.nrows,
+                                                   input_data.ncat[col - input_data.ncols_numeric],
+                                                   workspace.buffer_dbl.data(),
+                                                   model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator,
+                                                   workspace.weights_arr);
                     else
                         kurt_weights[col] =
-                            calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
-                                                  input_data.categ_data + (col - input_data.ncols_numeric) * input_data.nrows,
-                                                  input_data.ncat[col - input_data.ncols_numeric],
-                                                  workspace.buffer_dbl.data(),
-                                                  model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator,
-                                                  workspace.weights_map);
+                            calc_kurtosis_weighted<decltype(workspace.weights_map), ldouble_safe>(
+                                                   workspace.ix_arr.data(), workspace.st, workspace.end,
+                                                   input_data.categ_data + (col - input_data.ncols_numeric) * input_data.nrows,
+                                                   input_data.ncat[col - input_data.ncols_numeric],
+                                                   workspace.buffer_dbl.data(),
+                                                   model_params.missing_action, model_params.cat_split_type, workspace.rnd_generator,
+                                                   workspace.weights_map);
                 }
 
                 /* Note to self: don't move this  to outside of the braces, as it needs to assign a weight
@@ -2110,7 +2339,7 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
         workspace.col_sampler.initialize(input_data.ncols_tot);
     }
     else {
-        workspace.col_sampler = *((ColumnSampler*)input_data.preinitialized_col_sampler);
+        workspace.col_sampler = *((ColumnSampler<ldouble_safe>*)input_data.preinitialized_col_sampler);
         col_sampler_is_fresh = false;
     }
     /* TODO: this can be done more efficiently when sub-sampling columns */
@@ -2145,19 +2374,26 @@ void fit_itree(std::vector<IsoTree>    *tree_root,
     }
 
     if (tree_root != NULL)
-        split_itree_recursive(*tree_root,
+    {
+        split_itree_recursive<InputData, WorkerMemory, ldouble_safe>(
+                              *tree_root,
                               workspace,
                               input_data,
                               model_params,
                               impute_nodes,
                               0);
+    }
+
     else
-        split_hplane_recursive(*hplane_root,
+    {
+        split_hplane_recursive<InputData, WorkerMemory, ldouble_safe>(
+                               *hplane_root,
                                workspace,
                                input_data,
                                model_params,
                                impute_nodes,
                                0);
+    }
 
     /* if producing imputation structs, only need to keep the ones for terminal nodes */
     if (impute_nodes != NULL)

@@ -75,7 +75,7 @@ int main()
                 SubSet, Smallest,
                 false, NULL, 0,
                 Higher, Inverse, false,
-                1, 1);
+                1, false, 1);
 
     /* Check which row has the highest outlier score
        (see file 'predict.cpp' for the documentation) */

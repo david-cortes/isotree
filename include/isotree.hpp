@@ -83,7 +83,7 @@ using std::size_t;
     #define real_t double     /* supported: float, double */
 #endif
 #ifndef sparse_ix
-    #define sparse_ix size_t  /* supported: int, int64_t, size_t */
+    #define sparse_ix int  /* supported: int, int64_t, size_t */
 #endif
 
 #ifndef ISOTREE_H
@@ -698,6 +698,18 @@ typedef struct TreesIndexer {
 *       'categ_data', and 'Xc', will get overwritten with the imputations produced.
 * - random_seed
 *       Seed that will be used to generate random numbers used by the model.
+* - use_long_double
+*       Whether to use 'long double' (extended precision) type for more precise calculations about
+*       standard deviations, means, ratios, weights, gain, and other potential aggregates. This makes
+*       such calculations accurate to a larger number of decimals (provided that the compiler used has
+*       wider long doubles than doubles) and it is highly recommended to use when the input data has
+*       a number of rows or columns exceeding 2^53 (an unlikely scenario), and also highly recommended
+*       to use when the input data has problematic scales (e.g. numbers that differ from each other by
+*       something like 10^-100 or columns that include values like 10^100 and 10^-100 and still need to
+*       be sensitive to a difference of 10^-100), but will make the calculations slower, the more so in
+*       platforms in which 'long double' is a software-emulated type (e.g. Power8 platforms).
+*       Note that some platforms (most notably windows with the msvc compiler) do not make any difference
+*       between 'double' and 'long double'.
 * - nthreads
 *       Number of parallel threads to use. Note that, the more threads, the more memory will be
 *       allocated, even if the thread does not end up being used.
@@ -739,7 +751,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 CategSplit cat_split_type, NewCategAction new_cat_action,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
-                uint64_t random_seed, int nthreads);
+                uint64_t random_seed, bool use_long_double, int nthreads);
 
 
 
@@ -949,6 +961,9 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Pass NULL if there are no sparse numeric columns in CSC format for reference points or no reference points.
 * - random_seed
 *       Seed that will be used to generate random numbers used by the model.
+* - use_long_double
+*       Same parameter as for 'fit_iforest' (see the documentation in there for details). Can be changed from
+*       what was originally passed to 'fit_iforest'.
 */
 ISOTREE_EXPORTED
 int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -973,7 +988,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              real_t ref_numeric_data[], int ref_categ_data[],
              bool ref_is_col_major, size_t ref_ld_numeric, size_t ref_ld_categ,
              real_t ref_Xc[], sparse_ix ref_Xc_ind[], sparse_ix ref_Xc_indptr[],
-             uint64_t random_seed);
+             uint64_t random_seed, bool use_long_double);
 
 
 /* Predict outlier score, average depth, or terminal node numbers
@@ -1175,6 +1190,11 @@ ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_no
 *       the first group is assumed to be the earlier rows here.
 * - nrows
 *       Number of rows in 'numeric_data', 'Xc', 'categ_data'.
+* - use_long_double
+*       Whether to use 'long double' (extended precision) type for the calculations. This makes them
+*       more accurate (provided that the compiler used has wider long doubles than doubles), but
+*       slower - especially in platforms in which 'long double' is a software-emulated type (e.g.
+*       Power8 platforms).
 * - nthreads
 *       Number of parallel threads to use. Note that, the more threads, the more memory will be
 *       allocated, even if the thread does not end up being used (with one exception being kernel calculations
@@ -1280,7 +1300,7 @@ ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_no
 ISOTREE_EXPORTED
 void calc_similarity(real_t numeric_data[], int categ_data[],
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                     size_t nrows, int nthreads,
+                     size_t nrows, bool use_long_double, int nthreads,
                      bool assume_full_distr, bool standardize_dist, bool as_kernel,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                      double tmat[], double rmat[], size_t n_from, bool use_indexed_references,
@@ -1336,6 +1356,11 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
 *       Pass NULL if there are no sparse numeric columns in CSR format.
 * - nrows
 *       Number of rows in 'numeric_data', 'Xc', 'Xr, 'categ_data'.
+* - use_long_double
+*       Whether to use 'long double' (extended precision) type for the calculations. This makes them
+*       more accurate (provided that the compiler used has wider long doubles than doubles), but
+*       slower - especially in platforms in which 'long double' is a software-emulated type (e.g.
+*       Power8 platforms).
 * - nthreads
 *       Number of parallel threads to use. Note that, the more threads, the more memory will be
 *       allocated, even if the thread does not end up being used. Ignored when not building with
@@ -1355,7 +1380,7 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
 ISOTREE_EXPORTED
 void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
                            real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
-                           size_t nrows, int nthreads,
+                           size_t nrows, bool use_long_double, int nthreads,
                            IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                            Imputer &imputer);
 

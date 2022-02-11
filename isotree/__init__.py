@@ -774,6 +774,25 @@ class IsolationForest:
         and not recommended to change from the default. Ignored when passing 'build_imputer' = 'False'.
     random_seed : int
         Seed that will be used for random number generation.
+    use_long_double : bool
+        Whether to use 'long double' (extended precision) type for more precise calculations about
+        standard deviations, means, ratios, weights, gain, and other potential aggregates. This makes
+        such calculations accurate to a larger number of decimals (provided that the compiler used has
+        wider long doubles than doubles) and it is highly recommended to use when the input data has
+        a number of rows or columns exceeding :math:`2^53` (an unlikely scenario), and also highly recommended
+        to use when the input data has problematic scales (e.g. numbers that differ from each other by
+        something like :math:`10^-100` or columns that include values like :math:`10^100`, :math:`10^-10`, and :math:`10^-100` and still need to
+        be sensitive to a difference of :math:`10^-10`), but will make the calculations slower, the more so in
+        platforms in which 'long double' is a software-emulated type (e.g. Power8 platforms).
+        Note that some platforms (most notably windows with the msvc compiler) do not make any difference
+        between 'double' and 'long double'.
+
+        If 'long double' is not going to be used, the library can be compiled without support for it
+        (making the library size smaller) by defining an environment variable ``NO_LONG_DOUBLE`` before
+        installing this package (e.g. through ``export NO_LONG_DOUBLE=1`` before running the ``pip`` command).
+
+        This option is not available on Windows, due to lack of support in some compilers (e.g. msvc)
+        and lack of thread-safety in the calculations in others (e.g. mingw).
     nthreads : int
         Number of parallel threads to use. If passing a negative number, will use
         the same formula as joblib does for calculating number of threads (which is
@@ -848,7 +867,7 @@ class IsolationForest:
                  coefs = "uniform", assume_full_distr = True,
                  build_imputer = False, min_imp_obs = 3,
                  depth_imp = "higher", weigh_imp_rows = "inverse",
-                 random_seed = 1, nthreads = -1,
+                 random_seed = 1, use_long_double = False, nthreads = -1,
                  n_estimators = None, max_samples = None,
                  n_jobs = None, random_state = None, bootstrap = None):
         self.sample_size = sample_size
@@ -886,6 +905,7 @@ class IsolationForest:
         self.depth_imp = depth_imp
         self.weigh_imp_rows = weigh_imp_rows
         self.random_seed = random_seed
+        self.use_long_double = use_long_double
         self.nthreads = nthreads
         self.n_estimators = n_estimators
         self.max_samples = max_samples
@@ -923,6 +943,7 @@ class IsolationForest:
                  build_imputer = self.build_imputer, min_imp_obs = self.min_imp_obs,
                  depth_imp = self.depth_imp, weigh_imp_rows = self.weigh_imp_rows,
                  random_seed = self.random_seed if (self.random_state is None) else self.random_state,
+                 use_long_double = self.use_long_double,
                  nthreads = self.nthreads if (self.n_jobs is None) else self.n_jobs)
 
     def _initialize_full(self, sample_size = None, ntrees = 500, ndim = 3, ntry = 1,
@@ -940,7 +961,7 @@ class IsolationForest:
                  coefs = "normal", assume_full_distr = True,
                  build_imputer = False, min_imp_obs = 3,
                  depth_imp = "higher", weigh_imp_rows = "inverse",
-                 random_seed = 1, nthreads = -1):
+                 random_seed = 1, use_long_double = False, nthreads = -1):
         if (sample_size is not None) and (sample_size != "auto"):
             assert sample_size > 0
             if sample_size > 1:
@@ -1102,6 +1123,7 @@ class IsolationForest:
         self.weigh_by_kurtosis       =  bool(weigh_by_kurtosis)
         self.assume_full_distr       =  bool(assume_full_distr)
         self.build_imputer           =  bool(build_imputer)
+        self.use_long_double         =  bool(use_long_double)
 
         self._reset_obj()
 
@@ -1408,6 +1430,7 @@ class IsolationForest:
                                 ctypes.c_bool(self.build_imputer).value,
                                 ctypes.c_bool(False).value,
                                 ctypes.c_uint64(seed).value,
+                                ctypes.c_bool(self.use_long_double).value,
                                 ctypes.c_int(nthreads_use).value)
         self.is_fitted_ = True
         self._ntrees = self.ntrees
@@ -1630,6 +1653,7 @@ class IsolationForest:
                                                                    ctypes.c_bool(output_imputed).value,
                                                                    ctypes.c_bool(self.all_perm).value,
                                                                    ctypes.c_uint64(seed).value,
+                                                                   ctypes.c_bool(self.use_long_double).value,
                                                                    ctypes.c_int(nthreads_use).value)
         self.is_fitted_ = True
         self._ntrees = self.ntrees
@@ -2478,6 +2502,7 @@ class IsolationForest:
         tmat, dmat, rmat = self._cpp_obj.dist(_get_num_dtype(X_num, None, None), _get_int_dtype(X_num),
                                               X_num, X_cat, self._is_extended_,
                                               ctypes.c_size_t(nrows).value,
+                                              ctypes.c_bool(self.use_long_double).value,
                                               ctypes.c_int(nthreads_use).value,
                                               ctypes.c_bool(self.assume_full_distr).value,
                                               ctypes.c_bool(output in ["dist", "kernel"]).value,
@@ -2587,6 +2612,7 @@ class IsolationForest:
                                             X_num, X_cat,
                                             ctypes.c_bool(self._is_extended_).value,
                                             ctypes.c_size_t(nrows).value,
+                                            ctypes.c_bool(self.use_long_double).value,
                                             ctypes.c_int(nthreads_use).value)
         return self._rearrange_imputed(X, X_num, X_cat)
 
@@ -2838,7 +2864,8 @@ class IsolationForest:
                                ctypes.c_bool(self.all_perm).value,
                                ref_X_num,
                                ref_X_cat,
-                               ctypes.c_int(seed).value)
+                               ctypes.c_int(seed).value,
+                               ctypes.c_bool(self.use_long_double).value)
         self._ntrees += 1
         return self
 
@@ -3613,6 +3640,7 @@ class IsolationForest:
         model_info = {
             "ndim" : int(self.ndim_),
             "nthreads" : nthreads,
+            "use_long_double" : bool(self.use_long_double),
             "build_imputer" : bool(self.build_imputer)
         }
 
@@ -3669,6 +3697,10 @@ class IsolationForest:
         self.ndim_ = self.ndim
         self.nthreads = _process_nthreads(metadata["model_info"]["nthreads"])
         self.build_imputer = metadata["model_info"]["build_imputer"]
+        try:
+            self.use_long_double = metadata["model_info"]["use_long_double"]
+        except:
+            self.use_long_double = False
 
         self.sample_size = metadata["params"]["sample_size"]
         self.ntrees = metadata["params"]["ntrees"]

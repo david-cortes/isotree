@@ -62,7 +62,7 @@
 */
 #include "isotree.hpp"
 
-template <class InputData, class WorkerMemory>
+template <class InputData, class WorkerMemory, class ldouble_safe>
 void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                             WorkerMemory             &workspace,
                             InputData                &input_data,
@@ -83,7 +83,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         if (input_data.Xc_indptr != NULL)
             std::sort(workspace.ix_arr.begin() + workspace.st,
                       workspace.ix_arr.begin() + workspace.end + 1);
-        build_impute_node(impute_nodes->back(), workspace,
+        build_impute_node<decltype(input_data), decltype(workspace), ldouble_safe>(
+                          impute_nodes->back(), workspace,
                           input_data, model_params,
                           *impute_nodes, curr_depth,
                           model_params.min_imp_obs);
@@ -94,7 +95,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         goto terminal_statistics;
 
     /* when using weights, the split should stop when the sum of weights is <= 1 */
-    sum_weight = calculate_sum_weights(workspace.ix_arr, workspace.st, workspace.end, curr_depth,
+    sum_weight = calculate_sum_weights<ldouble_safe>(
+                                       workspace.ix_arr, workspace.st, workspace.end, curr_depth,
                                        workspace.weights_arr, workspace.weights_map);
 
     if (curr_depth > 0 && (!workspace.weights_arr.empty() || !workspace.weights_map.empty()) && sum_weight <= 1)
@@ -213,7 +215,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     {
         workspace.col_criterion = ByVar;
         workspace.has_saved_stats = model_params.standardize_data || model_params.missing_action != Fail;
-        calc_var_all_cols(input_data, workspace, model_params,
+        calc_var_all_cols<InputData, WorkerMemory, ldouble_safe>(
+                          input_data, workspace, model_params,
                           workspace.node_col_weights.data(),
                           NULL, NULL,
                           workspace.has_saved_stats? workspace.saved_stat1.data() : NULL,
@@ -228,7 +231,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         )
     {
         workspace.col_criterion = ByKurt;
-        calc_kurt_all_cols(input_data, workspace, model_params, workspace.node_col_weights.data(),
+        calc_kurt_all_cols<decltype(input_data), decltype(workspace), ldouble_safe>(
+                           input_data, workspace, model_params, workspace.node_col_weights.data(),
                            NULL,
                            NULL);
         workspace.has_saved_stats = false;
@@ -354,7 +358,9 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
             else
             {
                 add_this_col:
-                add_chosen_column(workspace, input_data, model_params, col_is_taken, col_is_taken_s);
+                add_chosen_column<decltype(input_data), decltype(workspace), ldouble_safe>(
+                    workspace, input_data, model_params, col_is_taken, col_is_taken_s
+                );
                 if (++workspace.ntaken >= model_params.ndim)
                     break;
             }
@@ -370,7 +376,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         if (workspace.criterion != NoCrit)
         {
             if (workspace.weights_arr.empty() && workspace.weights_map.empty())
-                workspace.this_gain = eval_guided_crit(workspace.comb_val.data(), workspace.end - workspace.st + 1,
+                workspace.this_gain = eval_guided_crit<ldouble_safe>(
+                                                       workspace.comb_val.data(), workspace.end - workspace.st + 1,
                                                        workspace.criterion, model_params.min_gain, workspace.ntry == 1,
                                                        workspace.buffer_dbl.data(), workspace.this_split_point,
                                                        workspace.xmin, workspace.xmax,
@@ -384,7 +391,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                                                        input_data.Xr_ind.data(),
                                                        input_data.Xr_indptr.data());
             else if (!workspace.weights_arr.empty())
-                workspace.this_gain = eval_guided_crit_weighted(workspace.comb_val.data(), workspace.end - workspace.st + 1,
+                workspace.this_gain = eval_guided_crit_weighted<ldouble_safe>(
+                                                                workspace.comb_val.data(), workspace.end - workspace.st + 1,
                                                                 workspace.criterion, model_params.min_gain, workspace.ntry == 1,
                                                                 workspace.buffer_dbl.data(), workspace.this_split_point,
                                                                 workspace.xmin, workspace.xmax,
@@ -399,7 +407,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
                                                                 input_data.Xr_ind.data(),
                                                                 input_data.Xr_indptr.data());
             else
-                workspace.this_gain = eval_guided_crit_weighted(workspace.comb_val.data(), workspace.end - workspace.st + 1,
+                workspace.this_gain = eval_guided_crit_weighted<ldouble_safe>(
+                                                                workspace.comb_val.data(), workspace.end - workspace.st + 1,
                                                                 workspace.criterion, model_params.min_gain, workspace.ntry == 1,
                                                                 workspace.buffer_dbl.data(), workspace.this_split_point,
                                                                 workspace.xmin, workspace.xmax,
@@ -520,7 +529,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 
                 case Categorical:
                 {
-                    add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                    add_linear_comb<ldouble_safe>(
+                                    workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                     input_data.categ_data + hplanes.back().col_num[col] * input_data.nrows,
                                     input_data.ncat[hplanes.back().col_num[col]],
                                     (model_params.cat_split_type == SubSet)? hplanes.back().cat_coef[col].data() : NULL,
@@ -651,7 +661,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
     hplanes.emplace_back();
     if (impute_nodes != NULL) impute_nodes->emplace_back(hplane_from);
     workspace.end = workspace.split_ix - 1;
-    split_hplane_recursive(hplanes,
+    split_hplane_recursive<InputData, WorkerMemory, ldouble_safe>(
+                           hplanes,
                            workspace,
                            input_data,
                            model_params,
@@ -672,7 +683,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         workspace.density_calculator.pop();
     }
     workspace.st = workspace.split_ix;
-    split_hplane_recursive(hplanes,
+    split_hplane_recursive<InputData, WorkerMemory, ldouble_safe>(
+                           hplanes,
                            workspace,
                            input_data,
                            model_params,
@@ -695,7 +707,8 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
         if (has_weights)
         {
             if (sum_weight == -HUGE_VAL)
-                sum_weight = calculate_sum_weights(workspace.ix_arr, workspace.st, workspace.end, curr_depth,
+                sum_weight = calculate_sum_weights<ldouble_safe>(
+                                                   workspace.ix_arr, workspace.st, workspace.end, curr_depth,
                                                    workspace.weights_arr, workspace.weights_map);
         }
 
@@ -704,18 +717,18 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
             case Depth:
             {
                 if (!has_weights)
-                    hplanes.back().score = curr_depth + expected_avg_depth(workspace.end - workspace.st + 1);
+                    hplanes.back().score = curr_depth + expected_avg_depth<ldouble_safe>(workspace.end - workspace.st + 1);
                 else
-                    hplanes.back().score = curr_depth + expected_avg_depth(sum_weight);
+                    hplanes.back().score = curr_depth + expected_avg_depth<ldouble_safe>(sum_weight);
                 break;
             }
 
             case AdjDepth:
             {
                 if (!has_weights)
-                    hplanes.back().score = workspace.density_calculator.calc_adj_depth() + expected_avg_depth(workspace.end - workspace.st + 1);
+                    hplanes.back().score = workspace.density_calculator.calc_adj_depth() + expected_avg_depth<ldouble_safe>(workspace.end - workspace.st + 1);
                 else
-                    hplanes.back().score = workspace.density_calculator.calc_adj_depth() + expected_avg_depth(sum_weight);
+                    hplanes.back().score = workspace.density_calculator.calc_adj_depth() + expected_avg_depth<ldouble_safe>(sum_weight);
                 break;
             }
 
@@ -770,7 +783,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 
         /* for distance, assume also the elements keep being split */
         if (model_params.calc_dist)
-            add_remainder_separation_steps(workspace, input_data, sum_weight);
+            add_remainder_separation_steps<InputData, WorkerMemory, ldouble_safe>(workspace, input_data, sum_weight);
 
         /* add this depth right away if requested */
         if (!workspace.row_depths.empty())
@@ -784,7 +797,7 @@ void split_hplane_recursive(std::vector<IsoHPlane>   &hplanes,
 }
 
 
-template <class InputData, class WorkerMemory>
+template <class InputData, class WorkerMemory, class ldouble_safe>
 void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelParams &model_params,
                        std::vector<bool> &col_is_taken, hashed_set<size_t> &col_is_taken_s)
 {
@@ -856,7 +869,9 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
 
                         else
                         {
-                            calc_mean_and_sd(workspace.ix_arr.data(), workspace.st, workspace.end,
+                            calc_mean_and_sd<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                             ldouble_safe>(
+                                             workspace.ix_arr.data(), workspace.st, workspace.end,
                                              input_data.numeric_data + workspace.col_chosen * input_data.nrows,
                                              model_params.missing_action, workspace.ext_sd, workspace.ext_mean[workspace.ntaken]);
                         }
@@ -901,7 +916,9 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
 
                         else
                         {
-                            calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                            calc_mean_and_sd_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                                      decltype(workspace.weights_arr), ldouble_safe>(
+                                                      workspace.ix_arr.data(), workspace.st, workspace.end,
                                                       input_data.numeric_data + workspace.col_chosen * input_data.nrows,
                                                       workspace.weights_arr,
                                                       model_params.missing_action, workspace.ext_sd,
@@ -909,7 +926,9 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
                         }
                     }
                     
-                    add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                    add_linear_comb_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                             decltype(workspace.weights_arr), ldouble_safe>(
+                                             workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                              input_data.numeric_data + workspace.col_chosen * input_data.nrows,
                                              workspace.ext_coef[workspace.ntaken], workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
                                              workspace.ext_fill_val[workspace.ntaken], model_params.missing_action,
@@ -950,7 +969,9 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
 
                         else
                         {
-                            calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                            calc_mean_and_sd_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                                      decltype(workspace.weights_map), ldouble_safe>(
+                                                      workspace.ix_arr.data(), workspace.st, workspace.end,
                                                       input_data.numeric_data + workspace.col_chosen * input_data.nrows,
                                                       workspace.weights_map,
                                                       model_params.missing_action, workspace.ext_sd,
@@ -958,7 +979,9 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
                         }
                     }
 
-                    add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                    add_linear_comb_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                             decltype(workspace.weights_map), ldouble_safe>(
+                                             workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                              input_data.numeric_data + workspace.col_chosen * input_data.nrows,
                                              workspace.ext_coef[workspace.ntaken], workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
                                              workspace.ext_fill_val[workspace.ntaken], model_params.missing_action,
@@ -986,8 +1009,11 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
                         {
                             workspace.ext_mean[workspace.ntaken]
                                 =
-                            calc_mean_only(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
-                                         input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr);
+                            calc_mean_only<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                           typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                           ldouble_safe>(
+                                           workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
+                                           input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr);
                         }
                     }
 
@@ -1001,7 +1027,10 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
 
                         else
                         {
-                            calc_mean_and_sd(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
+                            calc_mean_and_sd<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                             typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                             ldouble_safe>(
+                                             workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
                                              input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                              workspace.ext_sd, workspace.ext_mean[workspace.ntaken]);
                         }
@@ -1032,7 +1061,10 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
                         {
                             workspace.ext_mean[workspace.ntaken]
                                 =
-                            calc_mean_only_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
+                            calc_mean_only_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                                    typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                                    decltype(workspace.weights_arr), ldouble_safe>(
+                                                    workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
                                                     input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                     workspace.weights_arr);
                         }
@@ -1048,14 +1080,20 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
 
                         else
                         {
-                            calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
+                            calc_mean_and_sd_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                                      typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                                      decltype(workspace.weights_arr), ldouble_safe>(
+                                                      workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
                                                       input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                       workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
                                                       workspace.weights_arr);
                         }
                     }
 
-                    add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                    add_linear_comb_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                             typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                             decltype(workspace.weights_arr), ldouble_safe>(
+                                             workspace.ix_arr.data(), workspace.st, workspace.end,
                                              workspace.col_chosen, workspace.comb_val.data(),
                                              input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                              workspace.ext_coef[workspace.ntaken], workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
@@ -1081,7 +1119,10 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
                         {
                             workspace.ext_mean[workspace.ntaken]
                                 =
-                            calc_mean_only_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
+                            calc_mean_only_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                                    typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                                    decltype(workspace.weights_map), ldouble_safe>(
+                                                    workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
                                                     input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                     workspace.weights_map);
                         }
@@ -1097,14 +1138,20 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
 
                         else
                         {
-                            calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
+                            calc_mean_and_sd_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                                      typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                                      decltype(workspace.weights_map), ldouble_safe>(
+                                                      workspace.ix_arr.data(), workspace.st, workspace.end, workspace.col_chosen,
                                                       input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                       workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
                                                       workspace.weights_map);
                         }
                     }
                     
-                    add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                    add_linear_comb_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                             typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                             decltype(workspace.weights_map), ldouble_safe>(
+                                             workspace.ix_arr.data(), workspace.st, workspace.end,
                                              workspace.col_chosen, workspace.comb_val.data(),
                                              input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                              workspace.ext_coef[workspace.ntaken], workspace.ext_sd, workspace.ext_mean[workspace.ntaken],
@@ -1128,7 +1175,8 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
                     workspace.ext_fill_new[workspace.ntaken] = workspace.coef_norm(workspace.rnd_generator);
                     if (workspace.weights_arr.empty() && workspace.weights_map.empty())
                     {
-                        add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                        add_linear_comb<ldouble_safe>(
+                                        workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                         input_data.categ_data + workspace.col_chosen * input_data.nrows,
                                         input_data.ncat[workspace.col_chosen],
                                         NULL, workspace.ext_fill_new[workspace.ntaken],
@@ -1139,7 +1187,8 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
 
                     else if (!workspace.weights_arr.empty())
                     {
-                        add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                        add_linear_comb_weighted<decltype(workspace.weights_arr), ldouble_safe>(
+                                                 workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                                  input_data.categ_data + workspace.col_chosen * input_data.nrows,
                                                  input_data.ncat[workspace.col_chosen],
                                                  NULL, workspace.ext_fill_new[workspace.ntaken],
@@ -1151,7 +1200,8 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
 
                     else
                     {
-                        add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                        add_linear_comb_weighted<decltype(workspace.weights_map), ldouble_safe>(
+                                                 workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                                  input_data.categ_data + workspace.col_chosen * input_data.nrows,
                                                  input_data.ncat[workspace.col_chosen],
                                                  NULL, workspace.ext_fill_new[workspace.ntaken],
@@ -1194,7 +1244,8 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
 
                     if (workspace.weights_arr.empty() && workspace.weights_map.empty())
                     {
-                        add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                        add_linear_comb<ldouble_safe>(
+                                        workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                         input_data.categ_data + workspace.col_chosen * input_data.nrows,
                                         input_data.ncat[workspace.col_chosen],
                                         workspace.ext_cat_coef[workspace.ntaken].data(), (double)0, (int)0,
@@ -1205,7 +1256,8 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
 
                     else if (!workspace.weights_arr.empty())
                     {
-                        add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                        add_linear_comb_weighted<decltype(workspace.weights_arr), ldouble_safe>(
+                                                 workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                                  input_data.categ_data + workspace.col_chosen * input_data.nrows,
                                                  input_data.ncat[workspace.col_chosen],
                                                  workspace.ext_cat_coef[workspace.ntaken].data(), (double)0, (int)0,
@@ -1217,7 +1269,8 @@ void add_chosen_column(WorkerMemory &workspace, InputData &input_data, ModelPara
 
                     else
                     {
-                        add_linear_comb_weighted(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                        add_linear_comb_weighted<decltype(workspace.weights_map), ldouble_safe>(
+                                                 workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                                  input_data.categ_data + workspace.col_chosen * input_data.nrows,
                                                  input_data.ncat[workspace.col_chosen],
                                                  workspace.ext_cat_coef[workspace.ntaken].data(), (double)0, (int)0,

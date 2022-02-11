@@ -289,7 +289,7 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
                                             *model_outputs,
                                             prediction_data,
                                             (std::vector<ImputeNode>*)NULL,
-                                            (ImputedData<sparse_ix>*)NULL,
+                                            (ImputedData<sparse_ix, double>*)NULL,
                                             (double)0,
                                             (size_t) row,
                                             (tree_num == NULL)? NULL : (tree_num + nrows * tree),
@@ -372,7 +372,7 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
                                     prediction_data,
                                     score,
                                     (std::vector<ImputeNode>*)NULL,
-                                    (ImputedData<sparse_ix>*)NULL,
+                                    (ImputedData<sparse_ix, double>*)NULL,
                                     (tree_num == NULL)? NULL : (tree_num + nrows * tree),
                                     (per_tree_depths == NULL)?
                                         NULL : (per_tree_depths + tree + row*model_outputs_ext->hplanes.size()),
@@ -1692,7 +1692,8 @@ void traverse_hplane_csc(WorkerForPredictCSC      &workspace,
 
                 case Categorical:
                 {
-                    add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                    add_linear_comb<double>(
+                                    workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                     prediction_data.categ_data + hplanes[curr_tree].col_num[col] * prediction_data.nrows,
                                     (model_outputs.cat_split_type == SubSet)? (int)hplanes[curr_tree].cat_coef[ncols_categ].size() : 0,
                                     (model_outputs.cat_split_type == SubSet)? hplanes[curr_tree].cat_coef[ncols_categ].data() : NULL,

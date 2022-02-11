@@ -81,7 +81,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                 CategSplit cat_split_type, NewCategAction new_cat_action,
                 bool   all_perm, Imputer *imputer, size_t min_imp_obs,
                 UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool impute_at_fit,
-                uint64_t random_seed, int nthreads);
+                uint64_t random_seed, bool use_long_double, int nthreads);
 ISOTREE_EXPORTED
 int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              real_t numeric_data[],  size_t ncols_numeric,
@@ -103,7 +103,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
              real_t ref_numeric_data[], int ref_categ_data[],
              bool ref_is_col_major, size_t ref_ld_numeric, size_t ref_ld_categ,
              real_t ref_Xc[], sparse_ix ref_Xc_ind[], sparse_ix ref_Xc_indptr[],
-             uint64_t random_seed);
+             uint64_t random_seed, bool use_long_double);
 ISOTREE_EXPORTED
 void predict_iforest(real_t numeric_data[], int categ_data[],
                      bool is_col_major, size_t ncols_numeric, size_t ncols_categ,
@@ -118,7 +118,7 @@ ISOTREE_EXPORTED void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes
 ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads) noexcept;
 void calc_similarity(real_t numeric_data[], int categ_data[],
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
-                     size_t nrows, int nthreads,
+                     size_t nrows, bool use_long_double, int nthreads,
                      bool assume_full_distr, bool standardize_dist, bool as_kernel,
                      IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                      double tmat[], double rmat[], size_t n_from, bool use_indexed_references,
@@ -126,7 +126,7 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
 ISOTREE_EXPORTED
 void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_major,
                            real_t Xr[], sparse_ix Xr_ind[], sparse_ix Xr_indptr[],
-                           size_t nrows, int nthreads,
+                           size_t nrows, bool use_long_double, int nthreads,
                            IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                            Imputer &imputer);
 ISOTREE_EXPORTED

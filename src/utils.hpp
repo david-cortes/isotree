@@ -137,8 +137,8 @@ double digamma(double x)
     double y, z, z2;
 
     /* check for positive integer up to 10 */
-    if( (x <= THRESHOLD_EXACT_H) && (x == std::floor(x)) )
-        return harmonic(x - 1) - EULERS_GAMMA;
+    if ( (x <= THRESHOLD_EXACT_H) && (x == std::floor(x)) )
+        return (harmonic<double>(x - 1)) - EULERS_GAMMA;
 
     if (likely(x < 1.0e17 ))
     {
@@ -163,6 +163,7 @@ double digamma(double x)
 /* http://fredrik-j.blogspot.com/2009/02/how-not-to-compute-harmonic-numbers.html
    https://en.wikipedia.org/wiki/Harmonic_number
    https://github.com/scikit-learn/scikit-learn/pull/19087 */
+template <class ldouble_safe>
 double harmonic(size_t n)
 {
     if (n > THRESHOLD_EXACT_H)
@@ -188,6 +189,7 @@ double harmonic_recursive(double a, double b)
 
 /* https://stats.stackexchange.com/questions/423542/isolation-forest-and-average-expected-depth-formula
    https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom */
+template <class ldouble_safe>
 double expected_avg_depth(size_t sample_size)
 {
     switch(sample_size)
@@ -203,12 +205,13 @@ double expected_avg_depth(size_t sample_size)
         case 9: return 4609.0/1260.0;
         default:
         {
-            return 2. * (harmonic(sample_size) - 1.);
+            return 2. * (harmonic<ldouble_safe>(sample_size) - 1.);
         }
     }
 }
 
 /* Note: H(x) = psi(x+1) + gamma */
+template <class ldouble_safe>
 double expected_avg_depth(ldouble_safe approx_sample_size)
 {
     if (approx_sample_size <= 1)
@@ -289,6 +292,7 @@ double expected_separation_depth_hotstart(double curr, size_t n_curr, size_t n_f
 }
 
 /* linear interpolation */
+template <class ldouble_safe>
 double expected_separation_depth(ldouble_safe n)
 {
     if (n >= THRESHOLD_EXACT_S)
@@ -456,7 +460,7 @@ void build_btree_sampler(std::vector<double> &btree_weights, real_t *restrict sa
     }
 }
 
-template <class real_t>
+template <class real_t, class ldouble_safe>
 void sample_random_rows(std::vector<size_t> &restrict ix_arr, size_t nrows, bool with_replacement,
                         RNG_engine &rnd_generator, std::vector<size_t> &restrict ix_all,
                         real_t *restrict sample_weights, std::vector<double> &restrict btree_weights,
@@ -699,11 +703,28 @@ double sample_random_uniform(double xmin, double xmax, RNG_engine &rng) noexcept
     return xmin;
 }
 
+template <class ldouble_safe>
+template <class other_t>
+ColumnSampler<ldouble_safe>& ColumnSampler<ldouble_safe>::operator=(const ColumnSampler<other_t> &other)
+{
+    this->col_indices = other.col_indices;
+    this->tree_weights = other.tree_weights;
+    this->curr_pos = other.curr_pos;
+    this->curr_col = other.curr_col;
+    this->last_given = other.last_given;
+    this->n_cols = other.n_cols;
+    this->tree_levels = other.tree_levels;
+    this->offset = other.offset;
+    this->n_dropped = other.n_dropped;
+    return *this;
+}
+
 /*  This one samples with replacement. When using weights, the algorithm is the
     same as for the row sampler, but keeping the weights after taking each iteration. */
 /*  TODO: this column sampler could use coroutines from C++20 once compilers implement them. */
+template <class ldouble_safe>
 template <class real_t>
-void ColumnSampler::initialize(real_t weights[], size_t n_cols)
+void ColumnSampler<ldouble_safe>::initialize(real_t weights[], size_t n_cols)
 {
     this->n_cols = n_cols;
     this->tree_levels = log2ceil(n_cols);
@@ -731,7 +752,8 @@ void ColumnSampler::initialize(real_t weights[], size_t n_cols)
     this->n_dropped = 0;
 }
 
-void ColumnSampler::drop_weights()
+template <class ldouble_safe>
+void ColumnSampler<ldouble_safe>::drop_weights()
 {
     this->tree_weights.clear();
     this->tree_weights.shrink_to_fit();
@@ -739,12 +761,14 @@ void ColumnSampler::drop_weights()
     this->n_dropped = 0;
 }
 
-bool ColumnSampler::has_weights()
+template <class ldouble_safe>
+bool ColumnSampler<ldouble_safe>::has_weights()
 {
     return !this->tree_weights.empty();
 }
 
-void ColumnSampler::initialize(size_t n_cols)
+template <class ldouble_safe>
+void ColumnSampler<ldouble_safe>::initialize(size_t n_cols)
 {
     if (!this->has_weights())
     {
@@ -758,7 +782,8 @@ void ColumnSampler::initialize(size_t n_cols)
 /* TODO: this one should instead call the same function for sampling rows,
    and should be done at the time of initialization so as to avoid allocating
    and filling the whole array. That way it'd be faster and use less memory. */
-void ColumnSampler::leave_m_cols(size_t m, RNG_engine &rnd_generator)
+template <class ldouble_safe>
+void ColumnSampler<ldouble_safe>::leave_m_cols(size_t m, RNG_engine &rnd_generator)
 {
     if (m == 0 || m >= this->n_cols)
         return;
@@ -848,7 +873,8 @@ void ColumnSampler::leave_m_cols(size_t m, RNG_engine &rnd_generator)
     }
 }
 
-void ColumnSampler::drop_col(size_t col, size_t nobs_left)
+template <class ldouble_safe>
+void ColumnSampler<ldouble_safe>::drop_col(size_t col, size_t nobs_left)
 {
     if (!this->has_weights())
     {
@@ -891,19 +917,22 @@ void ColumnSampler::drop_col(size_t col, size_t nobs_left)
     }
 }
 
-void ColumnSampler::drop_col(size_t col)
+template <class ldouble_safe>
+void ColumnSampler<ldouble_safe>::drop_col(size_t col)
 {
     this->drop_col(col, SIZE_MAX);
 }
 
 /* to be used exclusively when initializing the density calculator,
    and only when 'col_indices' is a straight range with no dropped columns */
-void ColumnSampler::drop_from_tail(size_t col)
+template <class ldouble_safe>
+void ColumnSampler<ldouble_safe>::drop_from_tail(size_t col)
 {
     std::swap(this->col_indices[col], this->col_indices[--this->curr_pos]);
 }
 
-void ColumnSampler::prepare_full_pass()
+template <class ldouble_safe>
+void ColumnSampler<ldouble_safe>::prepare_full_pass()
 {
     this->curr_col = 0;
 
@@ -920,7 +949,8 @@ void ColumnSampler::prepare_full_pass()
     }
 }
 
-bool ColumnSampler::sample_col(size_t &col, RNG_engine &rnd_generator)
+template <class ldouble_safe>
+bool ColumnSampler<ldouble_safe>::sample_col(size_t &col, RNG_engine &rnd_generator)
 {
     if (!this->has_weights())
     {
@@ -966,7 +996,8 @@ bool ColumnSampler::sample_col(size_t &col, RNG_engine &rnd_generator)
     }
 }
 
-bool ColumnSampler::sample_col(size_t &col)
+template <class ldouble_safe>
+bool ColumnSampler<ldouble_safe>::sample_col(size_t &col)
 {
     if (this->curr_pos == this->curr_col || this->curr_pos == 0)
         return false;
@@ -975,7 +1006,8 @@ bool ColumnSampler::sample_col(size_t &col)
     return true;
 }
 
-void ColumnSampler::shuffle_remainder(RNG_engine &rnd_generator)
+template <class ldouble_safe>
+void ColumnSampler<ldouble_safe>::shuffle_remainder(RNG_engine &rnd_generator)
 {
     if (!this->has_weights())
     {
@@ -1030,7 +1062,8 @@ void ColumnSampler::shuffle_remainder(RNG_engine &rnd_generator)
     }
 }
 
-size_t ColumnSampler::get_remaining_cols()
+template <class ldouble_safe>
+size_t ColumnSampler<ldouble_safe>::get_remaining_cols()
 {
     if (!this->has_weights())
         return this->curr_pos;
@@ -1038,7 +1071,8 @@ size_t ColumnSampler::get_remaining_cols()
         return this->n_cols - this->n_dropped;
 }
 
-void ColumnSampler::get_array_remaining_cols(std::vector<size_t> &restrict cols)
+template <class ldouble_safe>
+void ColumnSampler<ldouble_safe>::get_array_remaining_cols(std::vector<size_t> &restrict cols)
 {
     if (!this->has_weights())
     {
@@ -1059,7 +1093,8 @@ void ColumnSampler::get_array_remaining_cols(std::vector<size_t> &restrict cols)
     }
 }
 
-bool SingleNodeColumnSampler::initialize
+template<class ldouble_safe, class real_t>
+bool SingleNodeColumnSampler<ldouble_safe, real_t>::initialize
 (
     double *restrict weights,
     std::vector<size_t> *col_indices,
@@ -1182,7 +1217,8 @@ bool SingleNodeColumnSampler::initialize
     return true;
 }
 
-bool SingleNodeColumnSampler::sample_col(size_t &col_chosen, RNG_engine &rnd_generator)
+template <class ldouble_safe, class real_t>
+bool SingleNodeColumnSampler<ldouble_safe, real_t>::sample_col(size_t &col_chosen, RNG_engine &rnd_generator)
 {
     if (!this->using_tree)
     {
@@ -1292,7 +1328,8 @@ bool SingleNodeColumnSampler::sample_col(size_t &col_chosen, RNG_engine &rnd_gen
     }
 }
 
-void SingleNodeColumnSampler::backup(SingleNodeColumnSampler &other, size_t ncols_tot)
+template <class ldouble_safe, class real_t>
+void SingleNodeColumnSampler<ldouble_safe, real_t>::backup(SingleNodeColumnSampler &other, size_t ncols_tot)
 {
     other.n_inf = this->n_inf;
     other.n_left = this->n_left;
@@ -1334,7 +1371,8 @@ void SingleNodeColumnSampler::backup(SingleNodeColumnSampler &other, size_t ncol
     }
 }
 
-void SingleNodeColumnSampler::restore(const SingleNodeColumnSampler &other)
+template <class ldouble_safe, class real_t>
+void SingleNodeColumnSampler<ldouble_safe, real_t>::restore(const SingleNodeColumnSampler &other)
 {
     this->n_inf = other.n_inf;
     this->n_left = other.n_left;
@@ -1363,8 +1401,8 @@ void SingleNodeColumnSampler::restore(const SingleNodeColumnSampler &other)
     }
 }
 
-
-void DensityCalculator::initialize(size_t max_depth, int max_categ, bool reserve_counts, ScoringMetric scoring_metric)
+template <class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::initialize(size_t max_depth, int max_categ, bool reserve_counts, ScoringMetric scoring_metric)
 {
     this->multipliers.reserve(max_depth+3);
     this->multipliers.clear();
@@ -1379,11 +1417,12 @@ void DensityCalculator::initialize(size_t max_depth, int max_categ, bool reserve
     }
 }
 
+template <class ldouble_safe, class real_t>
 template <class InputData>
-void DensityCalculator::initialize_bdens(const InputData &input_data,
+void DensityCalculator<ldouble_safe, real_t>::initialize_bdens(const InputData &input_data,
                                          const ModelParams &model_params,
                                          std::vector<size_t> &ix_arr,
-                                         ColumnSampler &col_sampler)
+                                         ColumnSampler<ldouble_safe> &col_sampler)
 {
     this->fast_bratio = model_params.fast_bratio;
     if (this->fast_bratio)
@@ -1507,11 +1546,12 @@ void DensityCalculator::initialize_bdens(const InputData &input_data,
         this->ncat_orig = this->ncat;
 }
 
+template<class ldouble_safe, class real_t>
 template <class InputData>
-void DensityCalculator::initialize_bdens_ext(const InputData &input_data,
+void DensityCalculator<ldouble_safe, real_t>::initialize_bdens_ext(const InputData &input_data,
                                              const ModelParams &model_params,
                                              std::vector<size_t> &ix_arr,
-                                             ColumnSampler &col_sampler,
+                                             ColumnSampler<ldouble_safe> &col_sampler,
                                              bool col_sampler_is_fresh)
 {
     this->vals_ext_box.reserve(model_params.max_depth + 3);
@@ -1619,7 +1659,8 @@ void DensityCalculator::initialize_bdens_ext(const InputData &input_data,
     // }
 }
 
-void DensityCalculator::push_density(double xmin, double xmax, double split_point)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_density(double xmin, double xmax, double split_point)
 {
     if (std::isinf(xmax) || std::isinf(xmin) || std::isnan(xmin) || std::isnan(xmax) || std::isnan(split_point))
     {
@@ -1651,13 +1692,15 @@ void DensityCalculator::push_density(double xmin, double xmax, double split_poin
     this->multipliers.push_back(curr + mult_left);
 }
 
-void DensityCalculator::push_density(int n_left, int n_present)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_density(int n_left, int n_present)
 {
     this->push_density(0., (double)n_present, (double)n_left);
 }
 
 /* For single category splits */
-void DensityCalculator::push_density(size_t counts[], int ncat)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_density(size_t counts[], int ncat)
 {
     /* this one assumes 'categ_present' has entries 0/1 for missing/present */
     int n_present = 0;
@@ -1667,19 +1710,22 @@ void DensityCalculator::push_density(size_t counts[], int ncat)
 }
 
 /* For single category splits */
-void DensityCalculator::push_density(int n_present)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_density(int n_present)
 {
     this->push_density(0., (double)n_present, 1.);
 }
 
 /* For binary categorical splits */
-void DensityCalculator::push_density()
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_density()
 {
     this->multipliers.push_back(0);
     this->multipliers.push_back(0);
 }
 
-void DensityCalculator::push_adj(double xmin, double xmax, double split_point, double pct_tree_left, ScoringMetric scoring_metric)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_adj(double xmin, double xmax, double split_point, double pct_tree_left, ScoringMetric scoring_metric)
 {
     double range = std::fmax(xmax - xmin, std::numeric_limits<double>::min());
     double dleft = std::fmax(split_point - xmin, std::numeric_limits<double>::min());
@@ -1724,7 +1770,8 @@ void DensityCalculator::push_adj(double xmin, double xmax, double split_point, d
     }
 }
 
-void DensityCalculator::push_adj(signed char *restrict categ_present, size_t *restrict counts, int ncat, ScoringMetric scoring_metric)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_adj(signed char *restrict categ_present, size_t *restrict counts, int ncat, ScoringMetric scoring_metric)
 {
     /* this one assumes 'categ_present' has entries -1/0/1 for missing/right/left */
     int cnt_cat_left = 0;
@@ -1747,7 +1794,8 @@ void DensityCalculator::push_adj(signed char *restrict categ_present, size_t *re
 }
 
 /* For single category splits */
-void DensityCalculator::push_adj(size_t *restrict counts, int ncat, int chosen_cat, ScoringMetric scoring_metric)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_adj(size_t *restrict counts, int ncat, int chosen_cat, ScoringMetric scoring_metric)
 {
     /* this one assumes 'categ_present' has entries 0/1 for missing/present */
     int cnt_cat = 0;
@@ -1763,12 +1811,14 @@ void DensityCalculator::push_adj(size_t *restrict counts, int ncat, int chosen_c
 }
 
 /* For binary categorical splits */
-void DensityCalculator::push_adj(double pct_tree_left, ScoringMetric scoring_metric)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_adj(double pct_tree_left, ScoringMetric scoring_metric)
 {
     this->push_adj(0., 1., 0.5, pct_tree_left, scoring_metric);
 }
 
-void DensityCalculator::push_bdens(double split_point, size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_bdens(double split_point, size_t col)
 {
     if (this->fast_bratio)
         this->push_bdens_fast_route(split_point, col);
@@ -1776,13 +1826,15 @@ void DensityCalculator::push_bdens(double split_point, size_t col)
         this->push_bdens_internal(split_point, col);
 }
 
-void DensityCalculator::push_bdens_internal(double split_point, size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_bdens_internal(double split_point, size_t col)
 {
     this->queue_box.push_back(this->box_high[col]);
     this->box_high[col] = split_point;
 }
 
-void DensityCalculator::push_bdens_fast_route(double split_point, size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_bdens_fast_route(double split_point, size_t col)
 {
     ldouble_safe curr_range = (ldouble_safe)this->box_high[col] - (ldouble_safe)this->box_low[col];
     ldouble_safe fraction_left  =  ((ldouble_safe)split_point - (ldouble_safe)this->box_low[col]) / curr_range;
@@ -1801,7 +1853,8 @@ void DensityCalculator::push_bdens_fast_route(double split_point, size_t col)
     this->push_bdens_internal(split_point, col);
 }
 
-void DensityCalculator::push_bdens(int ncat_branch_left, size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_bdens(int ncat_branch_left, size_t col)
 {
     if (this->fast_bratio)
         this->push_bdens_fast_route(ncat_branch_left, col);
@@ -1809,13 +1862,15 @@ void DensityCalculator::push_bdens(int ncat_branch_left, size_t col)
         this->push_bdens_internal(ncat_branch_left, col);
 }
 
-void DensityCalculator::push_bdens_internal(int ncat_branch_left, size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_bdens_internal(int ncat_branch_left, size_t col)
 {
     this->queue_ncat.push_back(this->ncat[col]);
     this->ncat[col] = ncat_branch_left;
 }
 
-void DensityCalculator::push_bdens_fast_route(int ncat_branch_left, size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_bdens_fast_route(int ncat_branch_left, size_t col)
 {
     double fraction_left = std::log((double)ncat_branch_left / this->ncat[col]);
     double fraction_right = std::log((double)(this->ncat[col] - ncat_branch_left) / this->ncat[col]);
@@ -1826,7 +1881,8 @@ void DensityCalculator::push_bdens_fast_route(int ncat_branch_left, size_t col)
     this->push_bdens_internal(ncat_branch_left, col);
 }
 
-void DensityCalculator::push_bdens(const std::vector<signed char> &cat_split, size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_bdens(const std::vector<signed char> &cat_split, size_t col)
 {
     if (this->fast_bratio)
         this->push_bdens_fast_route(cat_split, col);
@@ -1834,7 +1890,8 @@ void DensityCalculator::push_bdens(const std::vector<signed char> &cat_split, si
         this->push_bdens_internal(cat_split, col);
 }
 
-void DensityCalculator::push_bdens_internal(const std::vector<signed char> &cat_split, size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_bdens_internal(const std::vector<signed char> &cat_split, size_t col)
 {
     int ncat_branch_left = 0;
     for (auto el : cat_split)
@@ -1842,7 +1899,8 @@ void DensityCalculator::push_bdens_internal(const std::vector<signed char> &cat_
     this->push_bdens_internal(ncat_branch_left, col);
 }
 
-void DensityCalculator::push_bdens_fast_route(const std::vector<signed char> &cat_split, size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_bdens_fast_route(const std::vector<signed char> &cat_split, size_t col)
 {
     int ncat_branch_left = 0;
     for (auto el : cat_split)
@@ -1850,7 +1908,8 @@ void DensityCalculator::push_bdens_fast_route(const std::vector<signed char> &ca
     this->push_bdens_fast_route(ncat_branch_left, col);
 }
 
-void DensityCalculator::push_bdens_ext(const IsoHPlane &hplane, const ModelParams &model_params)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::push_bdens_ext(const IsoHPlane &hplane, const ModelParams &model_params)
 {
     double x1, x2;
     double xlow = 0, xhigh = 0;
@@ -1926,17 +1985,20 @@ void DensityCalculator::push_bdens_ext(const IsoHPlane &hplane, const ModelParam
     this->vals_ext_box.push_back(std::log(chunk_left) + this->vals_ext_box.back());
 }
 
-void DensityCalculator::pop()
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop()
 {
     this->multipliers.pop_back();
 }
 
-void DensityCalculator::pop_right()
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_right()
 {
     this->multipliers.pop_back();
 }
 
-void DensityCalculator::pop_bdens(size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_bdens(size_t col)
 {
     if (this->fast_bratio)
         this->pop_bdens_fast_route(col);
@@ -1944,7 +2006,8 @@ void DensityCalculator::pop_bdens(size_t col)
         this->pop_bdens_internal(col);
 }
 
-void DensityCalculator::pop_bdens_internal(size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_bdens_internal(size_t col)
 {
     double old_high = this->queue_box.back();
     this->queue_box.pop_back();
@@ -1953,13 +2016,15 @@ void DensityCalculator::pop_bdens_internal(size_t col)
     this->box_high[col] = old_high;
 }
 
-void DensityCalculator::pop_bdens_fast_route(size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_bdens_fast_route(size_t col)
 {
     this->multipliers.pop_back();
     this->pop_bdens_internal(col);
 }
 
-void DensityCalculator::pop_bdens_right(size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_bdens_right(size_t col)
 {
     if (this->fast_bratio)
         this->pop_bdens_right_fast_route(col);
@@ -1967,20 +2032,23 @@ void DensityCalculator::pop_bdens_right(size_t col)
         this->pop_bdens_right_internal(col);
 }
 
-void DensityCalculator::pop_bdens_right_internal(size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_bdens_right_internal(size_t col)
 {
     double old_low = this->queue_box.back();
     this->queue_box.pop_back();
     this->box_low[col] = old_low;
 }
 
-void DensityCalculator::pop_bdens_right_fast_route(size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_bdens_right_fast_route(size_t col)
 {
     this->multipliers.pop_back();
     this->pop_bdens_right_internal(col);
 }
 
-void DensityCalculator::pop_bdens_cat(size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_bdens_cat(size_t col)
 {
     if (this->fast_bratio)
         this->pop_bdens_cat_fast_route(col);
@@ -1988,19 +2056,22 @@ void DensityCalculator::pop_bdens_cat(size_t col)
         this->pop_bdens_cat_internal(col);
 }
 
-void DensityCalculator::pop_bdens_cat_internal(size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_bdens_cat_internal(size_t col)
 {
     int old_ncat = this->queue_ncat.back();
     this->ncat[col] = old_ncat - this->ncat[col];
 }
 
-void DensityCalculator::pop_bdens_cat_fast_route(size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_bdens_cat_fast_route(size_t col)
 {
     this->multipliers.pop_back();
     this->pop_bdens_cat_internal(col);
 }
 
-void DensityCalculator::pop_bdens_cat_right(size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_bdens_cat_right(size_t col)
 {
     if (this->fast_bratio)
         this->pop_bdens_cat_right_fast_route(col);
@@ -2008,50 +2079,58 @@ void DensityCalculator::pop_bdens_cat_right(size_t col)
         this->pop_bdens_cat_right_internal(col);
 }
 
-void DensityCalculator::pop_bdens_cat_right_internal(size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_bdens_cat_right_internal(size_t col)
 {
     int old_ncat = this->queue_ncat.back();
     this->queue_ncat.pop_back();
     this->ncat[col] = old_ncat;
 }
 
-void DensityCalculator::pop_bdens_cat_right_fast_route(size_t col)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_bdens_cat_right_fast_route(size_t col)
 {
     this->multipliers.pop_back();
     this->pop_bdens_cat_right_internal(col);
 }
 
-void DensityCalculator::pop_bdens_ext()
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_bdens_ext()
 {
     this->vals_ext_box.pop_back();
     this->vals_ext_box.push_back(this->queue_ext_box.back());
     this->queue_ext_box.pop_back();
 }
 
-void DensityCalculator::pop_bdens_ext_right()
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::pop_bdens_ext_right()
 {
     this->vals_ext_box.pop_back();
 }
 
 /* this outputs the logarithm of the density */
-double DensityCalculator::calc_density(ldouble_safe remainder, size_t sample_size)
+template<class ldouble_safe, class real_t>
+double DensityCalculator<ldouble_safe, real_t>::calc_density(ldouble_safe remainder, size_t sample_size)
 {
     return std::log(remainder) - std::log((ldouble_safe)sample_size) - this->multipliers.back();
 }
 
-ldouble_safe DensityCalculator::calc_adj_depth()
+template<class ldouble_safe, class real_t>
+ldouble_safe DensityCalculator<ldouble_safe, real_t>::calc_adj_depth()
 {
     ldouble_safe out = this->multipliers.back();
     return std::fmax(out, (ldouble_safe)std::numeric_limits<double>::min());
 }
 
-double DensityCalculator::calc_adj_density()
+template<class ldouble_safe, class real_t>
+double DensityCalculator<ldouble_safe, real_t>::calc_adj_density()
 {
     return this->multipliers.back();
 }
 
 /* this outputs the logarithm of the density */
-ldouble_safe DensityCalculator::calc_bratio_inv_log()
+template<class ldouble_safe, class real_t>
+ldouble_safe DensityCalculator<ldouble_safe, real_t>::calc_bratio_inv_log()
 {
     if (!this->multipliers.empty())
         return -this->multipliers.back();
@@ -2075,7 +2154,8 @@ ldouble_safe DensityCalculator::calc_bratio_inv_log()
     return sum_log_switdh;
 }
 
-ldouble_safe DensityCalculator::calc_bratio_log()
+template<class ldouble_safe, class real_t>
+ldouble_safe DensityCalculator<ldouble_safe, real_t>::calc_bratio_log()
 {
     if (!this->multipliers.empty())
         return this->multipliers.back();
@@ -2101,7 +2181,8 @@ ldouble_safe DensityCalculator::calc_bratio_log()
 }
 
 /* this does NOT output the logarithm of the density */
-double DensityCalculator::calc_bratio()
+template<class ldouble_safe, class real_t>
+double DensityCalculator<ldouble_safe, real_t>::calc_bratio()
 {
     return std::exp(this->calc_bratio_log());
 }
@@ -2109,56 +2190,65 @@ double DensityCalculator::calc_bratio()
 const double MIN_DENS = std::log(std::numeric_limits<double>::min());
 
 /* this outputs the logarithm of the density */
-double DensityCalculator::calc_bdens(ldouble_safe remainder, size_t sample_size)
+template<class ldouble_safe, class real_t>
+double DensityCalculator<ldouble_safe, real_t>::calc_bdens(ldouble_safe remainder, size_t sample_size)
 {
     double out = std::log(remainder) - std::log((ldouble_safe)sample_size) - this->calc_bratio_inv_log();
     return std::fmax(out, MIN_DENS);
 }
 
 /* this outputs the logarithm of the density */
-double DensityCalculator::calc_bdens2(ldouble_safe remainder, size_t sample_size)
+template<class ldouble_safe, class real_t>
+double DensityCalculator<ldouble_safe, real_t>::calc_bdens2(ldouble_safe remainder, size_t sample_size)
 {
     double out = std::log(remainder) - std::log((ldouble_safe)sample_size) - this->calc_bratio_log();
     return std::fmax(out, MIN_DENS);
 }
 
 /* this outputs the logarithm of the density */
-ldouble_safe DensityCalculator::calc_bratio_log_ext()
+template<class ldouble_safe, class real_t>
+ldouble_safe DensityCalculator<ldouble_safe, real_t>::calc_bratio_log_ext()
 {
     return this->vals_ext_box.back();
 }
 
-double DensityCalculator::calc_bratio_ext()
+template<class ldouble_safe, class real_t>
+double DensityCalculator<ldouble_safe, real_t>::calc_bratio_ext()
 {
     double out = std::exp(this->calc_bratio_log_ext());
     return std::fmax(out, std::numeric_limits<double>::min());
 }
 
 /* this outputs the logarithm of the density */
-double DensityCalculator::calc_bdens_ext(ldouble_safe remainder, size_t sample_size)
+template<class ldouble_safe, class real_t>
+double DensityCalculator<ldouble_safe, real_t>::calc_bdens_ext(ldouble_safe remainder, size_t sample_size)
 {
     double out = std::log(remainder) - std::log((ldouble_safe)sample_size) - this->calc_bratio_log_ext();
     return std::fmax(out, MIN_DENS);
 }
 
-void DensityCalculator::save_range(double xmin, double xmax)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::save_range(double xmin, double xmax)
 {
     this->xmin = xmin;
     this->xmax = xmax;
 }
 
-void DensityCalculator::restore_range(double &restrict xmin, double &restrict xmax)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::restore_range(double &restrict xmin, double &restrict xmax)
 {
     xmin = this->xmin;
     xmax = this->xmax;
 }
 
-void DensityCalculator::save_counts(size_t *restrict cat_counts, int ncat)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::save_counts(size_t *restrict cat_counts, int ncat)
 {
     this->counts.assign(cat_counts, cat_counts + ncat);
 }
 
-void DensityCalculator::save_n_present_and_left(signed char *restrict split_left, int ncat)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::save_n_present_and_left(signed char *restrict split_left, int ncat)
 {
     this->n_present = 0;
     this->n_left = 0;
@@ -2169,7 +2259,8 @@ void DensityCalculator::save_n_present_and_left(signed char *restrict split_left
     }
 }
 
-void DensityCalculator::save_n_present(size_t *restrict cat_counts, int ncat)
+template<class ldouble_safe, class real_t>
+void DensityCalculator<ldouble_safe, real_t>::save_n_present(size_t *restrict cat_counts, int ncat)
 {
     this->n_present = 0;
     for (int cat = 0; cat < ncat; cat++)
@@ -3362,6 +3453,7 @@ int count_ncateg_in_col(const int x[], const size_t n, const int ncat, unsigned 
     return ncat_present;
 }
 
+template <class ldouble_safe>
 ldouble_safe calculate_sum_weights(std::vector<size_t> &ix_arr, size_t st, size_t end, size_t curr_depth,
                                    std::vector<double> &weights_arr, hashed_map<size_t, double> &weights_map)
 {
@@ -3711,6 +3803,15 @@ void SignalSwitcher::restore_handle()
             handle_is_locked = false;
         }
     }
+}
+
+bool has_long_double()
+{
+    #ifndef NO_LONG_DOUBLE
+    return sizeof(long double) > sizeof(double);
+    #else
+    return false;
+    #endif
 }
 
 /* Return the #def'd constants from standard header. This is in order to determine if the return

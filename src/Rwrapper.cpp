@@ -242,7 +242,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                      Rcpp::CharacterVector missing_action, bool all_perm,
                      bool build_imputer, bool output_imputations, size_t min_imp_obs,
                      Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows,
-                     int random_seed, int nthreads)
+                     int random_seed, bool use_long_double, int nthreads)
 {
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
@@ -431,7 +431,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                 cat_split_type_C, new_cat_action_C,
                 all_perm, imputer_ptr.get(), min_imp_obs,
                 depth_imp_C, weigh_imp_rows_C, output_imputations,
-                (uint64_t) random_seed, nthreads);
+                (uint64_t) random_seed, use_long_double, nthreads);
     }
     catch (std::bad_alloc &e) {
         throw_mem_err();
@@ -533,7 +533,7 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
               bool all_perm,
               Rcpp::NumericVector ref_X_num, Rcpp::IntegerVector ref_X_cat,
               Rcpp::NumericVector ref_Xc, Rcpp::IntegerVector ref_Xc_ind, Rcpp::IntegerVector ref_Xc_indptr,
-              uint64_t random_seed,
+              uint64_t random_seed, bool use_long_double,
               Rcpp::List &model_cpp_obj_update, Rcpp::List &model_params_update)
 {
     Rcpp::List out = Rcpp::List::create(
@@ -702,7 +702,7 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
              ref_numeric_data_ptr, ref_categ_data_ptr,
              true, (size_t)0, (size_t)0,
              ref_Xc_ptr, ref_Xc_ind_ptr, ref_Xc_indptr_ptr,
-             (uint64_t)random_seed);
+             (uint64_t)random_seed, use_long_double);
     
     Rcpp::RawVector new_serialized, new_imp_serialized, new_ind_serialized;
     size_t new_size;
@@ -917,7 +917,7 @@ void dist_iso(SEXP model_R_ptr, SEXP indexer_R_ptr,
               Rcpp::NumericMatrix rmat, bool is_extended,
               Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat,
               Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
-              size_t nrows, int nthreads, bool assume_full_distr,
+              size_t nrows, bool use_long_double, int nthreads, bool assume_full_distr,
               bool standardize_dist, bool sq_dist, size_t n_from,
               bool use_reference_points, bool as_kernel)
 {
@@ -984,7 +984,7 @@ void dist_iso(SEXP model_R_ptr, SEXP indexer_R_ptr,
 
     calc_similarity(numeric_data_ptr, categ_data_ptr,
                     Xc_ptr, Xc_ind_ptr, Xc_indptr_ptr,
-                    nrows, nthreads,
+                    nrows, use_long_double, nthreads,
                     assume_full_distr, standardize_dist, as_kernel,
                     model_ptr, ext_model_ptr,
                     tmat_ptr, rmat_ptr, n_from, use_reference_points,
@@ -1013,7 +1013,7 @@ void dist_iso(SEXP model_R_ptr, SEXP indexer_R_ptr,
 Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
                       Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat,
                       Rcpp::NumericVector Xr, Rcpp::IntegerVector Xr_ind, Rcpp::IntegerVector Xr_indptr,
-                      size_t nrows, int nthreads)
+                      size_t nrows, bool use_long_double, int nthreads)
 {
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
@@ -1053,7 +1053,7 @@ Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
 
     impute_missing_values(numeric_data_ptr, categ_data_ptr, true,
                           Xr_ptr, Xr_ind_ptr, Xr_indptr_ptr,
-                          nrows, nthreads,
+                          nrows, use_long_double, nthreads,
                           model_ptr, ext_model_ptr,
                           *imputer_ptr);
 

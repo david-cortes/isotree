@@ -116,6 +116,11 @@
 *       the first group is assumed to be the earlier rows here.
 * - nrows
 *       Number of rows in 'numeric_data', 'Xc', 'categ_data'.
+* - use_long_double
+*       Whether to use 'long double' (extended precision) type for the calculations. This makes them
+*       more accurate (provided that the compiler used has wider long doubles than doubles), but
+*       slower - especially in platforms in which 'long double' is a software-emulated type (e.g.
+*       Power8 platforms).
 * - nthreads
 *       Number of parallel threads to use. Note that, the more threads, the more memory will be
 *       allocated, even if the thread does not end up being used (with one exception being kernel calculations
@@ -220,6 +225,46 @@
 */
 template <class real_t, class sparse_ix>
 void calc_similarity(real_t numeric_data[], int categ_data[],
+                     real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
+                     size_t nrows, bool use_long_double, int nthreads,
+                     bool assume_full_distr, bool standardize_dist, bool as_kernel,
+                     IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
+                     double tmat[], double rmat[], size_t n_from, bool use_indexed_references,
+                     TreesIndexer *indexer, bool is_col_major, size_t ld_numeric, size_t ld_categ)
+{
+    if (use_long_double && !has_long_double()) {
+        use_long_double = false;
+        fprintf(stderr, "Passed 'use_long_double=true', but library was compiled without long double support.\n");
+    }
+    #ifndef NO_LONG_DOUBLE
+    if (likely(!use_long_double))
+    #endif
+        calc_similarity_internal<real_t, sparse_ix, double>(
+            numeric_data, categ_data,
+            Xc, Xc_ind, Xc_indptr,
+            nrows, nthreads,
+            assume_full_distr, standardize_dist, as_kernel,
+            model_outputs, model_outputs_ext,
+            tmat, rmat, n_from, use_indexed_references,
+            indexer, is_col_major, ld_numeric, ld_categ
+        );
+    #ifndef NO_LONG_DOUBLE
+    else
+        calc_similarity_internal<real_t, sparse_ix, long double>(
+            numeric_data, categ_data,
+            Xc, Xc_ind, Xc_indptr,
+            nrows, nthreads,
+            assume_full_distr, standardize_dist, as_kernel,
+            model_outputs, model_outputs_ext,
+            tmat, rmat, n_from, use_indexed_references,
+            indexer, is_col_major, ld_numeric, ld_categ
+        );
+    #endif
+}
+
+template <class real_t, class sparse_ix, class ldouble_safe>
+void calc_similarity_internal(
+                     real_t numeric_data[], int categ_data[],
                      real_t Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                      size_t nrows, int nthreads,
                      bool assume_full_distr, bool standardize_dist, bool as_kernel,
@@ -378,7 +423,8 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
             {
                 initialize_worker_for_sim(worker_memory[omp_get_thread_num()], prediction_data,
                                           model_outputs, NULL, n_from, assume_full_distr);
-                traverse_tree_sim(worker_memory[omp_get_thread_num()],
+                traverse_tree_sim<PredictionData<real_t, sparse_ix>, ldouble_safe>(
+                                  worker_memory[omp_get_thread_num()],
                                   prediction_data,
                                   *model_outputs,
                                   model_outputs->trees[tree],
@@ -411,7 +457,8 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
             {
                 initialize_worker_for_sim(worker_memory[omp_get_thread_num()], prediction_data,
                                           NULL, model_outputs_ext, n_from, assume_full_distr);
-                traverse_hplane_sim(worker_memory[omp_get_thread_num()],
+                traverse_hplane_sim<PredictionData<real_t, sparse_ix>, ldouble_safe>(
+                                    worker_memory[omp_get_thread_num()],
                                     prediction_data,
                                     *model_outputs_ext,
                                     model_outputs_ext->hplanes[hplane],
@@ -442,7 +489,9 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
         std::rethrow_exception(ex);
     
     /* gather and transform the results */
-    gather_sim_result< PredictionData<real_t, sparse_ix>, InputData<real_t, sparse_ix>, WorkerMemory<ImputedData<sparse_ix>> >
+    gather_sim_result< PredictionData<real_t, sparse_ix>,
+                       InputData<real_t, sparse_ix>,
+                       WorkerMemory<ImputedData<sparse_ix, ldouble_safe>, ldouble_safe, real_t> >
                      (&worker_memory, NULL,
                       &prediction_data, NULL,
                       model_outputs, model_outputs_ext,
@@ -456,7 +505,7 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
     #endif
 }
 
-template <class PredictionData>
+template <class PredictionData, class ldouble_safe>
 void traverse_tree_sim(WorkerForSimilarity   &workspace,
                        PredictionData        &prediction_data,
                        IsoForest             &model_outputs,
@@ -718,7 +767,8 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
             if (split_ix > workspace.st)
             {
                 workspace.end = split_ix - 1;
-                traverse_tree_sim(workspace,
+                traverse_tree_sim<PredictionData, ldouble_safe>(
+                                  workspace,
                                   prediction_data,
                                   model_outputs,
                                   trees,
@@ -731,7 +781,8 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
             {
                 workspace.st  = split_ix;
                 workspace.end = orig_end;
-                traverse_tree_sim(workspace,
+                traverse_tree_sim<PredictionData, ldouble_safe>(
+                                  workspace,
                                   prediction_data,
                                   model_outputs,
                                   trees,
@@ -762,7 +813,8 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
                 workspace.end = end_NA - 1;
                 for (size_t row = st_NA; row < end_NA; row++)
                     workspace.weights_arr[workspace.ix_arr[row]] *= trees[curr_tree].pct_tree_left;
-                traverse_tree_sim(workspace,
+                traverse_tree_sim<PredictionData, ldouble_safe>(
+                                  workspace,
                                   prediction_data,
                                   model_outputs,
                                   trees,
@@ -790,7 +842,8 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
 
                 for (size_t row = st_NA; row < end_NA; row++)
                     workspace.weights_arr[workspace.ix_arr[row]] *= (1. - trees[curr_tree].pct_tree_left);
-                traverse_tree_sim(workspace,
+                traverse_tree_sim<PredictionData, ldouble_safe>(
+                                  workspace,
                                   prediction_data,
                                   model_outputs,
                                   trees,
@@ -802,7 +855,7 @@ void traverse_tree_sim(WorkerForSimilarity   &workspace,
     }
 }
 
-template <class PredictionData>
+template <class PredictionData, class ldouble_safe>
 void traverse_hplane_sim(WorkerForSimilarity     &workspace,
                          PredictionData          &prediction_data,
                          ExtIsoForest            &model_outputs,
@@ -933,7 +986,8 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
                     {
                         case SingleCateg:
                         {
-                            add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                            add_linear_comb<ldouble_safe>(
+                                            workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                             prediction_data.categ_data + prediction_data.nrows * hplanes[curr_tree].col_num[col],
                                             (int)0, NULL, hplanes[curr_tree].fill_new[ncols_categ],
                                             hplanes[curr_tree].chosen_cat[ncols_categ],
@@ -945,7 +999,8 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
 
                         case SubSet:
                         {
-                            add_linear_comb(workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
+                            add_linear_comb<ldouble_safe>(
+                                            workspace.ix_arr.data(), workspace.st, workspace.end, workspace.comb_val.data(),
                                             prediction_data.categ_data + prediction_data.nrows * hplanes[curr_tree].col_num[col],
                                             (int) hplanes[curr_tree].cat_coef[ncols_categ].size(),
                                             hplanes[curr_tree].cat_coef[ncols_categ].data(), (double) 0, (int) 0,
@@ -988,7 +1043,8 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
     if (split_ix > workspace.st)
     {
         workspace.end = split_ix - 1;
-        traverse_hplane_sim(workspace,
+        traverse_hplane_sim<PredictionData, ldouble_safe>(
+                            workspace,
                             prediction_data,
                             model_outputs,
                             hplanes,
@@ -1000,7 +1056,8 @@ void traverse_hplane_sim(WorkerForSimilarity     &workspace,
     {
         workspace.st  = split_ix;
         workspace.end = orig_end;
-        traverse_hplane_sim(workspace,
+        traverse_hplane_sim<PredictionData, ldouble_safe>(
+                            workspace,
                             prediction_data,
                             model_outputs,
                             hplanes,
@@ -1352,7 +1409,7 @@ void calc_similarity_from_indexer
                                                       [&terminal_indices_this](const size_t &a, const size_t &b)
                                                       {return a < (size_t)terminal_indices_this[b];});
                         size_t n_this = std::distance(curr_begin, new_begin);
-                        ldouble_safe sep_this
+                        double sep_this
                             =
                         n_this
                             +
@@ -1554,7 +1611,7 @@ void calc_similarity_from_indexer
                                                           {return a < (size_t)terminal_indices_this[b];});
                             size_t n_this = std::distance(curr_begin, new_begin);
                             if (unlikely(!n_this)) unexpected_error();
-                            ldouble_safe sep_this
+                            double sep_this
                                 =
                             n_this
                                 +

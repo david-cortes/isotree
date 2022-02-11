@@ -77,7 +77,7 @@
 #define pw4(x) ((x) * (x) * (x) * (x))
 
 /* https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Higher-order_statistics */
-template <class real_t>
+template <class real_t, class ldouble_safe>
 double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], MissingAction missing_action)
 {
     ldouble_safe m = 0;
@@ -147,7 +147,7 @@ double calc_kurtosis(size_t ix_arr[], size_t st, size_t end, real_t x[], Missing
     }
 }
 
-template <class real_t>
+template <class real_t, class ldouble_safe>
 double calc_kurtosis(real_t x[], size_t n, MissingAction missing_action)
 {
     ldouble_safe m = 0;
@@ -207,7 +207,7 @@ double calc_kurtosis(real_t x[], size_t n, MissingAction missing_action)
 }
 
 /* TODO: is this algorithm correct? */
-template <class real_t, class mapping>
+template <class real_t, class mapping, class ldouble_safe>
 double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, real_t x[],
                               MissingAction missing_action, mapping &restrict w)
 {
@@ -251,7 +251,7 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, real_t x[]
     return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
 }
 
-template <class real_t>
+template <class real_t, class ldouble_safe>
 double calc_kurtosis_weighted(real_t *restrict x, size_t n_, MissingAction missing_action, real_t *restrict w)
 {
     ldouble_safe m = 0;
@@ -293,7 +293,7 @@ double calc_kurtosis_weighted(real_t *restrict x, size_t n_, MissingAction missi
 /* TODO: make these compensated sums */
 /* TODO: can this use the same algorithm as above but with a correction at the end,
    like it was done for the variance? */
-template <class real_t, class sparse_ix>
+template <class real_t, class sparse_ix, class ldouble_safe>
 double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                      real_t Xc[], sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                      MissingAction missing_action)
@@ -415,7 +415,7 @@ double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
     return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
 }
 
-template <class real_t, class sparse_ix>
+template <class real_t, class sparse_ix, class ldouble_safe>
 double calc_kurtosis(size_t col_num, size_t nrows,
                      real_t Xc[], sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                      MissingAction missing_action)
@@ -496,7 +496,7 @@ double calc_kurtosis(size_t col_num, size_t nrows,
 }
 
 
-template <class real_t, class sparse_ix, class mapping>
+template <class real_t, class sparse_ix, class mapping, class ldouble_safe>
 double calc_kurtosis_weighted(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
                               real_t Xc[], sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                               MissingAction missing_action, mapping &restrict w)
@@ -621,7 +621,7 @@ double calc_kurtosis_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
     return (!is_na_or_inf(out))? std::fmax((double)out, 0.) : (-HUGE_VAL);
 }
 
-template <class real_t, class sparse_ix>
+template <class real_t, class sparse_ix, class ldouble_safe>
 double calc_kurtosis_weighted(size_t col_num, size_t nrows,
                               real_t *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
                               MissingAction missing_action, real_t *restrict w)
@@ -708,7 +708,7 @@ double calc_kurtosis_weighted(size_t col_num, size_t nrows,
 }
 
 
-
+template <class ldouble_safe>
 double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[], double buffer_prob[],
                               MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator)
 {
@@ -795,6 +795,7 @@ double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[]
     return -1; /* this will never be reached, but CRAN complains otherwise */
 }
 
+template <class ldouble_safe>
 double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat, size_t *restrict buffer_cnt, double buffer_prob[],
                      MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator)
 {
@@ -827,10 +828,12 @@ double calc_kurtosis(size_t *restrict ix_arr, size_t st, size_t end, int x[], in
         }
     }
 
-    return calc_kurtosis_internal(cnt, x, ncat, buffer_cnt, buffer_prob,
+    return calc_kurtosis_internal<ldouble_safe>(
+                                  cnt, x, ncat, buffer_cnt, buffer_prob,
                                   missing_action, cat_split_type, rnd_generator);
 }
 
+template <class ldouble_safe>
 double calc_kurtosis(size_t nrows, int x[], int ncat, size_t buffer_cnt[], double buffer_prob[],
                      MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator)
 {
@@ -854,13 +857,14 @@ double calc_kurtosis(size_t nrows, int x[], int ncat, size_t buffer_cnt[], doubl
         }
     }
 
-    return calc_kurtosis_internal(cnt, x, ncat, buffer_cnt, buffer_prob,
+    return calc_kurtosis_internal<ldouble_safe>(
+                                  cnt, x, ncat, buffer_cnt, buffer_prob,
                                   missing_action, cat_split_type, rnd_generator);
 }
 
 
 /* TODO: this one should get a buffer preallocated from outside */
-template <class mapping>
+template <class mapping, class ldouble_safe>
 double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, int x[], int ncat,
                                        double buffer_prob[], MissingAction missing_action, CategSplit cat_split_type,
                                        RNG_engine &rnd_generator, mapping &restrict w)
@@ -939,7 +943,7 @@ double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, in
     return -1; /* this will never be reached, but CRAN complains otherwise */
 }
 
-template <class mapping>
+template <class mapping, class ldouble_safe>
 double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, int x[], int ncat, double buffer_prob[],
                               MissingAction missing_action, CategSplit cat_split_type, RNG_engine &rnd_generator,
                               mapping &restrict w)
@@ -956,12 +960,13 @@ double calc_kurtosis_weighted(size_t ix_arr[], size_t st, size_t end, int x[], i
             buffer_cnt[ncat] += w_this;
     }
     
-    return calc_kurtosis_weighted_internal(buffer_cnt, x, ncat,
+    return calc_kurtosis_weighted_internal<mapping, ldouble_safe>(
+                                           buffer_cnt, x, ncat,
                                            buffer_prob, missing_action, cat_split_type,
                                            rnd_generator, w);
 }
 
-template <class real_t>
+template <class real_t, class ldouble_safe>
 double calc_kurtosis_weighted(size_t nrows, int x[], int ncat, double *restrict buffer_prob,
                               MissingAction missing_action, CategSplit cat_split_type,
                               RNG_engine &rnd_generator, real_t *restrict w)
@@ -978,12 +983,13 @@ double calc_kurtosis_weighted(size_t nrows, int x[], int ncat, double *restrict 
             buffer_cnt[ncat] += w_this;
     }
     
-    return calc_kurtosis_weighted_internal(buffer_cnt, x, ncat,
+    return calc_kurtosis_weighted_internal<real_t *restrict, ldouble_safe>(
+                                           buffer_cnt, x, ncat,
                                            buffer_prob, missing_action, cat_split_type,
                                            rnd_generator, w);
 }
 
-template <class int_t>
+template <class int_t, class ldouble_safe>
 double expected_sd_cat(double p[], size_t n, int_t pos[])
 {
     if (n <= 1) return 0;
@@ -998,7 +1004,7 @@ double expected_sd_cat(double p[], size_t n, int_t pos[])
     return std::sqrt(std::fmax(cum_var, (ldouble_safe)0));
 }
 
-template <class number, class int_t>
+template <class number, class int_t, class ldouble_safe>
 double expected_sd_cat(number *restrict counts, double *restrict p, size_t n, int_t *restrict pos)
 {
     if (n <= 1) return 0;
@@ -1008,17 +1014,17 @@ double expected_sd_cat(number *restrict counts, double *restrict p, size_t n, in
     for (size_t cat = 0; cat < n; cat++)
         p[pos[cat]] = (ldouble_safe)counts[pos[cat]] / cnt_div;
 
-    return expected_sd_cat(p, n, pos);
+    return expected_sd_cat<int_t, ldouble_safe>(p, n, pos);
 }
 
-template <class number, class int_t>
+template <class number, class int_t, class ldouble_safe>
 double expected_sd_cat_single(number *restrict counts, double *restrict p, size_t n, int_t *restrict pos, size_t cat_exclude, number cnt)
 {
     if (cat_exclude == 0)
-        return expected_sd_cat(counts, p, n-1, pos + 1);
+        return expected_sd_cat<number, int_t, ldouble_safe>(counts, p, n-1, pos + 1);
 
     else if (cat_exclude == (n-1))
-        return expected_sd_cat(counts, p, n-1, pos);
+        return expected_sd_cat<number, int_t, ldouble_safe>(counts, p, n-1, pos);
 
     size_t ix_exclude = pos[cat_exclude];
 
@@ -1045,7 +1051,7 @@ double expected_sd_cat_single(number *restrict counts, double *restrict p, size_
     return std::sqrt(std::fmax(cum_var, (ldouble_safe)0));
 }
 
-template <class number, class int_t>
+template <class number, class int_t, class ldouble_safe>
 double expected_sd_cat_internal(int ncat, number *restrict buffer_cnt, ldouble_safe cnt_l,
                                 int_t *restrict buffer_pos, double *restrict buffer_prob)
 {
@@ -1072,11 +1078,11 @@ double expected_sd_cat_internal(int ncat, number *restrict buffer_cnt, ldouble_s
     }
 
     if (ncat_present <= 1) return 0;
-    return expected_sd_cat(buffer_prob, ncat_present, buffer_pos + st_pos);
+    return expected_sd_cat<int_t, ldouble_safe>(buffer_prob, ncat_present, buffer_pos + st_pos);
 }
 
 
-template <class int_t>
+template <class int_t, class ldouble_safe>
 double expected_sd_cat(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat,
                        MissingAction missing_action,
                        size_t *restrict buffer_cnt, int_t *restrict buffer_pos, double buffer_prob[])
@@ -1108,10 +1114,10 @@ double expected_sd_cat(size_t *restrict ix_arr, size_t st, size_t end, int x[], 
         }
     }
 
-    return expected_sd_cat_internal(ncat, buffer_cnt, cnt, buffer_pos, buffer_prob);
+    return expected_sd_cat_internal<size_t, int_t, ldouble_safe>(ncat, buffer_cnt, cnt, buffer_pos, buffer_prob);
 }
 
-template <class mapping, class int_t>
+template <class mapping, class int_t, class ldouble_safe>
 double expected_sd_cat_weighted(size_t *restrict ix_arr, size_t st, size_t end, int x[], int ncat,
                                 MissingAction missing_action, mapping &restrict w,
                                 double *restrict buffer_cnt, int_t *restrict buffer_pos, double *restrict buffer_prob)
@@ -1154,13 +1160,13 @@ double expected_sd_cat_weighted(size_t *restrict ix_arr, size_t st, size_t end, 
         if (unlikely(cnt == 0)) return 0;
     }
 
-    return expected_sd_cat_internal(ncat, buffer_cnt, cnt, buffer_pos, buffer_prob);
+    return expected_sd_cat_internal<double, int_t, ldouble_safe>(ncat, buffer_cnt, cnt, buffer_pos, buffer_prob);
 }
 
 /* Note: this isn't exactly comparable to the pooled gain from numeric variables,
    but among all the possible options, this is what happens to end up in the most
    similar scale when considering standardized gain. */
-template <class number>
+template <class number, class ldouble_safe>
 double categ_gain(number cnt_left, number cnt_right,
                   ldouble_safe s_left, ldouble_safe s_right,
                   ldouble_safe base_info, ldouble_safe cnt)
@@ -1306,7 +1312,7 @@ double find_split_rel_gain_t(real_t_ *restrict x, size_t n, double &restrict spl
     return std::fmax((double)best_gain, std::numeric_limits<double>::epsilon());
 }
 
-template <class real_t_>
+template <class real_t_, class ldouble_safe>
 double find_split_rel_gain(real_t_ *restrict x, size_t n, double &restrict split_point)
 {
     if (n < THRESHOLD_LONG_DOUBLE)
@@ -1349,7 +1355,7 @@ double find_split_rel_gain_t(real_t_ *restrict x, real_t_ xmean, size_t *restric
     return std::fmax((double)best_gain, std::numeric_limits<double>::epsilon());
 }
 
-template <class real_t_>
+template <class real_t_, class ldouble_safe>
 double find_split_rel_gain(real_t_ *restrict x, real_t_ xmean, size_t *restrict ix_arr, size_t st, size_t end, double &restrict split_point, size_t &restrict split_ix)
 {
     if ((end-st+1) < THRESHOLD_LONG_DOUBLE)
@@ -1393,7 +1399,7 @@ double find_split_rel_gain_weighted_t(real_t_ *restrict x, real_t_ xmean, size_t
     return std::fmax((double)best_gain, std::numeric_limits<double>::epsilon());
 }
 
-template <class real_t_, class mapping>
+template <class real_t_, class mapping, class ldouble_safe>
 double find_split_rel_gain_weighted(real_t_ *restrict x, real_t_ xmean, size_t *restrict ix_arr, size_t st, size_t end, double &restrict split_point, size_t &restrict split_ix, mapping &restrict w)
 {
     if ((end-st+1) < THRESHOLD_LONG_DOUBLE)
@@ -1421,7 +1427,7 @@ real_t calc_sd_right_to_left(real_t_ *restrict x, size_t n, double *restrict sd_
     return std::sqrt(running_ssq / (real_t)n);
 }
 
-template <class real_t_>
+template <class real_t_, class ldouble_safe>
 ldouble_safe calc_sd_right_to_left_weighted(real_t_ *restrict x, size_t n, double *restrict sd_arr,
                                            double *restrict w, ldouble_safe &cumw, size_t *restrict sorted_ix)
 {
@@ -1466,7 +1472,7 @@ real_t calc_sd_right_to_left(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[]
     return std::sqrt(running_ssq / (real_t)n);
 }
 
-template <class real_t_, class mapping>
+template <class real_t_, class mapping, class ldouble_safe>
 ldouble_safe calc_sd_right_to_left_weighted(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end,
                                            double *restrict sd_arr, mapping &restrict w, ldouble_safe &cumw)
 {
@@ -1531,7 +1537,7 @@ double find_split_std_gain_t(real_t_ *restrict x, size_t n, double *restrict sd_
     return best_gain;
 }
 
-template <class real_t_>
+template <class real_t_, class ldouble_safe>
 double find_split_std_gain(real_t_ *restrict x, size_t n, double *restrict sd_arr,
                            GainCriterion criterion, double min_gain, double &restrict split_point)
 {
@@ -1541,7 +1547,7 @@ double find_split_std_gain(real_t_ *restrict x, size_t n, double *restrict sd_ar
         return find_split_std_gain_t<ldouble_safe, real_t_>(x, n, sd_arr, criterion, min_gain, split_point);
 }
 
-template <class real_t>
+template <class real_t, class ldouble_safe>
 double find_split_std_gain_weighted(real_t *restrict x, size_t n, double *restrict sd_arr,
                                     GainCriterion criterion, double min_gain, double &restrict split_point,
                                     double *restrict w, size_t *restrict sorted_ix)
@@ -1623,7 +1629,7 @@ double find_split_std_gain_t(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[]
     return best_gain;
 }
 
-template <class real_t_>
+template <class real_t_, class ldouble_safe>
 double find_split_std_gain(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
                            GainCriterion criterion, double min_gain, double &restrict split_point, size_t &restrict split_ix)
 {
@@ -1633,7 +1639,7 @@ double find_split_std_gain(real_t_ *restrict x, real_t_ xmean, size_t ix_arr[], 
         return find_split_std_gain_t<ldouble_safe, real_t_>(x, xmean, ix_arr, st, end, sd_arr, criterion, min_gain, split_point, split_ix);
 }
 
-template <class real_t, class mapping>
+template <class real_t, class mapping, class ldouble_safe>
 double find_split_std_gain_weighted(real_t *restrict x, real_t xmean, size_t ix_arr[], size_t st, size_t end, double *restrict sd_arr,
                                     GainCriterion criterion, double min_gain, double &restrict split_point, size_t &restrict split_ix, mapping &restrict w)
 {
@@ -1708,7 +1714,7 @@ static inline void axpy1(const double a, double *restrict xval, size_t ind[], si
     for (size_t ix = 0; ix < nnz; ix++) y[ind[ix]] = std::fma(a, xval[ix], y[ind[ix]]);
 }
 
-template <class real_t>
+template <class real_t, class ldouble_safe>
 double find_split_full_gain(real_t *restrict x, size_t st, size_t end, size_t *restrict ix_arr,
                             size_t *restrict cols_use, size_t ncols_use, bool force_cols_use,
                             double *restrict X_row_major, size_t ncols,
@@ -1976,7 +1982,7 @@ double find_split_full_gain(real_t *restrict x, size_t st, size_t end, size_t *r
     return best_gain / (ldouble_safe)(end - st + 1);
 }
 
-template <class real_t, class mapping>
+template <class real_t, class mapping, class ldouble_safe>
 double find_split_full_gain_weighted(real_t *restrict x, size_t st, size_t end, size_t *restrict ix_arr,
                                      size_t *restrict cols_use, size_t ncols_use, bool force_cols_use,
                                      double *restrict X_row_major, size_t ncols,
@@ -2358,7 +2364,7 @@ double find_split_dens_shortform_t(real_t *restrict x, size_t n, double &restric
     return nl_sq / rpct_left + nr_sq / rpct_right;
 }
 
-template <class real_t>
+template <class real_t, class ldouble_safe>
 double find_split_dens_shortform(real_t *restrict x, size_t n, double &restrict split_point)
 {
     if (n < INT32_MAX)
@@ -2424,7 +2430,7 @@ double find_split_dens_shortform_weighted_t(real_t *restrict x, size_t n, double
     return wl_sq / rpct_left + wr_sq / rpct_right;
 }
 
-template <class real_t, class mapping>
+template <class real_t, class mapping, class ldouble_safe>
 double find_split_dens_shortform_weighted(real_t *restrict x, size_t n, double &restrict split_point, mapping &restrict w, size_t *restrict buffer_indices)
 {
     if (n < INT32_MAX)
@@ -2534,7 +2540,7 @@ double find_split_dens_shortform_weighted(real_t *restrict x, size_t *restrict i
 }
 
 /* This is a slower but more numerically-robust form */
-template <class real_t>
+template <class real_t, class ldouble_safe>
 double find_split_dens_longform(real_t *restrict x, size_t *restrict ix_arr, size_t st, size_t end,
                                 double &restrict split_point, size_t &restrict split_ix)
 {
@@ -2580,7 +2586,7 @@ double find_split_dens_longform(real_t *restrict x, size_t *restrict ix_arr, siz
     return best_gain;
 }
 
-template <class real_t, class mapping>
+template <class real_t, class mapping, class ldouble_safe>
 double find_split_dens_longform_weighted(real_t *restrict x, size_t *restrict ix_arr, size_t st, size_t end,
                                          double &restrict split_point, size_t &restrict split_ix, mapping &restrict w)
 {
@@ -2628,27 +2634,27 @@ double find_split_dens_longform_weighted(real_t *restrict x, size_t *restrict ix
     return best_gain;
 }
 
-template <class real_t>
+template <class real_t, class ldouble_safe>
 double find_split_dens(real_t *restrict x, size_t *restrict ix_arr, size_t st, size_t end,
                        double &restrict split_point, size_t &restrict split_ix)
 {
     if (end - st + 1 < INT32_MAX && x[ix_arr[end]] - x[ix_arr[st]] >= 1)
-        return find_split_dens_shortform(x, ix_arr, st, end, split_point, split_ix);
+        return find_split_dens_shortform<real_t>(x, ix_arr, st, end, split_point, split_ix);
     else
-        return find_split_dens_longform(x, ix_arr, st, end, split_point, split_ix);
+        return find_split_dens_longform<real_t, ldouble_safe>(x, ix_arr, st, end, split_point, split_ix);
 }
 
-template <class real_t, class mapping>
+template <class real_t, class mapping, class ldouble_safe>
 double find_split_dens_weighted(real_t *restrict x, size_t *restrict ix_arr, size_t st, size_t end,
                                 double &restrict split_point, size_t &restrict split_ix, mapping &restrict w)
 {
     if (end - st + 1 < INT32_MAX && x[ix_arr[end]] - x[ix_arr[st]] >= 1)
-        return find_split_dens_shortform_weighted(x, ix_arr, st, end, split_point, split_ix, w);
+        return find_split_dens_shortform_weighted<real_t, mapping>(x, ix_arr, st, end, split_point, split_ix, w);
     else
-        return find_split_dens_longform_weighted(x, ix_arr, st, end, split_point, split_ix, w);
+        return find_split_dens_longform_weighted<real_t, mapping, ldouble_safe>(x, ix_arr, st, end, split_point, split_ix, w);
 }
 
-template <class int_t>
+template <class int_t, class ldouble_safe>
 double find_split_dens_longform(int *restrict x, int ncat, size_t *restrict ix_arr, size_t st, size_t end,
                                 CategSplit cat_split_type, MissingAction missing_action,
                                 int &restrict chosen_cat, signed char *restrict split_categ, int *restrict saved_cat_mode,
@@ -2842,7 +2848,7 @@ double find_split_dens_longform(int *restrict x, int ncat, size_t *restrict ix_a
     return -HUGE_VAL;
 }
 
-template <class mapping, class int_t>
+template <class mapping, class int_t, class ldouble_safe>
 double find_split_dens_longform_weighted(int *restrict x, int ncat, size_t *restrict ix_arr, size_t st, size_t end,
                                          CategSplit cat_split_type, MissingAction missing_action,
                                          int &restrict chosen_cat, signed char *restrict split_categ, int *restrict saved_cat_mode,
@@ -3037,6 +3043,7 @@ double find_split_dens_longform_weighted(int *restrict x, int ncat, size_t *rest
 }
 
 /* for split-criterion in hyperplanes (see below for version aimed at single-variable splits) */
+template <class ldouble_safe>
 double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
                         double min_gain, bool as_relative_gain, double *restrict buffer_sd,
                         double &restrict split_point, double &restrict xmin, double &restrict xmax,
@@ -3075,7 +3082,8 @@ double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
         for (size_t ix = 0; ix < n; ix++)
             argsorted[ix] = ix_arr_plus_st[argsorted[ix]];
         size_t ignored;
-        return find_split_full_gain(temp_buffer.data(), (size_t)0, n-1, argsorted.data(),
+        return find_split_full_gain<double, ldouble_safe>(
+                                    temp_buffer.data(), (size_t)0, n-1, argsorted.data(),
                                     cols_use, ncols_use, force_cols_use,
                                     X_row_major, ncols,
                                     Xr, Xr_ind, Xr_indptr,
@@ -3090,15 +3098,16 @@ double eval_guided_crit(double *restrict x, size_t n, GainCriterion criterion,
     if (x[0] == x[n-1]) return -HUGE_VAL;
 
     if (criterion == Pooled && as_relative_gain && min_gain <= 0)
-        gain = find_split_rel_gain(x, n, split_point);
+        gain = find_split_rel_gain<double, ldouble_safe>(x, n, split_point);
     else if (criterion == Pooled || criterion == Averaged)
-        gain = find_split_std_gain(x, n, buffer_sd, criterion, min_gain, split_point);
+        gain = find_split_std_gain<double, ldouble_safe>(x, n, buffer_sd, criterion, min_gain, split_point);
     else if (criterion == DensityCrit)
-        gain = find_split_dens_shortform(x, n, split_point);
+        gain = find_split_dens_shortform<double, ldouble_safe>(x, n, split_point);
     /* Note: a gain of -Inf signals that the data is unsplittable. Zero signals it's below the minimum. */
     return std::fmax(0., gain);
 }
 
+template <class ldouble_safe>
 double eval_guided_crit_weighted(double *restrict x, size_t n, GainCriterion criterion,
                                  double min_gain, bool as_relative_gain, double *restrict buffer_sd,
                                  double &restrict split_point, double &restrict xmin, double &restrict xmax,
@@ -3133,9 +3142,9 @@ double eval_guided_crit_weighted(double *restrict x, size_t n, GainCriterion cri
     if (xmin == xmax) return -HUGE_VAL;
 
     if (criterion == Pooled || criterion == Averaged)
-        gain = find_split_std_gain_weighted(x, n, buffer_sd, criterion, min_gain, split_point, w, buffer_indices);
+        gain = find_split_std_gain_weighted<double, ldouble_safe>(x, n, buffer_sd, criterion, min_gain, split_point, w, buffer_indices);
     else if (criterion == DensityCrit)
-        gain = find_split_dens_shortform_weighted(x, n, split_point, w, buffer_indices);
+        gain = find_split_dens_shortform_weighted<double, double *restrict, ldouble_safe>(x, n, split_point, w, buffer_indices);
     else if (criterion == FullGain)
     {
         std::vector<size_t> argsorted(n);
@@ -3148,7 +3157,8 @@ double eval_guided_crit_weighted(double *restrict x, size_t n, GainCriterion cri
         for (size_t ix = 0; ix < n; ix++)
             argsorted[ix] = ix_arr_plus_st[argsorted[ix]];
         size_t ignored;
-        gain = find_split_full_gain_weighted(temp_buffer.data(), (size_t)0, n-1, argsorted.data(),
+        gain = find_split_full_gain_weighted<double, double *restrict, ldouble_safe>(
+                                             temp_buffer.data(), (size_t)0, n-1, argsorted.data(),
                                              cols_use, ncols_use, force_cols_use,
                                              X_row_major, ncols,
                                              Xr, Xr_ind, Xr_indptr,
@@ -3162,7 +3172,7 @@ double eval_guided_crit_weighted(double *restrict x, size_t n, GainCriterion cri
 }
 
 /* for split-criterion in single-variable splits */
-template <class real_t_>
+template <class real_t_, class ldouble_safe>
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, real_t_ *restrict x,
                         double *restrict buffer_sd, bool as_relative_gain,
                         double *restrict buffer_imputed_x, double *restrict saved_xmedian,
@@ -3216,16 +3226,17 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, real_t_ 
         missing_action = Fail;
         fill_NAs_with_median(ix_arr, st_orig, st, end, x, buffer_imputed_x, saved_xmedian);
         if (criterion == Pooled && as_relative_gain && min_gain <= 0)
-            gain = find_split_rel_gain(buffer_imputed_x, (double)xmean, ix_arr, st_orig, end, split_point, split_ix);
+            gain = find_split_rel_gain<double, ldouble_safe>(buffer_imputed_x, (double)xmean, ix_arr, st_orig, end, split_point, split_ix);
         else if (criterion == Pooled || criterion == Averaged)
-            gain = find_split_std_gain(buffer_imputed_x, (double)xmean, ix_arr, st_orig, end, buffer_sd, criterion, min_gain, split_point, split_ix);
+            gain = find_split_std_gain<double, ldouble_safe>(buffer_imputed_x, (double)xmean, ix_arr, st_orig, end, buffer_sd, criterion, min_gain, split_point, split_ix);
         else if (criterion == DensityCrit)
-            gain = find_split_dens(buffer_imputed_x, ix_arr, st_orig, end, split_point, split_ix);
+            gain = find_split_dens<double, ldouble_safe>(buffer_imputed_x, ix_arr, st_orig, end, split_point, split_ix);
         else if (criterion == FullGain)
         {
             /* TODO: this buffer should be allocated from outside */
             std::vector<double> temp_buffer(mult2(ncols));
-            gain = find_split_full_gain(buffer_imputed_x, st_orig, end, ix_arr,
+            gain = find_split_full_gain<double, ldouble_safe>(
+                                        buffer_imputed_x, st_orig, end, ix_arr,
                                         cols_use, ncols_use, force_cols_use,
                                         X_row_major, ncols,
                                         Xr, Xr_ind, Xr_indptr,
@@ -3241,16 +3252,17 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, real_t_ 
     else
     {
         if (criterion == Pooled && as_relative_gain && min_gain <= 0)
-            gain = find_split_rel_gain(x, xmean, ix_arr, st, end, split_point, split_ix);
+            gain = find_split_rel_gain<real_t_, ldouble_safe>(x, xmean, ix_arr, st, end, split_point, split_ix);
         else if (criterion == Pooled || criterion == Averaged)
-            gain = find_split_std_gain(x, xmean, ix_arr, st, end, buffer_sd, criterion, min_gain, split_point, split_ix);
+            gain = find_split_std_gain<real_t_, ldouble_safe>(x, xmean, ix_arr, st, end, buffer_sd, criterion, min_gain, split_point, split_ix);
         else if (criterion == DensityCrit)
-            gain = find_split_dens(x, ix_arr, st, end, split_point, split_ix);
+            gain = find_split_dens<real_t_, ldouble_safe>(x, ix_arr, st, end, split_point, split_ix);
         else if (criterion == FullGain)
         {
             /* TODO: this buffer should be allocated from outside */
             std::vector<double> temp_buffer(mult2(ncols));
-            gain = find_split_full_gain(x, st, end, ix_arr,
+            gain = find_split_full_gain<real_t_, ldouble_safe>(
+                                        x, st, end, ix_arr,
                                         cols_use, ncols_use, force_cols_use,
                                         X_row_major, ncols,
                                         Xr, Xr_ind, Xr_indptr,
@@ -3263,7 +3275,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, real_t_ 
     return std::fmax(0., gain);
 }
 
-template <class real_t_, class mapping>
+template <class real_t_, class mapping, class ldouble_safe>
 double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end, real_t_ *restrict x,
                                  double *restrict buffer_sd, bool as_relative_gain,
                                  double *restrict buffer_imputed_x, double *restrict saved_xmedian,
@@ -3322,15 +3334,16 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
         missing_action = Fail;
         fill_NAs_with_median(ix_arr, st_orig, st, end, x, buffer_imputed_x, saved_xmedian);
         if (criterion == Pooled && as_relative_gain && min_gain <= 0)
-            gain = find_split_rel_gain_weighted(buffer_imputed_x, (double)xmean, ix_arr, st_orig, end, split_point, split_ix, w);
+            gain = find_split_rel_gain_weighted<double, mapping, ldouble_safe>(buffer_imputed_x, (double)xmean, ix_arr, st_orig, end, split_point, split_ix, w);
         else if (criterion == Pooled || criterion == Averaged)
-            gain = find_split_std_gain_weighted(buffer_imputed_x, (double)xmean, ix_arr, st_orig, end, buffer_sd, criterion, min_gain, split_point, split_ix, w);
+            gain = find_split_std_gain_weighted<double, mapping, ldouble_safe>(buffer_imputed_x, (double)xmean, ix_arr, st_orig, end, buffer_sd, criterion, min_gain, split_point, split_ix, w);
         else if (criterion == DensityCrit)
-            gain = find_split_dens_weighted(buffer_imputed_x, ix_arr, st_orig, end, split_point, split_ix, w);
+            gain = find_split_dens_weighted<double, mapping, ldouble_safe>(buffer_imputed_x, ix_arr, st_orig, end, split_point, split_ix, w);
         else if (criterion == FullGain)
         {
             std::vector<double> temp_buffer(mult2(ncols));
-            gain = find_split_full_gain_weighted(buffer_imputed_x, st_orig, end, ix_arr,
+            gain = find_split_full_gain_weighted<double, mapping, ldouble_safe>(
+                                                 buffer_imputed_x, st_orig, end, ix_arr,
                                                  cols_use, ncols_use, force_cols_use,
                                                  X_row_major, ncols,
                                                  Xr, Xr_ind, Xr_indptr,
@@ -3343,15 +3356,16 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
     else
     {
         if (criterion == Pooled && as_relative_gain && min_gain <= 0)
-            gain = find_split_rel_gain_weighted(x, xmean, ix_arr, st, end, split_point, split_ix, w);
+            gain = find_split_rel_gain_weighted<real_t_, mapping, ldouble_safe>(x, xmean, ix_arr, st, end, split_point, split_ix, w);
         else if (criterion == Pooled || criterion == Averaged)
-            gain = find_split_std_gain_weighted(x, xmean, ix_arr, st, end, buffer_sd, criterion, min_gain, split_point, split_ix, w);
+            gain = find_split_std_gain_weighted<real_t_, mapping, ldouble_safe>(x, xmean, ix_arr, st, end, buffer_sd, criterion, min_gain, split_point, split_ix, w);
         else if (criterion == DensityCrit)
-            gain = find_split_dens_weighted(x, ix_arr, st, end, split_point, split_ix, w);
+            gain = find_split_dens_weighted<real_t_, mapping, ldouble_safe>(x, ix_arr, st, end, split_point, split_ix, w);
         else if (criterion == FullGain)
         {
             std::vector<double> temp_buffer(mult2(ncols));
-            gain = find_split_full_gain_weighted(x, st, end, ix_arr,
+            gain = find_split_full_gain_weighted<real_t_, mapping, ldouble_safe>(
+                                                 x, st, end, ix_arr,
                                                  cols_use, ncols_use, force_cols_use,
                                                  X_row_major, ncols,
                                                  Xr, Xr_ind, Xr_indptr,
@@ -3370,7 +3384,7 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
    the sorted order of the non-zero entries while calculating gains and SDs, and then
    call the 'divide_subset' function after-the-fact to reach the same end result.
    It should be much faster than this if the non-zero entries are few. */
-template <class real_t_, class sparse_ix>
+template <class real_t_, class sparse_ix, class ldouble_safe>
 double eval_guided_crit(size_t ix_arr[], size_t st, size_t end,
                         size_t col_num, real_t_ Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                         double buffer_arr[], size_t buffer_pos[], bool as_relative_gain,
@@ -3422,7 +3436,8 @@ double eval_guided_crit(size_t ix_arr[], size_t st, size_t end,
     }
 
     no_nas:
-    return eval_guided_crit(buffer_pos, 0, end - st, buffer_arr, buffer_arr + tot,
+    return eval_guided_crit<double, ldouble_safe>(
+                            buffer_pos, 0, end - st, buffer_arr, buffer_arr + tot,
                             as_relative_gain, saved_xmedian, (double*)NULL, ignored, split_point,
                             xmin, xmax, criterion, min_gain, missing_action,
                             cols_use, ncols_use, force_cols_use,
@@ -3430,7 +3445,7 @@ double eval_guided_crit(size_t ix_arr[], size_t st, size_t end,
                             Xr, Xr_ind, Xr_indptr);
 }
 
-template <class real_t_, class sparse_ix, class mapping>
+template <class real_t_, class sparse_ix, class mapping, class ldouble_safe>
 double eval_guided_crit_weighted(size_t ix_arr[], size_t st, size_t end,
                                  size_t col_num, real_t_ Xc[], sparse_ix Xc_ind[], sparse_ix Xc_indptr[],
                                  double buffer_arr[], size_t buffer_pos[], bool as_relative_gain,
@@ -3491,7 +3506,8 @@ double eval_guided_crit_weighted(size_t ix_arr[], size_t st, size_t end,
         buffer_w[row-st] = w[ix_arr[row]];
     /* TODO: in this case, as the weights match with the order of the indices, could use a faster version
        with a weighted rel_gain function instead (not yet implemented). */
-    return eval_guided_crit_weighted(buffer_pos, 0, end - st, buffer_arr, buffer_arr + tot,
+    return eval_guided_crit_weighted<double, std::vector<double>, ldouble_safe>(
+                                     buffer_pos, 0, end - st, buffer_arr, buffer_arr + tot,
                                      as_relative_gain, saved_xmedian, (double*)NULL, ignored, split_point,
                                      xmin, xmax, criterion, min_gain, missing_action,
                                      cols_use, ncols_use, force_cols_use,
@@ -3518,6 +3534,7 @@ double eval_guided_crit_weighted(size_t ix_arr[], size_t st, size_t end,
 */
 /* https://math.stackexchange.com/questions/3343384/expected-variance-and-kurtosis-from-pmf-in-which-possible-discrete-values-are-dr */
 /* TODO: 'buffer_pos' doesn't need to be 'size_t', 'int' would suffice */
+template <class ldouble_safe>
 double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *restrict x, int ncat,
                         int *restrict saved_cat_mode,
                         size_t *restrict buffer_cnt, size_t *restrict buffer_pos, double *restrict buffer_prob,
@@ -3526,7 +3543,8 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                         MissingAction missing_action, CategSplit cat_split_type)
 {
     if (criterion == DensityCrit)
-        return find_split_dens_longform(x, ncat, ix_arr, st, end,
+        return find_split_dens_longform<size_t, ldouble_safe>(
+                                        x, ncat, ix_arr, st, end,
                                         cat_split_type, missing_action,
                                         chosen_cat, split_categ, saved_cat_mode,
                                         buffer_cnt, buffer_pos);
@@ -3611,15 +3629,14 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                     
                     if (ncat_present <= 1) return -HUGE_VAL;
 
-                    double sd_full = expected_sd_cat(buffer_prob, ncat_present, buffer_pos + st_pos);
+                    double sd_full = expected_sd_cat<size_t, ldouble_safe>(buffer_prob, ncat_present, buffer_pos + st_pos);
 
                     /* try isolating each category one at a time */
                     for (size_t pos = st_pos; (int)pos < ncat; pos++)
                     {
                         this_gain = sd_gain(sd_full,
                                             0.0,
-                                            expected_sd_cat_single(buffer_cnt, buffer_prob, ncat_present, buffer_pos + st_pos, pos - st_pos, cnt)
-                                            );
+                                            (expected_sd_cat_single<size_t, size_t, ldouble_safe>(buffer_cnt, buffer_prob, ncat_present, buffer_pos + st_pos, pos - st_pos, cnt)));
                         if (this_gain > min_gain && this_gain > best_gain)
                         {
                             best_gain = this_gain;
@@ -3702,7 +3719,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
 
                     /* calculate full SD assuming they take values randomly ~Unif(0, 1) */
                     size_t ncat_present = (size_t)ncat - st_pos;
-                    sd_full = expected_sd_cat(buffer_prob, ncat_present, buffer_pos + st_pos);
+                    sd_full = expected_sd_cat<size_t, ldouble_safe>(buffer_prob, ncat_present, buffer_pos + st_pos);
                     if (ncat_present >= log2ceil(SIZE_MAX)) all_perm = false;
 
                     /* move categories one at a time */
@@ -3710,8 +3727,8 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                     {
                         buffer_split[buffer_pos[pos]] = 1;
                         this_gain = sd_gain(sd_full,
-                                            expected_sd_cat(buffer_cnt, buffer_prob, pos - st_pos + 1,       buffer_pos + st_pos),
-                                            expected_sd_cat(buffer_cnt, buffer_prob, (size_t)ncat - pos - 1, buffer_pos + pos + 1)
+                                            (expected_sd_cat<size_t, size_t, ldouble_safe>(buffer_cnt, buffer_prob, pos - st_pos + 1, buffer_pos + st_pos)),
+                                            (expected_sd_cat<size_t, size_t, ldouble_safe>(buffer_cnt, buffer_prob, (size_t)ncat - pos - 1, buffer_pos + pos + 1))
                                             );
                         if (this_gain > min_gain && this_gain > best_gain)
                         {
@@ -3779,7 +3796,8 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                                 }
                             }
 
-                            this_gain  = categ_gain(cnt_left, cnt_right,
+                            this_gain  = categ_gain<size_t, ldouble_safe>(
+                                                    cnt_left, cnt_right,
                                                     s_left, s_right,
                                                     base_info, cnt);
 
@@ -3815,7 +3833,8 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
                             cnt_left  += buffer_cnt[buffer_pos[pos]];
                             cnt_right -= buffer_cnt[buffer_pos[pos]];
 
-                            this_gain  = categ_gain(cnt_left, cnt_right,
+                            this_gain  = categ_gain<size_t, ldouble_safe>(
+                                                    cnt_left, cnt_right,
                                                     s_left, s_right,
                                                     base_info, cnt);
 
@@ -3848,7 +3867,7 @@ double eval_guided_crit(size_t *restrict ix_arr, size_t st, size_t end, int *res
 }
 
 
-template <class mapping>
+template <class mapping, class ldouble_safe>
 double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end, int *restrict x, int ncat,
                                  int *restrict saved_cat_mode,
                                  size_t *restrict buffer_pos, double *restrict buffer_prob,
@@ -3858,7 +3877,8 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                                  mapping &restrict w)
 {
     if (criterion == DensityCrit)
-        return find_split_dens_longform_weighted(x, ncat, ix_arr, st, end,
+        return find_split_dens_longform_weighted<mapping, size_t, ldouble_safe>(
+                                                 x, ncat, ix_arr, st, end,
                                                  cat_split_type, missing_action,
                                                  chosen_cat, split_categ, saved_cat_mode,
                                                  buffer_pos, w);
@@ -3948,14 +3968,14 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                     
                     if (ncat_present <= 1) return -HUGE_VAL;
 
-                    double sd_full = expected_sd_cat(buffer_prob, ncat_present, buffer_pos + st_pos);
+                    double sd_full = expected_sd_cat<size_t, ldouble_safe>(buffer_prob, ncat_present, buffer_pos + st_pos);
 
                     /* try isolating each category one at a time */
                     for (size_t pos = st_pos; (int)pos < ncat; pos++)
                     {
                         this_gain = sd_gain(sd_full,
                                             0.0,
-                                            expected_sd_cat_single(buffer_cnt.data(), buffer_prob, ncat_present, buffer_pos + st_pos, pos - st_pos, cnt)
+                                            (expected_sd_cat_single<ldouble_safe, size_t, ldouble_safe>(buffer_cnt.data(), buffer_prob, ncat_present, buffer_pos + st_pos, pos - st_pos, cnt))
                                             );
                         if (this_gain > min_gain && this_gain > best_gain)
                         {
@@ -4040,7 +4060,7 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
 
                     /* calculate full SD assuming they take values randomly ~Unif(0, 1) */
                     size_t ncat_present = (size_t)ncat - st_pos;
-                    sd_full = expected_sd_cat(buffer_prob, ncat_present, buffer_pos + st_pos);
+                    sd_full = expected_sd_cat<size_t, ldouble_safe>(buffer_prob, ncat_present, buffer_pos + st_pos);
                     if (ncat_present >= log2ceil(SIZE_MAX)) all_perm = false;
 
                     /* move categories one at a time */
@@ -4049,8 +4069,8 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                         buffer_split[buffer_pos[pos]] = 1;
                         /* TODO: is this correct? */
                         this_gain = sd_gain(sd_full,
-                                            expected_sd_cat(buffer_cnt.data(), buffer_prob, pos - st_pos + 1,       buffer_pos + st_pos),
-                                            expected_sd_cat(buffer_cnt.data(), buffer_prob, (size_t)ncat - pos - 1, buffer_pos + pos + 1)
+                                            (expected_sd_cat<ldouble_safe, size_t, ldouble_safe>(buffer_cnt.data(), buffer_prob, pos - st_pos + 1, buffer_pos + st_pos)),
+                                            (expected_sd_cat<ldouble_safe, size_t, ldouble_safe>(buffer_cnt.data(), buffer_prob, (size_t)ncat - pos - 1, buffer_pos + pos + 1))
                                             );
                         if (this_gain > min_gain && this_gain > best_gain)
                         {
@@ -4124,7 +4144,8 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                                 }
                             }
 
-                            this_gain  = categ_gain(cnt_left, cnt_right,
+                            this_gain  = categ_gain<size_t, ldouble_safe>(
+                                                    cnt_left, cnt_right,
                                                     s_left, s_right,
                                                     base_info, cnt);
 
@@ -4164,7 +4185,8 @@ double eval_guided_crit_weighted(size_t *restrict ix_arr, size_t st, size_t end,
                             cnt_left  += buffer_cnt[buffer_pos[pos]];
                             cnt_right -= buffer_cnt[buffer_pos[pos]];
 
-                            this_gain  = categ_gain(cnt_left, cnt_right,
+                            this_gain  = categ_gain<size_t, ldouble_safe>(
+                                                    cnt_left, cnt_right,
                                                     s_left, s_right,
                                                     base_info, cnt);
 

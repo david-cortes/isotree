@@ -152,7 +152,7 @@ void IsolationForest::fit(double X[], size_t nrows, size_t ncols)
         this->cat_split_type, this->new_cat_action,
         this->all_perm, &this->imputer, this->min_imp_obs,
         this->depth_imp, this->weigh_imp_rows, false,
-        this->random_seed, this->nthreads
+        this->random_seed, false, this->nthreads
     );
     if (retcode != EXIT_SUCCESS) unexpected_error();
     this->is_fitted = true;
@@ -191,7 +191,7 @@ void IsolationForest::fit(double numeric_data[],   size_t ncols_numeric,  size_t
         this->cat_split_type, this->new_cat_action,
         this->all_perm, &this->imputer, this->min_imp_obs,
         this->depth_imp, this->weigh_imp_rows, false,
-        this->random_seed, this->nthreads
+        this->random_seed, false, this->nthreads
     );
     if (retcode != EXIT_SUCCESS) unexpected_error();
     this->is_fitted = true;
@@ -231,7 +231,7 @@ void IsolationForest::fit(double Xc[], int Xc_ind[], int Xc_indptr[],
         this->cat_split_type, this->new_cat_action,
         this->all_perm, &this->imputer, this->min_imp_obs,
         this->depth_imp, this->weigh_imp_rows, false,
-        this->random_seed, this->nthreads
+        this->random_seed, false, this->nthreads
     );
     if (retcode != EXIT_SUCCESS) unexpected_error();
     this->is_fitted = true;
@@ -308,7 +308,7 @@ std::vector<double> IsolationForest::predict_distance(double X[], size_t nrows,
 
     calc_similarity(X, (int*)nullptr,
                     (double*)nullptr, (int*)nullptr, (int*)nullptr,
-                    nrows, this->nthreads, assume_full_distr, standardize, as_kernel,
+                    nrows, false, this->nthreads, assume_full_distr, standardize, as_kernel,
                     (!this->model.trees.empty())? &this->model : nullptr,
                     (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                     tmat.data(), (double*)nullptr, (size_t)0, false,
@@ -346,7 +346,7 @@ void IsolationForest::predict_distance(double numeric_data[], int categ_data[],
 
     calc_similarity(numeric_data, categ_data,
                     (double*)nullptr, (int*)nullptr, (int*)nullptr,
-                    nrows, this->nthreads, assume_full_distr, standardize, as_kernel,
+                    nrows, false, this->nthreads, assume_full_distr, standardize, as_kernel,
                     (!this->model.trees.empty())? &this->model : nullptr,
                     (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                     triangular? dist_matrix : tmat.data(),
@@ -384,7 +384,7 @@ void IsolationForest::predict_distance(double Xc[], int Xc_ind[], int Xc_indptr[
 
     calc_similarity((double*)nullptr, (int*)nullptr,
                     Xc, Xc_ind, Xc_indptr,
-                    nrows, this->nthreads, assume_full_distr, standardize, as_kernel,
+                    nrows, false, this->nthreads, assume_full_distr, standardize, as_kernel,
                     (!this->model.trees.empty())? &this->model : nullptr,
                     (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                     triangular? dist_matrix : tmat.data(),
@@ -417,7 +417,7 @@ void IsolationForest::impute(double X[], size_t nrows)
         throw std::runtime_error("Model was built without imputation capabilities.\n");
     impute_missing_values(X, (int*)nullptr, true,
                           (double*)nullptr, (int*)nullptr, (int*)nullptr,
-                          nrows, this->nthreads,
+                          nrows, false, this->nthreads,
                           (!this->model.trees.empty())? &this->model : nullptr,
                           (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                           this->imputer);
@@ -431,7 +431,7 @@ void IsolationForest::impute(double numeric_data[], int categ_data[], bool is_co
     this->check_nthreads();
     impute_missing_values(numeric_data, categ_data, is_col_major,
                           (double*)nullptr, (int*)nullptr, (int*)nullptr,
-                          nrows, this->nthreads,
+                          nrows, false, this->nthreads,
                           (!this->model.trees.empty())? &this->model : nullptr,
                           (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                           this->imputer);
@@ -446,7 +446,7 @@ void IsolationForest::impute(double Xr[], int Xr_ind[], int Xr_indptr[],
     this->check_nthreads();
     impute_missing_values((double*)nullptr, categ_data, is_col_major,
                           Xr, Xr_ind, Xr_indptr,
-                          nrows, this->nthreads,
+                          nrows, false, this->nthreads,
                           (!this->model.trees.empty())? &this->model : nullptr,
                           (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
                           this->imputer);
@@ -538,7 +538,7 @@ void IsolationForest::predict_distance_to_ref_points(double numeric_data[], int 
 
     calc_similarity(numeric_data, categ_data,
                     Xc, Xc_ind, Xc_indptr,
-                    nrows, this->nthreads, true, standardize, as_kernel,
+                    nrows, false, this->nthreads, true, standardize, as_kernel,
                     (!this->model.trees.empty())? &this->model : NULL,
                     (!this->model_ext.hplanes.empty())? &this->model_ext : NULL,
                     (double*)NULL, dist_matrix, (size_t)0, true,

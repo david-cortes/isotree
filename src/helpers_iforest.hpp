@@ -195,7 +195,7 @@ void add_separation_step(WorkerMemory &workspace, InputData &input_data, double 
                               input_data.nrows, workspace.tmat_sep.data(), workspace.weights_map, remainder);
 }
 
-template <class InputData, class WorkerMemory>
+template <class InputData, class WorkerMemory, class ldouble_safe>
 void add_remainder_separation_steps(WorkerMemory &workspace, InputData &input_data, ldouble_safe sum_weight)
 {
     if ((workspace.end - workspace.st) > 0 && (!workspace.changed_weights || sum_weight > 0))
@@ -345,7 +345,7 @@ void RecursionState::restore_state(WorkerMemory &workspace)
     }
 }
 
-template <class InputData>
+template <class InputData, class ldouble_safe>
 std::vector<double> calc_kurtosis_all_data(InputData &input_data, ModelParams &model_params, RNG_engine &rnd_generator)
 {
     std::unique_ptr<double[]> buffer_double;
@@ -368,14 +368,17 @@ std::vector<double> calc_kurtosis_all_data(InputData &input_data, ModelParams &m
                 if (!(input_data.sample_weights != NULL && !input_data.weight_as_sample))
                 {
                     kurt_weights[col]
-                        = calc_kurtosis(input_data.numeric_data + col * input_data.nrows,
+                        = calc_kurtosis<typename std::remove_pointer<decltype(input_data.numeric_data)>::type, ldouble_safe>(
+                                        input_data.numeric_data + col * input_data.nrows,
                                         input_data.nrows, model_params.missing_action);
                 }
 
                 else
                 {
                     kurt_weights[col]
-                        = calc_kurtosis_weighted(input_data.numeric_data + col * input_data.nrows, input_data.nrows,
+                        = calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                                 ldouble_safe>(
+                                                 input_data.numeric_data + col * input_data.nrows, input_data.nrows,
                                                  model_params.missing_action, input_data.sample_weights);
                 }
             }
@@ -385,7 +388,10 @@ std::vector<double> calc_kurtosis_all_data(InputData &input_data, ModelParams &m
                 if (!(input_data.sample_weights != NULL && !input_data.weight_as_sample))
                 {
                     kurt_weights[col]
-                        = calc_kurtosis(col, input_data.nrows,
+                        = calc_kurtosis<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                        typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                        ldouble_safe>(
+                                        col, input_data.nrows,
                                         input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                         model_params.missing_action);
                 }
@@ -393,7 +399,10 @@ std::vector<double> calc_kurtosis_all_data(InputData &input_data, ModelParams &m
                 else
                 {
                     kurt_weights[col]
-                        = calc_kurtosis_weighted(col, input_data.nrows,
+                        = calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                                 typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                                 ldouble_safe>(
+                                                 col, input_data.nrows,
                                                  input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                  model_params.missing_action, input_data.sample_weights);
                 }
@@ -405,7 +414,7 @@ std::vector<double> calc_kurtosis_all_data(InputData &input_data, ModelParams &m
             if (!(input_data.sample_weights != NULL && !input_data.weight_as_sample))
             {
                 kurt_weights[col]
-                        = calc_kurtosis(input_data.nrows,
+                        = calc_kurtosis<ldouble_safe>(input_data.nrows,
                                         input_data.categ_data + (col- input_data.ncols_numeric) * input_data.nrows,
                                         input_data.ncat[col - input_data.ncols_numeric],
                                         buffer_size_t.get(), buffer_double.get(),
@@ -415,7 +424,9 @@ std::vector<double> calc_kurtosis_all_data(InputData &input_data, ModelParams &m
             else
             {
                 kurt_weights[col]
-                        = calc_kurtosis_weighted(input_data.nrows,
+                        = calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.sample_weights)>::type,
+                                                 ldouble_safe>(
+                                                 input_data.nrows,
                                                  input_data.categ_data + (col- input_data.ncols_numeric) * input_data.nrows,
                                                  input_data.ncat[col - input_data.ncols_numeric],
                                                  buffer_double.get(),
@@ -474,7 +485,7 @@ void calc_ranges_all_cols(InputData &input_data, WorkerMemory &workspace, ModelP
     }
 }
 
-template <class InputData, class WorkerMemory>
+template <class InputData, class WorkerMemory, class ldouble_safe>
 void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelParams &model_params,
                        double *restrict variances, double *restrict saved_xmin, double *restrict saved_xmax,
                        double *restrict saved_means, double *restrict saved_sds)
@@ -512,14 +523,17 @@ void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPara
             {
                 if (workspace.weights_arr.empty() && workspace.weights_map.empty())
                 {
-                    calc_mean_and_sd(workspace.ix_arr.data(), workspace.st, workspace.end,
+                    calc_mean_and_sd<typename std::remove_pointer<decltype(input_data.numeric_data)>::type, ldouble_safe>(
+                                     workspace.ix_arr.data(), workspace.st, workspace.end,
                                      input_data.numeric_data + workspace.col_chosen * input_data.nrows,
                                      model_params.missing_action, xsd, xmean);
                 }
 
                 else if (!workspace.weights_arr.empty())
                 {
-                    calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                    calc_mean_and_sd_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                              decltype(workspace.weights_arr), ldouble_safe>(
+                                              workspace.ix_arr.data(), workspace.st, workspace.end,
                                               input_data.numeric_data + workspace.col_chosen * input_data.nrows,
                                               workspace.weights_arr,
                                               model_params.missing_action, xsd, xmean);
@@ -527,7 +541,9 @@ void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPara
 
                 else
                 {
-                    calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                    calc_mean_and_sd_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                              decltype(workspace.weights_map), ldouble_safe>(
+                                              workspace.ix_arr.data(), workspace.st, workspace.end,
                                               input_data.numeric_data + workspace.col_chosen * input_data.nrows,
                                               workspace.weights_map,
                                               model_params.missing_action, xsd, xmean);
@@ -538,7 +554,10 @@ void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPara
             {
                 if (workspace.weights_arr.empty() && workspace.weights_map.empty())
                 {
-                    calc_mean_and_sd(workspace.ix_arr.data(), workspace.st, workspace.end,
+                    calc_mean_and_sd<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                     typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                     ldouble_safe>(
+                                     workspace.ix_arr.data(), workspace.st, workspace.end,
                                      workspace.col_chosen,
                                      input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                      xsd, xmean);
@@ -546,7 +565,10 @@ void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPara
 
                 else if (!workspace.weights_arr.empty())
                 {
-                    calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                    calc_mean_and_sd_weighted<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                              typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                              decltype(workspace.weights_arr), ldouble_safe>(
+                                              workspace.ix_arr.data(), workspace.st, workspace.end,
                                               workspace.col_chosen,
                                               input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                               xsd, xmean, workspace.weights_arr);
@@ -554,7 +576,10 @@ void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPara
 
                 else
                 {
-                    calc_mean_and_sd_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                    calc_mean_and_sd_weighted<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                              typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                              decltype(workspace.weights_map), ldouble_safe>(
+                                              workspace.ix_arr.data(), workspace.st, workspace.end,
                                               workspace.col_chosen,
                                               input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                               xsd, xmean, workspace.weights_map);
@@ -572,7 +597,8 @@ void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPara
             {
                 if (workspace.buffer_szt.size() < (size_t)2 * (size_t)input_data.ncat[col] + 1)
                     workspace.buffer_szt.resize((size_t)2 * (size_t)input_data.ncat[col] + 1);
-                xsd = expected_sd_cat(workspace.ix_arr.data(), workspace.st, workspace.end,
+                xsd = expected_sd_cat<size_t, ldouble_safe>(
+                                      workspace.ix_arr.data(), workspace.st, workspace.end,
                                       input_data.categ_data + col * input_data.nrows,
                                       input_data.ncat[col],
                                       model_params.missing_action,
@@ -585,7 +611,8 @@ void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPara
             {
                 if (workspace.buffer_dbl.size() < (size_t)2 * (size_t)input_data.ncat[col] + 1)
                     workspace.buffer_dbl.resize((size_t)2 * (size_t)input_data.ncat[col] + 1);
-                xsd = expected_sd_cat_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                xsd = expected_sd_cat_weighted<decltype(workspace.weights_arr), size_t, ldouble_safe>(
+                                               workspace.ix_arr.data(), workspace.st, workspace.end,
                                                input_data.categ_data + col * input_data.nrows,
                                                input_data.ncat[col],
                                                model_params.missing_action, workspace.weights_arr,
@@ -598,7 +625,8 @@ void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPara
             {
                 if (workspace.buffer_dbl.size() < (size_t)2 * (size_t)input_data.ncat[col] + 1)
                     workspace.buffer_dbl.resize((size_t)2 * (size_t)input_data.ncat[col] + 1);
-                xsd = expected_sd_cat_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                xsd = expected_sd_cat_weighted<decltype(workspace.weights_map), size_t, ldouble_safe>(
+                                               workspace.ix_arr.data(), workspace.st, workspace.end,
                                                input_data.categ_data + col * input_data.nrows,
                                                input_data.ncat[col],
                                                model_params.missing_action, workspace.weights_map,
@@ -626,7 +654,7 @@ void calc_var_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPara
     }
 }
 
-template <class InputData, class WorkerMemory>
+template <class InputData, class WorkerMemory, class ldouble_safe>
 void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelParams &model_params,
                         double *restrict kurtosis, double *restrict saved_xmin, double *restrict saved_xmax)
 {
@@ -656,7 +684,9 @@ void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPar
                 if (workspace.weights_arr.empty() && workspace.weights_map.empty())
                 {
                     kurtosis[workspace.col_chosen] =
-                        calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
+                        calc_kurtosis<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                      ldouble_safe>(
+                                      workspace.ix_arr.data(), workspace.st, workspace.end,
                                       input_data.numeric_data + workspace.col_chosen * input_data.nrows,
                                       model_params.missing_action);
                 }
@@ -664,7 +694,9 @@ void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPar
                 else if (!workspace.weights_arr.empty())
                 {
                     kurtosis[workspace.col_chosen] =
-                        calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                        calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                               decltype(workspace.weights_arr), ldouble_safe>(
+                                               workspace.ix_arr.data(), workspace.st, workspace.end,
                                                input_data.numeric_data + workspace.col_chosen * input_data.nrows,
                                                model_params.missing_action, workspace.weights_arr);
                 }
@@ -672,7 +704,9 @@ void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPar
                 else
                 {
                     kurtosis[workspace.col_chosen] =
-                        calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                        calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.numeric_data)>::type,
+                                               decltype(workspace.weights_map), ldouble_safe>(
+                                               workspace.ix_arr.data(), workspace.st, workspace.end,
                                                input_data.numeric_data + workspace.col_chosen * input_data.nrows,
                                                model_params.missing_action, workspace.weights_map);
                 }
@@ -683,7 +717,10 @@ void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPar
                 if (workspace.weights_arr.empty() && workspace.weights_map.empty())
                 {
                     kurtosis[workspace.col_chosen] =
-                        calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
+                        calc_kurtosis<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                      typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                      ldouble_safe>(
+                                      workspace.ix_arr.data(), workspace.st, workspace.end,
                                       workspace.col_chosen,
                                       input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                       model_params.missing_action);
@@ -692,7 +729,10 @@ void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPar
                 else if (!workspace.weights_arr.empty())
                 {
                     kurtosis[workspace.col_chosen] =
-                        calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                        calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                               typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                               decltype(workspace.weights_arr), ldouble_safe>(
+                                               workspace.ix_arr.data(), workspace.st, workspace.end,
                                                workspace.col_chosen,
                                                input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                model_params.missing_action, workspace.weights_arr);
@@ -701,7 +741,10 @@ void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPar
                 else
                 {
                     kurtosis[workspace.col_chosen] =
-                        calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                        calc_kurtosis_weighted<typename std::remove_pointer<decltype(input_data.Xc)>::type,
+                                               typename std::remove_pointer<decltype(input_data.Xc_indptr)>::type,
+                                               decltype(workspace.weights_map), ldouble_safe>(
+                                               workspace.ix_arr.data(), workspace.st, workspace.end,
                                                workspace.col_chosen,
                                                input_data.Xc, input_data.Xc_ind, input_data.Xc_indptr,
                                                model_params.missing_action, workspace.weights_map);
@@ -715,7 +758,8 @@ void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPar
             if (workspace.weights_arr.empty() && workspace.weights_map.empty())
             {
                 kurtosis[workspace.col_chosen] =
-                    calc_kurtosis(workspace.ix_arr.data(), workspace.st, workspace.end,
+                    calc_kurtosis<ldouble_safe>(
+                                  workspace.ix_arr.data(), workspace.st, workspace.end,
                                   input_data.categ_data + col * input_data.nrows,
                                   input_data.ncat[col],
                                   workspace.buffer_szt.data(), workspace.buffer_dbl.data(),
@@ -726,7 +770,8 @@ void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPar
             else if (!workspace.weights_arr.empty())
             {
                 kurtosis[workspace.col_chosen] =
-                    calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                    calc_kurtosis_weighted<decltype(workspace.weights_arr), ldouble_safe>(
+                                           workspace.ix_arr.data(), workspace.st, workspace.end,
                                            input_data.categ_data + col * input_data.nrows,
                                            input_data.ncat[col],
                                            workspace.buffer_dbl.data(),
@@ -737,7 +782,8 @@ void calc_kurt_all_cols(InputData &input_data, WorkerMemory &workspace, ModelPar
             else
             {
                 kurtosis[workspace.col_chosen] =
-                    calc_kurtosis_weighted(workspace.ix_arr.data(), workspace.st, workspace.end,
+                    calc_kurtosis_weighted<decltype(workspace.weights_map), ldouble_safe>(
+                                           workspace.ix_arr.data(), workspace.st, workspace.end,
                                            input_data.categ_data + col * input_data.nrows,
                                            input_data.ncat[col],
                                            workspace.buffer_dbl.data(),

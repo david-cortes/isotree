@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.12.4)
-project (isotree VERSION 0.5.12)
+project (isotree VERSION 0.5.13)
 set(CMAKE_BUILD_TYPE Release)
 
 if ("${CMAKE_CXX_COMPILE_FEATURES}" MATCHES "cxx_std_17")
@@ -41,10 +41,17 @@ endif()
 
 ## set to ON to avoid using 'long double' type, which
 ## can be slow in some setups
-option(AVOID_LONG_DOUBLE "Avoid using 'long double' type" OFF)
-if (AVOID_LONG_DOUBLE)
+option(NO_LONG_DOUBLE "Avoid using 'long double' type" OFF)
+if (NO_LONG_DOUBLE)
     message(STATUS "Avoiding usage of 'long double' type.")
-    add_compile_definitions(AVOID_LONG_DOUBLE)
+    add_compile_definitions(NO_LONG_DOUBLE)
+endif()
+
+## set to ON to compile for only 'double' and 'int' types
+option(NO_TEMPLATED_VERSIONS "Avoid using 'long double' type" OFF)
+if (NO_TEMPLATED_VERSIONS)
+    message(STATUS "Building with support for only 'double' and 'int' types.")
+    add_compile_definitions(NO_TEMPLATED_VERSIONS)
 endif()
 
 ## set to OFF to export all symbols
