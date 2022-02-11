@@ -951,10 +951,10 @@ int fit_iforest_internal(
             model_outputs->scoring_metric != BoxedDensity2 &&
             model_outputs->scoring_metric != BoxedRatio
         )
-            model_outputs->exp_avg_depth  = expected_avg_depth(sample_size);
+            model_outputs->exp_avg_depth  = expected_avg_depth<ldouble_safe>(sample_size);
         else
             model_outputs->exp_avg_depth  = 1;
-        model_outputs->exp_avg_sep = expected_separation_depth(model_params.sample_size);
+        model_outputs->exp_avg_sep = expected_separation_depth<ldouble_safe>(model_params.sample_size);
         model_outputs->orig_sample_size = input_data.nrows;
         model_outputs->has_range_penalty = penalize_range;
     }
@@ -973,10 +973,10 @@ int fit_iforest_internal(
             model_outputs_ext->scoring_metric != BoxedDensity2 &&
             model_outputs_ext->scoring_metric != BoxedRatio
         )
-            model_outputs_ext->exp_avg_depth  = expected_avg_depth(sample_size);
+            model_outputs_ext->exp_avg_depth  = expected_avg_depth<ldouble_safe>(sample_size);
         else
             model_outputs_ext->exp_avg_depth  = 1;
-        model_outputs_ext->exp_avg_sep = expected_separation_depth(model_params.sample_size);
+        model_outputs_ext->exp_avg_sep = expected_separation_depth<ldouble_safe>(model_params.sample_size);
         model_outputs_ext->orig_sample_size = input_data.nrows;
         model_outputs_ext->has_range_penalty = penalize_range;
     }
