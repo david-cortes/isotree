@@ -128,17 +128,16 @@
     #endif
 #endif
 
-#define THRESHOLD_EXACT_H 256 /* above this will get approximated */
-
 /* adapted from cephes */
 #define EULERS_GAMMA 0.577215664901532860606512
 double digamma(double x)
 {
     double y, z, z2;
 
-    /* check for positive integer up to 10 */
-    if ( (x <= THRESHOLD_EXACT_H) && (x == std::floor(x)) )
-        return (harmonic<double>(x - 1)) - EULERS_GAMMA;
+    /* check for positive integer up to 128 */
+    if (unlikely((x <= 64) && (x == std::floor(x)))) {
+        return harmonic_recursive(1.0, (double)x) - EULERS_GAMMA;
+    }
 
     if (likely(x < 1.0e17 ))
     {
@@ -166,20 +165,13 @@ double digamma(double x)
 template <class ldouble_safe>
 double harmonic(size_t n)
 {
-    if (n > THRESHOLD_EXACT_H)
-    {
-        ldouble_safe temp = (ldouble_safe)1 / square((ldouble_safe)n);
-        return  - (ldouble_safe)0.5 * temp * ( (ldouble_safe)1/(ldouble_safe)6  -   temp * ((ldouble_safe)1/(ldouble_safe)60 - ((ldouble_safe)1/(ldouble_safe)126)*temp) )
-                + (ldouble_safe)0.5 * ((ldouble_safe)1/(ldouble_safe)n)
-                + std::log((ldouble_safe)n) + (ldouble_safe)EULERS_GAMMA;
-    }
-    
-    else
-    {
-        return harmonic_recursive((double)1, (double)(n + 1));
-    }
+    ldouble_safe temp = (ldouble_safe)1 / square((ldouble_safe)n);
+    return  - (ldouble_safe)0.5 * temp * ( (ldouble_safe)1/(ldouble_safe)6  -   temp * ((ldouble_safe)1/(ldouble_safe)60 - ((ldouble_safe)1/(ldouble_safe)126)*temp) )
+            + (ldouble_safe)0.5 * ((ldouble_safe)1/(ldouble_safe)n)
+            + std::log((ldouble_safe)n) + (ldouble_safe)EULERS_GAMMA;
 }
 
+/* usage for getting harmonic(n) is like this: harmonic_recursive((double)1, (double)(n + 1)); */
 double harmonic_recursive(double a, double b)
 {
     if (b == a + 1) return 1. / a;
@@ -189,25 +181,14 @@ double harmonic_recursive(double a, double b)
 
 /* https://stats.stackexchange.com/questions/423542/isolation-forest-and-average-expected-depth-formula
    https://math.stackexchange.com/questions/3333220/expected-average-depth-in-random-binary-tree-constructed-top-to-bottom */
+#include "exp_depth_table.hpp"
 template <class ldouble_safe>
 double expected_avg_depth(size_t sample_size)
 {
-    switch(sample_size)
-    {
-        case 1: return 0.;
-        case 2: return 1.;
-        case 3: return 5.0/3.0;
-        case 4: return 13.0/6.0;
-        case 5: return 77.0/30.0;
-        case 6: return 29.0/10.0;
-        case 7: return 223.0/70.0;
-        case 8: return 481.0/140.0;
-        case 9: return 4609.0/1260.0;
-        default:
-        {
-            return 2. * (harmonic<ldouble_safe>(sample_size) - 1.);
-        }
+    if (likely(sample_size <= N_PRECALC_EXP_DEPTH)) {
+        return exp_depth_table[sample_size - 1];
     }
+    return 2. * (harmonic<ldouble_safe>(sample_size) - 1.);
 }
 
 /* Note: H(x) = psi(x+1) + gamma */

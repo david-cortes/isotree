@@ -12,6 +12,7 @@
 ^isotree/.*
 ^isotree.egg-info/.*
 ^timings/.*
+^gen_tables/.*
 ^__pycache__/.*
 ^\.git.*
 ^cmake.*

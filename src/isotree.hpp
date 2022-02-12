@@ -1380,6 +1380,9 @@ size_t log2ceil(size_t x);
 #endif
 double digamma(double x);
 template <class ldouble_safe>
+#ifndef _FOR_R
+[[gnu::optimize("no-trapping-math"), gnu::optimize("no-math-errno")]]
+#endif
 double harmonic(size_t n);
 double harmonic_recursive(double a, double b);
 template <class ldouble_safe>

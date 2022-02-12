@@ -2263,6 +2263,13 @@ class IsolationForest:
         (e.g. 'model.nthreads = 1'), or to use a different version of this library compiled without OpenMP
         (requires manually altering the 'setup.py' file), or to use a non-GNU OpenMP backend. This should not
         be an issue when using this library normally in e.g. a jupyter notebook.
+
+        Note
+        ----
+        For model serving purposes, in order to have a smaller and leaner library, it is recommended to
+        compile this library without support for 'long double' type, which can be done by setting up an
+        environment variable "NO_LONG_DOUBLE" before installation of this package (see the GitHub page
+        of this library for more details).
         
         Note
         ----

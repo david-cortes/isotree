@@ -26,6 +26,7 @@ prune example
 prune image
 prune include
 prune safe
+prune gen_tables
 prune autom4te.cache
 exclude src/instantiate_template_headers.cpp
 exclude src/external_facing_generic.hpp

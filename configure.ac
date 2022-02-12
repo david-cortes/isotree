@@ -1,4 +1,4 @@
-AC_INIT([isotree], 0.5.13)
+AC_INIT([isotree], 0.5.14)
 AC_LANG(C++)
 AC_COMPILE_IFELSE(
     [AC_LANG_PROGRAM([[]], [[double *__restrict x;]])],

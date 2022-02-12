@@ -203,6 +203,15 @@ can be dropped as follows: `model$cpp_obj$serialized <- NULL` (and an additional
 `model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE` and `model$cpp_obj$ind_ser <- NULL`
 when building a node indexer). After that, one might want to force garbage
 collection through `gc()`.
+
+Usually, for serving purposes, one wants a setup as minimalistic as possible (e.g. smaller docker images).
+This library can be made smaller and faster to compile by disabling some features - particularly,
+the library will by default build with support for calculation of aggregated metrics (such as
+standard deviations) in 'long double' precision (an extended precision type), which is a functionality
+that's unlikely to get used (default is not to use this type as it is slower, and calculations done in
+the `predict` function do not use it for anything). Support for 'long double' can be disable at compile
+time by setting up an environment variable `NO_LONG_DOUBLE` before installing the
+package (e.g. by issuing command `Sys.setenv("NO_LONG_DOUBLE" = "1")` before `install.packages`).
 }
 
 \seealso{
