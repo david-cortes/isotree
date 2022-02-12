@@ -1683,6 +1683,13 @@ double find_split_std_gain_weighted(real_t *restrict x, real_t xmean, size_t ix_
 }
 
 #ifndef _FOR_R
+    #if defined(__clang__)
+        #pragma clang diagnostic push
+        #pragma clang diagnostic ignored "-Wunknown-attributes"
+    #endif
+#endif
+
+#ifndef _FOR_R
 [[gnu::optimize("Ofast")]]
 #endif
 static inline void xpy1(double *restrict x, double *restrict y, size_t n)
@@ -1713,6 +1720,12 @@ static inline void axpy1(const double a, double *restrict xval, size_t ind[], si
 {
     for (size_t ix = 0; ix < nnz; ix++) y[ind[ix]] = std::fma(a, xval[ix], y[ind[ix]]);
 }
+
+#ifndef _FOR_R
+    #if defined(__clang__)
+        #pragma clang diagnostic pop
+    #endif
+#endif
 
 template <class real_t, class ldouble_safe>
 double find_split_full_gain(real_t *restrict x, size_t st, size_t end, size_t *restrict ix_arr,
