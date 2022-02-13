@@ -653,7 +653,7 @@ cdef class isoforest_cpp_obj:
             <char*>NULL
         )
 
-    def deepcopy(self):
+    def __deepcopy__(self, memo):
         other = isoforest_cpp_obj()
         other.isoforest = deepcopy_obj(self.isoforest)
         other.ext_isoforest = deepcopy_obj(self.ext_isoforest)

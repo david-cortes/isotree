@@ -1148,19 +1148,7 @@ class IsolationForest:
         copied : obj
             A deep copy of this object
         """
-        if not self.is_fitted_:
-            self._cpp_obj = isoforest_cpp_obj()
-            return deepcopy(self)
-        else:
-            obj_restore = self._cpp_obj
-            obj_new = self._cpp_obj.deepcopy()
-            try:
-                self._cpp_obj = None
-                out = deepcopy(self)
-            finally:
-                self._cpp_obj = obj_restore
-            out._cpp_obj = obj_new
-            return out
+        return deepcopy(self)
 
     def get_params(self, deep=True):
         """
@@ -2852,6 +2840,7 @@ class IsolationForest:
                                ctypes.c_bool(limit_depth).value,
                                ctypes.c_bool(self.penalize_range).value,
                                ctypes.c_bool(self.standardize_data),
+                               ctypes.c_bool(self.fast_bratio).value,
                                ctypes.c_bool(self.weigh_by_kurtosis).value,
                                ctypes.c_double(self.prob_pick_pooled_gain_).value,
                                ctypes.c_double(self.prob_pick_avg_gain_).value,
