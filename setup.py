@@ -23,59 +23,50 @@ class build_ext_subclass( build_ext ):
         is_msvc = self.compiler.compiler_type == "msvc"
         is_clang = hasattr(self.compiler, 'compiler_cxx') and ("clang++" in self.compiler.compiler_cxx)
         is_windows = sys.platform[:3] == "win"
+        is_mingw = (is_windows and
+                    (self.compiler.compiler_type.lower()
+                     in ["mingw32", "mingw64", "mingw", "msys", "msys2", "gcc", "g++"]))
         no_ld = "NO_LONG_DOUBLE" in os.environ
+        has_robinmap = os.path.exists("src/robinmap/include/tsl")
 
         if is_msvc:
             for e in self.extensions:
                 e.extra_compile_args = ['/openmp', '/O2', '/std:c++14', '/fp:except-', '/wd4244', '/wd4267', '/wd4018', '/wd5030']
                 e.define_macros += [("NO_LONG_DOUBLE", None)]
-                ### Note: MSVC never implemented C++11
+                if has_robinmap:
+                    e.define_macros += [("_USE_ROBIN_MAP", None)]
+        
         else:
             if not self.is_arch_in_cflags():
                 self.add_march_native()
-
             self.add_openmp_linkage()
             self.add_restrict_qualifier()
+            self.add_O3()
             self.add_no_math_errno()
             self.add_no_trapping_math()
+            if not is_mingw:
+                self.add_highest_supported_cxx_standard()
             if not is_windows:
                 self.add_link_time_optimization()
 
             for e in self.extensions:
-                
-                if is_clang:
-                    e.extra_compile_args += ['-O3', '-std=c++17']
-                
-                ### here only 'mingw32' should be a valid option, the rest are set there just in case
-                elif (
-                    (is_windows) and
-                    (np.iinfo(ctypes.c_size_t).max >= (2**64 - 1)) and
-                    (self.compiler.compiler_type.lower()
-                    in ["mingw32", "mingw64", "mingw", "msys", "msys2", "gcc", "g++"])
-                ):
-                    e.extra_compile_args += ['-O3', '-std=gnu++14']
-                    e.define_macros += [("_FILE_OFFSET_BITS", 64)]
-                elif (
-                    (self.compiler.compiler_type.lower()
-                    in ["gcc", "g++", "mingw32", "mingw64", "mingw", "msys", "msys2"])
-                ):
-                    e.extra_compile_args += ['-O3', '-std=gnu++14']
-                    # e.extra_compile_args += ['-O3', '-std=c++11', '-ggdb']
-                else:
-                    e.extra_compile_args += ['-O3', '-std=c++11']
-                    # e.extra_compile_args += ['-O3', '-std=c++11', '-ggdb']
 
-                if (os.path.exists("src/robinmap/include/tsl")):
+                if is_mingw:
+                    e.extra_compile_args += ['-std=gnu++14']
+                    if np.iinfo(ctypes.c_size_t).max >= (2**64 - 1):
+                        e.define_macros += [("_FILE_OFFSET_BITS", 64)]
+                
+                # ## for testing
+                # e.extra_compile_args += ['-ggdb']
+                
+                if has_robinmap:
                     e.define_macros += [("_USE_ROBIN_MAP", None)]
 
                 if is_windows or no_ld:
                     e.define_macros += [("NO_LONG_DOUBLE", None)]
-
-
+                
                 # ## for testing
                 # e.extra_compile_args = ["-std=c++11", "-ggdb"]
-
-
 
                 # e.extra_compile_args = ['-fopenmp', '-O3', '-march=native', '-std=c++11']
                 # e.extra_link_args    = ['-fopenmp']
@@ -161,6 +152,30 @@ class build_ext_subclass( build_ext ):
         else:
             set_omp_false()
 
+    def add_O3(self):
+        O3 = "-O3"
+        if self.test_supports_compile_arg(O3):
+            for e in self.extensions:
+                e.extra_compile_args.append(O3)
+
+    def add_highest_supported_cxx_standard(self):
+        cxx17 = "-std=c++17"
+        cxx14 = "-std=gnu++14"
+        cxx11 = "-std=c++11"
+        if self.test_supports_compile_arg(cxx17):
+            for e in self.extensions:
+                e.extra_compile_args.append(cxx17)
+        elif self.test_supports_compile_arg(cxx14):
+            for e in self.extensions:
+                e.extra_compile_args.append(cxx14)
+        elif self.test_supports_compile_arg(cxx11):
+            for e in self.extensions:
+                e.extra_compile_args.append(cxx11)
+        else:
+            msg  = "\n\n\nWarning: compiler does not support C++11, compilation/installation of "
+            msg += "'isotree' might fail without it.\n\n\n"
+            warnings.warn(msg)
+
     def test_supports_compile_arg(self, comm):
         is_supported = False
         try:
@@ -236,7 +251,7 @@ class build_ext_subclass( build_ext ):
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.5.14-1',
+    version = '0.5.14-2',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     author_email = 'david.cortes.rivera@gmail.com',
