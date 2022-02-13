@@ -30,7 +30,7 @@ set(HEADER_FILES "${PROJECT_SOURCE_DIR}/include/isotree.hpp"
 set_target_properties(isotree PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")
 add_compile_definitions(ISOTREE_COMPILE_TIME)
 
-## omit this line to use the system's default RNG engine
+## set to OFF to use the system's default RNG engine
 option(USE_XOSHIRO "Use the xoshiro RNG family" ON)
 if (USE_XOSHIRO)
     message(STATUS "Using the Xoshiro random engine family")
@@ -39,16 +39,18 @@ else()
     message(STATUS "Using the compiler's default random engine")
 endif()
 
-## set to ON to avoid using 'long double' type, which
-## can be slow in some setups
-option(NO_LONG_DOUBLE "Avoid using 'long double' type" OFF)
+## set to ON to avoid compiling with 'long double' type
+## (its usage is optional and selectable at runtime, but makes
+##  the compiled binaries much heavier)
+option(NO_LONG_DOUBLE "Avoid adding support for 'long double' type" OFF)
 if (NO_LONG_DOUBLE)
-    message(STATUS "Avoiding usage of 'long double' type.")
+    message(STATUS "Avoid adding support for 'long double' type.")
     add_compile_definitions(NO_LONG_DOUBLE)
 endif()
 
 ## set to ON to compile for only 'double' and 'int' types
-option(NO_TEMPLATED_VERSIONS "Avoid using 'long double' type" OFF)
+## (otherwise, compiles also for 'float', 'int64_t', 'size_t')
+option(NO_TEMPLATED_VERSIONS "Don't create multiple templated versions for different data types" OFF)
 if (NO_TEMPLATED_VERSIONS)
     message(STATUS "Building with support for only 'double' and 'int' types.")
     add_compile_definitions(NO_TEMPLATED_VERSIONS)
