@@ -34,7 +34,7 @@ Description: Fast and multi-threaded implementation of
 License: BSD_2_clause + file LICENSE
 Imports: Rcpp (>= 1.0.1)
 Suggests: MASS, outliertree, jsonlite (>= 1.7.3),
-    mlbench, MLmetrics, knitr, rmarkdown, kableExtra
+    mlbench, MLmetrics, kernlab, knitr, rmarkdown, kableExtra
 Enhances: Matrix, SparseM
 LinkingTo: Rcpp
 VignetteBuilder: knitr
