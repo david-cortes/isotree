@@ -1,0 +1,592 @@
+---
+title: "An Introduction to Isolation Forests"
+author: "David Cortes"
+output:
+    rmarkdown::html_document:
+        theme: "spacelab"
+        highlight: "kate"
+        toc: true
+        toc_float: true
+vignette: >
+    %\VignetteIndexEntry{An Introduction to Isolation Forests}
+    %\VignetteEngine{knitr::rmarkdown}
+    %\VignetteEncoding{UTF-8}
+editor_options:
+    markdown: 
+        wrap: 72
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+    collapse = TRUE,
+    comment = "#>"
+)
+options(rmarkdown.html_vignette.check_title = FALSE)
+```
+```{r, include = FALSE}
+### Don't overload CRAN servers
+### https://stackoverflow.com/questions/28961431/computationally-heavy-r-vignettes
+is_check <- ("CheckExEnv" %in% search()) || any(c("_R_CHECK_TIMINGS_",
+             "_R_CHECK_LICENSE_") %in% names(Sys.getenv()))
+```
+
+This is an accompanying vignette for the package
+[isotree](https://github.com/david-cortes/isotree)
+presenting a short introduction to the Isolation Forest family of algorithms
+as implemented in said package. For more information about it, see the GitHub page.
+
+** *
+# Isolation Forests
+
+## Overview
+
+Isolation Forest is an unsupervised decision-tree-based algorithm originally developed
+for outlier detection in tabular data, which consists in splitting sub-samples of the data
+according to some attribute/feature/column at random. The idea is that, the rarer the
+observation, the more likely it is that a random split on some feature would put outliers alone
+in one branch, and the fewer splits it will take to isolate (create a partition in which only
+one point is present) an outlier observation like this.
+
+The intuition behind it is very simple: if there is an outlier in the data and we pick a column
+at random in which the value for the outlier point is different from the rest of the
+observations, and then we select an arbitrary threshold uniformly at random within the range of
+that column and divide all the points into two groups according to whether they are higher
+or lower than the randomly-chosen threshold for that column, then there is a higher chance
+that the outlier point would end up in the smaller partition than in the larger partition.
+
+Of course, outliers are typically not defined by just having one extreme value in one column,
+and a good outlier detection method needs to look at the relationships between different
+variables and their combinations. One potential way to do this is by building a so-called
+"isolation tree", which consists of repeating the randomized splitting process described above
+recursively (that is, we divide the points into two groups, then repeat the process in each
+of the two groups that are obtained, and continue repeating it on the new groups until no
+further split is possible or until meeting some other criteria).
+
+Under this scheme, one can deduce that, the more common a point is, the more splits it will
+take to leave the point alone or in a smaller group compared to uncommon points - as such,
+one can think of the "isolation depth" (number of partitions that it takes to isolate a point,
+hence the name of the algorithm) in the isolation trees as a metric by which to measure the
+inlierness or outlierness of a point.
+
+A single isolation tree has a lot of expected variability in the isolation depths that it
+will give to each observation, thus an ensemble of many such trees - an "isolation
+forest" - may be used instead for better results, with the final score obtained by averaging
+the results (the isolation depths) from many such trees.
+
+There are many potential ways of improving upon the logic behind the procedure (for example,
+extrapolating an isolation depth after reaching a certain limit) and the resulting score
+can be standardized for easier usage, among many others - see the references for more details
+about the methodology.
+
+## Why choose isolation forests over the alternatives
+
+Compared to other outlier/anomaly detection methods such as "local outlier factor" or
+"one-class support vector machines", isolation forests have advantages in that they are:
+
+* Robust to the presence of outliers in training data.
+* Robust to multi-modal distributions.
+* Insensitive to the scales of variables.
+* Much faster to fit.
+* Invariant to the choice of distance metric (since it doesn't use a distance
+metric in the first place).
+
+Additionally, since they produce a standardized outlier metric for every point, such models
+can be used for example to generate additional features for regression or classification models
+or as a proxy for distribution density, for which not all outlier detection methods are
+equally suitable (see the rest of the vignette for other potential uses of isolation forests).
+
+## An example in 1D
+
+As a simple proof-of-concept test, one can think of producing random numbers from a normal
+distribution and seeing what kinds of isolation depths would isolation trees assigning to
+them:
+
+```{r, fig.width=3.5, fig.height=2.2}
+set.seed(123)
+random_numbers <- matrix(rnorm(1000))
+par(oma = c(0,0,0,0), mar = c(4,4,3,2))
+hist(random_numbers, breaks=50, col="navy",
+     main="Randomly-generated numbers\nfrom normal distribution",
+     xlab="value")
+```
+```{r, fig.width=5, fig.height=3}
+library(isotree)
+
+model <- isolation.forest(random_numbers, ndim=1, ntrees=10, nthreads=1)
+scores <- predict(model, random_numbers, type="avg_depth")
+par(mar = c(4,5,3,2))
+plot(random_numbers, scores, type="p", col="darkred",
+     main="Average isolation depth\nfor normally-distributed numbers",
+     xlab="value", ylab="Average isolation depth")
+```
+
+As expected, the isolation depth in this sample of randomly-generated numbers following
+a normal distribution looks very similar to the probability distribution function, achieving
+the goal of determining which kind of points are more common or less common compared to the
+rest.
+
+For simple 1D data, a kernel density estimate or similar would do a better job, but
+once we start adding more dimensions to the data, something like a kernel density estimate
+starts sounding less and less suitable, and more susceptible to the presence of outliers
+(which is what we want to detect in the first place).
+
+## An example in 2D
+
+The next example will generate **standardized** outlier scores (see references for details
+about this) for randomly-generated two-dimensional data.
+
+In order to illustrate the advantages of isolation forests, this next example will generate
+**two** clusters of normally-distributed numbers, and will add an outlier along the way
+which could not be determined to be so if looking at the variables individually.
+
+For many other outlier/anomaly detection methods, having multi-modal distributions
+like this is a big problem, and their performance suffers from contamination of the training
+data with outliers. For isolation forests, these are not problematic:
+
+```{r, fig.width=4, fig.height=3}
+### Randomly-generated data from different distributions
+set.seed(1)
+cluster1 <- data.frame(
+    x = rnorm(1000, -1, .4),
+    y = rnorm(1000, -1, .2)
+)
+cluster2 <- data.frame(
+    x = rnorm(1000, +1, .2),
+    y = rnorm(1000, +1, .4)
+)
+outlier <- data.frame(
+    x = -1,
+    y =  1
+)
+
+### Putting them together
+X <- rbind(cluster1, cluster2, outlier)
+
+### Function to produce a heatmap of the scores
+pts = seq(-3, 3, .1)
+space_d <- expand.grid(x = pts, y = pts)
+plot.space <- function(Z, ttl, cex.main = 1.4) {
+    image(pts, pts, matrix(Z, nrow = length(pts)),
+          col = rev(heat.colors(50)),
+          main = ttl, cex.main = cex.main,
+          xlim = c(-3, 3), ylim = c(-3, 3),
+          xlab = "", ylab = "")
+    par(new = TRUE)
+    plot(X, type = "p", xlim = c(-3, 3), ylim = c(-3, 3),
+         col = "#0000801A",
+         axes = FALSE, main = "",
+         xlab = "", ylab = "")
+}
+
+model <- isolation.forest(X, ndim=1, ntrees=100, nthreads=1)
+scores <- predict(model, space_d)
+par(mar = c(2.5,2.2,2,2.5))
+plot.space(scores, "Outlier Scores\n(clustered data with an outlier on top)", 1.0)
+```
+
+** *
+# Variations of isolation forests
+
+The isolation forest algorithm, as originally introduced in the paper "Isolation forest",
+tends to provide reasonably good performance out-of-the-box across a variety of datasets and
+problem domains, but it is far from universal or perfect: it suffers from many biases which
+affect its performance, and there have been many sub-sequent papers trying to address some
+of its issues by introducing changes in the splitting logic or in other aspects.
+
+For example, in the plot above, it can be seen that it generated "ghost" regions of high
+inlierness in areas parallel to the clusters along each axis, despite there not being any
+data in those regions.
+
+Enhanced variations of the algorithm have been proposed, for example by introducing changes
+in the logic as follows:
+
+* Making splits with respect to a randomly-chosen hyperplane instead of making only
+axis-parallel splits.
+* Choosing the split point more carefully according to criteria related to standard deviations
+or to density.
+* Choosing the column more carefully according to other criteria (e.g. ranges, variances,
+kurtosis, etc.).
+* Changing the way in which outlier scores are calculated in order to look at more pieces
+of information from the trees.
+
+Here are some example variations on the same data as before:
+```{r, eval=FALSE}
+par(mfrow = c(3, 2), mar = c(2.5,2.2,2,2.5))
+
+iforest <- isolation.forest(
+    X, ndim=1, ntrees=100,
+    missing_action="fail"
+)
+plot.space(
+    predict(iforest, space_d),
+    "Isolation Forest"
+)
+ext_iforest <- isolation.forest(
+    X, ndim=2, ntrees=100,
+    missing_action="fail"
+)
+plot.space(
+    predict(ext_iforest, space_d),
+    "Extended Isolation Forest"
+)
+sciforest <- isolation.forest(
+    X, ndim=2, ntrees=100,
+    missing_action="fail",
+    coefs="normal",
+    prob_pick_avg_gain=1
+)
+plot.space(
+    predict(sciforest, space_d),
+    "SCiForest"
+)
+fcf <- isolation.forest(
+    X, ndim=2, ntrees=100,
+    missing_action="fail",
+    prob_pick_pooled_gain=1
+)
+plot.space(
+    predict(fcf, space_d),
+    "Fair-Cut Forest"
+)
+dens_iforest <- isolation.forest(
+    X, ndim=2, ntrees=100,
+    missing_action="fail",
+    scoring_metric="density"
+)
+plot.space(
+    predict(dens_iforest, space_d),
+    "Density Isolation Forest"
+)
+bdens_iforest <- isolation.forest(
+    X, ndim=1, ntrees=100,
+    missing_action="fail",
+    scoring_metric="boxed_ratio"
+)
+plot.space(
+    predict(bdens_iforest, space_d),
+    "Boxed Isolation Forest"
+)
+```
+```{r, echo=FALSE, fig.width=5, fig.height=6}
+par(mfrow = c(3, 2), mar = c(2.5,2.2,2,2.5))
+
+if (!is_check) {
+    iforest <- isolation.forest(
+        X, ndim=1, ntrees=100,
+        missing_action="fail"
+    )
+    ext_iforest <- isolation.forest(
+        X, ndim=2, ntrees=100,
+        missing_action="fail"
+    )
+    sciforest <- isolation.forest(
+        X, ndim=2, ntrees=100,
+        missing_action="fail",
+        coefs="normal",
+        prob_pick_avg_gain=1
+    )
+    fcf <- isolation.forest(
+        X, ndim=2, ntrees=100,
+        missing_action="fail",
+        prob_pick_pooled_gain=1
+    )
+    dens_iforest <- isolation.forest(
+        X, ndim=2, ntrees=100,
+        missing_action="fail",
+        scoring_metric="density"
+    )
+    bdens_iforest <- isolation.forest(
+        X, ndim=1, ntrees=100,
+        missing_action="fail",
+        scoring_metric="boxed_ratio"
+    )
+} else {
+    iforest <- isolation.forest(
+        X, ndim=1, ntrees=10,
+        sample_size=32, nthreads=1,
+        missing_action="fail"
+    )
+    ext_iforest <- isolation.forest(
+        X, ndim=2, ntrees=10,
+        sample_size=32, nthreads=1,
+        missing_action="fail"
+    )
+    sciforest <- isolation.forest(
+        X, ndim=2, ntrees=10,
+        sample_size=32, nthreads=1,
+        missing_action="fail",
+        coefs="normal",
+        prob_pick_avg_gain=1
+    )
+    fcf <- isolation.forest(
+        X, ndim=2, ntrees=10,
+        sample_size=32, nthreads=1,
+        missing_action="fail",
+        prob_pick_pooled_gain=1
+    )
+    dens_iforest <- isolation.forest(
+        X, ndim=2, ntrees=10,
+        sample_size=32, nthreads=1,
+        missing_action="fail",
+        scoring_metric="density"
+    )
+    bdens_iforest <- isolation.forest(
+        X, ndim=1, ntrees=10,
+        sample_size=32, nthreads=1,
+        missing_action="fail",
+        scoring_metric="boxed_ratio"
+    )
+}
+plot.space(
+    predict(iforest, space_d),
+    "Isolation Forest"
+)
+plot.space(
+    predict(ext_iforest, space_d),
+    "Extended Isolation Forest"
+)
+plot.space(
+    predict(sciforest, space_d),
+    "SCiForest"
+)
+plot.space(
+    predict(fcf, space_d),
+    "Fair-Cut Forest"
+)
+plot.space(
+    predict(dens_iforest, space_d),
+    "Density Isolation Forest"
+)
+plot.space(
+    predict(bdens_iforest, space_d),
+    "Boxed Isolation Forest"
+)
+```
+
+
+** *
+# An example with real data
+
+Although the plots above can be illustrative for understanding what isolation forest and its
+variants are doing, outlier detection in 1D and 2D data is an area in which many other
+more successful methods have been tried and proved before. Where isolation forests does
+shine though, is when the data has a larger number of dimensions, clustered outliers,
+or multi-modal distributions.
+
+One of the most common datasets for benchmarking outlier detection algorithms in more than
+2 dimensions is the "Satellite" dataset, which was originally designed for multi-class
+classification but is typically adapted for anomaly detection by merging the least common
+classes together and labelling them as "anomalies" or "outliers".
+
+From [ODDS](http://odds.cs.stonybrook.edu/satellite-dataset/):
+
+> The original Statlog (Landsat Satellite) dataset from UCI machine learning repository is a
+> multi-class classification dataset. Here, the training and test data are combined. The
+> smallest three classes, i.e. 2, 4, 5 are combined to form the outliers class, while all
+> the other classes are combined to form an inlier class. 
+
+This makes it one of the hardest datasets for outlier detection, but the challenges it
+introduces (clustered outliers, multi-modal distributions) are not an obstacle for
+isolation forests.
+
+The next example will load the dataset from the `mlbench` package and apply the conversion
+as outlined in ODDS and as done in typical benchmarks for outlier detection:
+```{r}
+library(mlbench)
+
+data("Satellite")
+is_outlier <- Satellite$classes %in% c("damp grey soil", "cotton crop", "vegetation stubble")
+sat_without_class <- Satellite[, names(Satellite)[names(Satellite) != "classes"]]
+dim(sat_without_class)
+```
+```{r}
+summary(is_outlier)
+```
+
+
+Now the next chunk will fit different variants of isolation forests and assess how well they
+do at discriminating outliers by calculating the AUROC (area under the ROC curve) that they
+produce. Note that the models do not see any information about which observations are outliers
+and which are not.
+
+The original paper "Isolation Forest" suggested that models would converge with 100 trees, but
+here it is possible to get slightly better performance by simply increasing the number of
+trees and by bigger changes such as choosing a different scoring metric.
+```{r, eval=FALSE}
+library(MLmetrics)
+library(kableExtra)
+
+model_orig <- isolation.forest(
+    sat_without_class,
+    ndim=1, sample_size=256,
+    ntrees=100,
+    missing_action="fail"
+)
+pred_orig <- predict(model_orig, sat_without_class)
+
+model_dens <- isolation.forest(
+    sat_without_class,
+    ndim=1, sample_size=256,
+    ntrees=100,
+    missing_action="fail",
+    scoring_metric="density"
+)
+pred_dens <- predict(model_dens, sat_without_class)
+
+model_fcf <- isolation.forest(
+    sat_without_class,
+    ndim=1, sample_size=32,
+    prob_pick_pooled_gain=1,
+    ntrees=100,
+    missing_action="fail"
+)
+pred_fcf <- predict(model_fcf, sat_without_class)
+
+results_df <- data.frame(
+    Model = c(
+        "Isolation Forest",
+        "Density Isolation Forest",
+        "Fair-Cut Forest"
+    ),
+    AUROC = c(
+        AUC(pred_orig, is_outlier),
+        AUC(pred_dens, is_outlier),
+        AUC(pred_fcf, is_outlier)
+    )
+)
+results_df %>%
+    kable() %>%
+    kable_styling()
+```
+```{r, echo=FALSE, message=FALSE}
+library(MLmetrics)
+library(kableExtra)
+if (!is_check) {
+    model_orig <- isolation.forest(
+        sat_without_class,
+        ndim=1, sample_size=256,
+        ntrees=100,
+        missing_action="fail"
+    )
+    model_dens <- isolation.forest(
+        sat_without_class,
+        ndim=1, sample_size=256,
+        ntrees=100,
+        missing_action="fail",
+        scoring_metric="density"
+    )
+    model_fcf <- isolation.forest(
+        sat_without_class,
+        ndim=1, sample_size=32,
+        prob_pick_pooled_gain=1,
+        ntrees=100,
+        missing_action="fail"
+    )
+} else {
+    model_orig <- isolation.forest(
+        sat_without_class,
+        ndim=1, sample_size=32, nthreads=1,
+        ntrees=10,
+        missing_action="fail"
+    )
+    model_dens <- isolation.forest(
+        sat_without_class,
+        ndim=1, sample_size=32, nthreads=1,
+        ntrees=10,
+        missing_action="fail",
+        scoring_metric="density"
+    )
+    model_fcf <- isolation.forest(
+        sat_without_class,
+        ndim=1, sample_size=32, nthreads=1,
+        prob_pick_pooled_gain=1,
+        ntrees=10,
+        missing_action="fail"
+    )
+}
+pred_orig <- predict(model_orig, sat_without_class)
+pred_dens <- predict(model_dens, sat_without_class)
+pred_fcf <- predict(model_fcf, sat_without_class)
+
+results_df <- data.frame(
+    Model = c(
+        "Isolation Forest",
+        "Density Isolation Forest",
+        "Fair-Cut Forest"
+    ),
+    AUROC = c(
+        AUC(pred_orig, is_outlier),
+        AUC(pred_dens, is_outlier),
+        AUC(pred_fcf, is_outlier)
+    )
+)
+results_df %>%
+    kable() %>%
+    kable_styling()
+```
+
+For comparison purposes, what follows next (one-class SVM) is one of the most widely-used
+methods for outlier detection other than isolation forests - as will be seen,
+"one-class support vector machines" are not very suitable to this kind of data,
+and even if it were to be tuned, its performance would not match that of isolation forest variants:
+```{r, eval=!is_check}
+library(kernlab)
+
+model_svm <- ksvm(
+    as.matrix(sat_without_class),
+    type="one-svc",
+    nu = 0.5
+)
+pred_svm <- predict(model_svm, as.matrix(sat_without_class), type="decision")
+results_svm <- data.frame(
+    Model = "One-Class SVM",
+    AUROC = AUC(-pred_svm, is_outlier)
+)
+results_svm %>%
+    kable() %>%
+    kable_styling()
+```
+
+_(Note that kernlab's objects output scores in the opposite direction: for them, higher scores means more inlinerness, while for `isotree` (and for the one-class SVM in `e1071`), higher scores means more outlierness)_
+
+** *
+# Other uses for isolation trees
+
+The scores obtained from isolation forest models can also be used as a proxy for density
+or as an additional feature in regression and classification tasks, which can be particularly
+helpful for domains like fraud detection, and can be used as a hint for determining whether
+there has been any covariate drift in a dataset (as part of other methods). When used for
+purposes other than anomaly detection, it is recommended to fit trees beyond balanced-tree
+height limit (see documentation for details).
+
+Apart from the outlier scores, the package `isotree` can also do the following:
+
+* Calculate distances between pairs of points based on how many splits it takes to separate
+them, resulting in a standardized and centered metric just like for the outlier scores.
+This distance can be used for example for clustering, as an SVM kernel, as extra features, etc.
+* Impute missing values by taking the points in each terminal node as near neighbors and
+generating an average from them or from those of the nearest parent node if necessary.
+* Produce a "proximity matrix" or "isolation kernel" that tells for every pair of points
+in what percentage of the trees did they end up sharing the same terminal node - for example,
+this can be used as a rough estimate of residual correlations in generalized least squares,
+and some authors report success using it as an SVM kernel (it's recommended to use the
+distance metric instead as it's better quality though).
+* Output the raw terminal node numbers or per-tree depths in order to use them for something
+else - for example, can be used as a cheap clustering with overlapping assigments across trees.
+
+** *
+# References
+
+* Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "Isolation forest." 2008 Eighth IEEE International Conference on Data Mining. IEEE, 2008.
+* Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "Isolation-based anomaly detection." ACM Transactions on Knowledge Discovery from Data (TKDD) 6.1 (2012): 3.
+* Hariri, Sahand, Matias Carrasco Kind, and Robert J. Brunner. "Extended Isolation Forest." arXiv preprint arXiv:1811.02141 (2018).
+* Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou. "On detecting clustered anomalies using SCiForest." Joint European Conference on Machine Learning and Knowledge Discovery in Databases. Springer, Berlin, Heidelberg, 2010.
+* https://sourceforge.net/projects/iforest/
+* https://math.stackexchange.com/questions/3388518/expected-number-of-paths-required-to-separate-elements-in-a-binary-tree
+* Quinlan, J. Ross. C4. 5: programs for machine learning. Elsevier, 2014.
+* Cortes, David. "Distance approximation using Isolation Forests." arXiv preprint arXiv:1910.12362 (2019).
+* Cortes, David. "Imputing missing values with unsupervised random trees." arXiv preprint arXiv:1911.06646 (2019).
+* Cortes, David. "Revisiting randomized choices in isolation forests." arXiv preprint arXiv:2110.13402 (2021).
+* Guha, Sudipto, et al. "Robust random cut forest based anomaly detection on streams." International conference on machine learning. PMLR, 2016.
+* Cortes, David. "Isolation forests: looking beyond tree depth." arXiv preprint arXiv:2111.11639 (2021).
+* Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou. "Isolation kernel and its effect on SVM." Proceedings of the 24th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining. 2018.

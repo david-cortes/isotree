@@ -1,12 +1,7 @@
-.. isotree documentation master file, created by
-   sphinx-quickstart on Wed Oct 23 21:57:56 2019.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Isolation-based Outlier Detection
 =================================
 
-This is the documentation page for the `isotree` Python package. See project webpage for more details:
+This is the documentation page for the `isotree` Python package, which provides Isolation Forest models for outlier/anomaly detection and other purposes. See project's GitHub for more details:
 
 `<https://www.github.com/david-cortes/isotree>`_
 
@@ -26,10 +21,16 @@ The Python version of this package can be easily installed from PyPI
 
 Note that it is only available in source form (not in binary wheel form), which means you will need a toolchain for compiling C++ source code (e.g. GCC in linux, msys2 that comes with anaconda on windows, clang in mac).
 
+Introduction to the library and methods
+=======================================
+
+* `An introduction to Isolation Forests <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/an_introduction_to_isolation_forests.ipynb>`_.
+
 
 Quick example notebooks
 =======================
 
+* `An introduction to Isolation Forests <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/an_introduction_to_isolation_forests.ipynb>`_.
 * `General library usage <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb>`_.
 * `As missing value imputer <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb>`_.
 * `As kernel for SVMs <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_svm_kernel_example.ipynb>`_.

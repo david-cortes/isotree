@@ -10,6 +10,10 @@ The new concepts in this software are described in:
 
 *********************
 
+For a quick introduction to the Isolation Forest concept as used in this library, see:
+* [Python introductory notebook](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/an_introduction_to_isolation_forests.ipynb).
+* [R Vignette](http://htmlpreview.github.io/?https://github.com/david-cortes/isotree/blob/master/inst/doc/An_Introduction_to_Isolation_Forests.html).
+
 Short Python example notebooks:
 * [General library usage](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb).
 * [Using it as imputer in a scikit-learn pipeline](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb).
@@ -113,12 +117,6 @@ There's already many available implementations of isolation forests for both Pyt
 
 * R:
 
-Latest version (recommended):
-```r
-remotes::install_github("david-cortes/isotree")
-```
-
-Older version from CRAN:
 ```r
 install.packages("isotree")
 ```

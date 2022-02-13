@@ -3,7 +3,7 @@
 .*\.py$
 .*\.pyx$
 .*\.pxi$
-^build/.*
+^build/.*[^r][^d][^s]$
 ^dist/.*
 ^docs/.*
 ^image/.*
