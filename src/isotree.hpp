@@ -239,8 +239,12 @@ using std::memcpy;
         #pragma clang diagnostic ignored "-Wunknown-attributes"
     #endif
 #endif
+#ifndef isinf
 using std::isinf;
+#endif
+#ifndef isnan
 using std::isnan;
+#endif
 #define is_na_or_inf(x) (isnan(x) || isinf(x))
 
 /* MSVC doesn't support long doubles, so this avoids unnecessarily increasing library size.
