@@ -614,6 +614,7 @@ PACKAGE_URL=''
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+CMATH_H
 LD_SUPPORT
 CXX_SUPPORTED
 FNTP_FLAG
@@ -2771,6 +2772,43 @@ if test "$LD_SUPPORT" = ""; then
         LD_SUPPORT="-DNO_LONG_DOUBLE"
     fi
 fi
+
+
+OLD_CXXFLAGS="$CXXFLAGS"
+OLD_CPPFLAGS="$CPPFLAGS"
+if test "$CXX_SUPPORTED" = "CXX17"; then
+    CXXFLAGS="$CXXFLAGS -std=c++17 `${R_HOME}/bin${R_ARCH_BIN}/R CMD config CXX17FLAGS`"
+elif test "$CXX_SUPPORTED" = "CXX14"; then
+    CXXFLAGS="$CXXFLAGS -std=gnu++14 `${R_HOME}/bin${R_ARCH_BIN}/R CMD config CXX14FLAGS`"
+else
+    CXXFLAGS="$CXXFLAGS `${R_HOME}/bin${R_ARCH_BIN}/R CMD config CXXFLAGS`"
+fi
+CPPFLAGS="$CPPFLAGS `${R_HOME}/bin${R_ARCH_BIN}/R CMD config CPPFLAGS`"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+        #include <math.h>
+        #include <cmath>
+        using std::isinf;
+
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"
+then :
+  CMATH_H=""
+else $as_nop
+  CMATH_H="-DINCOMPATIBLE_CMATH"
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+CXXFLAGS="$OLD_CXXFLAGS"
+CPPFLAGS="$OLD_CPPFLAGS"
 
 
 ac_config_files="$ac_config_files src/Makevars"
