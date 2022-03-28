@@ -61,28 +61,5 @@ if test "$LD_SUPPORT" = ""; then
 fi
 AC_SUBST(LD_SUPPORT)
 
-OLD_CXXFLAGS="$CXXFLAGS"
-OLD_CPPFLAGS="$CPPFLAGS"
-if test "$CXX_SUPPORTED" = "CXX17"; then
-    CXXFLAGS="$CXXFLAGS -std=c++17 `${R_HOME}/bin${R_ARCH_BIN}/R CMD config CXX17FLAGS`"
-elif test "$CXX_SUPPORTED" = "CXX14"; then
-    CXXFLAGS="$CXXFLAGS -std=gnu++14 `${R_HOME}/bin${R_ARCH_BIN}/R CMD config CXX14FLAGS`"
-else
-    CXXFLAGS="$CXXFLAGS `${R_HOME}/bin${R_ARCH_BIN}/R CMD config CXXFLAGS`"
-fi
-CPPFLAGS="$CPPFLAGS `${R_HOME}/bin${R_ARCH_BIN}/R CMD config CPPFLAGS`"
-AC_COMPILE_IFELSE(
-    [AC_LANG_PROGRAM([[
-        #include <math.h>
-        #include <cmath>
-        using std::isinf;
-    ]])],
-    [CMATH_H=""],
-    [CMATH_H="-DINCOMPATIBLE_CMATH"]
-)
-CXXFLAGS="$OLD_CXXFLAGS"
-CPPFLAGS="$OLD_CPPFLAGS"
-AC_SUBST(CMATH_H)
-
 AC_CONFIG_FILES([src/Makevars])
 AC_OUTPUT

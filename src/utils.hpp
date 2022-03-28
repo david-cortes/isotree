@@ -432,7 +432,7 @@ void build_btree_sampler(std::vector<double> &btree_weights, real_t *restrict sa
     for (size_t ix = btree_weights.size() - 1; ix > 0; ix--)
         btree_weights[ix_parent(ix)] += btree_weights[ix];
     
-    if (isnan(btree_weights[0]) || btree_weights[0] <= 0)
+    if (std::isnan(btree_weights[0]) || btree_weights[0] <= 0)
     {
         fprintf(stderr, "Numeric precision error with sample weights, will not use them.\n");
         log2_n = 0;
@@ -632,7 +632,7 @@ void weighted_shuffle(size_t *restrict outp, size_t n, real_t *restrict weights,
     }
 
     /* if the weights are invalid, produce an unweighted shuffle */
-    if (isnan(buffer_arr[0]) || buffer_arr[0] <= 0)
+    if (std::isnan(buffer_arr[0]) || buffer_arr[0] <= 0)
     {
         std::iota(outp, outp + n, (size_t)0);
         std::shuffle(outp, outp + n, rnd_generator);
@@ -725,7 +725,7 @@ void ColumnSampler<ldouble_safe>::initialize(real_t weights[], size_t n_cols)
         this->tree_weights[ix_parent(ix)] += this->tree_weights[ix];
 
     /* if the weights are invalid, make it an unweighted sampler */
-    if (unlikely(isnan(this->tree_weights[0]) || this->tree_weights[0] <= 0))
+    if (unlikely(std::isnan(this->tree_weights[0]) || this->tree_weights[0] <= 0))
     {
         this->drop_weights();
     }
@@ -2295,7 +2295,7 @@ void divide_subset_split(size_t *restrict ix_arr, real_t x[], size_t st, size_t 
     {
         for (size_t row = st; row <= end; row++)
         {
-            if (!isnan(x[ix_arr[row]]) && x[ix_arr[row]] <= split_point)
+            if (!std::isnan(x[ix_arr[row]]) && x[ix_arr[row]] <= split_point)
             {
                 temp        = ix_arr[st];
                 ix_arr[st]  = ix_arr[row];
@@ -2307,7 +2307,7 @@ void divide_subset_split(size_t *restrict ix_arr, real_t x[], size_t st, size_t 
 
         for (size_t row = st; row <= end; row++)
         {
-            if (unlikely(isnan(x[ix_arr[row]])))
+            if (unlikely(std::isnan(x[ix_arr[row]])))
             {
                 temp        = ix_arr[st];
                 ix_arr[st]  = ix_arr[row];
@@ -2473,7 +2473,7 @@ void divide_subset_split(size_t *restrict ix_arr, size_t st, size_t end, size_t 
 
                 if (Xc_ind[curr_pos] == (sparse_ix)(*row))
                 {
-                    if (unlikely(isnan(Xc[curr_pos])))
+                    if (unlikely(std::isnan(Xc[curr_pos])))
                         has_NAs = true;
                     else if (Xc[curr_pos] <= split_point)
                     {
@@ -2523,8 +2523,8 @@ void divide_subset_split(size_t *restrict ix_arr, size_t st, size_t end, size_t 
             {
                 if (Xc_ind[curr_pos] == (sparse_ix)(*row))
                 {
-                    if (unlikely(isnan(Xc[curr_pos]))) has_NAs = true;
-                    if (!isnan(Xc[curr_pos]) && Xc[curr_pos] <= split_point)
+                    if (unlikely(std::isnan(Xc[curr_pos]))) has_NAs = true;
+                    if (!std::isnan(Xc[curr_pos]) && Xc[curr_pos] <= split_point)
                     {
                         temp       = ix_arr[st];
                         ix_arr[st] = *row;
@@ -2557,7 +2557,7 @@ void divide_subset_split(size_t *restrict ix_arr, size_t st, size_t end, size_t 
             {
                 if (Xc_ind[curr_pos] == (sparse_ix)(*row))
                 {
-                    if (unlikely(isnan(Xc[curr_pos])))
+                    if (unlikely(std::isnan(Xc[curr_pos])))
                     {
                         temp       = ix_arr[st];
                         ix_arr[st] = *row;
@@ -3035,7 +3035,7 @@ void get_range(size_t ix_arr[], real_t *restrict x, size_t st, size_t end,
         }
     }
 
-    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
+    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || std::isnan(xmin) || std::isnan(xmax);
 }
 
 template <class real_t>
@@ -3064,7 +3064,7 @@ void get_range(real_t *restrict x, size_t n,
         }
     }
 
-    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
+    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || std::isnan(xmin) || std::isnan(xmax);
 }
 
 /* for sparse inputs */
@@ -3161,7 +3161,7 @@ void get_range(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num,
         xmax = std::fmax(xmax, 0);
     }
 
-    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
+    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || std::isnan(xmin) || std::isnan(xmax);
 }
 
 template <class real_t, class sparse_ix>
@@ -3197,7 +3197,7 @@ void get_range(size_t col_num, size_t nrows,
         }
     }
 
-    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || isnan(xmin) || isnan(xmax);
+    unsplittable = (xmin == xmax) || (xmin == HUGE_VAL && xmax == -HUGE_VAL) || std::isnan(xmin) || std::isnan(xmax);
 }
 
 

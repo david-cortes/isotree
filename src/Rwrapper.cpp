@@ -204,7 +204,7 @@ double* set_R_nan_as_C_nan(double *x, size_t n, std::vector<double> &v, int nthr
 {
     v.assign(x, x + n);
     for (size_t i = 0; i < n; i++)
-        if (unlikely(isnan(v[i]))) v[i] = NAN;
+        if (unlikely(std::isnan(v[i]))) v[i] = NAN;
     return v.data();
 }
 
@@ -212,14 +212,14 @@ double* set_R_nan_as_C_nan(double *x, size_t n, Rcpp::NumericVector &v, int nthr
 {
     v = Rcpp::NumericVector(x, x + n);
     for (size_t i = 0; i < n; i++)
-        if (unlikely(isnan(v[i]))) v[i] = NAN;
+        if (unlikely(std::isnan(v[i]))) v[i] = NAN;
     return REAL(v);
 }
 
 double* set_R_nan_as_C_nan(double *x, size_t n, int nthreads)
 {
     for (size_t i = 0; i < n; i++)
-        if (unlikely(isnan(x[i]))) x[i] = NAN;
+        if (unlikely(std::isnan(x[i]))) x[i] = NAN;
     return x;
 }
 

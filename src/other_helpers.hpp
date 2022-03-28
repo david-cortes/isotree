@@ -176,7 +176,7 @@ void reconstruct_csr_with_categ
     {
         for (auto col = orig_Xr_indptr[row]; col < orig_Xr_indptr[row+1]; col++)
         {
-            if (isnan(orig_Xr[col]))
+            if (std::isnan(orig_Xr[col]))
             {
                 col_orig = orig_Xr_ind[col];
                 if (is_in_set(col_orig, cols_numeric_set)) {

@@ -598,7 +598,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                                                         workspace.weights_map);
                 }
 
-                if (isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
+                if (std::isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
                     continue;
 
 
@@ -777,7 +777,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                                           input_data.Xr_indptr.data(),
                                                           workspace.weights_map);
 
-                        if (isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
+                        if (std::isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
                             goto terminal_statistics;
 
                         if (
@@ -870,7 +870,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                                           workspace.weights_map);
                     }
 
-                    if (isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
+                    if (std::isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
                         goto terminal_statistics;
 
                     break;
@@ -884,7 +884,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             }
         }
 
-        if (model_params.missing_action == Fail && isnan(trees.back().num_split))
+        if (model_params.missing_action == Fail && std::isnan(trees.back().num_split))
             throw std::runtime_error("Data has missing values. Try using a different value for 'missing_action'.\n");
 
         /* TODO: make this work, can end up messing with the start and end indices somehow */
@@ -972,7 +972,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                                                   model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
                                                                   workspace.weights_map);
                                 
-                                if (isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
+                                if (std::isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
                                     goto terminal_statistics;
 
                                 break;
@@ -1054,7 +1054,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                                                                   model_params.all_perm, model_params.missing_action, model_params.cat_split_type,
                                                                   workspace.weights_map);
 
-                                if (isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
+                                if (std::isnan(workspace.this_gain) || workspace.this_gain <= -HUGE_VAL)
                                     goto terminal_statistics;
                                 break;
                             }

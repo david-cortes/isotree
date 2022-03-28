@@ -757,7 +757,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                         }
                     }
 
-                    if (unlikely(isnan(xval)))
+                    if (unlikely(std::isnan(xval)))
                     {
                         switch(model_outputs.missing_action)
                         {
@@ -1783,7 +1783,7 @@ void add_csc_range_penalty(WorkerForPredictCSC  &workspace,
         {
             if (prediction_data.Xc_ind[curr_pos] == (decltype(*prediction_data.Xc_ind))(*row))
             {
-                if (likely(!isnan(prediction_data.Xc[curr_pos])
+                if (likely(!std::isnan(prediction_data.Xc[curr_pos])
                                &&
                            (   prediction_data.Xc[curr_pos] < range_low    ||
                                prediction_data.Xc[curr_pos] > range_high   )))
@@ -1829,7 +1829,7 @@ void add_csc_range_penalty(WorkerForPredictCSC  &workspace,
         {
             if (prediction_data.Xc_ind[curr_pos] == (decltype(*prediction_data.Xc_ind))(*row))
             {
-                if (likely(isnan(prediction_data.Xc[curr_pos])
+                if (likely(std::isnan(prediction_data.Xc[curr_pos])
                                ||
                            (   prediction_data.Xc[curr_pos] >= range_low    &&
                                prediction_data.Xc[curr_pos] <= range_high   )))

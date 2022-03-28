@@ -239,17 +239,7 @@ using std::memcpy;
         #pragma clang diagnostic ignored "-Wunknown-attributes"
     #endif
 #endif
-#ifndef INCOMPATIBLE_CMATH /* https://github.com/david-cortes/isotree/issues/36 */
-#ifndef isinf
-using std::isinf;
-#endif
-#ifndef isnan
-using std::isnan;
-#endif
-#else
-#include <math.h>
-#endif /* INCOMPATIBLE_CMATH */
-#define is_na_or_inf(x) (isnan(x) || isinf(x))
+#define is_na_or_inf(x) (std::isnan(x) || std::isinf(x))
 
 /* MSVC doesn't support long doubles, so this avoids unnecessarily increasing library size.
    MinGW supports them but has issues with their computations.
