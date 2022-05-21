@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.12.4)
-project (isotree VERSION 0.5.15)
+project (isotree VERSION 0.5.16)
 set(CMAKE_BUILD_TYPE Release)
 
 if ("${CMAKE_CXX_COMPILE_FEATURES}" MATCHES "cxx_std_17")
@@ -64,7 +64,7 @@ if (HIDE_INTERNAL_SYMBOLS AND NOT WIN32)
     set(CMAKE_REQUIRED_FLAGS " -fvisibility=hidden")
     check_cxx_source_compiles(
         "
-        __attribute__((visibility (\"default\")))
+        [[gnu::visibility(\"default\")]]
         int myfun() {
             return 0;
         }

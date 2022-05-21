@@ -278,7 +278,7 @@ using std::memcpy;
         #endif
     #else
         #if defined(EXPLICITLTY_EXPORT_SYMBOLS) && defined(ISOTREE_COMPILE_TIME)
-            #define ISOTREE_EXPORTED __attribute__((visibility ("default")))
+            #define ISOTREE_EXPORTED [[gnu::visibility("default")]]
         #else
             #define ISOTREE_EXPORTED 
         #endif
