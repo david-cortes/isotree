@@ -141,19 +141,18 @@ brew install libomp
 And then reinstall this package: `pip install --force-reinstall isotree`.
 
 ** *
-**IMPORTANT:** the setup script will try to add compilation flag `-march=native`. This instructs the compiler to tune the package for the CPU in which it is being installed, but the result might not be usable in other computers. If building a binary wheel of this package or putting it into a docker image which will be used in different machines, this can be overriden by manually supplying compilation `CFLAGS` and `CXXFLAGS` as environment variables with something related to architecture. For maximum compatibility (but slowest speed), assuming `x86-64` computers, it's possible to do something like this:
+**IMPORTANT:** the setup script will try to add compilation flag `-march=native`. This instructs the compiler to tune the package for the CPU in which it is being installed (by e.g. using AVX instructions if available), but the result might not be usable in other computers. If building a binary wheel of this package or putting it into a docker image which will be used in different machines, this can be overriden either by (a) defining an environment variable `DONT_SET_MARCH=1`, or by (b) manually supplying compilation `CFLAGS` as an environment variable with something related to architecture. For maximum compatibility (but slowest speed), it's possible to do something like this:
 
+```
+export DONT_SET_MARCH=1
+pip install isotree
+```
+
+or, by specifying some compilation flag for architecture:
 ```
 export CFLAGS="-march=x86-64"
 export CXXFLAGS="-march=x86-64"
 pip install isotree
-```
-
-or for creating wheels:
-```
-export CFLAGS="-march=x86-64"
-export CXXFLAGS="-march=x86-64"
-python setup.py bwheel
 ```
 ** *
 
