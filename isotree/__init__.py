@@ -1209,7 +1209,11 @@ class IsolationForest:
         if self._is_extended_:
             msg += "Extended "
         msg += "Isolation Forest model"
-        if (self.prob_pick_avg_gain_ + self.prob_pick_pooled_gain_ + self.prob_pick_full_gain_ + self.prob_pick_dens_) > 0:
+        if hasattr(self, "prob_pick_avg_gain_"):
+            has_guided_splits = (self.prob_pick_avg_gain_ + self.prob_pick_pooled_gain_ + self.prob_pick_full_gain_ + self.prob_pick_dens_) > 0
+        else:
+            has_guided_splits = (self.prob_pick_avg_gain + self.prob_pick_pooled_gain + self.prob_pick_full_gain + self.prob_pick_dens) > 0
+        if has_guided_splits:
             msg += " (using guided splits)"
         msg += "\n"
         ndim = self.ndim_ if hasattr(self, "ndim_") else self.ndim
@@ -1221,14 +1225,14 @@ class IsolationForest:
                 msg += "Numeric columns: %d\n" % self._ncols_numeric
             if self._ncols_categ:
                 msg += "Categorical columns: %d\n" % self._ncols_categ
-        if self.has_indexer_:
-            has_distances = self._cpp_obj.has_indexer_with_distances()
-            has_references = self._cpp_obj.has_reference_points()
-            msg += "(Has node indexer%s%s%s built-in)\n" & (
-                "  with distances" if has_distances else "",
-                " and" if (has_distances and has_references) else "",
-                " with reference points" if has_references else ""
-            )
+            if self.has_indexer_:
+                has_distances = self._cpp_obj.has_indexer_with_distances()
+                has_references = self._cpp_obj.has_reference_points()
+                msg += "(Has node indexer%s%s%s built-in)\n" & (
+                    "  with distances" if has_distances else "",
+                    " and" if (has_distances and has_references) else "",
+                    " with reference points" if has_references else ""
+                )
         return msg
 
     def __repr__(self):
