@@ -419,6 +419,9 @@ cdef extern from "python_helpers.hpp":
 
     bool_t get_has_openmp() except +
 
+    size_t py_strerrorlen_s() except +
+    void copy_errno_msg(char *inp) except +
+
 cdef extern from "other_helpers.hpp":
     void sort_csc_indices[real_t_, sparse_ix_](real_t_ *Xc, sparse_ix_ *Xc_ind, sparse_ix_ *Xc_indptr, size_t ncols_numeric) nogil except +
 
@@ -460,7 +463,7 @@ ELSE:
             mode = "wb"
 
         cdef Py_UNICODE *mode_ptr = mode
-        cdef FILE *out = _wfopen(<wchar_t*>fname_c, <wchar_t*>mode_ptr)    
+        cdef FILE *out = _wfopen(<wchar_t*>fname_c, <wchar_t*>mode_ptr)
         return out
 
 ctypedef fused sparse_ix:
@@ -1457,6 +1460,13 @@ cdef class isoforest_cpp_obj:
 
     def serialize_obj(self, str fpath, bytes metadata, bool_t is_extended=False, bool_t has_imputer=False):
         cdef FILE* file_ptr = cy_fopen(fpath, read=False)
+        cdef size_t errmgs_len = 0
+        cdef bytes errstr = bytes(0)
+        if not file_ptr:
+            errmgs_len = py_strerrorlen_s()
+            errstr = bytes(errmgs_len)
+            copy_errno_msg(errstr)
+            raise ValueError(errstr.decode("utf-8"))
         
         cdef IsoForest *ptr_model = NULL
         cdef ExtIsoForest *ptr_ext_model = NULL
@@ -1503,6 +1513,13 @@ cdef class isoforest_cpp_obj:
         cdef TreesIndexer *ptr_indexer = &self.indexer
 
         cdef FILE* file_ptr = cy_fopen(fpath, read=True)
+        cdef size_t errmgs_len = 0
+        cdef bytes errstr = bytes(0)
+        if not file_ptr:
+            errmgs_len = py_strerrorlen_s()
+            errstr = bytes(errmgs_len)
+            copy_errno_msg(errstr)
+            raise ValueError(errstr.decode("utf-8"))
 
         try:
             inspect_serialized_object(

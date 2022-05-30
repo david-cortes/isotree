@@ -131,4 +131,14 @@ bool get_has_openmp(void)
     #endif
 }
 
+size_t py_strerrorlen_s()
+{
+    return strlen(strerror(errno));
+}
+
+void copy_errno_msg(char *inp)
+{
+    strcpy(inp, strerror(errno));
+}
+
 #endif

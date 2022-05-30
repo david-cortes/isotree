@@ -3635,7 +3635,7 @@ class IsolationForest:
 
         try:
             nthreads = _process_nthreads(self.nthreads)
-        except:
+        except Exception:
             nthreads = 1
         model_info = {
             "ndim" : int(self.ndim_),
@@ -3699,7 +3699,7 @@ class IsolationForest:
         self.build_imputer = metadata["model_info"]["build_imputer"]
         try:
             self.use_long_double = metadata["model_info"]["use_long_double"]
-        except:
+        except Exception:
             self.use_long_double = False
 
         self.sample_size = metadata["params"]["sample_size"]
@@ -3712,23 +3712,23 @@ class IsolationForest:
         self.prob_pick_pooled_gain = metadata["params"]["prob_pick_pooled_gain"]
         try:
             self.prob_pick_full_gain = metadata["params"]["prob_pick_full_gain"]
-        except:
+        except Exception:
             self.prob_pick_full_gain = 0.0
         try:
             self.prob_pick_dens = metadata["params"]["prob_pick_dens"]
-        except:
+        except Exception:
             self.prob_pick_dens = 0.0
         try:
             self.prob_pick_col_by_range = metadata["params"]["prob_pick_col_by_range"]
-        except:
+        except Exception:
             self.prob_pick_col_by_range = 0.0
         try:
             self.prob_pick_col_by_var = metadata["params"]["prob_pick_col_by_var"]
-        except:
+        except Exception:
             self.prob_pick_col_by_var = 0.0
         try:
             self.prob_pick_col_by_kurt = metadata["params"]["prob_pick_col_by_kurt"]
-        except:
+        except Exception:
             self.prob_pick_col_by_kurt = 0.0
         self.prob_pick_avg_gain_ = self.prob_pick_avg_gain
         self.prob_pick_pooled_gain_ = self.prob_pick_pooled_gain
@@ -3736,7 +3736,7 @@ class IsolationForest:
         self.prob_pick_dens_ = self.prob_pick_dens
         self.prob_pick_col_by_range_ = self.prob_pick_col_by_range
         self.prob_pick_col_by_var_ = self.prob_pick_col_by_var
-        self.prob_pick_col_by_kurt_ = self.self.prob_pick_col_by_kurt
+        self.prob_pick_col_by_kurt_ = self.prob_pick_col_by_kurt
         self.min_gain = metadata["params"]["min_gain"]
         self.missing_action = metadata["params"]["missing_action"]
         self.missing_action_ = self.missing_action
@@ -3756,15 +3756,15 @@ class IsolationForest:
         self.penalize_range = metadata["params"]["penalize_range"]
         try:
             self.standardize_data = metadata["params"]["standardize_data"]
-        except:
+        except Exception:
             self.standardize_data = True
         try:
             self.scoring_metric = metadata["params"]["scoring_metric"]
-        except:
+        except Exception:
             self.scoring_metric = "depth"
         try:
             self.fast_bratio = metadata["params"]["fast_bratio"]
-        except:
+        except Exception:
             self.fast_bratio = True
         self.weigh_by_kurtosis = metadata["params"]["weigh_by_kurtosis"]
         self.assume_full_distr = metadata["params"]["assume_full_distr"]
