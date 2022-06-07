@@ -1277,6 +1277,8 @@ class IsolationForest:
 
             Note that, if passing NumPy arrays, they are used in column-major order (a.k.a. "Fortran arrays"),
             and if they are not already in column-major format, will need to create a copy of the data.
+
+            If passing a DataFrame with categorical columns, then column names must be unique.
         y : None
             Not used. Kept as argument for compatibility with Scikit-Learn pipelining.
         sample_weights : None or array(n_samples,)
@@ -1472,6 +1474,8 @@ class IsolationForest:
                if `Categorical` dtypes are ordered, the order will be ignored here.
             
             Other dtypes are not supported.
+
+            If passing a DataFrame with categorical columns, then column names must be unique.
         column_weights : None or array(n_features,)
             Sampling weights for each column in 'X'. Ignored when picking columns by deterministic criterion.
             If passing None, each column will have a uniform weight. If used along with kurtosis weights, the
@@ -1714,15 +1718,28 @@ class IsolationForest:
             has_ordered = False
             if X_cat is not None:
                 self._cat_mapping = [None for cl in range(X_cat.shape[1])]
+                # https://stackoverflow.com/questions/72535853/how-to-assign-to-column-with-non-string-name-or-index
+                random_name = "a367410fed934a3e81ce03492df9af85"
+                while random_name in X_cat.columns:
+                    random_name += "7f2df7ee866942fe9b2187011bb2550c"
+
                 for cl in range(X_cat.shape[1]):
                     if (X_cat[X_cat.columns[cl]].dtype.name == "category") and (X_cat[X_cat.columns[cl]].dtype.ordered):
                         has_ordered = True
                     if (not self.recode_categ) and (X_cat[X_cat.columns[cl]].dtype.name == "category"):
                         self._cat_mapping[cl] = np.array(X_cat[X_cat.columns[cl]].cat.categories)
-                        X_cat = X_cat.assign(**{X_cat.columns[cl] : X_cat[X_cat.columns[cl]].cat.codes})
+                        X_cat = \
+                            X_cat\
+                            .rename(columns = {X_cat.columns[cl] : random_name})\
+                            .assign(**{random_name : X_cat[X_cat.columns[cl]].cat.codes})\
+                            .rename(columns = {random_name : X_cat.columns[cl]})
                     else:
-                        cl, self._cat_mapping[cl] = pd.factorize(X_cat[X_cat.columns[cl]])
-                        X_cat = X_cat.assign(**{X_cat.columns[cl] : cl})
+                        cl_values, self._cat_mapping[cl] = pd.factorize(X_cat[X_cat.columns[cl]])
+                        X_cat = \
+                            X_cat\
+                            .rename(columns = {X_cat.columns[cl] : random_name})\
+                            .assign(**{random_name : cl_values})\
+                            .rename(columns = {random_name : X_cat.columns[cl]})
                     if (self.all_perm
                         and (self.ndim_ == 1)
                         and (self.prob_pick_pooled_gain_)
@@ -1925,6 +1942,11 @@ class IsolationForest:
                     if self.categ_cols_ is None:
                         X_cat = X[self.cols_categ_]
 
+                        # https://stackoverflow.com/questions/72535853/how-to-assign-to-column-with-non-string-name-or-index
+                        random_name = "a367410fed934a3e81ce03492df9af85"
+                        while random_name in X_cat.columns:
+                            random_name += "7f2df7ee866942fe9b2187011bb2550c"
+
                         if (not keep_new_cat_levels) and \
                         (
                             (self.new_categ_action_ == "impute" and self.missing_action_ == "impute")
@@ -1934,22 +1956,34 @@ class IsolationForest:
                              and self.missing_action_ == "divide")
                         ):
                             for cl in range(self._ncols_categ):
-                                X_cat = X_cat.assign(**{
-                                    self.cols_categ_[cl] : _encode_categorical(X_cat[self.cols_categ_[cl]],
-                                                                               self._cat_mapping[cl])
-                                })
+                                X_cat = \
+                                    X_cat\
+                                    .rename(columns = {self.cols_categ_[cl] : random_name})\
+                                    .assign(**{
+                                        random_name : _encode_categorical(X_cat[self.cols_categ_[cl]],
+                                                                          self._cat_mapping[cl])
+                                    })\
+                                    .rename(columns = {random_name : self.cols_categ_[cl]})
                         else:
                             for cl in range(self._ncols_categ):
-                                X_cat = X_cat.assign(**{
-                                    self.cols_categ_[cl] : pd.Categorical(X_cat[self.cols_categ_[cl]])
-                                })
+                                X_cat = \
+                                    X_cat\
+                                    .rename(columns = {self.cols_categ_[cl] : random_name})\
+                                    .assign(**{
+                                        random_name : pd.Categorical(X_cat[self.cols_categ_[cl]])
+                                    })\
+                                    .rename(columns = {random_name : self.cols_categ_[cl]})
                                 new_levs = np.setdiff1d(X_cat[self.cols_categ_[cl]].cat.categories, self._cat_mapping[cl])
                                 if new_levs.shape[0]:
                                     self._cat_mapping[cl] = np.r_[self._cat_mapping[cl], new_levs]
-                                X_cat = X_cat.assign(**{
-                                    self.cols_categ_[cl] : _encode_categorical(X_cat[self.cols_categ_[cl]],
-                                                                               self._cat_mapping[cl])
-                                })
+                                X_cat = \
+                                    X_cat\
+                                    .rename(columns = {self.cols_categ_[cl] : random_name})\
+                                    .assign(**{
+                                        random_name : _encode_categorical(X_cat[self.cols_categ_[cl]],
+                                                                          self._cat_mapping[cl])
+                                    })\
+                                    .rename(columns = {random_name : self.cols_categ_[cl]})
 
                     else:
                         X_cat = X.iloc[:, self.categ_cols_]
@@ -2627,8 +2661,6 @@ class IsolationForest:
         ----------
         X : array or array-like (n_samples, n_features)
             Data to which to fit the model and whose missing values need to be imputed. Can pass a NumPy array, Pandas DataFrame, or SciPy sparse CSC matrix (see the documentation of ``fit`` for more details).
-
-            If the model was fit to a DataFrame with categorical columns, must also be a DataFrame.
         y : None
             Not used. Kept for compatibility with Scikit-Learn.
         column_weights : None or array(n_features,)
@@ -2699,6 +2731,8 @@ class IsolationForest:
 
             If passing an array and the array is not in column-major format, will be forcibly converted
             to column-major, which implies an extra data copy.
+
+            If passing a DataFrame with categorical columns, then column names must be unique.
         sample_weights : None or array(n_samples,)
             Sample observation weights for each row of 'X', with higher weights indicating
             distribution density (i.e. if the weight is two, it has the same effect of including the same data
