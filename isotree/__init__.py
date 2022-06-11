@@ -1718,28 +1718,38 @@ class IsolationForest:
             has_ordered = False
             if X_cat is not None:
                 self._cat_mapping = [None for cl in range(X_cat.shape[1])]
-                # https://stackoverflow.com/questions/72535853/how-to-assign-to-column-with-non-string-name-or-index
-                random_name = "a367410fed934a3e81ce03492df9af85"
-                while random_name in X_cat.columns:
-                    random_name += "7f2df7ee866942fe9b2187011bb2550c"
+
+                ### TODO: this could also be done by calling pandas' DataFrame.assign (see commented out code).
+                ### However, at the time of writing, pandas' DataFrame.assign was resorting to calling method
+                ### .copy() behind the scenes, which made it inefficient compared to copying the data right here.
+                ### If .assign() at some point in the future solves this inefficiency, should change the code
+                ### here to use 'assign' instead of making a full deep copy.
+                X_cat = X_cat.copy()
+
+                # # https://stackoverflow.com/questions/72535853/how-to-assign-to-column-with-non-string-name-or-index
+                # random_name = "a367410fed934a3e81ce03492df9af85"
+                # while random_name in X_cat.columns:
+                #     random_name += "7f2df7ee866942fe9b2187011bb2550c"
 
                 for cl in range(X_cat.shape[1]):
                     if (X_cat[X_cat.columns[cl]].dtype.name == "category") and (X_cat[X_cat.columns[cl]].dtype.ordered):
                         has_ordered = True
                     if (not self.recode_categ) and (X_cat[X_cat.columns[cl]].dtype.name == "category"):
                         self._cat_mapping[cl] = np.array(X_cat[X_cat.columns[cl]].cat.categories)
-                        X_cat = \
-                            X_cat\
-                            .rename(columns = {X_cat.columns[cl] : random_name})\
-                            .assign(**{random_name : X_cat[X_cat.columns[cl]].cat.codes})\
-                            .rename(columns = {random_name : X_cat.columns[cl]})
+                        X_cat[X_cat.columns[cl]] = X_cat[X_cat.columns[cl]].cat.codes
+                        # X_cat = \
+                        #     X_cat\
+                        #     .rename(columns = {X_cat.columns[cl] : random_name})\
+                        #     .assign(**{random_name : X_cat[X_cat.columns[cl]].cat.codes})\
+                        #     .rename(columns = {random_name : X_cat.columns[cl]})
                     else:
                         cl_values, self._cat_mapping[cl] = pd.factorize(X_cat[X_cat.columns[cl]])
-                        X_cat = \
-                            X_cat\
-                            .rename(columns = {X_cat.columns[cl] : random_name})\
-                            .assign(**{random_name : cl_values})\
-                            .rename(columns = {random_name : X_cat.columns[cl]})
+                        X_cat[X_cat.columns[cl]] = cl_values
+                        # X_cat = \
+                        #     X_cat\
+                        #     .rename(columns = {X_cat.columns[cl] : random_name})\
+                        #     .assign(**{random_name : cl_values})\
+                        #     .rename(columns = {random_name : X_cat.columns[cl]})
                     if (self.all_perm
                         and (self.ndim_ == 1)
                         and (self.prob_pick_pooled_gain_)
@@ -1942,10 +1952,13 @@ class IsolationForest:
                     if self.categ_cols_ is None:
                         X_cat = X[self.cols_categ_]
 
-                        # https://stackoverflow.com/questions/72535853/how-to-assign-to-column-with-non-string-name-or-index
-                        random_name = "a367410fed934a3e81ce03492df9af85"
-                        while random_name in X_cat.columns:
-                            random_name += "7f2df7ee866942fe9b2187011bb2550c"
+                        ### See 'TODO' in '_process_data'.
+                        X_cat = X_cat.copy()
+
+                        # # https://stackoverflow.com/questions/72535853/how-to-assign-to-column-with-non-string-name-or-index
+                        # random_name = "a367410fed934a3e81ce03492df9af85"
+                        # while random_name in X_cat.columns:
+                        #     random_name += "7f2df7ee866942fe9b2187011bb2550c"
 
                         if (not keep_new_cat_levels) and \
                         (
@@ -1956,34 +1969,37 @@ class IsolationForest:
                              and self.missing_action_ == "divide")
                         ):
                             for cl in range(self._ncols_categ):
-                                X_cat = \
-                                    X_cat\
-                                    .rename(columns = {self.cols_categ_[cl] : random_name})\
-                                    .assign(**{
-                                        random_name : _encode_categorical(X_cat[self.cols_categ_[cl]],
-                                                                          self._cat_mapping[cl])
-                                    })\
-                                    .rename(columns = {random_name : self.cols_categ_[cl]})
+                                X_cat[self.cols_categ_[cl]] = _encode_categorical(X_cat[self.cols_categ_[cl]], self._cat_mapping[cl])
+                                # X_cat = \
+                                #     X_cat\
+                                #     .rename(columns = {self.cols_categ_[cl] : random_name})\
+                                #     .assign(**{
+                                #         random_name : _encode_categorical(X_cat[self.cols_categ_[cl]],
+                                #                                           self._cat_mapping[cl])
+                                #     })\
+                                #     .rename(columns = {random_name : self.cols_categ_[cl]})
                         else:
                             for cl in range(self._ncols_categ):
-                                X_cat = \
-                                    X_cat\
-                                    .rename(columns = {self.cols_categ_[cl] : random_name})\
-                                    .assign(**{
-                                        random_name : pd.Categorical(X_cat[self.cols_categ_[cl]])
-                                    })\
-                                    .rename(columns = {random_name : self.cols_categ_[cl]})
+                                X_cat[self.cols_categ_[cl]] = pd.Categorical(X_cat[self.cols_categ_[cl]])
+                                # X_cat = \
+                                #     X_cat\
+                                #     .rename(columns = {self.cols_categ_[cl] : random_name})\
+                                #     .assign(**{
+                                #         random_name : pd.Categorical(X_cat[self.cols_categ_[cl]])
+                                #     })\
+                                #     .rename(columns = {random_name : self.cols_categ_[cl]})
                                 new_levs = np.setdiff1d(X_cat[self.cols_categ_[cl]].cat.categories, self._cat_mapping[cl])
                                 if new_levs.shape[0]:
                                     self._cat_mapping[cl] = np.r_[self._cat_mapping[cl], new_levs]
-                                X_cat = \
-                                    X_cat\
-                                    .rename(columns = {self.cols_categ_[cl] : random_name})\
-                                    .assign(**{
-                                        random_name : _encode_categorical(X_cat[self.cols_categ_[cl]],
-                                                                          self._cat_mapping[cl])
-                                    })\
-                                    .rename(columns = {random_name : self.cols_categ_[cl]})
+                                X_cat[self.cols_categ_[cl]] = _encode_categorical(X_cat[self.cols_categ_[cl]], self._cat_mapping[cl])
+                                # X_cat = \
+                                #     X_cat\
+                                #     .rename(columns = {self.cols_categ_[cl] : random_name})\
+                                #     .assign(**{
+                                #         random_name : _encode_categorical(X_cat[self.cols_categ_[cl]],
+                                #                                           self._cat_mapping[cl])
+                                #     })\
+                                #     .rename(columns = {random_name : self.cols_categ_[cl]})
 
                     else:
                         X_cat = X.iloc[:, self.categ_cols_]
