@@ -62,6 +62,7 @@
 */
 
 /* Standard headers */
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
