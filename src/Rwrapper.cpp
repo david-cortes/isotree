@@ -64,7 +64,6 @@
 
 #include <Rcpp.h>
 #include <Rcpp/unwindProtect.h>
-// [[Rcpp::plugins(unwindProtect)]]
 #include <Rinternals.h>
 
 #ifndef _FOR_R
