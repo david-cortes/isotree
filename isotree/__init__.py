@@ -1421,7 +1421,7 @@ class IsolationForest:
                                 ctypes.c_size_t(self.min_imp_obs).value,
                                 self.depth_imp,
                                 self.weigh_imp_rows,
-                                ctypes.c_bool(self.build_imputer).value,
+                                ctypes.c_bool(False).value,
                                 ctypes.c_bool(False).value,
                                 ctypes.c_uint64(seed).value,
                                 ctypes.c_bool(self.use_long_double).value,
