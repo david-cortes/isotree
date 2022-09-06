@@ -2287,7 +2287,7 @@ class IsolationForest:
         will typically have better performance that way. Assuming a typical x86-64 desktop CPU,
         this typically involves dividing the number of threads by 2 - for example:
         
-            ``import multiprocessing;model.set_params(nthreads=multiprocessing.cpu_count()/2)``
+            ``import joblib;model.set_params(nthreads=joblib.cpu_count(only_physical_cores=True))``
 
         Note
         ----

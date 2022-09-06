@@ -142,7 +142,7 @@ For multi-threaded predictions on many rows, it is recommended to set the number
 to the number of physical cores of the CPU rather than the number of logical cores, as it
 will typically have better performance that way. Assuming a typical x86-64 desktop CPU,
 this typically involves dividing the number of threads by 2 - for example:
-`model$nthreads <- parallel::detectCores()/2`
+`model$nthreads <- RhpcBLASctl::get_num_cores()`
 
 Outlierness predictions for sparse data will be much slower than for dense data. Not recommended to pass
 sparse matrices unless they are too big to fit in memory.
