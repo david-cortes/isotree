@@ -32,15 +32,13 @@ check.is.bool <- function(var) {
 }
 
 check.nthreads <- function(nthreads) {
-    if (NROW(nthreads) != 1) stop("'nthreads' must be one of 'auto' or a positive integer.")
+    if (NROW(nthreads) != 1) stop("'nthreads' must be a positive integer.")
     if (is.null(nthreads)) {
-        nthreads <- 1
+        nthreads <- 1L
     } else if (is.na(nthreads)) {
-        nthreads <- 1
-    } else if (nthreads == "auto") {
-        nthreads <- parallel::detectCores()
-    } else if (nthreads < 1) {
-        nthreads <- parallel::detectCores()
+        nthreads <- 1L
+    }  else if (nthreads < 1) {
+        nthreads <- 1L
     }
     return(as.integer(nthreads))
 }

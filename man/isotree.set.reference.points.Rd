@@ -4,7 +4,12 @@
 \alias{isotree.set.reference.points}
 \title{Set Reference Points to Calculate Distances or Kernels With}
 \usage{
-isotree.set.reference.points(model, data, with_distances = FALSE)
+isotree.set.reference.points(
+  model,
+  data,
+  with_distances = FALSE,
+  nthreads = model$nthreads
+)
 }
 \arguments{
 \item{model}{An Isolation Forest model (as returned by function \link{isolation.forest})
@@ -20,6 +25,8 @@ from arbitrary points to the reference points).
 
 Note that reference points for distances can only be set when using `assume_full_distr=FALSE`
 (which is the default).}
+
+\item{nthreads}{Number of parallel threads to use.}
 }
 \value{
 The same `model` object (as invisible), but now with added reference points that

@@ -722,8 +722,7 @@
 #' 
 #' This option is not available on Windows, due to lack of support in some compilers (e.g. msvc)
 #' and lack of thread-safety in the calculations in others (e.g. mingw).
-#' @param nthreads Number of parallel threads to use. If passing a negative number, will use
-#' the maximum number of available threads in the system. Note that, the more threads,
+#' @param nthreads Number of parallel threads to use. Note that, the more threads,
 #' the more memory will be allocated, even if the thread does not end up being used.
 #' Be aware that most of the operations are bound by memory bandwidth, which means that
 #' adding more threads will not result in a linear speed-up. For some types of data
@@ -1456,6 +1455,7 @@ isolation.forest <- function(data,
 #' 
 #' This is ignored when passing `refdata` or when the model object does not contain an indexer
 #' or the indexer does not contain reference points.
+#' @param nthreads Number of parallel threads to use (see details for more information).
 #' @param ... Not used.
 #' @return The requested prediction type, which can be: \itemize{
 #' \item A numeric vector with one entry per row in `newdata` (for output types `"score"` and `"avg_depth"`).
@@ -1572,7 +1572,16 @@ isolation.forest <- function(data,
 #' @seealso \link{isolation.forest} \link{isotree.restore.handle} \link{isotree.build.indexer} \link{isotree.set.reference.points}
 #' @export predict.isolation_forest
 #' @export
-predict.isolation_forest <- function(object, newdata, type="score", square_mat=ifelse(type == "kernel", TRUE, FALSE), refdata=NULL, use_reference_points=TRUE, ...) {
+predict.isolation_forest <- function(
+    object,
+    newdata,
+    type="score",
+    square_mat=ifelse(type == "kernel", TRUE, FALSE),
+    refdata=NULL,
+    use_reference_points=TRUE,
+    nthreads=object$nthreads,
+    ...
+) {
     isotree.restore.handle(object)
 
     allowed_type <- c("score", "avg_depth", "dist", "avg_sep", "kernel", "kernel_raw", "tree_num", "tree_depths", "impute")
@@ -1628,6 +1637,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=i
     dist_rmat    <-  matrix(numeric(), nrow=0, ncol=0)
     tree_num     <-  get_null_int_mat()
     tree_depths  <-  matrix(numeric(), nrow=0, ncol=0)
+    nthreads     <-  check.nthreads(nthreads)
 
     if (inherits(newdata, c("data.frame", "matrix", "dgCMatrix", "dgRMatrix"))) {
         rnames <- row.names(newdata)
@@ -1687,7 +1697,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=i
                     pdata$X_num, pdata$X_cat,
                     pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
                     pdata$Xr, pdata$Xr_ind, pdata$Xr_indptr,
-                    pdata$nrows, object$nthreads, type == "score")
+                    pdata$nrows, nthreads, type == "score")
         if (type == "tree_num") {
             return(tree_num+1L)
         } else if (type == "tree_depths") {
@@ -1700,7 +1710,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=i
                  object$params$ndim > 1L,
                  pdata$X_num, pdata$X_cat,
                  pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
-                 pdata$nrows, object$use_long_double, object$nthreads, object$params$assume_full_distr,
+                 pdata$nrows, object$use_long_double, nthreads, object$params$assume_full_distr,
                  type %in% c("dist", "kernel"), square_mat, nobs_group1,
                  use_reference_points, type %in% c("kernel", "kernel_raw"))
         if (used_rmat)
@@ -1724,7 +1734,7 @@ predict.isolation_forest <- function(object, newdata, type="score", square_mat=i
         imp <- impute_iso(object$cpp_obj$ptr, object$cpp_obj$imp_ptr, object$params$ndim > 1,
                           pdata$X_num, pdata$X_cat,
                           pdata$Xr, pdata$Xr_ind, pdata$Xr_indptr,
-                          pdata$nrows, object$use_long_double, object$nthreads)
+                          pdata$nrows, object$use_long_double, nthreads)
         return(reconstruct.from.imp(imp$X_num,
                                     imp$X_cat,
                                     newdata, object,
@@ -2396,6 +2406,7 @@ isotree.import.model <- function(file) {
 #' @param column_names_categ Column names to use for the \bold{categorical} columns.
 #' If not passed, will use the column names from the `data.frame` to which the
 #' model was fit. These can be found under `model$metadata$cols_cat`.
+#' @param nthreads Number of parallel threads to use.
 #' @return \itemize{
 #' \item If passing neither `tree` nor `table_from`, will return a list
 #' of `character` objects, containing at each entry the SQL statement
@@ -2416,7 +2427,7 @@ isotree.import.model <- function(file) {
 #' @export
 isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALSE, tree = NULL,
                            table_from = NULL, select_as = "outlier_score",
-                           column_names = NULL, column_names_categ = NULL) {
+                           column_names = NULL, column_names_categ = NULL, nthreads = model$nthreads) {
     isotree.restore.handle(model)
     
     allowed_enclose <- c("doublequotes", "squarebraces", "none")
@@ -2504,12 +2515,13 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
     }
     
     is_extended <- model$params$ndim > 1L
+    nthreads    <- check.nthreads(nthreads)
     
     if (is.null(table_from)) {
         out <- model_to_sql(model$cpp_obj$ptr, is_extended,
                             cols_num, cols_cat, cat_levels,
                             output_tree_num, single_tree, tree,
-                            model$nthreads)
+                            nthreads)
         if (single_tree) {
             return(out[[1L]])
         } else {
@@ -2520,7 +2532,7 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
                                              cols_num, cols_cat, cat_levels,
                                              table_from,
                                              select_as,
-                                             model$nthreads))
+                                             nthreads))
     }
 }
 
@@ -2637,22 +2649,24 @@ isotree.drop.reference.points <- function(model) {
 #' `predict` with `type="dist"` or `type="avg_sep"`.
 #' Note that this will consume a lot more memory and make the resulting object significantly
 #' heavier.
+#' @param nthreads Number of parallel threads to use.
 #' @return The same `model` object (as invisible), but now with an indexer added to it. Note
 #' the input object is modified in-place regardless.
 #' @seealso \link{isotree.drop.indexer}
 #' @export
-isotree.build.indexer <- function(model, with_distances = FALSE) {
+isotree.build.indexer <- function(model, with_distances = FALSE, nthreads = model$nthreads) {
     isotree.restore.handle(model)
     if (model$params$missing_action == "divide")
         stop("Cannot build tree indexer when using missing_action='divide'.")
     if (model$params$new_categ_action == "weighted" && model$params$categ_split_type != "single_categ" && (model$metadata$ncols_cat > 0 || NROW(model$metadata$cols_cat)))
         stop("Cannot build tree indexer when using new_categ_action='weighted'.")
     check.is.bool(with_distances)
+    nthreads <- check.nthreads(nthreads)
     build_tree_indices(
         model$cpp_obj,
         as.logical(model$params$ndim > 1),
         as.logical(with_distances),
-        as.integer(model$nthreads)
+        nthreads
     )
     return(invisible(model))
 }
@@ -2678,14 +2692,16 @@ isotree.build.indexer <- function(model, with_distances = FALSE) {
 #' 
 #' Note that reference points for distances can only be set when using `assume_full_distr=FALSE`
 #' (which is the default).
+#' @param nthreads Number of parallel threads to use.
 #' @return The same `model` object (as invisible), but now with added reference points that
 #' can be used for new distance and/or kernel calculations with respect to other arbitrary points.
 #' @seealso \link{isotree.build.indexer}
 #' @export
-isotree.set.reference.points <- function(model, data, with_distances=FALSE) {
+isotree.set.reference.points <- function(model, data, with_distances=FALSE, nthreads=model$nthreads) {
     isotree.restore.handle(model)
     check.is.bool(with_distances)
     with_distances <- as.logical(with_distances)
+    nthreads <- check.nthreads(nthreads)
 
     if (with_distances && !model$params$assume_full_distr)
         stop("Cannot set reference points for distance when using 'assume_full_distr=FALSE'.")
@@ -2720,7 +2736,7 @@ isotree.set.reference.points <- function(model, data, with_distances=FALSE) {
     set_reference_points(model$cpp_obj, model$metadata, row.names(data), model$params$ndim > 1,
                          pdata$X_num, pdata$X_cat,
                          pdata$Xc, pdata$Xc_ind, pdata$Xc_indptr,
-                         pdata$nrows, model$nthreads, as.logical(with_distances))
+                         pdata$nrows, nthreads, as.logical(with_distances))
     return(invisible(model))
 }
 

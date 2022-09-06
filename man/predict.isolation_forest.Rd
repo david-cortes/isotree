@@ -11,6 +11,7 @@
   square_mat = ifelse(type == "kernel", TRUE, FALSE),
   refdata = NULL,
   use_reference_points = TRUE,
+  nthreads = object$nthreads,
   ...
 )
 }
@@ -89,6 +90,8 @@ points instead of the pairwise distances between points in `newdata`.
 
 This is ignored when passing `refdata` or when the model object does not contain an indexer
 or the indexer does not contain reference points.}
+
+\item{nthreads}{Number of parallel threads to use (see details for more information).}
 
 \item{...}{Not used.}
 }

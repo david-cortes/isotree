@@ -12,7 +12,8 @@ isotree.to.sql(
   table_from = NULL,
   select_as = "outlier_score",
   column_names = NULL,
-  column_names_categ = NULL
+  column_names_categ = NULL,
+  nthreads = model$nthreads
 )
 }
 \arguments{
@@ -55,6 +56,8 @@ escape characters such as double quotation marks.}
 \item{column_names_categ}{Column names to use for the \bold{categorical} columns.
 If not passed, will use the column names from the `data.frame` to which the
 model was fit. These can be found under `model$metadata$cols_cat`.}
+
+\item{nthreads}{Number of parallel threads to use.}
 }
 \value{
 \itemize{

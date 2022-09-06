@@ -709,8 +709,7 @@ will follow suit and disable long double too.
 This option is not available on Windows, due to lack of support in some compilers (e.g. msvc)
 and lack of thread-safety in the calculations in others (e.g. mingw).}
 
-\item{nthreads}{Number of parallel threads to use. If passing a negative number, will use
-the maximum number of available threads in the system. Note that, the more threads,
+\item{nthreads}{Number of parallel threads to use. Note that, the more threads,
 the more memory will be allocated, even if the thread does not end up being used.
 Be aware that most of the operations are bound by memory bandwidth, which means that
 adding more threads will not result in a linear speed-up. For some types of data

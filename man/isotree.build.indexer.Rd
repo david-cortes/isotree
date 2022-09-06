@@ -4,7 +4,7 @@
 \alias{isotree.build.indexer}
 \title{Build Indexer for Faster Terminal Node Predictions and/or Distance Calculations}
 \usage{
-isotree.build.indexer(model, with_distances = FALSE)
+isotree.build.indexer(model, with_distances = FALSE, nthreads = model$nthreads)
 }
 \arguments{
 \item{model}{An Isolation Forest model (as returned by function \link{isolation.forest})
@@ -16,6 +16,8 @@ for which an indexer for terminal node numbers and/or distances will be added.
 `predict` with `type="dist"` or `type="avg_sep"`.
 Note that this will consume a lot more memory and make the resulting object significantly
 heavier.}
+
+\item{nthreads}{Number of parallel threads to use.}
 }
 \value{
 The same `model` object (as invisible), but now with an indexer added to it. Note
