@@ -91,7 +91,11 @@ points instead of the pairwise distances between points in `newdata`.
 This is ignored when passing `refdata` or when the model object does not contain an indexer
 or the indexer does not contain reference points.}
 
-\item{nthreads}{Number of parallel threads to use (see details for more information).}
+\item{nthreads}{Number of parallel threads to use. \bold{Note:} for better performance, it's recommended to set the number of
+threads to the number of \bold{physical} CPU cores, which in a typical desktop CPU, corresponds to half the number of threads
+(see details for more information).
+
+Shorthand for best performance: `nthreads = RhpcBLASctl::get_num_cores()`}
 
 \item{...}{Not used.}
 }
