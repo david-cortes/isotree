@@ -81,8 +81,7 @@ static inline void poly6_twice_return_p7
     w[3] = x*w[2];
     w[4] = w[2]*w[2];
     w[5] = w[2]*w[3];
-    w[6] = w[3]*w[3];
-    w7 = w[3]*w[4];
+    w7 = w[3]*w[3];
     res1 = 0.;
     res2 = 0.;
     for (int ix = 0; ix < 6; ix++)
@@ -102,7 +101,6 @@ static inline double poly7(const double x, const double *restrict coefs)
     w[4] = w[2]*w[2];
     w[5] = w[2]*w[3];
     w[6] = w[3]*w[3];
-    w[7] = w[3]*w[4];
 
     double out = 0.;
     for (int ix = 0; ix < 7; ix++)
