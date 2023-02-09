@@ -130,34 +130,7 @@
 
 /* adapted from cephes */
 #define EULERS_GAMMA 0.577215664901532860606512
-double digamma(double x)
-{
-    double y, z, z2;
-
-    /* check for positive integer up to 128 */
-    if (unlikely((x <= 64) && (x == std::floor(x)))) {
-        return harmonic_recursive(1.0, (double)x) - EULERS_GAMMA;
-    }
-
-    if (likely(x < 1.0e17 ))
-    {
-        z = 1.0/(x * x);
-        z2 = square(z);
-        y = z * ( 8.33333333333333333333E-2
-                 -8.33333333333333333333E-3*z
-                 +3.96825396825396825397E-3*z2
-                 -4.16666666666666666667E-3*z2*z
-                 +7.57575757575757575758E-3*square(z2)
-                 -2.10927960927960927961E-2*square(z2)*z
-                 +8.33333333333333333333E-2*square(z2)*z2);
-    }
-    else {
-        y = 0.0;
-    }
-
-    y = ((-0.5/x) - y) + std::log(x);
-    return y;
-}
+#include "digamma.hpp"
 
 /* http://fredrik-j.blogspot.com/2009/02/how-not-to-compute-harmonic-numbers.html
    https://en.wikipedia.org/wiki/Harmonic_number

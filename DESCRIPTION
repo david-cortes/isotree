@@ -1,7 +1,7 @@
 Package: isotree
 Type: Package
 Title: Isolation-Based Outlier Detection
-Version: 0.5.17
+Version: 0.5.18
 Authors@R: c(
   person(given="David", family="Cortes", role=c("aut", "cre", "cph"),
          email="david.cortes.rivera@gmail.com"),
@@ -11,8 +11,14 @@ Authors@R: c(
          comment="Copyright holder of original xoshiro code"),
   person(given="Sebastiano", family="Vigna", role="cph",
          comment="Copyright holder of original xoshiro code"),
-   person(given="NumPy", family="Developers", role="cph",
-         comment="Copyright holder of formatted ziggurat tables")
+  person(given="NumPy", family="Developers", role="cph",
+         comment="Copyright holder of formatted ziggurat tables"),
+  person(given="SciPy", family="Developers", role="cph",
+         comment="Copyright holder of parts of digamma implementation"),
+  person(given="Enthought", family="Inc", role="cph",
+         comment="Copyright holder of parts of digamma implementation"),
+  person(given="Stephen", family="Moshier", role="cph",
+         comment="Copyright holder of parts of digamma implementation")
   )
 Maintainer: David Cortes <david.cortes.rivera@gmail.com>
 URL: https://github.com/david-cortes/isotree
