@@ -123,9 +123,10 @@ class build_ext_subclass( build_ext ):
         return "DONT_SET_MARCH" in os.environ
 
     def add_march_native(self):
+        is_apple = sys.platform[:3].lower() == "dar"
         args_march_native = ["-march=native", "-mcpu=native"]
         for arg_march_native in args_march_native:
-            if self.test_supports_compile_arg(arg_march_native, with_c_comp=True):
+            if self.test_supports_compile_arg(arg_march_native, with_c_comp=is_apple):
                 for e in self.extensions:
                     e.extra_compile_args.append(arg_march_native)
                 break
@@ -311,7 +312,7 @@ class build_ext_subclass( build_ext ):
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.5.19-2',
+    version = '0.5.19-3',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     url = 'https://github.com/david-cortes/isotree',
