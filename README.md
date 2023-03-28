@@ -117,6 +117,8 @@ There's already many available implementations of isolation forests for both Pyt
 
 * R:
 
+**Note:** This package benefits from extra optimizations that aren't enabled by default for R packages. See [this guide](https://github.com/david-cortes/installing-optimized-libraries) for instructions on how to enable them.
+
 ```r
 install.packages("isotree")
 ```
@@ -124,6 +126,8 @@ install.packages("isotree")
 
 
 * Python:
+
+**Note:** requires C/C++ compilers configured for Python. See [this guide](https://github.com/david-cortes/installing-optimized-libraries) for instructions.
 
 ```
 pip install isotree
