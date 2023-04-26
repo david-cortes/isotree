@@ -95,7 +95,13 @@ def _process_nthreads(nthreads, warn_if_no_omp=False):
     assert isinstance(nthreads, int)
     return nthreads
 
-class IsolationForest:
+try:
+    from sklearn.base import BaseEstimator
+except ImportError:
+    class BaseEstimator:
+        _non_sklearn_base = True
+
+class IsolationForest(BaseEstimator):
     """
     Isolation Forest model
 
@@ -189,6 +195,13 @@ class IsolationForest:
     ----
     See the documentation of ``predict`` for some considerations when serving models generated through
     this library.
+
+    Note
+    ----
+    If the library ``scikit-learn`` is installed, this class will inherit from scikit-learn's
+    ``BaseEstimator`` - otherwise, will provide replacements for its user-facing methods 'get_params'
+    and 'set_params' without inheriting from it. Be aware that internal methods, such as the
+    print/display method, will look different depending on whether scikit-learn is installed or not.
 
     Parameters
     ----------
@@ -1166,6 +1179,8 @@ class IsolationForest:
         params : dict
             Parameter names mapped to their values.
         """
+        if not hasattr(self, "_non_sklearn_base"):
+            return super().get_params(deep)
         import inspect
         return {param.name:getattr(self, param.name) for param in inspect.signature(self.__init__).parameters.values()}
 
@@ -1192,6 +1207,8 @@ class IsolationForest:
         self : estimator instance
             Estimator instance.
         """
+        if not hasattr(self, "_non_sklearn_base"):
+            return super().set_params(**params)
         if not (
             len(params) == 1 and
             ("nthreads" in params or "n_jobs" in params)
@@ -1205,6 +1222,8 @@ class IsolationForest:
         return self
 
     def __str__(self):
+        if not hasattr(self, "_non_sklearn_base"):
+            return super().__str__()
         msg = ""
         if self._is_extended_:
             msg += "Extended "
@@ -1236,6 +1255,8 @@ class IsolationForest:
         return msg
 
     def __repr__(self):
+        if not hasattr(self, "_non_sklearn_base"):
+            return super().__repr__()
         return self.__str__()
 
     def _get_model_obj(self):
