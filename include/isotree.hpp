@@ -167,6 +167,7 @@ typedef struct IsoForest {
     NewCategAction    new_cat_action;
     CategSplit        cat_split_type;
     MissingAction     missing_action;
+    ScoringMetric     scoring_metric;
     double            exp_avg_depth;
     double            exp_avg_sep;
     size_t            orig_sample_size;
@@ -179,6 +180,7 @@ typedef struct ExtIsoForest {
     NewCategAction    new_cat_action;
     CategSplit        cat_split_type;
     MissingAction     missing_action;
+    ScoringMetric     scoring_metric;
     double            exp_avg_depth;
     double            exp_avg_sep;
     size_t            orig_sample_size;
