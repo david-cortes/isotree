@@ -1851,9 +1851,9 @@ void check_setup_info
     
     switch(setup_info[6])
     {
-        case 16: {saved_int_t = Is16Bit; break;}
-        case 32: {saved_int_t = Is32Bit; break;}
-        case 64: {saved_int_t = Is64Bit; break;}
+        case 2: {saved_int_t = Is16Bit; break;}
+        case 4: {saved_int_t = Is32Bit; break;}
+        case 8: {saved_int_t = Is64Bit; break;}
         default: {saved_int_t = IsOther; break;}
     }
     if ((uint8_t)sizeof(int) != setup_info[6]) {
