@@ -66,6 +66,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#include <cstdio>
+#include <iostream>
 using std::size_t;
 
 /*  The library has overloaded functions supporting different input types.
