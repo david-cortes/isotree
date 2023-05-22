@@ -4211,7 +4211,9 @@ void deserialize_combined
         {
             deserialize_model(*model, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             check_interrupt_switch(ss);
-            read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            if (optional_metadata) {
+                read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            }
             break;
         }
         case HasSingleVarModelPlusIndexerPlusMetadataNext:
@@ -4220,14 +4222,18 @@ void deserialize_combined
             check_interrupt_switch(ss);
             deserialize_model(*indexer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             check_interrupt_switch(ss);
-            read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            if (optional_metadata) {
+                read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            }
             break;
         }
         case HasExtModelPlusMetadataNext:
         {
             deserialize_model(*model_ext, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             check_interrupt_switch(ss);
-            read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            if (optional_metadata) {
+                read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            }
             break;
         }
         case HasExtModelPlusIndexerPlusMetadataNext:
@@ -4236,7 +4242,9 @@ void deserialize_combined
             check_interrupt_switch(ss);
             deserialize_model(*indexer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             check_interrupt_switch(ss);
-            read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            if (optional_metadata) {
+                read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            }
             break;
         }
         case HasSingleVarModelPlusImputerPlusMetadataNext:
@@ -4245,7 +4253,9 @@ void deserialize_combined
             check_interrupt_switch(ss);
             deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             check_interrupt_switch(ss);
-            read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            if (optional_metadata) {
+                read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            }
             break;
         }
         case HasSingleVarModelPlusImputerPlusIndexerPlusMetadataNext:
@@ -4256,7 +4266,9 @@ void deserialize_combined
             check_interrupt_switch(ss);
             deserialize_model(*indexer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             check_interrupt_switch(ss);
-            read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            if (optional_metadata) {
+                read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            }
             break;
         }
         case HasExtModelPlusImputerPlusMetadataNext:
@@ -4265,7 +4277,9 @@ void deserialize_combined
             check_interrupt_switch(ss);
             deserialize_model(*imputer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             check_interrupt_switch(ss);
-            read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            if (optional_metadata) {
+                read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            }
             break;
         }
         case HasExtModelPlusImputerPlusIndexerPlusMetadataNext:
@@ -4276,7 +4290,9 @@ void deserialize_combined
             check_interrupt_switch(ss);
             deserialize_model(*indexer, in, has_same_endianness, has_same_int_size, has_same_size_t_size, saved_int_t, saved_size_t, lacks_range_penalty, lacks_scoring_metric);
             check_interrupt_switch(ss);
-            read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            if (optional_metadata) {
+                read_bytes<char>((void*)optional_metadata, size_metadata, in);
+            }
             break;
         }
         

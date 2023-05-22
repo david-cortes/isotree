@@ -798,13 +798,18 @@ void* isotree_deserialize_from_raw(const char *serialized_model, int nthreads)
         Imputer imputer = Imputer();
         TreesIndexer indexer = TreesIndexer();
 
+        std::unique_ptr<char[]> buffer_metadata;
+        if (size_metadata) {
+            buffer_metadata = std::unique_ptr<char[]>(new char[size_metadata]);
+        }
+
         deserialize_combined(
             serialized_model,
             &model,
             &model_ext,
             &imputer,
             &indexer,
-            (char*)nullptr
+            size_metadata? buffer_metadata.get() : (char*)nullptr
         );
 
         if (!model.trees.size() && !model_ext.hplanes.size())
