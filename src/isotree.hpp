@@ -285,6 +285,19 @@ using std::memcpy;
     #endif
 #endif
 
+#ifndef unreachable
+#   if (__cplusplus >= 202309L)
+#       include <utility>
+        using std::unreachable;
+#   elif defined(_MSC_VER)
+#       define unreachable() (__assume(false))
+#   elif defined(__GNUC__) || defined(__clang__)
+#       define unreachable() __builtin_unreachable()
+#   else
+#       define unreachable() 
+#   endif
+#endif
+
 
 /*   Apple at some point decided to drop OMP library and headers from its compiler distribution
 *    and to alias 'gcc' to 'clang', which work differently when given flags they cannot interpret,

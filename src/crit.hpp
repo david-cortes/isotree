@@ -792,6 +792,7 @@ double calc_kurtosis_internal(size_t cnt, int x[], int ncat, size_t buffer_cnt[]
         }
     }
 
+    unreachable();
     return -1; /* this will never be reached, but CRAN complains otherwise */
 }
 
@@ -940,6 +941,7 @@ double calc_kurtosis_weighted_internal(std::vector<ldouble_safe> &buffer_cnt, in
         }
     }
 
+    unreachable();
     return -1; /* this will never be reached, but CRAN complains otherwise */
 }
 
@@ -2858,6 +2860,7 @@ double find_split_dens_longform(int *restrict x, int ncat, size_t *restrict ix_a
     }
 
     /* This will not be reached, but CRAN might complain otherwise */
+    unreachable();
     return -HUGE_VAL;
 }
 
@@ -3052,6 +3055,7 @@ double find_split_dens_longform_weighted(int *restrict x, int ncat, size_t *rest
     }
 
     /* This will not be reached, but CRAN might complain otherwise */
+    unreachable();
     return -HUGE_VAL;
 }
 

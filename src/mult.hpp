@@ -598,7 +598,7 @@ void add_linear_comb_weighted(size_t ix_arr[], size_t st, size_t end, double *re
                     w_this = w[ix_arr[row]];
                     res_write[row]     = std::fma(x[ix_arr[row]] - x_mean, coef, res_write[row]);
                     obs_weight[cnt]    = w_this;
-                    buffer_arr[cnt++]  =  x[ix_arr[row]];
+                    buffer_arr[cnt++]  = x[ix_arr[row]];
                     cumw += w_this;
                 }
 

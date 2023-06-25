@@ -148,6 +148,7 @@ int choose_cat_from_present(WorkerMemory &workspace, InputData &input_data, size
         }
     }
 
+    unreachable();
     return -1; /* this will never be reached, but CRAN complains otherwise */
 }
 
