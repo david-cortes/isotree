@@ -44,4 +44,4 @@ Suggests: MASS, outliertree, jsonlite (>= 1.7.3),
 Enhances: Matrix, SparseM
 LinkingTo: Rcpp
 VignetteBuilder: knitr
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3

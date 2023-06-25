@@ -3351,8 +3351,8 @@ class IsolationForest(BaseEstimator):
         """
         Convert model to 'treelite' format
 
-        Converts an IsolationForest model to a 'treelite' object, which can be compiled into a small
-        standalone runtime library for smaller models and usually faster predictions:
+        Converts an IsolationForest model to a 'treelite' object, which can then be compiled into a small
+        standalone runtime library using 'tl2cgen', usually resulting in smaller models and much faster predictions:
 
             https://treelite.readthedocs.io/en/latest/index.html
 
@@ -3360,7 +3360,7 @@ class IsolationForest(BaseEstimator):
         A couple notes about this conversion:
 
             - It is only possible to convert to 'treelite' when using ``ndim=1`` (which is not the default).
-            - The 'treelite' and 'treelite_runtime' libraries must be installed for this to work.
+            - The 'treelite' library must be installed for this to work.
             - The options for handling missing values in 'treelite' are more limited.
               This function will always produce models that force ``missing_action="impute"``, regardless
               of how the IsolationForest model itself handles them.
@@ -3383,7 +3383,7 @@ class IsolationForest(BaseEstimator):
             - Categorical columns in 'treelite' are passed as integer values. if the model was fit to a DataFrame
               with categorical columns, the encoding that is used can be found under ``self._cat_mapping``.
             - The 'treelite' object returned by this function will not yet have been compiled. It's necessary to
-              call ``compile`` and ``export_lib`` afterwards in order to be able to use it.
+              call ``tl2cgen.export_lib`` afterwards in order to be able to use it.
 
         Parameters
         ----------
