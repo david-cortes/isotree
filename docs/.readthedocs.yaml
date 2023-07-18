@@ -35,4 +35,3 @@ python:
      - method: pip
        path: .
    system_packages: true
-   create_environment: true
