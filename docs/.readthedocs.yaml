@@ -11,7 +11,7 @@ build:
     - gcc
     - g++
   tools:
-    python: "3.10"
+    python: "3.11"
     # You can also specify other tool versions:
     # nodejs: "19"
     # rust: "1.64"
@@ -30,6 +30,7 @@ sphinx:
 # to build your documentation
 # See https://docs.readthedocs.io/en/stable/guides/reproducible-builds.html
 python:
+   version: "3.11"
    install:
      - requirements: docs/requirements.txt
      - method: pip
