@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.abspath('./'))
 # -- Project information -----------------------------------------------------
 
 project = 'isotree'
-copyright = '2019, David Cortes'
+copyright = '2023, David Cortes'
 author = 'David Cortes'
 
 # The short X.Y version
@@ -43,7 +43,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
-    'sphinx_rtd_theme'
+    'sphinx_rtd_theme',
+    'sphinx.ext.intersphinx'
 ]
 napoleon_google_docstring = False
 napoleon_use_param = False

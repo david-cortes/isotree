@@ -1,5 +1,5 @@
 import numpy as np, pandas as pd
-from scipy.sparse import csc_matrix, csr_matrix, issparse, isspmatrix_csc, isspmatrix_csr, vstack as sp_vstack
+from scipy.sparse import issparse, vstack as sp_vstack, SparseEfficiencyWarning
 import warnings
 import multiprocessing
 import ctypes
@@ -14,6 +14,9 @@ from ._cpp_interface import (
 __all__ = ["IsolationForest"]
 
 ### Helpers
+def _is_csc(X):
+    return issparse(X) and (X.format == "csc")
+
 def _get_num_dtype(X_num=None, sample_weights=None, column_weights=None):
     if X_num is not None:
         return np.empty(0, dtype=X_num.dtype)
@@ -1584,7 +1587,7 @@ class IsolationForest(BaseEstimator):
             msg  = "Imputing missing values from CSC matrix on-the-fly can be very slow, "
             msg += "it's recommended if possible to fit the model first and then pass the "
             msg += "same matrix as CSR to 'transform'."
-            warnings.warn(msg)
+            warnings.warn(msg, SparseEfficiencyWarning)
 
         if self.max_depth == "auto":
             max_depth = 0
@@ -1801,17 +1804,17 @@ class IsolationForest(BaseEstimator):
                 if np.max(self.categ_cols_) >= X.shape[1]:
                     raise ValueError("'categ_cols' contains indices higher than the number of columns in 'X'.")
                 self.cols_numeric_ = np.setdiff1d(np.arange(X.shape[1]), self.categ_cols_)
-                if issparse(X) and not isspmatrix_csc(X):
-                    X = csc_matrix(X)
+                if issparse(X) and (X.format != "csc"):
+                    X = X.tocsc()
                 X_cat = X[:, self.categ_cols_]
                 X = X[:, self.cols_numeric_]
 
             if X.shape[1]:
                 if issparse(X):
                     avoid_sort = False
-                    if not isspmatrix_csc(X):
-                        warnings.warn("Sparse matrices are only supported in CSC format, will be converted.")
-                        X = csc_matrix(X)
+                    if X.format != "csc":
+                        warnings.warn("Sparse matrices are only supported in CSC format, will be converted.", SparseEfficiencyWarning)
+                        X = X.tocsc()
                         avoid_sort = True
                     if X.nnz == 0:
                         raise ValueError("'X' has no non-zero entries")
@@ -2086,8 +2089,8 @@ class IsolationForest(BaseEstimator):
             if self.categ_cols_ is None:
                 X_cat = None
             else:
-                if issparse(X) and (not isspmatrix_csc(X)) and (not isspmatrix_csr(X)):
-                    X = csc_matrix(X)
+                if issparse(X) and (X.format not in ["csc", "csr"]):
+                    X = X.tocsc()
                 X_cat = X[:, self.categ_cols_]
                 if issparse(X_cat):
                     X_cat = X_cat.toarray()
@@ -2097,15 +2100,15 @@ class IsolationForest(BaseEstimator):
             if X.shape[1]:
                 if issparse(X):
                     avoid_sort = False
-                    if isspmatrix_csr(X) and not allow_csr:
-                        warnings.warn("Cannot predict from CSR sparse matrix, will convert to CSC.")
-                        X = csc_matrix(X)
+                    if (X.format == "csr") and not allow_csr:
+                        warnings.warn("Cannot predict from CSR sparse matrix, will convert to CSC.", SparseEfficiencyWarning)
+                        X = X.tocsc()
                         avoid_sort = True
-                    elif isspmatrix_csc(X) and not allow_csc:
-                        warnings.warn("Method supports sparse matrices only in CSR format, will convert sparse format.")
-                        X = csr_matrix(X)
+                    elif (X.format == "csc") and not allow_csc:
+                        warnings.warn("Method supports sparse matrices only in CSR format, will convert sparse format.", SparseEfficiencyWarning)
+                        X = X.tocsr()
                         avoid_sort = True
-                    elif (not isspmatrix_csc(X)) and (not isspmatrix_csr(X)):
+                    elif X.format not in ["csc", "csr"]:
                         msg  = "Sparse matrix inputs only supported as "
                         if allow_csc:
                             msg += "CSC"
@@ -2116,12 +2119,12 @@ class IsolationForest(BaseEstimator):
                         msg += " format, will convert to "
                         if allow_csc:
                             msg += "CSC."
-                            warnings.warn(msg)
-                            X = csc_matrix(X)
+                            warnings.warn(msg, SparseEfficiencyWarning)
+                            X = X.tocsc()
                         else:
                             msg += "CSR."
-                            warnings.warn(msg)
-                            X = csr_matrix(X)
+                            warnings.warn(msg, SparseEfficiencyWarning)
+                            X = X.tocsr()
                         avoid_sort = True
 
                     if ((X.indptr.dtype not in [ctypes.c_int, np.int64, ctypes.c_size_t]) or
@@ -2159,7 +2162,7 @@ class IsolationForest(BaseEstimator):
                 X_cat = X_cat.copy()
                 X_cat[np.isnan(X_cat)] = -1
 
-            if (X_num is not None) and (isspmatrix_csc(X_num)):
+            if (X_num is not None) and (_is_csc(X_num)):
                 prefer_row_major = False
 
 
@@ -2173,9 +2176,9 @@ class IsolationForest(BaseEstimator):
         X_num = _copy_if_subview(X_num, prefer_row_major)
         X_cat = _copy_if_subview(X_cat, prefer_row_major)
 
-        if (X_num is not None) and (isspmatrix_csc(X_num)) and (X_cat is not None) and (not _is_col_major(X_cat)):
+        if (X_num is not None) and (_is_csc(X_num)) and (X_cat is not None) and (not _is_col_major(X_cat)):
             X_cat = np.asfortranarray(X_cat)
-        if (nrows > 1) and (X_cat is not None) and (X_num is not None) and (not isspmatrix_csc(X_num)):
+        if (nrows > 1) and (X_cat is not None) and (X_num is not None) and (not _is_csc(X_num)):
             if prefer_row_major:
                 if _is_row_major(X_num) != _is_row_major(X_cat):
                     X_num = np.ascontiguousarray(X_num)
@@ -2235,7 +2238,7 @@ class IsolationForest(BaseEstimator):
                 if (self.categ_cols_ is None) and (orig.shape[1] == self._ncols_numeric):
                     outp.data[:] = X_num.data
                 elif self.categ_cols_ is None:
-                    if isspmatrix_csr(orig):
+                    if orig.format == "csr":
                         _reconstruct_csr_sliced(
                             outp.data,
                             outp.indptr,
@@ -2246,7 +2249,7 @@ class IsolationForest(BaseEstimator):
                     else:
                         outp[:, :self._ncols_numeric] = X_num
                 else:
-                    if isspmatrix_csr(orig):
+                    if orig.format == "csr":
                         _reconstruct_csr_with_categ(
                             outp.data,
                             outp.indices,
@@ -2367,7 +2370,7 @@ class IsolationForest(BaseEstimator):
         ----------
         X : array or array-like (n_samples, n_features)
             Observations for which to predict outlierness or average isolation depth. Can pass
-            a NumPy array, Pandas DataFrame, or SciPy sparse CSC or CSR matrix.
+            a NumPy array, Pandas DataFrame, or SciPy sparse CSC or CSR array/matrix.
 
             If 'X' is sparse and one wants to obtain the outlier score or average depth or tree
             numbers, it's highly recommended to pass it in CSC format as it will be much faster
@@ -2445,7 +2448,7 @@ class IsolationForest(BaseEstimator):
         ----------
         X : array or array-like (n_samples, n_features)
             Observations for which to predict outlierness or average isolation depth. Can pass
-            a NumPy array, Pandas DataFrame, or SciPy sparse CSC or CSR matrix.
+            a NumPy array, Pandas DataFrame, or SciPy sparse CSC or CSR array/matrix.
 
         Returns
         -------
@@ -2550,7 +2553,7 @@ class IsolationForest(BaseEstimator):
             if X.__class__ != X_ref.__class__:
                 raise ValueError("'X' and 'X_ref' must be of the same class.")
             nobs_group1 = X.shape[0]
-            if X.__class__.__name__ == "DataFrame":
+            if isinstance(X, pd.DataFrame):
                 X = X.append(X_ref, ignore_index = True)
             elif issparse(X):
                 X = sp_vstack([X, X_ref])
@@ -2652,7 +2655,7 @@ class IsolationForest(BaseEstimator):
         Parameters
         ----------
         X : array or array-like (n_samples, n_features)
-            Data for which missing values should be imputed. Can pass a NumPy array, Pandas DataFrame, or SciPy sparse CSR matrix.
+            Data for which missing values should be imputed. Can pass a NumPy array, Pandas DataFrame, or SciPy sparse CSR array/matrix.
 
             If the model was fit to a DataFrame with categorical columns, must also be a DataFrame.
 
@@ -2968,7 +2971,7 @@ class IsolationForest(BaseEstimator):
 
         In order for this to work, both models must have been fit to data in the same format - 
         that is, same number of columns, same order of the columns, and same column types, although
-        not necessarily same object classes (e.g. can mix ``np.array`` and ``scipy.sparse.csc_matrix``).
+        not necessarily same object classes (e.g. can mix ``np.array`` and ``scipy.sparse.csc_array``).
 
         If the data has categorical variables, the models should have been built with parameter
         ``recode_categ=False`` in the class constructor,

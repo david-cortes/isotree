@@ -65,7 +65,7 @@
 import  numpy as np
 cimport numpy as np
 import pandas as pd
-from scipy.sparse import issparse, isspmatrix_csc, isspmatrix_csr
+from scipy.sparse import issparse
 from libcpp cimport bool as bool_t ###don't confuse it with Python bool
 from libc.stdint cimport uint64_t
 from libcpp.vector cimport vector
@@ -220,24 +220,24 @@ cdef extern from "headers_joined.hpp":
     void merge_models(IsoForest*     model,      IsoForest*     other,
                       ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
                       Imputer*       imputer,    Imputer*       iother,
-                      TreesIndexer*  indexer,    TreesIndexer*  ind_other) nogil except +
+                      TreesIndexer*  indexer,    TreesIndexer*  ind_other) except + nogil
 
     void subset_model(IsoForest*     model,      IsoForest*     model_new,
                       ExtIsoForest*  ext_model,  ExtIsoForest*  ext_model_new,
                       Imputer*       imputer,    Imputer*       imputer_new,
                       TreesIndexer*  indexer,    TreesIndexer*  indexer_new,
-                      size_t *trees_take, size_t ntrees_take) nogil except +
+                      size_t *trees_take, size_t ntrees_take) except + nogil
 
     vector[cpp_string] generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                     vector[cpp_string] &numeric_colnames, vector[cpp_string] &categ_colnames,
                                     vector[vector[cpp_string]] &categ_levels,
                                     bool_t output_tree_num, bool_t index1, bool_t single_tree, size_t tree_num,
-                                    int nthreads) nogil except +
+                                    int nthreads) except + nogil
     cpp_string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                                              cpp_string &table_from, cpp_string &select_as,
                                              vector[cpp_string] &numeric_colnames, vector[cpp_string] &categ_colnames,
                                              vector[vector[cpp_string]] &categ_levels,
-                                             bool_t index1, int nthreads) nogil except +
+                                             bool_t index1, int nthreads) except + nogil
 
     bool_t has_wchar_t_file_serializers()
 
@@ -251,7 +251,7 @@ cdef extern from "headers_joined.hpp":
         bool_t &has_Imputer,
         bool_t &has_Indexer,
         bool_t &has_metadata,
-        size_t &size_metadata) nogil except +
+        size_t &size_metadata) except + nogil
 
     void inspect_serialized_object(
         FILE *serialized_bytes,
@@ -263,14 +263,14 @@ cdef extern from "headers_joined.hpp":
         bool_t &has_Imputer,
         bool_t &has_Indexer,
         bool_t &has_metadata,
-        size_t &size_metadata) nogil except +
+        size_t &size_metadata) except + nogil
 
     size_t determine_serialized_size_combined(
         const IsoForest *model,
         const ExtIsoForest *model_ext,
         const Imputer *imputer,
         const TreesIndexer *indexer,
-        const size_t size_optional_metadata) nogil except +
+        const size_t size_optional_metadata) except + nogil
 
     void serialize_combined(
         const IsoForest *model,
@@ -279,7 +279,7 @@ cdef extern from "headers_joined.hpp":
         const TreesIndexer *indexer,
         const char *optional_metadata,
         const size_t size_optional_metadata,
-        char *out) nogil except +
+        char *out) except + nogil
 
     void serialize_combined(
         const IsoForest *model,
@@ -288,7 +288,7 @@ cdef extern from "headers_joined.hpp":
         const TreesIndexer *indexer,
         const char *optional_metadata,
         const size_t size_optional_metadata,
-        FILE *out) nogil except +
+        FILE *out) except + nogil
 
     void deserialize_combined(
         const char *inp,
@@ -296,7 +296,7 @@ cdef extern from "headers_joined.hpp":
         ExtIsoForest *model_ext,
         Imputer *imputer,
         TreesIndexer *indexer,
-        char *optional_metadata) nogil except +
+        char *optional_metadata) except + nogil
 
     void deserialize_combined(
         FILE* inp,
@@ -304,7 +304,7 @@ cdef extern from "headers_joined.hpp":
         ExtIsoForest *model_ext,
         Imputer *imputer,
         TreesIndexer *indexer,
-        char *optional_metadata) nogil except +
+        char *optional_metadata) except + nogil
 
     int return_EXIT_SUCCESS()
     int return_EXIT_FAILURE()
@@ -332,7 +332,7 @@ cdef extern from "headers_joined.hpp":
                     CategSplit cat_split_type, NewCategAction new_cat_action,
                     bool_t all_perm, Imputer *imputer, size_t min_imp_obs,
                     UseDepthImp depth_imp, WeighImpRows weigh_imp_rows, bool_t impute_at_fit,
-                    uint64_t random_seed, bool_t use_long_double, int nthreads) nogil except +
+                    uint64_t random_seed, bool_t use_long_double, int nthreads) except + nogil
 
     void predict_iforest[real_t_, sparse_ix_](
                          real_t_ *numeric_data, int *categ_data,
@@ -343,7 +343,7 @@ cdef extern from "headers_joined.hpp":
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                          double *output_depths, sparse_ix_ *tree_num,
                          double *per_tree_depths,
-                         TreesIndexer *indexer) nogil except +
+                         TreesIndexer *indexer) except + nogil
 
     void get_num_nodes[sparse_ix_](IsoForest &model_outputs, sparse_ix_ *n_nodes, sparse_ix_ *n_terminal, int nthreads) except +
 
@@ -356,14 +356,14 @@ cdef extern from "headers_joined.hpp":
                          bool_t assume_full_distr, bool_t standardize_dist, bool_t as_kernel,
                          IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
                          double tmat[], double rmat[], size_t n_from, bool_t use_indexed_references,
-                         TreesIndexer *indexer, bool_t is_col_major, size_t ld_numeric, size_t ld_categ) nogil except +
+                         TreesIndexer *indexer, bool_t is_col_major, size_t ld_numeric, size_t ld_categ) except + nogil
 
     void impute_missing_values[real_t_, sparse_ix_](
                                real_t_ *numeric_data, int *categ_data, bool_t is_col_major,
                                real_t_ *Xr, sparse_ix_ *Xr_ind, sparse_ix_ *Xr_indptr,
                                size_t nrows, bool_t use_long_double, int nthreads,
                                IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                               Imputer &imputer) nogil except +
+                               Imputer &imputer) except + nogil
 
     int add_tree[real_t_, sparse_ix_](
                  IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
@@ -388,7 +388,7 @@ cdef extern from "headers_joined.hpp":
                  real_t_ ref_numeric_data[], int ref_categ_data[],
                  bool_t ref_is_col_major, size_t ref_ld_numeric, size_t ref_ld_categ,
                  real_t_ ref_Xc[], sparse_ix_ ref_Xc_ind[], sparse_ix_ ref_Xc_indptr[],
-                 uint64_t random_seed, bool_t use_long_double) nogil except +
+                 uint64_t random_seed, bool_t use_long_double) except + nogil
 
     void set_reference_points[real_t_, sparse_ix_](
                               IsoForest *model_outputs, ExtIsoForest *model_outputs_ext, TreesIndexer *indexer,
@@ -397,11 +397,11 @@ cdef extern from "headers_joined.hpp":
                               bool_t is_col_major, size_t ld_numeric, size_t ld_categ,
                               real_t_ *Xc, sparse_ix_ *Xc_ind, sparse_ix_ *Xc_indptr,
                               real_t_ *Xr, sparse_ix_ *Xr_ind, sparse_ix_ *Xr_indptr,
-                              size_t nrows, int nthreads) nogil except +
+                              size_t nrows, int nthreads) except + nogil
 
-    void build_tree_indices(TreesIndexer &indexer, const IsoForest &model, int nthreads, const bool_t with_distances) nogil except +
+    void build_tree_indices(TreesIndexer &indexer, const IsoForest &model, int nthreads, const bool_t with_distances) except + nogil
 
-    void build_tree_indices(TreesIndexer &indexer, const ExtIsoForest &model, int nthreads, const bool_t with_distances) nogil except +
+    void build_tree_indices(TreesIndexer &indexer, const ExtIsoForest &model, int nthreads, const bool_t with_distances) except + nogil
 
 
 cdef extern from "python_helpers.hpp":
@@ -423,13 +423,13 @@ cdef extern from "python_helpers.hpp":
     void copy_errno_msg(char *inp) except +
 
 cdef extern from "other_helpers.hpp":
-    void sort_csc_indices[real_t_, sparse_ix_](real_t_ *Xc, sparse_ix_ *Xc_ind, sparse_ix_ *Xc_indptr, size_t ncols_numeric) nogil except +
+    void sort_csc_indices[real_t_, sparse_ix_](real_t_ *Xc, sparse_ix_ *Xc_ind, sparse_ix_ *Xc_indptr, size_t ncols_numeric) except + nogil
 
     void reconstruct_csr_sliced[real_t_, sparse_ix_](
         real_t_ *orig_Xr, sparse_ix_ *orig_Xr_indptr,
         real_t_ *rec_Xr, sparse_ix_ *rec_Xr_indptr,
         size_t nrows
-    ) nogil except +
+    ) except + nogil
 
     void reconstruct_csr_with_categ[real_t_, sparse_ix_, size_t_](
         real_t_ *orig_Xr, sparse_ix_ *orig_Xr_ind, sparse_ix_ *orig_Xr_indptr,
@@ -437,7 +437,7 @@ cdef extern from "other_helpers.hpp":
         int *rec_X_cat, bool_t is_col_major,
         size_t_ *cols_numeric, size_t_ *cols_categ,
         size_t nrows, size_t ncols, size_t ncols_numeric, size_t ncols_categ
-    ) nogil except +
+    ) except + nogil
 
 IF UNAME_SYSNAME != "Windows":
     cdef FILE* cy_fopen(str fname, bool_t read):
@@ -503,7 +503,7 @@ def _get_has_openmp():
     return get_has_openmp()
 
 def _sort_csc_indices(Xcsc):
-    cdef size_t ncols_numeric = Xcsc.shape[1] if isspmatrix_csc(Xcsc) else Xcsc.shape[0]
+    cdef size_t ncols_numeric = Xcsc.shape[1] if (Xcsc.format == "csc") else Xcsc.shape[0]
     if (Xcsc.indptr.shape[0] > 1) and (Xcsc.data.shape[0] > 1):
         if Xcsc.data.dtype == ctypes.c_double:
             if Xcsc.indices.dtype == ctypes.c_int:
@@ -1107,7 +1107,7 @@ cdef class isoforest_cpp_obj:
                 ncols_numeric      =  X_num.shape[1]
                 is_col_major       =  np.isfortran(X_num)
             else:
-                if isspmatrix_csc(X_num):
+                if (X_num.format == "csc"):
                     if X_num.data.shape[0]:
                         if real_t is float:
                             Xc_ptr         =  get_ptr_float_vec(X_num.data)
