@@ -1,6 +1,6 @@
 pandas>=0.24.0
 numpy>=1.25
 cython>=3.0.0
-scipy>1.11.1
+scipy>=1.11.1
 Sphinx>=4.2.0
 sphinx-rtd-theme>=1.0.0
