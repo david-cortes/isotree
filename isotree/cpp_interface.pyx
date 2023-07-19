@@ -606,12 +606,6 @@ cdef class isoforest_cpp_obj:
     cdef Imputer       imputer
     cdef TreesIndexer  indexer
 
-    def __dealloc__(self):
-        dealloc_IsoForest(self.isoforest)
-        dealloc_IsoExtForest(self.ext_isoforest)
-        dealloc_Imputer(self.imputer)
-        dealloc_Indexer(self.indexer)
-
     def __getstate__(self):
         cdef IsoForest *ptr_IsoForest = NULL
         cdef ExtIsoForest *ptr_ExtIsoForest = NULL
