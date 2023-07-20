@@ -313,6 +313,7 @@ void initialize_imputer(Imputer &imputer, InputData &input_data, size_t ntrees, 
     imputer.col_modes.resize(input_data.ncols_categ);
     imputer.imputer_tree = std::vector<std::vector<ImputeNode>>(ntrees);
 
+    /* TODO: here should use sample weights if specified as density */
     size_t offset, cnt;
     if (input_data.numeric_data != NULL)
     {
@@ -328,6 +329,7 @@ void initialize_imputer(Imputer &imputer, InputData &input_data, size_t ntrees, 
                 cnt -= is_na_or_inf(input_data.numeric_data[row + offset]);
             }
             imputer.col_means[col] /= (ldouble_safe) cnt;
+            if (!cnt) imputer.col_means[col] = NAN;
         }
     }
 
@@ -344,6 +346,7 @@ void initialize_imputer(Imputer &imputer, InputData &input_data, size_t ntrees, 
                 cnt -= is_na_or_inf(input_data.Xc[ix]);
             }
             imputer.col_means[col] /= (ldouble_safe) cnt;
+            if (!cnt) imputer.col_means[col] = NAN;
         }
     }
 
@@ -999,6 +1002,11 @@ void apply_imputation_results(std::vector<ImputedData> &impute_vec,
 }
 
 
+/* TODO: investigate why in the case of all-missing numeric columns the node weights still
+   get filled when using extended model, then remove the workaround that was added here that
+   checks if the sum is zero and column is all-nan. Should also modify the earlier code to
+   remove these cases from the imputation tracking list when doing the imputations on-the-fly
+   as the model is being fit. */
 template <class PredictionData, class ImputedData>
 void apply_imputation_results(PredictionData  &prediction_data,
                               ImputedData     &imp,
@@ -1012,7 +1020,7 @@ void apply_imputation_results(PredictionData  &prediction_data,
         for (size_t ix = 0; ix < imp.n_missing_num; ix++)
         {
             col = imp.missing_num[ix];
-            if (imp.num_weight[ix] > 0 && !is_na_or_inf(imp.num_sum[ix]))
+            if (imp.num_weight[ix] > 0 && !is_na_or_inf(imp.num_sum[ix]) && !(imp.num_sum[ix] == 0 && std::isnan(imputer.col_means[col])))
                 prediction_data.numeric_data[row + col * prediction_data.nrows]
                     =
                 imp.num_sum[ix] / imp.num_weight[ix];
@@ -1028,7 +1036,7 @@ void apply_imputation_results(PredictionData  &prediction_data,
         for (size_t ix = 0; ix < imp.n_missing_num; ix++)
         {
             col = imp.missing_num[ix];
-            if (imp.num_weight[ix] > 0 && !is_na_or_inf(imp.num_sum[ix]))
+            if (imp.num_weight[ix] > 0 && !is_na_or_inf(imp.num_sum[ix]) && !(imp.num_sum[ix] == 0 && std::isnan(imputer.col_means[col])))
                 prediction_data.numeric_data[col + row * imputer.ncols_numeric]
                     =
                 imp.num_sum[ix] / imp.num_weight[ix];
