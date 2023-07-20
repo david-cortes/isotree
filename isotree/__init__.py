@@ -1695,7 +1695,7 @@ class IsolationForest(BaseEstimator):
         ### TODO: this needs a refactoring after introducing 'categ_cols'
         self.ndim_ = self.ndim
 
-        if X.__class__.__name__ == "DataFrame":
+        if isinstance(X, pd.DataFrame):
 
             ### TODO: this should also have a version with underscores
             if self.categ_cols_ is not None:
@@ -1835,9 +1835,9 @@ class IsolationForest(BaseEstimator):
                         _sort_csc_indices(X)
                 
                 else:
-                    if (X.__class__.__name__ == "ndarray") and (X.dtype not in [ctypes.c_double, ctypes.c_float]):
+                    if isinstance(X, np.ndarray) and (X.dtype not in [ctypes.c_double, ctypes.c_float]):
                         X = X.astype(ctypes.c_double)
-                    if (X.__class__.__name__ != "ndarray") or (not _is_col_major(X)):
+                    if isinstance(X, np.ndarray) or (not _is_col_major(X)):
                         X = np.asfortranarray(X)
                     if X.dtype not in [ctypes.c_double, ctypes.c_float]:
                         X = X.astype(ctypes.c_double)
@@ -1947,7 +1947,7 @@ class IsolationForest(BaseEstimator):
 
     def _process_data_new(self, X, allow_csr = True, allow_csc = True, prefer_row_major = False,
                           keep_new_cat_levels = False):
-        if X.__class__.__name__ == "DataFrame":
+        if isinstance(X, pd.DataFrame):
             if ((self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]) > 0) and (self.categ_cols_ is None):
                 if self.categ_cols_ is None:
                     missing_cols = np.setdiff1d(np.r_[self.cols_numeric_, self.cols_categ_], np.array(X.columns.values))
@@ -2191,7 +2191,7 @@ class IsolationForest(BaseEstimator):
         return X_num, X_cat, nrows
 
     def _rearrange_imputed(self, orig, X_num, X_cat):
-        if orig.__class__.__name__ == "DataFrame":
+        if isinstance(orig, pd.DataFrame):
             ncols_imputed = 0
             if X_num is not None:
                 if (self.cols_numeric_ is not None) and (self.cols_numeric_.shape[0]):
@@ -2673,7 +2673,7 @@ class IsolationForest(BaseEstimator):
         nthreads_use = _process_nthreads(self.nthreads)
 
         X_num, X_cat, nrows = self._process_data_new(X, allow_csr = True, allow_csc = False, prefer_row_major = True, keep_new_cat_levels = False)
-        if X.__class__.__name__ != "DataFrame":
+        if isinstance(X, pd.DataFrame):
             if X_num is not None:
                 if X_num.shape[1] == self._ncols_numeric:
                     X_num = X_num.copy()
