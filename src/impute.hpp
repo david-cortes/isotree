@@ -1066,10 +1066,20 @@ void apply_imputation_results(PredictionData  &prediction_data,
             std::distance(imp.cat_sum[col].begin(),
                           std::max_element(imp.cat_sum[col].begin(), imp.cat_sum[col].end()));
 
-            if (prediction_data.categ_data[row + col * prediction_data.nrows] == 0 && imp.cat_sum[col][0] <= 0)
-                prediction_data.categ_data[row + col * prediction_data.nrows]
-                    =
-                imputer.col_modes[col];
+            if (prediction_data.categ_data[row + col * prediction_data.nrows] == 0)
+            {
+                if (imp.cat_sum.empty() || imp.cat_sum[col].empty())
+                {
+                    prediction_data.categ_data[row + col * prediction_data.nrows] = -1;
+                }
+
+                else if (imp.cat_sum[col][0] <= 0)
+                {
+                    prediction_data.categ_data[row + col * prediction_data.nrows]
+                        =
+                    imputer.col_modes[col];
+                }
+            }
         }
     }
 
@@ -1083,10 +1093,20 @@ void apply_imputation_results(PredictionData  &prediction_data,
             std::distance(imp.cat_sum[col].begin(),
                           std::max_element(imp.cat_sum[col].begin(), imp.cat_sum[col].end()));
 
-            if (prediction_data.categ_data[col + row * imputer.ncols_categ] == 0 && imp.cat_sum[col][0] <= 0)
-                prediction_data.categ_data[col + row * imputer.ncols_categ]
-                    =
-                imputer.col_modes[col];
+            if (prediction_data.categ_data[col + row * imputer.ncols_categ] == 0)
+            {
+                if (imp.cat_sum.empty() || imp.cat_sum[col].empty())
+                {
+                    prediction_data.categ_data[col + row * imputer.ncols_categ] = -1;
+                }
+                
+                else if (imp.cat_sum[col][0] <= 0)
+                {
+                    prediction_data.categ_data[col + row * imputer.ncols_categ]
+                        =
+                    imputer.col_modes[col];
+                }
+            }
         }
     }
 }

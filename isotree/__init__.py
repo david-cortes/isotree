@@ -1697,6 +1697,9 @@ class IsolationForest(BaseEstimator):
 
         if isinstance(X, pd.DataFrame):
 
+            if np.unique(X.columns).shape[0] != X.shape[1]:
+                raise ValueError("DataFrame inputs cannot contain duplicated column names.")
+
             ### TODO: this should also have a version with underscores
             if self.categ_cols_ is not None:
                 warnings.warn("'categ_cols' is ignored when passing a DataFrame as input.")
