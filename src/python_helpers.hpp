@@ -92,36 +92,6 @@ TreesIndexer get_Indexer()
     return TreesIndexer();
 }
 
-/* Reason behind these functions: Cython (as of v0.29) will not auto-deallocate
-   structs which are part of a cdef'd class, which produces a memory leak
-   but can be force-destructed. Unfortunately, Cython itself doesn't even
-   allow calling destructors for structs, so it has to be done externally.
-   These functions should otherwise have no reason to be.
-
-   This is supposed to be already fixed in newer Cython versions:
-   https://github.com/cython/cython/issues/3226
-   But is not yet available in the relase versions at the time of writing */
-
-void dealloc_IsoForest(IsoForest &model_outputs)
-{
-    model_outputs.~IsoForest();
-}
-
-void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext)
-{
-    model_outputs_ext.~ExtIsoForest();
-}
-
-void dealloc_Imputer(Imputer &imputer)
-{
-    imputer.~Imputer();
-}
-
-void dealloc_Indexer(TreesIndexer &indexer)
-{
-    indexer.~TreesIndexer();
-}
-
 bool get_has_openmp(void)
 {
     #ifdef _OPENMP

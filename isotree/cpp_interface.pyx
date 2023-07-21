@@ -412,11 +412,6 @@ cdef extern from "python_helpers.hpp":
     Imputer get_Imputer() except +
     TreesIndexer get_Indexer() except +
 
-    void dealloc_IsoForest(IsoForest &model_outputs) except +
-    void dealloc_IsoExtForest(ExtIsoForest &model_outputs_ext) except +
-    void dealloc_Imputer(Imputer &imputer) except +
-    void dealloc_Indexer(TreesIndexer &indexer) except +
-
     bool_t get_has_openmp() except +
 
     size_t py_strerrorlen_s() except +
@@ -659,11 +654,9 @@ cdef class isoforest_cpp_obj:
         return other
 
     def drop_imputer(self):
-        dealloc_Imputer(self.imputer)
         self.imputer = get_Imputer()
 
     def drop_indexer(self):
-        dealloc_Indexer(self.indexer)
         self.indexer = get_Indexer()
 
     def drop_reference_points(self):
@@ -828,9 +821,6 @@ cdef class isoforest_cpp_obj:
         cdef ExtIsoForest*  ext_model_ptr  =  NULL
         cdef Imputer*       imputer_ptr    =  NULL
 
-        dealloc_IsoForest(self.isoforest)
-        dealloc_IsoExtForest(self.ext_isoforest)
-        dealloc_Imputer(self.imputer)
         if ndim == 1:
             self.isoforest      =  get_IsoForest()
             model_ptr           =  &self.isoforest
