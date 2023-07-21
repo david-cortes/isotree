@@ -434,32 +434,16 @@ cdef extern from "other_helpers.hpp":
         size_t nrows, size_t ncols, size_t ncols_numeric, size_t ncols_categ
     ) except + nogil
 
-IF UNAME_SYSNAME != "Windows":
-    cdef FILE* cy_fopen(str fname, bool_t read):
-        cdef bytes fname_py = fname.encode()
-        cdef char* fname_c = fname_py
-        cdef char* mode
-        if (read):
-            mode = b"rb"
-        else:
-            mode = b"wb"
-        cdef FILE *out = fopen(fname_c, mode)
-        return out
-ELSE:
-    from libc.stddef cimport wchar_t
-    cdef extern from "stdio.h":
-        FILE *_wfopen(const wchar_t *filename, const wchar_t *mode)
-    cdef FILE* cy_fopen(str fname, bool_t read):
-        cdef Py_UNICODE *fname_c = fname
-        cdef str mode
-        if (read):
-            mode = "rb"
-        else:
-            mode = "wb"
-
-        cdef Py_UNICODE *mode_ptr = mode
-        cdef FILE *out = _wfopen(<wchar_t*>fname_c, <wchar_t*>mode_ptr)
-        return out
+cdef FILE* cy_fopen(str fname, bool_t read):
+    cdef bytes fname_py = fname.encode()
+    cdef char* fname_c = fname_py
+    cdef char* mode
+    if (read):
+        mode = b"rb"
+    else:
+        mode = b"wb"
+    cdef FILE *out = fopen(fname_c, mode)
+    return out
 
 ctypedef fused sparse_ix:
     int

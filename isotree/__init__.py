@@ -3119,6 +3119,13 @@ class IsolationForest(BaseEstimator):
         On Windows, if compiling this library with a compiler other than MSVC or MINGW,
         there might be issues exporting models larger than 2GB.
 
+        Note
+        ----
+        On Windows, file paths containing non-ascii characters (e.g. letters from non-latin alphabets)
+        will only be interpreted correctly when using a UTF8 system encoding. If this is a
+        problem, earlier versions of this library (``<=0.5.20``) might be able to work with
+        non-ascii paths on non-UTF8 encodings on windows when run on older python versions.
+
         Parameters
         ----------
         file : str
@@ -3174,6 +3181,13 @@ class IsolationForest(BaseEstimator):
         ``pickle``, starting with version 0.3.0, this function and ``pickle`` should have
         similar timings and it's recommended to use ``pickle`` for serializing objects
         across Python processes.
+
+        Note
+        ----
+        On Windows, file paths containing non-ascii characters (e.g. letters from non-latin alphabets)
+        will only be interpreted correctly when using a UTF8 system encoding. If this is a
+        problem, earlier versions of this library (``<=0.5.20``) might be able to work with
+        non-ascii paths on non-UTF8 encodings on windows when run on older python versions.
         
         Parameters
         ----------
