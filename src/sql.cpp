@@ -593,14 +593,14 @@ void extract_cond_ext_isotree(ExtIsoForest &model, IsoHPlane &hplane,
                     case SubSet:
                     {
                         hplane_conds += std::string("CASE ") + categ_colnames[hplane.col_num[ix]];
-                        for (size_t categ = 0; categ < hplane.cat_coef[hplane.col_num[ix]].size(); categ++)
+                        for (size_t categ = 0; categ < hplane.cat_coef[n_visited_categ].size(); categ++)
                         {
                             hplane_conds
                                 +=
                               std::string(" WHEN '")
                             + categ_levels[hplane.col_num[ix]][categ]
                             + std::string("' THEN ")
-                            + std::to_string( hplane.cat_coef[hplane.col_num[ix]][categ]);
+                            + std::to_string( hplane.cat_coef[n_visited_categ][categ]);
                         }
                         if (model.new_cat_action == Smallest)
                             hplane_conds += std::string(" ELSE ") + std::to_string(hplane.fill_new[n_visited_categ]);
