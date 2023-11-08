@@ -656,7 +656,7 @@ double sample_random_uniform(double xmin, double xmax, RNG_engine &rng) noexcept
     double out = 2. * (half_min + random_unit * (half_max - half_min));
     if (unlikely(out >= xmax)) {
         if (unlikely(xmax == xmin)) return xmin;
-        out = std::nextafter(out, xmin);
+        out = std::nextafter(xmax, xmin);
     }
     out = std::fmax(out, xmin);
     return out;
