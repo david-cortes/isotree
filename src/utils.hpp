@@ -645,16 +645,21 @@ void weighted_shuffle(size_t *restrict outp, size_t n, real_t *restrict weights,
     }
 }
 
+/* Goualard, Frédéric. "Drawing random floating-point numbers from an interval."
+   ACM Transactions on Modeling and Computer Simulation (TOMACS) 32.3 (2022): 1-24. */
+[[gnu::flatten]]
 double sample_random_uniform(double xmin, double xmax, RNG_engine &rng) noexcept
 {
-    double out;
-    std::uniform_real_distribution<double> runif(xmin, xmax);
-    for (int attempt = 0; attempt < 100; attempt++)
-    {
-        out = runif(rng);
-        if (likely(out < xmax)) return out;
+    const double random_unit = UniformUnitInterval(0, 1)(rng);
+    const double half_min = 0.5 * xmin;
+    const double half_max = 0.5 * xmax;
+    double out = 2. * (half_min + random_unit * (half_max - half_min));
+    if (unlikely(out >= xmax)) {
+        if (unlikely(xmax == xmin)) return xmin;
+        out = std::nextafter(out, xmin);
     }
-    return xmin;
+    out = std::fmax(out, xmin);
+    return out;
 }
 
 template <class ldouble_safe>
