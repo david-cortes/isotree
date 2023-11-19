@@ -619,7 +619,7 @@ process.data.new <- function(data, metadata, allow_csr = FALSE, allow_csc = TRUE
     return(outp)
 }
 
-reconstruct.from.imp <- function(imputed_num, imputed_cat, data, model, pdata) {
+reconstruct.from.imp <- function(imputed_num, imputed_cat, data, model_metadata, pdata) {
 
     if (NROW(imputed_cat))
         imputed_cat[imputed_cat < 0L] <- NA_integer_
@@ -627,9 +627,9 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, data, model, pdata) {
     if (inherits(data, "RsparseMatrix")) {
 
         outp <- data
-        if (!NROW(model$metadata$categ_cols) && ncol(data) == model$metadata$ncols_num) {
+        if (!NROW(model_metadata$categ_cols) && ncol(data) == model_metadata$ncols_num) {
             outp@x <- imputed_num
-        } else if (!NROW(model$metadata$categ_cols)) {
+        } else if (!NROW(model_metadata$categ_cols)) {
             outp@x <- deepcopy_vector(outp@x)
             call_reconstruct_csr_sliced(
                 outp@x, outp@p,
@@ -642,7 +642,7 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, data, model, pdata) {
                 outp@x, outp@j, outp@p,
                 imputed_num, pdata$Xr_ind, pdata$Xr_indptr,
                 imputed_cat,
-                model$metadata$cols_num-1L, model$metadata$categ_cols-1L,
+                model_metadata$cols_num-1L, model_metadata$categ_cols-1L,
                 nrow(data), ncol(data)
             )
         }
@@ -651,16 +651,16 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, data, model, pdata) {
     } else if (inherits(data, "CsparseMatrix")) {
 
         outp       <-  data
-        if (!NROW(model$metadata$categ_cols)) {
+        if (!NROW(model_metadata$categ_cols)) {
             outp@x <-  imputed_num
         } else {
-            outp[, model$metadata$categ_cols] <- matrix(imputed_cat, nrow=nrow(data))
+            outp[, model_metadata$categ_cols] <- matrix(imputed_cat, nrow=nrow(data))
             copy_csc_cols_by_index(
                 outp@x,
                 outp@p,
                 imputed_num,
                 pdata$Xc_indptr,
-                model$metadata$cols_num - 1L
+                model_metadata$cols_num - 1L
             )
         }
         return(outp)
@@ -668,9 +668,9 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, data, model, pdata) {
     } else if (inherits(data, "matrix.csr")) {
         
         outp <- data
-        if (!NROW(model$metadata$categ_cols) && ncol(data) == model$metadata$ncols_num) {
+        if (!NROW(model_metadata$categ_cols) && ncol(data) == model_metadata$ncols_num) {
             outp@ra <- imputed_num
-        } else if (!NROW(model$metadata$categ_cols)) {
+        } else if (!NROW(model_metadata$categ_cols)) {
             outp@ra <- deepcopy_vector(outp@ra)
             call_reconstruct_csr_sliced(
                 outp@ra, outp@ia-1L,
@@ -683,7 +683,7 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, data, model, pdata) {
                 outp@ra, outp@ja-1L, outp@ia-1L,
                 imputed_num, pdata$Xr_ind, pdata$Xr_indptr,
                 imputed_cat,
-                model$metadata$cols_num-1L, model$metadata$categ_cols-1L,
+                model_metadata$cols_num-1L, model_metadata$categ_cols-1L,
                 nrow(data), ncol(data)
             )
         }
@@ -692,7 +692,7 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, data, model, pdata) {
     } else if (inherits(data, "matrix.csc")) {
         
         outp <- data
-        if (!NROW(model$metadata$categ_cols)) {
+        if (!NROW(model_metadata$categ_cols)) {
             outp@ra  <-  imputed_num
         } else {
             dt_new   <- assign_csc_cols(
@@ -700,8 +700,8 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, data, model, pdata) {
                 pdata$Xc_ind,
                 pdata$Xc_indptr,
                 imputed_cat,
-                model$metadata$categ_cols - 1L,
-                model$metadata$cols_num - 1L,
+                model_metadata$categ_cols - 1L,
+                model_metadata$cols_num - 1L,
                 nrow(data)
             )
             copy_csc_cols_by_index(
@@ -709,7 +709,7 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, data, model, pdata) {
                 dt_new$Xc_indptr,
                 imputed_num,
                 pdata$Xc_indptr,
-                model$metadata$cols_num - 1L
+                model_metadata$cols_num - 1L
             )
             outp@ra <- dt_new$Xc
             outp@ja <- dt_new$Xc_ind + 1L
@@ -720,26 +720,26 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, data, model, pdata) {
 
     } else if (inherits(data, "sparseVector")) {
 
-        if (!NROW(model$metadata$categ_cols) && data@length == model$metadata$ncols_num) {
+        if (!NROW(model_metadata$categ_cols) && data@length == model_metadata$ncols_num) {
             data@x <- imputed_num
-        } else if (!NROW(model$metadata$categ_cols)) {
+        } else if (!NROW(model_metadata$categ_cols)) {
             data@x[1L:NROW(imputed_num)]    <- imputed_num
         } else {
-            data[model$metadata$cols_num]   <- imputed_num
-            data[model$metadata$categ_cols] <- imputed_cat
+            data[model_metadata$cols_num]   <- imputed_num
+            data[model_metadata$categ_cols] <- imputed_cat
         }
 
     } else if (!inherits(data, "data.frame")) {
 
-        if (!NROW(model$metadata$categ_cols) && (ncol(data) == model$metadata$ncols_num)) {
+        if (!NROW(model_metadata$categ_cols) && (ncol(data) == model_metadata$ncols_num)) {
             return(matrix(imputed_num, nrow = NROW(data)))
-        } else if (!NROW(model$metadata$categ_cols)) {
-            data[, 1L:model$metadata$ncols_num]  <-  matrix(imputed_num, nrow = NROW(data))
+        } else if (!NROW(model_metadata$categ_cols)) {
+            data[, 1L:model_metadata$ncols_num]  <-  matrix(imputed_num, nrow = NROW(data))
             return(data)
         } else {
-            data[, model$metadata$categ_cols]    <-  matrix(imputed_cat, nrow = NROW(data))
-            if (model$metadata$ncols_num)
-                data[, model$metadata$cols_num]  <-  matrix(imputed_num, nrow = NROW(data))
+            data[, model_metadata$categ_cols]    <-  matrix(imputed_cat, nrow = NROW(data))
+            if (model_metadata$ncols_num)
+                data[, model_metadata$cols_num]  <-  matrix(imputed_num, nrow = NROW(data))
             return(data)
         }
 
@@ -747,23 +747,23 @@ reconstruct.from.imp <- function(imputed_num, imputed_cat, data, model, pdata) {
         
         dt_num <- as.data.frame(matrix(imputed_num, nrow = NROW(data)))
         dt_cat <- as.data.frame(matrix(imputed_cat, nrow = NROW(data)))
-        if (!NROW(model$metadata$categ_cols)) {
+        if (!NROW(model_metadata$categ_cols)) {
             dt_cat <- as.data.frame(mapply(function(x, levs) factor(x, labels = levs),
-                                           dt_cat + 1L, model$metadata$cat_levs,
+                                           dt_cat + 1L, model_metadata$cat_levs,
                                            SIMPLIFY = FALSE))
         }
 
-        if (NROW(model$metadata$categ_cols)) {
-            data[, model$metadata$categ_cols]   <- dt_cat
-            if (model$metadata$ncols_num)
-                data[, model$metadata$cols_num] <- dt_num
-        } else if (!NROW(model$metadata$cols_num)) {
-            data[, 1L:model$metadata$ncols_num] <- dt_num
+        if (NROW(model_metadata$categ_cols)) {
+            data[, model_metadata$categ_cols]   <- dt_cat
+            if (model_metadata$ncols_num)
+                data[, model_metadata$cols_num] <- dt_num
+        } else if (!NROW(model_metadata$cols_num)) {
+            data[, 1L:model_metadata$ncols_num] <- dt_num
         } else {
-            if (model$metadata$ncols_num)
-                data[, model$metadata$cols_num] <- dt_num
-            if (model$metadata$ncols_cat)
-                data[, model$metadata$cols_cat] <- dt_cat
+            if (model_metadata$ncols_num)
+                data[, model_metadata$cols_num] <- dt_num
+            if (model_metadata$ncols_cat)
+                data[, model_metadata$cols_cat] <- dt_cat
         }
         return(data)
 
@@ -876,13 +876,10 @@ take.metadata <- function(metadata) {
         use_long_double  =  coerce.null(metadata$model_info$use_long_double, FALSE),
         random_seed      =  metadata$params$random_seed,
         nthreads         =  metadata$model_info$nthreads,
-        cpp_obj      =  list(
-            ptr         =  NULL,
-            serialized  =  NULL,
-            imp_ptr     =  NULL,
-            imp_ser     =  NULL,
-            indexer     =  NULL,
-            ind_ser     =  NULL
+        cpp_objects      =  list(
+            model    =  NULL,
+            imputer  =  NULL,
+            indexer  =  NULL
         )
     )
 

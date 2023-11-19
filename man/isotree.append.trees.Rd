@@ -37,6 +37,9 @@ models (e.g. fit to different numbers of columns) will result in wrong results a
 potentially crashing the R process when using the resulting object.
 
 Also be aware that the first input will be modified in-place.
+
+If using `lazy_serialization=FALSE`, this will trigger a re-serialization so it will be slower
+than if using `lazy_serialization=TRUE`.
 }
 \details{
 Be aware that, if an out-of-memory error occurs, the resulting object might be rendered unusable

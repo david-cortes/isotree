@@ -4,10 +4,24 @@
 \alias{isotree.drop.indexer}
 \title{Drop Indexer Sub-Object from Isolation Forest Model Object}
 \usage{
-isotree.drop.indexer(model)
+isotree.drop.indexer(model, manually_delete_cpp = TRUE)
 }
 \arguments{
 \item{model}{An `isolation_forest` model object.}
+
+\item{manually_delete_cpp}{Whether to manually delete the underlying C++ object after calling this function.
+
+If passing `FALSE`, memory will not be freed until the underlying R 'externalptr' object is garbage-collected,
+which typically happens after the next call to `gc()`.
+
+If passing `TRUE`, will manually delete the C++ object held in the 'externalptr' object before nullifying it.
+Note that, if somehow one assigned the pointer address to some other R variable through e.g. a deep copy of
+the 'externalptr' object (that happened without copying the full model object where this R variable is stored),
+then other pointers pointing at the same address might trigger crashes at the moment they are used.
+
+Note that, unless one starts manually fiddling with the internals of model objects and assigning variables to/from
+them, it should not be possible to end up in a situation in which an 'externalptr' object ends up deep-copied,
+especially when using `lazy_serialization=TRUE`.}
 }
 \value{
 The same `model` object, but now with the indexer removed. \bold{Note that `model` is modified in-place

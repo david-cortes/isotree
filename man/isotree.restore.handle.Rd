@@ -8,7 +8,7 @@ isotree.restore.handle(model)
 }
 \arguments{
 \item{model}{An Isolation Forest object as returned by `isolation.forest`, which has been just loaded from a disk
-file through `readRDS`, `load`, or a session restart.}
+file through `readRDS`, `load`, or a session restart, and which was constructed with `lazy_serialization=FALSE`.}
 }
 \value{
 The same model object that was passed as input. Object is modified in-place
@@ -17,41 +17,59 @@ however, so it does not need to be re-assigned.
 \description{
 After persisting an isolation forest model object through `saveRDS`, `save`, or restarting a session, the
 underlying C++ objects that constitute the isolation forest model and which live only on the C++ heap memory are not saved along,
-thus not restored after loading a saved model through `readRDS` or `load`.
+and depending on parameter `lazy_serialization`, might not get automatically restored after loading a saved model through
+`readRDS` or `load`.
 
 The model object however keeps serialized versions of the C++ objects as raw bytes, from which the C++ objects can be
-reconstructed, and are done so automatically after calling `predict`, `print`, `summary`, or `isotree.add.tree` on the
+reconstructed, and are done so automatically upon de-serialization when using `lazy_serialization=TRUE`, but otherwise,
+the C++ objects will only get de-serialized after calling `predict`, `print`, `summary`, or `isotree.add.tree` on the
 freshly-loaded object from `readRDS` or `load`.
 
 This function allows to automatically de-serialize the object ("complete" or "restore" the
-handle) without having to call any function that would do extra processing.
-It is an equivalent to XGBoost's `xgb.Booster.complete` and CatBoost's
-`catboost.restore_handle` functions.
+handle) without having to call any function that would do extra processing when one uses `lazy_serialization=FALSE`
+(calling the function is \bold{not} needed when using `lazy_serialization=TRUE`).
+
+It is an analog to XGBoost's `xgb.Booster.complete` and CatBoost's `catboost.restore_handle` functions.
+
+If the model was buit with `lazy_serialization=TRUE`, this function will not do anything to the object.
 }
 \details{
 If using this function to de-serialize a model in a production system, one might
 want to delete the serialized bytes inside the object afterwards in order to free up memory.
-These are under `model$cpp_obj$serialized` (plus `model$cpp_obj$imp_ser` if building with imputer)
-- e.g.: `model$cpp_obj$serialized = NULL; model$cpp_obj$imp_ser = NULL; gc()`.
+These are under `model$cpp_objects$(model,imputer,indexer)$ser`
+- e.g.: `model$cpp_objects$model$ser = NULL; gc()`.
 }
 \examples{
 ### Warning: this example will generate a temporary .Rds
 ### file in your temp folder, and will then delete it
+
+### First, create a model from random data
 library(isotree)
 set.seed(1)
 X <- matrix(rnorm(100), nrow = 20)
-iso <- isolation.forest(X, ntrees=10, nthreads=1)
+iso <- isolation.forest(X, ntrees=10, nthreads=1, lazy_serialization=FALSE)
+
+### Now serialize the model
 temp_file <- file.path(tempdir(), "iso.Rds")
 saveRDS(iso, temp_file)
 iso2 <- readRDS(temp_file)
 file.remove(temp_file)
 
 cat("Model pointer after loading is this: \n")
-print(iso2$cpp_obj$ptr)
+print(iso2$cpp_objects$model$ptr)
 
 ### now unpack it
 isotree.restore.handle(iso2)
 
 cat("Model pointer after unpacking is this: \n")
-print(iso2$cpp_obj$ptr)
+print(iso2$cpp_objects$model$ptr)
+
+### Note that this function is not needed when using lazy_serialization=TRUE
+iso_lazy <- isolation.forest(X, ntrees=10, nthreads=1, lazy_serialization=TRUE)
+temp_file_lazy <- file.path(tempdir(), "iso_lazy.Rds")
+saveRDS(iso_lazy, temp_file_lazy)
+iso_lazy2 <- readRDS(temp_file_lazy)
+file.remove(temp_file_lazy)
+cat("Model pointer after unpacking lazy-serialized: \n")
+print(iso_lazy2$cpp_objects$model$ptr)
 }

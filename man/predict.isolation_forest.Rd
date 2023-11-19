@@ -155,8 +155,10 @@ Outlierness predictions for sparse data will be much slower than for dense data.
 sparse matrices unless they are too big to fit in memory.
 
 Note that after loading a serialized object from `isolation.forest` through `readRDS` or `load`,
-it will only de-serialize the underlying C++ object upon running `predict`, `print`, or `summary`, so the
+if it was constructed with `lazy_serialization=FALSE` it will only de-serialize the underlying
+C++ object upon running `predict`, `print`, or `summary`, so the
 first run will  be slower, while subsequent runs will be faster as the C++ object will already be in-memory.
+This does not apply when using `lazy_serialization=TRUE`.
 
 In order to save memory when fitting and serializing models, the functionality for outputting
 terminal node numbers will generate index mappings on the fly for all tree nodes, even if passing only
@@ -190,24 +192,29 @@ and without an indexer will differ slightly due to differences in what they coun
 }
 \section{Model serving considerations}{
 
-If the model was built with `nthreads>1`, this prediction function will
+If the model is built with `nthreads>1`, the prediction function \link{predict.isolation_forest} will
 use OpenMP for parallelization. In a linux setup, one usually has GNU's "gomp" as OpenMP as backend, which
 will hang when used in a forked process - for example, if one tries to call this prediction function from
-`RestRserve`, which uses process forking for parallelization, it will cause the whole application to freeze;
-and if using kubernetes on top of a different backend such as plumber, might cause it to run slower than
-needed or to hang too. A potential fix in these cases is to set the number of threads to 1 in the object
-(e.g. `model$nthreads <- 1L`), or to use a different version of this library compiled without OpenMP
-(requires manually altering the `Makevars` file), or to use a non-GNU OpenMP backend. This should not
-be an issue when using this library normally in e.g. an RStudio session.
+`RestRserve`, which uses process forking for parallelization, it will cause the whole application to freeze.
+A potential fix in these cases is to pass `nthreads=1` to `predict`, or to set the number of threads to 1 in
+the model object (e.g. `model$nthreads <- 1L` or calling \link{isotree.set.nthreads}), or to compile this library
+without OpenMP (requires manually altering the `Makevars` file), or to use a non-GNU OpenMP backend (such
+as LLVM's 'libomp'. This should not be an issue when using this library normally in e.g. an RStudio session.
 
-In order to make model objects serializable (i.e. usable with `save`, `saveRDS`, and similar), these model
-objects keep serialized raw bytes from which their underlying heap-allocated C++ object (which does not
-survive serializations) can be reconstructed. For model serving, one would usually want to drop these
+The R objects that hold the models contain heap-allocated C++ objects which do not map to R types and
+which thus do not survive serializations the same way R objects do.
+In order to make model objects serializable (i.e. usable with `save`, `saveRDS`, and similar), the package
+offers two mechanisms: (a) a 'lazy_serialization' option which uses the ALTREP system as a workaround,
+by defining classes with serialization methods but without datapointer methods (see the docs for
+`lazy_serialization` for more info); (b) a more theoretically correct way in which raw bytes are produced
+alongside the model and from which the C++ objects can be reconstructed. When using the lazy serialization
+system, C++ objects are restored automatically on load and the serialized bytes then discarded, but this is
+not the case when using the serialized bytes approach. For model serving, one would usually want to drop these
 serialized bytes after having loaded a model through `readRDS` or similar (note that reconstructing the
 C++ object will first require calling \link{isotree.restore.handle}, which is done automatically when
 calling `predict` and similar), as they can increase memory usage by a large amount. These redundant raw bytes
-can be dropped as follows: `model$cpp_obj$serialized <- NULL` (and an additional
-`model$cpp_obj$imp_ser <- NULL` when using `build_imputer=TRUE` and `model$cpp_obj$ind_ser <- NULL`
+can be dropped as follows: `model$cpp_objects$model$ser <- NULL` (and an additional
+`model$cpp_objects$imputer$ser <- NULL` when using `build_imputer=TRUE`, and `model$cpp_objects$indexer$ser <- NULL`
 when building a node indexer). After that, one might want to force garbage
 collection through `gc()`.
 

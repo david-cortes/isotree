@@ -40,7 +40,7 @@
 *          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2019-2022, David Cortes
+*     Copyright (c) 2019-2023, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -65,10 +65,9 @@
 #include <Rcpp.h>
 #include <Rcpp/unwindProtect.h>
 #include <Rinternals.h>
+#include <R_ext/Altrep.h>
 
-#ifndef _FOR_R
-#define FOR_R
-#endif
+#include <type_traits>
 
 /* This is the package's header */
 #include "isotree.hpp"
@@ -86,7 +85,7 @@
     so it's not enough to just include 'isotree_exportable.hpp' and let
     the templates be instantiated elsewhere. */
 
-#define throw_mem_err() Rcpp::stop("Error: insufficient memory. Try smaller sample sizes and fewer trees.\n")
+#define throw_mem_err() throw Rcpp::exception("Error: insufficient memory. Try smaller sample sizes and fewer trees.\n")
 
 SEXP alloc_RawVec(void *data)
 {
@@ -147,9 +146,9 @@ Rcpp::RawVector serialize_cpp_obj(const Model *model_outputs)
 {
     size_t serialized_size = determine_serialized_size(*model_outputs);
     if (unlikely(!serialized_size))
-        Rcpp::stop("Unexpected error.");
+        throw Rcpp::exception("Unexpected error.");
     if (unlikely(serialized_size > (size_t)std::numeric_limits<R_xlen_t>::max()))
-        Rcpp::stop("Resulting model is too large for R to handle.");
+        throw Rcpp::exception("Resulting model is too large for R to handle.");
     Rcpp::RawVector out = Rcpp::unwindProtect(alloc_RawVec, (void*)&serialized_size);
     char *out_ = (char*)RAW(out);
     serialize_isotree(*model_outputs, out_);
@@ -194,9 +193,275 @@ SEXP deserialize_Indexer(Rcpp::RawVector src)
 }
 
 // [[Rcpp::export(rng = false)]]
-Rcpp::LogicalVector check_null_ptr_model(SEXP ptr_model)
+SEXP serialize_IsoForest_from_ptr(SEXP R_ptr)
+{
+    const IsoForest* model = (const IsoForest*)R_ExternalPtrAddr(R_ptr);
+    return serialize_cpp_obj<IsoForest>(model);
+}
+
+// [[Rcpp::export(rng = false)]]
+SEXP serialize_ExtIsoForest_from_ptr(SEXP R_ptr)
+{
+    const ExtIsoForest* model = (const ExtIsoForest*)R_ExternalPtrAddr(R_ptr);
+    return serialize_cpp_obj<ExtIsoForest>(model);
+}
+
+// [[Rcpp::export(rng = false)]]
+SEXP serialize_Imputer_from_ptr(SEXP R_ptr)
+{
+    const Imputer* model = (const Imputer*)R_ExternalPtrAddr(R_ptr);
+    return serialize_cpp_obj<Imputer>(model);
+}
+
+// [[Rcpp::export(rng = false)]]
+SEXP serialize_Indexer_from_ptr(SEXP R_ptr)
+{
+    const TreesIndexer* model = (const TreesIndexer*)R_ExternalPtrAddr(R_ptr);
+    return serialize_cpp_obj<TreesIndexer>(model);
+}
+
+// [[Rcpp::export(rng = false)]]
+Rcpp::LogicalVector check_null_ptr_model_internal(SEXP ptr_model)
 {
     return Rcpp::LogicalVector(R_ExternalPtrAddr(ptr_model) == NULL);
+}
+
+static R_altrep_class_t altrepped_pointer_IsoForest;
+static R_altrep_class_t altrepped_pointer_ExtIsoForest;
+static R_altrep_class_t altrepped_pointer_Imputer;
+static R_altrep_class_t altrepped_pointer_TreesIndexer;
+static R_altrep_class_t altrepped_pointer_NullPointer;
+
+template <class Model>
+R_altrep_class_t get_altrep_obj_class()
+{
+    if (std::is_same<Model, IsoForest>::value) return altrepped_pointer_IsoForest;
+
+    if (std::is_same<Model, ExtIsoForest>::value) return altrepped_pointer_ExtIsoForest;
+
+    if (std::is_same<Model, Imputer>::value) return altrepped_pointer_Imputer;
+
+    if (std::is_same<Model, TreesIndexer>::value) return altrepped_pointer_TreesIndexer;
+
+    throw Rcpp::exception("Internal error. Please open a bug report.");
+}
+
+R_xlen_t altrepped_pointer_length(SEXP obj)
+{
+    return 1;
+}
+
+SEXP get_element_from_altrepped_obj(SEXP R_altrepped_obj, R_xlen_t idx)
+{
+    return R_altrep_data1(R_altrepped_obj);
+}
+
+template <class Model>
+void delete_model_from_R_ptr(SEXP R_ptr)
+{
+    Model *cpp_ptr = (Model*)R_ExternalPtrAddr(R_ptr);
+    delete cpp_ptr;
+}
+
+template <class Model>
+SEXP get_altrepped_pointer(void *void_ptr)
+{
+    SEXP R_ptr_name = PROTECT(Rf_mkString("ptr"));
+    SEXP R_ptr_class = PROTECT(Rf_mkString("isotree_altrepped_handle"));
+    SEXP R_ptr = PROTECT(R_MakeExternalPtr(nullptr, R_NilValue, R_NilValue));
+    SEXP out = PROTECT(R_new_altrep(get_altrep_obj_class<Model>(), R_NilValue, R_NilValue));
+
+    std::unique_ptr<Model> *ptr = (std::unique_ptr<Model>*)void_ptr;
+    R_SetExternalPtrAddr(R_ptr, ptr->get());
+    R_RegisterCFinalizerEx(R_ptr, delete_model_from_R_ptr<Model>, TRUE);
+    ptr->release();
+    
+    R_set_altrep_data1(out, R_ptr);
+    Rf_setAttrib(out, R_NamesSymbol, R_ptr_name);
+    Rf_setAttrib(out, R_ClassSymbol, R_ptr_class);
+
+    UNPROTECT(4);
+    return out;
+}
+
+template <class Model>
+SEXP serialize_altrepped_pointer(SEXP altrepped_obj)
+{
+    try {
+        Model *cpp_ptr = (Model*)R_ExternalPtrAddr(R_altrep_data1(altrepped_obj));
+        R_xlen_t state_size = determine_serialized_size(*cpp_ptr);
+        SEXP R_state = PROTECT(Rf_allocVector(RAWSXP, state_size));
+        serialize_isotree(*cpp_ptr, (char*)RAW(R_state));
+        UNPROTECT(1);
+        return R_state;
+    }
+    catch (const std::exception &ex) {
+        Rf_error("%s\n", ex.what());
+    }
+
+    return R_NilValue; /* <- won't be reached */
+}
+
+template <class Model>
+SEXP deserialize_altrepped_pointer(SEXP cls, SEXP R_state)
+{
+    SEXP R_ptr_name = PROTECT(Rf_mkString("ptr"));
+    SEXP R_ptr_class = PROTECT(Rf_mkString("isotree_altrepped_handle"));
+    SEXP R_ptr = PROTECT(R_MakeExternalPtr(nullptr, R_NilValue, R_NilValue));
+    SEXP out = PROTECT(R_new_altrep(get_altrep_obj_class<Model>(), R_NilValue, R_NilValue));
+
+    try {
+        std::unique_ptr<Model> model(new Model());
+        const char *inp = (const char*)RAW(R_state);
+        deserialize_isotree(*model, inp);
+
+        R_SetExternalPtrAddr(R_ptr, model.get());
+        R_RegisterCFinalizerEx(R_ptr, delete_model_from_R_ptr<Model>, TRUE);
+        model.release();
+    }
+    catch (const std::exception &ex) {
+        Rf_error("%s\n", ex.what());
+    }
+
+    R_set_altrep_data1(out, R_ptr);
+    Rf_setAttrib(out, R_NamesSymbol, R_ptr_name);
+    Rf_setAttrib(out, R_ClassSymbol, R_ptr_class);
+
+    UNPROTECT(4);
+    return out;
+}
+
+template <class Model>
+SEXP duplicate_altrepped_pointer(SEXP altrepped_obj, Rboolean deep)
+{
+    SEXP R_ptr_name = PROTECT(Rf_mkString("ptr"));
+    SEXP R_ptr_class = PROTECT(Rf_mkString("isotree_altrepped_handle"));
+    SEXP out = PROTECT(R_new_altrep(get_altrep_obj_class<Model>(), R_NilValue, R_NilValue));
+
+    if (!deep) {
+        R_set_altrep_data1(out, R_altrep_data1(altrepped_obj));
+    }
+
+    else {
+
+        SEXP R_ptr = PROTECT(R_MakeExternalPtr(nullptr, R_NilValue, R_NilValue));
+
+        try {
+            std::unique_ptr<Model> new_obj(new Model());
+            Model *cpp_ptr = (Model*)R_ExternalPtrAddr(R_altrep_data1(altrepped_obj));
+            *new_obj = *cpp_ptr;
+
+            R_SetExternalPtrAddr(R_ptr, new_obj.get());
+            R_RegisterCFinalizerEx(R_ptr, delete_model_from_R_ptr<Model>, TRUE);
+            new_obj.release();
+        }
+
+        catch (const std::exception &ex) {
+            Rf_error("%s\n", ex.what());
+        }
+
+        R_set_altrep_data1(out, R_ptr);
+        UNPROTECT(1);
+    }
+
+    Rf_setAttrib(out, R_NamesSymbol, R_ptr_name);
+    Rf_setAttrib(out, R_NamesSymbol, R_ptr_class);
+    UNPROTECT(3);
+    return out;
+}
+
+SEXP get_altrepped_null_pointer()
+{
+    SEXP R_ptr_name = PROTECT(Rf_mkString("ptr"));
+    SEXP R_ptr_class = PROTECT(Rf_mkString("isotree_altrepped_handle"));
+    SEXP R_ptr = PROTECT(R_MakeExternalPtr(nullptr, R_NilValue, R_NilValue));
+    SEXP out = PROTECT(R_new_altrep(altrepped_pointer_NullPointer, R_ptr, R_NilValue));
+    Rf_setAttrib(out, R_NamesSymbol, R_ptr_name);
+    Rf_setAttrib(out, R_ClassSymbol, R_ptr_class);
+    UNPROTECT(4);
+    return out;
+}
+
+SEXP safe_get_altrepped_null_pointer(void *unused)
+{
+    return get_altrepped_null_pointer();
+}
+
+SEXP serialize_altrepped_null(SEXP altrepped_obj)
+{
+    return Rf_allocVector(RAWSXP, 0);
+}
+
+SEXP deserialize_altrepped_null(SEXP cls, SEXP R_state)
+{
+    return get_altrepped_null_pointer();
+}
+
+SEXP duplicate_altrepped_pointer(SEXP altrepped_obj, Rboolean deep)
+{
+    return get_altrepped_null_pointer();
+}
+
+Rboolean inspect_altrepped_pointer(SEXP x, int pre, int deep, int pvec, void (*inspect_subtree)(SEXP, int, int, int))
+{
+    Rprintf("Altrepped pointer [address:%p]\n", R_ExternalPtrAddr(R_altrep_data1(x)));
+    return TRUE;
+}
+
+template <class Model>
+Model* get_pointer_from_altrep(SEXP altrepped_obj)
+{
+    return (Model*)R_ExternalPtrAddr(R_altrep_data1(altrepped_obj));
+}
+
+template <class Model>
+Model* get_pointer_from_xptr(SEXP R_ptr)
+{
+    return (Model*)R_ExternalPtrAddr(R_ptr);
+}
+
+// [[Rcpp::init]]
+void init_altrepped_vectors(DllInfo* dll)
+{
+    altrepped_pointer_IsoForest = R_make_altlist_class("altrepped_pointer_IsoForest", "isotree", dll);
+    R_set_altrep_Length_method(altrepped_pointer_IsoForest, altrepped_pointer_length);
+    R_set_altrep_Inspect_method(altrepped_pointer_IsoForest, inspect_altrepped_pointer);
+    R_set_altrep_Serialized_state_method(altrepped_pointer_IsoForest, serialize_altrepped_pointer<IsoForest>);
+    R_set_altrep_Unserialize_method(altrepped_pointer_IsoForest, deserialize_altrepped_pointer<IsoForest>);
+    R_set_altrep_Duplicate_method(altrepped_pointer_IsoForest, duplicate_altrepped_pointer<IsoForest>);
+    R_set_altlist_Elt_method(altrepped_pointer_IsoForest, get_element_from_altrepped_obj);
+
+    altrepped_pointer_ExtIsoForest = R_make_altlist_class("altrepped_pointer_ExtIsoForest", "isotree", dll);
+    R_set_altrep_Length_method(altrepped_pointer_ExtIsoForest, altrepped_pointer_length);
+    R_set_altrep_Inspect_method(altrepped_pointer_ExtIsoForest, inspect_altrepped_pointer);
+    R_set_altrep_Serialized_state_method(altrepped_pointer_ExtIsoForest, serialize_altrepped_pointer<ExtIsoForest>);
+    R_set_altrep_Unserialize_method(altrepped_pointer_ExtIsoForest, deserialize_altrepped_pointer<ExtIsoForest>);
+    R_set_altrep_Duplicate_method(altrepped_pointer_ExtIsoForest, duplicate_altrepped_pointer<ExtIsoForest>);
+    R_set_altlist_Elt_method(altrepped_pointer_ExtIsoForest, get_element_from_altrepped_obj);
+
+    altrepped_pointer_Imputer = R_make_altlist_class("altrepped_pointer_Imputer", "isotree", dll);
+    R_set_altrep_Length_method(altrepped_pointer_Imputer, altrepped_pointer_length);
+    R_set_altrep_Inspect_method(altrepped_pointer_Imputer, inspect_altrepped_pointer);
+    R_set_altrep_Serialized_state_method(altrepped_pointer_Imputer, serialize_altrepped_pointer<Imputer>);
+    R_set_altrep_Unserialize_method(altrepped_pointer_Imputer, deserialize_altrepped_pointer<Imputer>);
+    R_set_altrep_Duplicate_method(altrepped_pointer_Imputer, duplicate_altrepped_pointer<Imputer>);
+    R_set_altlist_Elt_method(altrepped_pointer_Imputer, get_element_from_altrepped_obj);
+
+    altrepped_pointer_TreesIndexer = R_make_altlist_class("altrepped_pointer_TreesIndexer", "isotree", dll);
+    R_set_altrep_Length_method(altrepped_pointer_TreesIndexer, altrepped_pointer_length);
+    R_set_altrep_Inspect_method(altrepped_pointer_TreesIndexer, inspect_altrepped_pointer);
+    R_set_altrep_Serialized_state_method(altrepped_pointer_TreesIndexer, serialize_altrepped_pointer<TreesIndexer>);
+    R_set_altrep_Unserialize_method(altrepped_pointer_TreesIndexer, deserialize_altrepped_pointer<TreesIndexer>);
+    R_set_altrep_Duplicate_method(altrepped_pointer_TreesIndexer, duplicate_altrepped_pointer<TreesIndexer>);
+    R_set_altlist_Elt_method(altrepped_pointer_TreesIndexer, get_element_from_altrepped_obj);
+
+    altrepped_pointer_NullPointer = R_make_altlist_class("altrepped_pointer_NullPointer", "isotree", dll);
+    R_set_altrep_Length_method(altrepped_pointer_NullPointer, altrepped_pointer_length);
+    R_set_altrep_Inspect_method(altrepped_pointer_NullPointer, inspect_altrepped_pointer);
+    R_set_altrep_Serialized_state_method(altrepped_pointer_NullPointer, serialize_altrepped_null);
+    R_set_altrep_Unserialize_method(altrepped_pointer_NullPointer, deserialize_altrepped_null);
+    R_set_altrep_Duplicate_method(altrepped_pointer_NullPointer, duplicate_altrepped_pointer);
+    R_set_altlist_Elt_method(altrepped_pointer_NullPointer, get_element_from_altrepped_obj);
 }
 
 double* set_R_nan_as_C_nan(double *x, size_t n, std::vector<double> &v, int nthreads)
@@ -222,6 +487,13 @@ double* set_R_nan_as_C_nan(double *x, size_t n, int nthreads)
     return x;
 }
 
+TreesIndexer* get_indexer_ptr_from_R_obj(SEXP indexer_R_ptr)
+{
+    TreesIndexer *out = get_pointer_from_xptr<TreesIndexer>(indexer_R_ptr);
+    if (out && out->indices.empty()) out = nullptr;
+    return out;
+}
+
 // [[Rcpp::export(rng = false)]]
 Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat,
                      Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
@@ -241,7 +513,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                      Rcpp::CharacterVector missing_action, bool all_perm,
                      bool build_imputer, bool output_imputations, size_t min_imp_obs,
                      Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows,
-                     int random_seed, bool use_long_double, int nthreads)
+                     int random_seed, bool use_long_double, int nthreads, bool lazy_serialization)
 {
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
@@ -383,17 +655,36 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     }
 
     Rcpp::List outp = Rcpp::List::create(
-            Rcpp::_["depths"]    = depths,
-            Rcpp::_["tmat"]      = tmat,
-            Rcpp::_["dmat"]      = dmat,
-            Rcpp::_["ptr"] = R_NilValue,
-            Rcpp::_["serialized"] = R_NilValue,
-            Rcpp::_["imp_ptr"]    = R_NilValue,
-            Rcpp::_["imp_ser"]    = R_NilValue,
-            Rcpp::_["imputed_num"]    = R_NilValue,
-            Rcpp::_["imputed_cat"]    = R_NilValue,
-            Rcpp::_["err"] = Rcpp::LogicalVector::create(1)
+        Rcpp::_["depths"]    =  depths,
+        Rcpp::_["tmat"]      =  tmat,
+        Rcpp::_["dmat"]      =  dmat,
+        Rcpp::_["model"]     =  R_NilValue,
+        Rcpp::_["imputer"]   =  R_NilValue,
+        Rcpp::_["indexer"]   =  R_NilValue,
+        Rcpp::_["imputed_num"]      =  R_NilValue,
+        Rcpp::_["imputed_cat"]      =  R_NilValue,
+        Rcpp::_["err"]  =  Rcpp::LogicalVector::create(1)
     );
+
+    Rcpp::List model_lst_nonlazy = Rcpp::List::create(
+        Rcpp::_["ptr"]  =  R_NilValue,
+        Rcpp::_["ser"]  =  R_NilValue
+    );
+
+    Rcpp::List imputer_lst_nonlazy = Rcpp::List::create(
+        Rcpp::_["ptr"]  =  Rcpp::XPtr<void*>(nullptr, false),
+        Rcpp::_["ser"]  =  R_NilValue
+    );
+
+    if (lazy_serialization) {
+        outp["indexer"] = get_altrepped_null_pointer();
+    }
+    else {
+        outp["indexer"] = Rcpp::List::create(
+            Rcpp::_["ptr"]  =  Rcpp::XPtr<void*>(nullptr, false),
+            Rcpp::_["ser"]  =  R_NilValue
+        );
+    }
 
     std::unique_ptr<IsoForest>     model_ptr(nullptr);
     std::unique_ptr<ExtIsoForest>  ext_model_ptr(nullptr);
@@ -407,9 +698,7 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
     if (build_imputer)
         imputer_ptr    =  std::unique_ptr<Imputer>(new Imputer());
 
-    int ret_val;
-    try {
-    ret_val = 
+    int ret_val = 
     fit_iforest(model_ptr.get(), ext_model_ptr.get(),
                 numeric_data_ptr,  ncols_numeric,
                 categ_data_ptr,    ncols_categ,    ncat_ptr,
@@ -431,14 +720,21 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
                 all_perm, imputer_ptr.get(), min_imp_obs,
                 depth_imp_C, weigh_imp_rows_C, output_imputations,
                 (uint64_t) random_seed, use_long_double, nthreads);
-    }
-    catch (std::bad_alloc &e) {
-        throw_mem_err();
-    }
-    Rcpp::checkUserInterrupt();
 
+    Rcpp::checkUserInterrupt(); /* <- nothing is returned in this case */
+    /* Note to self: the procedure has its own interrupt checker, so when an interrupt
+       signal is triggered, first it will print a message about it, then re-issue the
+       signal, then check for interrupt through Rcpp's, which will return nothing to
+       the outside and will not raise any error. In this case, at least the user will
+       see the error message. Note that Rcpp's interrupt non-return, unlike R's, triggers
+       stack unwinding for C++ objects. */
+
+    /* Note to self: since the function for fitting the model uses the C++ exception system,
+       and the stop signals are translated into Rcpp stops, this section below should not
+       be reachable anyhow. */
     if (ret_val == EXIT_FAILURE)
     {
+        Rcpp::Rcerr << "Unexpected error" << std::endl;
         return Rcpp::unwindProtect(safe_errlist, nullptr);
     }
 
@@ -446,63 +742,66 @@ Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp:
         tmat_to_dense(tmat_ptr, dmat_ptr, nrows, standardize_dist? 0. : std::numeric_limits<double>::infinity());
 
     bool serialization_failed = false;
-    Rcpp::RawVector serialized_obj;
-    try {
+
+    if (lazy_serialization)
+    {
+        if (ndim == 1) {
+            outp["model"]    =  Rcpp::unwindProtect(get_altrepped_pointer<IsoForest>, (void*)&model_ptr);
+        }
+        else {
+            outp["model"]    =  Rcpp::unwindProtect(get_altrepped_pointer<ExtIsoForest>, (void*)&ext_model_ptr);
+        }
+
+        if (build_imputer) {
+            outp["imputer"]  =  Rcpp::unwindProtect(get_altrepped_pointer<Imputer>, (void*)&imputer_ptr);
+        }
+        else {
+            outp["imputer"]  =  Rcpp::unwindProtect(safe_get_altrepped_null_pointer, nullptr);
+        }
+    }
+    
+    else
+    {
+        Rcpp::RawVector serialized_obj;
+        /* Note to self: the serialization functions use unwind protection internally. */
         if (ndim == 1)
             serialized_obj  =  serialize_cpp_obj(model_ptr.get());
         else
             serialized_obj  =  serialize_cpp_obj(ext_model_ptr.get());
-    }
-    catch (std::bad_alloc &e) {
-        throw_mem_err();
-    }
-    if (unlikely(!serialized_obj.size())) serialization_failed = true;
-    if (unlikely(serialization_failed)) {
-        if (ndim == 1)
-            model_ptr.reset();
-        else
-            ext_model_ptr.reset();
-    }
 
-    if (!serialization_failed)
-    {
-        outp["serialized"] = serialized_obj;
+        if (unlikely(!serialized_obj.size())) serialization_failed = true;
+        if (unlikely(serialization_failed)) {
+            throw Rcpp::exception("Error: insufficient memory\n");
+        }
+
+        model_lst_nonlazy["ser"]       =  serialized_obj;
         if (ndim == 1) {
-            outp["ptr"]   =  Rcpp::unwindProtect(safe_XPtr<IsoForest>, model_ptr.get());
+            model_lst_nonlazy["ptr"]   =  Rcpp::unwindProtect(safe_XPtr<IsoForest>, model_ptr.get());
             model_ptr.release();
         }
         else {
-            outp["ptr"]   =  Rcpp::unwindProtect(safe_XPtr<ExtIsoForest>, ext_model_ptr.get());
+            model_lst_nonlazy["ptr"]   =  Rcpp::unwindProtect(safe_XPtr<ExtIsoForest>, ext_model_ptr.get());
             ext_model_ptr.release();
         }
-    } else
-        outp["ptr"] = R_NilValue;
 
-    if (build_imputer && !serialization_failed)
-    {
-        try {
-            outp["imp_ser"] =  serialize_cpp_obj(imputer_ptr.get());
-        }
-        catch (std::bad_alloc &e) {
-            throw_mem_err();
-        }
-        if (!Rf_xlength(outp["imp_ser"]))
+        outp["model"] = model_lst_nonlazy;
+
+        if (build_imputer)
         {
-            serialization_failed = true;
-            imputer_ptr.reset();
-            if (ndim == 1)
-                model_ptr.reset();
-            else
-                ext_model_ptr.reset();
-            outp["imp_ptr"]  =  R_NilValue;
-            outp["ptr"]    =  R_NilValue;
-        } else {
-            outp["imp_ptr"] =  Rcpp::unwindProtect(safe_XPtr<Imputer>, imputer_ptr.get());
+            imputer_lst_nonlazy["ser"] =  serialize_cpp_obj(imputer_ptr.get());
+            if (!Rf_xlength(imputer_lst_nonlazy["ser"]))
+            {
+                throw Rcpp::exception("Error: insufficient memory\n");
+            }
+
+            imputer_lst_nonlazy["ptr"]  =  Rcpp::unwindProtect(safe_XPtr<Imputer>, imputer_ptr.get());
             imputer_ptr.release();
         }
+
+        outp["imputer"] = imputer_lst_nonlazy;
     }
 
-    if (output_imputations && !serialization_failed)
+    if (output_imputations)
     {
         outp["imputed_num"] = Xcpp;
         outp["imputed_cat"] = X_cat;
@@ -533,12 +832,13 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
               Rcpp::NumericVector ref_X_num, Rcpp::IntegerVector ref_X_cat,
               Rcpp::NumericVector ref_Xc, Rcpp::IntegerVector ref_Xc_ind, Rcpp::IntegerVector ref_Xc_indptr,
               uint64_t random_seed, bool use_long_double,
-              Rcpp::List &model_cpp_obj_update, Rcpp::List &model_params_update)
+              Rcpp::List &model_cpp_obj_update, Rcpp::List &model_params_update,
+              bool is_altrepped)
 {
     Rcpp::List out = Rcpp::List::create(
-        Rcpp::_["serialized"] = R_NilValue,
-        Rcpp::_["imp_ser"] = R_NilValue,
-        Rcpp::_["ind_ser"] = R_NilValue
+        Rcpp::_["model_ser"] = R_NilValue,
+        Rcpp::_["imputer_ser"] = R_NilValue,
+        Rcpp::_["indexer_ser"] = R_NilValue
     );
 
     Rcpp::IntegerVector ntrees_plus1 = Rcpp::IntegerVector::create(Rf_asInteger(model_params_update["ntrees"]) + 1);
@@ -673,10 +973,7 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
     if (build_imputer)
         imputer_ptr = static_cast<Imputer*>(R_ExternalPtrAddr(imp_R_ptr));
 
-    if (!Rf_isNull(indexer_R_ptr) && R_ExternalPtrAddr(indexer_R_ptr) != NULL)
-        indexer_ptr = static_cast<TreesIndexer*>(R_ExternalPtrAddr(indexer_R_ptr));
-    if (indexer_ptr != NULL && indexer_ptr->indices.empty())
-        indexer_ptr = NULL;
+    indexer_ptr = get_indexer_ptr_from_R_obj(indexer_R_ptr);
 
     size_t old_ntrees = (ndim == 1)? (model_ptr->trees.size()) : (ext_model_ptr->hplanes.size());
 
@@ -705,6 +1002,9 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
     
     Rcpp::RawVector new_serialized, new_imp_serialized, new_ind_serialized;
     size_t new_size;
+
+    if (is_altrepped) goto dont_serialize;
+
     try
     {
         if (ndim == 1)
@@ -718,7 +1018,7 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
                     new_serialized = resize_vec(serialized_obj, new_size);
                     char *temp = (char*)RAW(new_serialized);
                     incremental_serialize_isotree(*model_ptr, temp);
-                    out["serialized"] = new_serialized;
+                    out["model_ser"] = new_serialized;
                 }
 
                 catch (std::runtime_error &e) {
@@ -728,7 +1028,7 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
 
             else {
                 serialize_anew_singlevar:
-                out["serialized"] = serialize_cpp_obj(model_ptr);
+                out["model_ser"] = serialize_cpp_obj(model_ptr);
             }
         }
 
@@ -743,7 +1043,7 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
                     new_serialized = resize_vec(serialized_obj, new_size);
                     char *temp = (char*)RAW(new_serialized);
                     incremental_serialize_isotree(*ext_model_ptr, temp);
-                    out["serialized"] = new_serialized;
+                    out["model_ser"] = new_serialized;
                 }
 
                 catch (std::runtime_error &e) {
@@ -753,7 +1053,7 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
 
             else {
                 serialize_anew_ext:
-                out["serialized"] = serialize_cpp_obj(ext_model_ptr);
+                out["model_ser"] = serialize_cpp_obj(ext_model_ptr);
             }
         }
 
@@ -768,7 +1068,7 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
                     new_imp_serialized = resize_vec(serialized_imputer, new_size);
                     char *temp = (char*)RAW(new_imp_serialized);
                     incremental_serialize_isotree(*imputer_ptr, temp);
-                    out["imp_ser"] = new_imp_serialized;
+                    out["imputer_ser"] = new_imp_serialized;
                 }
 
                 catch (std::runtime_error &e) {
@@ -778,7 +1078,7 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
 
             else {
                 serialize_anew_imp:
-                out["imp_ser"] = serialize_cpp_obj(imputer_ptr);
+                out["imputer_ser"] = serialize_cpp_obj(imputer_ptr);
             }
         }
 
@@ -793,7 +1093,7 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
                     new_ind_serialized = resize_vec(serialized_indexer, new_size);
                     char *temp = (char*)RAW(new_ind_serialized);
                     incremental_serialize_isotree(*indexer_ptr, temp);
-                    out["ind_ser"] = new_ind_serialized;
+                    out["indexer_ser"] = new_ind_serialized;
                 }
 
                 catch (std::runtime_error &e) {
@@ -803,7 +1103,7 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
 
             else {
                 serialize_anew_ind:
-                out["ind_ser"] = serialize_cpp_obj(indexer_ptr);
+                out["indexer_ser"] = serialize_cpp_obj(indexer_ptr);
             }
         }
     }
@@ -821,11 +1121,27 @@ void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector 
         throw;
     }
 
-    model_cpp_obj_update["serialized"] = out["serialized"];
-    if (build_imputer)
-        model_cpp_obj_update["imp_ser"] = out["imp_ser"];
-    if (indexer_ptr != NULL)
-        model_cpp_obj_update["ind_ser"] = out["ind_ser"];
+    {
+        Rcpp::List model_lst = model_cpp_obj_update["model"];
+        model_lst["ser"] = out["model_ser"];
+        model_cpp_obj_update["model"] = model_lst;
+
+        if (build_imputer)
+        {
+            Rcpp::List imputer_lst = model_cpp_obj_update["imputer"];
+            imputer_lst["ser"] = out["imputer_ser"];
+            model_cpp_obj_update["imputer"] = imputer_lst;
+        }
+
+        if (indexer_ptr)
+        {
+            Rcpp::List indexer_lst = model_cpp_obj_update["indexer"];
+            indexer_lst["ser"] = out["indexer_ser"];
+            model_cpp_obj_update["indexer"] = indexer_lst;
+        }
+    }
+    
+    dont_serialize:
     model_params_update["ntrees"] = ntrees_plus1;
 }
 
@@ -879,14 +1195,10 @@ void predict_iso(SEXP model_R_ptr, bool is_extended,
     IsoForest*     model_ptr      =  NULL;
     ExtIsoForest*  ext_model_ptr  =  NULL;
     if (is_extended)
-        ext_model_ptr  =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        ext_model_ptr  =  get_pointer_from_xptr<ExtIsoForest>(model_R_ptr);
     else
-        model_ptr      =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
-    TreesIndexer*  indexer = NULL;
-    if (!Rf_isNull(indexer_R_ptr) && R_ExternalPtrAddr(indexer_R_ptr) != NULL)
-        indexer = static_cast<TreesIndexer*>(R_ExternalPtrAddr(indexer_R_ptr));
-    if (indexer != NULL && indexer->indices.empty())
-        indexer = NULL;
+        model_ptr      =  get_pointer_from_xptr<IsoForest>(model_R_ptr);
+    TreesIndexer*  indexer = get_indexer_ptr_from_R_obj(indexer_R_ptr);
 
     MissingAction missing_action = is_extended?
                                    ext_model_ptr->missing_action
@@ -950,17 +1262,13 @@ void dist_iso(SEXP model_R_ptr, SEXP indexer_R_ptr,
 
     IsoForest*     model_ptr      =  NULL;
     ExtIsoForest*  ext_model_ptr  =  NULL;
-    TreesIndexer*  indexer        =  NULL;
+    TreesIndexer*  indexer        =  get_indexer_ptr_from_R_obj(indexer_R_ptr);
     if (is_extended)
-        ext_model_ptr  =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        ext_model_ptr  =  get_pointer_from_xptr<ExtIsoForest>(model_R_ptr);
     else
-        model_ptr      =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
-    if (!Rf_isNull(indexer_R_ptr) && R_ExternalPtrAddr(indexer_R_ptr) != NULL)
-        indexer = static_cast<TreesIndexer*>(R_ExternalPtrAddr(indexer_R_ptr));
-    if (indexer != NULL && (indexer->indices.empty() || (!as_kernel && indexer->indices.front().node_distances.empty())))
-        indexer = NULL;
+        model_ptr      =  get_pointer_from_xptr<IsoForest>(model_R_ptr);
 
-    if (use_reference_points && indexer != NULL && !indexer->indices.front().reference_points.empty()) {
+    if (use_reference_points && indexer && !indexer->indices.front().reference_points.empty()) {
         tmat_ptr = NULL;
         dmat_ptr = NULL;
         rmat_ptr = REAL(rmat);
@@ -1043,11 +1351,13 @@ Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
     IsoForest*     model_ptr      =  NULL;
     ExtIsoForest*  ext_model_ptr  =  NULL;
     if (is_extended)
-        ext_model_ptr  =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        ext_model_ptr  =  get_pointer_from_xptr<ExtIsoForest>(model_R_ptr);
     else
-        model_ptr      =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        model_ptr      =  get_pointer_from_xptr<IsoForest>(model_R_ptr);
 
-    Imputer* imputer_ptr = static_cast<Imputer*>(R_ExternalPtrAddr(imputer_R_ptr));
+    Imputer* imputer_ptr = get_pointer_from_xptr<Imputer>(imputer_R_ptr);
+
+    if (!imputer_ptr) throw Rcpp::exception("Error: requested missing value imputation, but model was built without imputer.\n");
 
 
     impute_missing_values(numeric_data_ptr, categ_data_ptr, true,
@@ -1063,85 +1373,150 @@ Rcpp::List impute_iso(SEXP model_R_ptr, SEXP imputer_R_ptr, bool is_extended,
 }
 
 // [[Rcpp::export(rng = false)]]
-void drop_imputer(Rcpp::List lst_modify, Rcpp::List lst_modify2)
+void drop_imputer(bool is_altrepped, bool free_cpp,
+                  SEXP lst_imputer, Rcpp::List lst_cpp_objects, Rcpp::List lst_params)
 {
-    Rcpp::RawVector empty_ser = Rcpp::RawVector();
-    Rcpp::LogicalVector FalseObj = Rcpp::LogicalVector::create(false);
-    Rcpp::XPtr<Imputer> imp_ptr = lst_modify["imp_ptr"];
-    imp_ptr.release();
+    SEXP FalseObj = PROTECT(Rf_ScalarLogical(0));
+    SEXP blank_ptr = PROTECT(R_MakeExternalPtr(nullptr, R_NilValue, R_NilValue));
+    SEXP altrepped_null = PROTECT(get_altrepped_null_pointer());
+    
+    if (is_altrepped) {
 
-    lst_modify["imp_ser"] = empty_ser;
-    lst_modify2["build_imputer"] = FalseObj;
+        if (free_cpp) {
+            SEXP imp_R_ptr = R_altrep_data1(lst_imputer);
+            Imputer* imputer_ptr = (Imputer*)R_ExternalPtrAddr(imp_R_ptr);
+            delete imputer_ptr;
+            R_SetExternalPtrAddr(imp_R_ptr, nullptr);
+        }
+        
+        lst_cpp_objects["imputer"] = altrepped_null;
+
+    }
+
+    else {
+
+        if (free_cpp) {
+            SEXP imp_R_ptr = VECTOR_ELT(lst_imputer, 0);
+            Imputer* imputer_ptr = get_pointer_from_xptr<Imputer>(imp_R_ptr);
+            delete imputer_ptr;
+            R_SetExternalPtrAddr(imp_R_ptr, nullptr);
+            SET_VECTOR_ELT(lst_imputer, 0, imp_R_ptr);
+        }
+
+        SET_VECTOR_ELT(lst_imputer, 0, blank_ptr);
+        SET_VECTOR_ELT(lst_imputer, 1, R_NilValue);
+    }
+
+    lst_params["build_imputer"] = FalseObj;
+    UNPROTECT(3);
 }
 
 // [[Rcpp::export(rng = false)]]
-void drop_indexer(Rcpp::List lst_modify, Rcpp::List lst_modify2)
+void drop_indexer(bool is_altrepped, bool free_cpp,
+                  SEXP lst_indexer, Rcpp::List lst_cpp_objects, Rcpp::List lst_metadata)
 {
-    Rcpp::XPtr<TreesIndexer> empty_ptr = Rcpp::XPtr<TreesIndexer>(nullptr, false);
-    Rcpp::RawVector empty_ser = Rcpp::RawVector();
-    Rcpp::CharacterVector empty_char = Rcpp::CharacterVector();
-    Rcpp::XPtr<TreesIndexer> indexer = lst_modify["indexer"];
-    indexer.release();
+    SEXP empty_str = PROTECT(Rf_allocVector(STRSXP, 0));
+    SEXP blank_ptr = PROTECT(R_MakeExternalPtr(nullptr, R_NilValue, R_NilValue));
+    SEXP altrepped_null = PROTECT(get_altrepped_null_pointer());
+    
+    if (is_altrepped) {
 
-    lst_modify["ind_ser"] = empty_ser;
-    lst_modify2["reference_names"] = empty_char;
+        if (free_cpp) {
+            SEXP ind_R_ptr = R_altrep_data1(lst_indexer);
+            TreesIndexer* indexer_ptr = (TreesIndexer*)R_ExternalPtrAddr(ind_R_ptr);
+            delete indexer_ptr;
+            R_SetExternalPtrAddr(ind_R_ptr, nullptr);
+        }
+        
+        lst_cpp_objects["indexer"] = altrepped_null;
+    }
+
+    else {
+
+        if (free_cpp) {
+            SEXP ind_R_ptr = VECTOR_ELT(lst_indexer, 0);
+            TreesIndexer* indexer_ptr = get_pointer_from_xptr<TreesIndexer>(ind_R_ptr);
+            delete indexer_ptr;
+            R_SetExternalPtrAddr(ind_R_ptr, nullptr);
+            SET_VECTOR_ELT(lst_indexer, 0, ind_R_ptr);
+        }
+
+        SET_VECTOR_ELT(lst_indexer, 0, blank_ptr);
+        SET_VECTOR_ELT(lst_indexer, 1, R_NilValue);
+    }
+
+    lst_metadata["reference_names"] = empty_str;
+    UNPROTECT(3);
 }
 
 // [[Rcpp::export(rng = false)]]
-void drop_reference_points(Rcpp::List lst_modify, Rcpp::List lst_modify2)
+void drop_reference_points(bool is_altrepped, SEXP lst_indexer, Rcpp::List lst_cpp_objects, Rcpp::List lst_metadata)
 {
-    Rcpp::CharacterVector empty_char = Rcpp::CharacterVector();
-    Rcpp::RawVector empty_ser = Rcpp::RawVector();
-    Rcpp::XPtr<TreesIndexer> indexer_R_ptr = lst_modify["indexer"];
-    TreesIndexer *indexer_ptr = indexer_R_ptr.get();
-    if (indexer_ptr == NULL) {
-        lst_modify["ind_ser"] = empty_ser;
-        lst_modify2["reference_names"] = empty_char;
-        return;
-    }
-    if (indexer_ptr->indices.empty()) {
-        indexer_R_ptr.release();
-        lst_modify["ind_ser"] = empty_ser;
-        lst_modify2["reference_names"] = empty_char;
-        return;
-    }
-    if (indexer_ptr->indices.front().reference_points.empty()) {
-        lst_modify2["reference_names"] = empty_char;
-        return;
-    }
+    SEXP empty_str = PROTECT(Rf_allocVector(STRSXP, 0));
 
-    std::unique_ptr<TreesIndexer> new_indexer(new TreesIndexer(*indexer_ptr));
-    for (auto &tree : new_indexer->indices)
+    if (is_altrepped)
     {
-        tree.reference_points.clear();
-        tree.reference_indptr.clear();
-        tree.reference_mapping.clear();
+        SEXP ind_R_ptr = R_altrep_data1(lst_indexer);
+        TreesIndexer* indexer_ptr = (TreesIndexer*)R_ExternalPtrAddr(ind_R_ptr);
+        if (!indexer_ptr) return;
+
+        for (auto &tree : indexer_ptr->indices)
+        {
+            tree.reference_points.clear();
+            tree.reference_indptr.clear();
+            tree.reference_mapping.clear();
+        }
     }
-    Rcpp::RawVector ind_ser = serialize_cpp_obj(new_indexer.get());
-    *indexer_ptr = std::move(*new_indexer);
-    new_indexer.release();
-    lst_modify["ind_ser"] = ind_ser;
-    lst_modify2["reference_names"] = empty_char;
+
+    else
+    {
+        SEXP ind_R_ptr = VECTOR_ELT(lst_indexer, 0);
+        TreesIndexer* indexer_ptr = get_pointer_from_xptr<TreesIndexer>(ind_R_ptr);
+        if (!indexer_ptr) return;
+        
+        std::unique_ptr<TreesIndexer> new_indexer(new TreesIndexer(*indexer_ptr));
+        for (auto &tree : new_indexer->indices)
+        {
+            tree.reference_points.clear();
+            tree.reference_indptr.clear();
+            tree.reference_mapping.clear();
+        }
+
+        SET_VECTOR_ELT(lst_indexer, 1, serialize_cpp_obj(new_indexer.get()));
+        *indexer_ptr = std::move(*new_indexer);
+        new_indexer.release();
+    }
+
+    lst_metadata["reference_names"] = empty_str;
+    UNPROTECT(1);
 }
 
 // [[Rcpp::export(rng = false)]]
 Rcpp::List subset_trees
 (
     SEXP model_R_ptr, SEXP imputer_R_ptr, SEXP indexer_R_ptr,
-    bool is_extended, bool has_imputer,
+    bool is_extended, bool is_altrepped,
     Rcpp::IntegerVector trees_take
 )
 {
-    bool has_indexer = !Rf_isNull(indexer_R_ptr) && R_ExternalPtrAddr(indexer_R_ptr) != NULL;
-
     Rcpp::List out = Rcpp::List::create(
-        Rcpp::_["ptr"] = R_NilValue,
-        Rcpp::_["serialized"] = R_NilValue,
-        Rcpp::_["imp_ptr"] = R_NilValue,
-        Rcpp::_["imp_ser"] = R_NilValue,
-        Rcpp::_["indexer"] = R_NilValue,
-        Rcpp::_["ind_ser"] = R_NilValue
+        Rcpp::_["model"] = R_NilValue,
+        Rcpp::_["imputer"] = R_NilValue,
+        Rcpp::_["indexer"] = R_NilValue
     );
+    Rcpp::List lst_model = Rcpp::List::create(
+        Rcpp::_["ptr"] = R_NilValue,
+        Rcpp::_["ser"] = R_NilValue
+    );
+    Rcpp::List lst_imputer = Rcpp::List::create(
+        Rcpp::_["ptr"] = Rcpp::XPtr<void*>(nullptr, false),
+        Rcpp::_["ser"] = R_NilValue
+    );
+    Rcpp::List lst_indexer = Rcpp::List::create(
+        Rcpp::_["ptr"] = Rcpp::XPtr<void*>(nullptr, false),
+        Rcpp::_["ser"] = R_NilValue
+    );
+
 
     IsoForest*     model_ptr      =  NULL;
     ExtIsoForest*  ext_model_ptr  =  NULL;
@@ -1160,16 +1535,15 @@ Rcpp::List subset_trees
         model_ptr          =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
         new_model_ptr      =  std::unique_ptr<IsoForest>(new IsoForest());
     }
-
     
-    if (has_imputer) {
-        imputer_ptr        =  static_cast<Imputer*>(R_ExternalPtrAddr(imputer_R_ptr));
-        new_imputer_ptr    =  std::unique_ptr<Imputer>(new Imputer());
+    imputer_ptr          =  static_cast<Imputer*>(R_ExternalPtrAddr(imputer_R_ptr));
+    if (imputer_ptr) {
+        new_imputer_ptr  =  std::unique_ptr<Imputer>(new Imputer());
     }
 
-    if (has_indexer) {
-        indexer_ptr        =  static_cast<TreesIndexer*>(R_ExternalPtrAddr(indexer_R_ptr));
-        new_indexer_ptr    =  std::unique_ptr<TreesIndexer>(new TreesIndexer());
+    indexer_ptr          =  static_cast<TreesIndexer*>(R_ExternalPtrAddr(indexer_R_ptr));
+    if (indexer_ptr) {
+        new_indexer_ptr  =  std::unique_ptr<TreesIndexer>(new TreesIndexer());
     }
 
     std::unique_ptr<size_t[]> trees_take_(new size_t[trees_take.size()]);
@@ -1183,31 +1557,49 @@ Rcpp::List subset_trees
                  trees_take_.get(), trees_take.size());
     trees_take_.reset();
 
-    if (!is_extended)
-        out["serialized"] = serialize_cpp_obj(new_model_ptr.get());
-    else
-        out["serialized"] = serialize_cpp_obj(new_ext_model_ptr.get());
-    if (has_imputer)
-        out["imp_ser"] = serialize_cpp_obj(new_imputer_ptr.get());
-    if (has_indexer)
-        out["ind_ser"] = serialize_cpp_obj(new_indexer_ptr.get());
+    if (is_altrepped)
+    {
+        out["model"] = is_extended?
+                        Rcpp::unwindProtect(get_altrepped_pointer<ExtIsoForest>, (void*)&new_ext_model_ptr)
+                        :
+                        Rcpp::unwindProtect(get_altrepped_pointer<IsoForest>, (void*)&new_model_ptr);
+        out["imputer"] = imputer_ptr?
+                          Rcpp::unwindProtect(get_altrepped_pointer<Imputer>, (void*)&new_imputer_ptr)
+                          :
+                          Rcpp::unwindProtect(safe_get_altrepped_null_pointer, nullptr);
+        out["indexer"] = indexer_ptr?
+                          Rcpp::unwindProtect(get_altrepped_pointer<TreesIndexer>, (void*)&new_indexer_ptr)
+                          :
+                          Rcpp::unwindProtect(safe_get_altrepped_null_pointer, nullptr);
+    }
 
-    if (!is_extended) {
-        out["ptr"] = Rcpp::unwindProtect(safe_XPtr<IsoForest>, new_model_ptr.get());
+    else
+    {
+        lst_model["ser"] = is_extended? serialize_cpp_obj(new_ext_model_ptr.get()) : serialize_cpp_obj(new_model_ptr.get());
+        if (imputer_ptr) lst_imputer["ser"] = serialize_cpp_obj(new_imputer_ptr.get());
+        if (indexer_ptr) lst_indexer["ser"] = serialize_cpp_obj(new_indexer_ptr.get());
+
+        lst_model["ptr"] = is_extended?
+                            Rcpp::unwindProtect(safe_XPtr<ExtIsoForest>, new_ext_model_ptr.get())
+                            :
+                            Rcpp::unwindProtect(safe_XPtr<IsoForest>, new_model_ptr.get());
         new_model_ptr.release();
+
+        if (imputer_ptr) {
+            lst_imputer["ptr"] = Rcpp::unwindProtect(safe_XPtr<Imputer>, new_imputer_ptr.get());
+            new_imputer_ptr.release();
+        }
+
+        if (indexer_ptr) {
+            lst_indexer["ptr"] = Rcpp::unwindProtect(safe_XPtr<TreesIndexer>, new_indexer_ptr.get());
+            new_indexer_ptr.release();
+        }
+
+        out["model"] = lst_model;
+        out["imputer"] = lst_imputer;
+        out["indexer"] = lst_indexer;
     }
-    else {
-        out["ptr"] = Rcpp::unwindProtect(safe_XPtr<ExtIsoForest>, new_ext_model_ptr.get());
-        new_ext_model_ptr.release();
-    }
-    if (has_imputer) {
-        out["imp_ptr"] = Rcpp::unwindProtect(safe_XPtr<Imputer>, new_imputer_ptr.get());
-        new_imputer_ptr.release();
-    }
-    if (has_indexer) {
-        out["indexer"] = Rcpp::unwindProtect(safe_XPtr<TreesIndexer>, new_indexer_ptr.get());
-        new_indexer_ptr.release();
-    }
+
     return out;
 }
 
@@ -1250,12 +1642,12 @@ Rcpp::List get_n_nodes(SEXP model_R_ptr, bool is_extended, int nthreads)
     ExtIsoForest*  ext_model_ptr  =  NULL;
     if (is_extended)
     {
-        ext_model_ptr =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        ext_model_ptr =  get_pointer_from_xptr<ExtIsoForest>(model_R_ptr);
         ntrees        =  ext_model_ptr->hplanes.size();
     }
     else
     {
-        model_ptr     =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        model_ptr     =  get_pointer_from_xptr<IsoForest>(model_R_ptr);
         ntrees        =  model_ptr->trees.size();
     }
 
@@ -1281,64 +1673,51 @@ void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
                              Rcpp::RawVector serialized_imputer,
                              Rcpp::RawVector serialized_indexer,
                              Rcpp::List &model_cpp_obj_update,
-                             Rcpp::List &model_params_update)
+                             Rcpp::List &model_params_update,
+                             bool is_altrepped)
 {
-    if ((!Rf_isNull(imp_R_ptr) && R_ExternalPtrAddr(imp_R_ptr) != NULL)
-            &&
-        !(!Rf_isNull(oimp_R_ptr) && R_ExternalPtrAddr(oimp_R_ptr) != NULL))
-    {
-        Rcpp::stop("Model to append trees to has imputer, but model to append from doesn't. Try dropping the imputer.\n");
-    }
-    if ((!Rf_isNull(ind_R_ptr) && R_ExternalPtrAddr(ind_R_ptr) != NULL)
-            &&
-        !(!Rf_isNull(oind_R_ptr) && R_ExternalPtrAddr(oind_R_ptr) != NULL))
-    {
-        Rcpp::stop("Model to append trees to has indexer, but model to append from doesn't. Try dropping the indexer.\n");
-    }
-
     Rcpp::List out = Rcpp::List::create(
-        Rcpp::_["serialized"] = R_NilValue,
-        Rcpp::_["imp_ser"] = R_NilValue,
-        Rcpp::_["ind_ser"] = R_NilValue
+        Rcpp::_["model_ser"] = R_NilValue,
+        Rcpp::_["imputer_ser"] = R_NilValue,
+        Rcpp::_["indexer_ser"] = R_NilValue
     );
 
     Rcpp::IntegerVector ntrees_new = Rcpp::IntegerVector::create(Rf_asInteger(model_params_update["ntrees"]));
 
-    IsoForest* model_ptr = NULL;
-    IsoForest* other_ptr = NULL;
-    ExtIsoForest* ext_model_ptr = NULL;
-    ExtIsoForest* ext_other_ptr = NULL;
-    Imputer* imputer_ptr  = NULL;
-    Imputer* oimputer_ptr = NULL;
-    TreesIndexer* indexer_ptr  = NULL;
-    TreesIndexer* oindexer_ptr = NULL;
+    IsoForest* model_ptr = nullptr;
+    IsoForest* other_ptr = nullptr;
+    ExtIsoForest* ext_model_ptr = nullptr;
+    ExtIsoForest* ext_other_ptr = nullptr;
+    Imputer* imputer_ptr  = static_cast<Imputer*>(R_ExternalPtrAddr(imp_R_ptr));
+    Imputer* oimputer_ptr = static_cast<Imputer*>(R_ExternalPtrAddr(oimp_R_ptr));
+    TreesIndexer* indexer_ptr  = get_indexer_ptr_from_R_obj(ind_R_ptr);
+    TreesIndexer* oindexer_ptr = get_indexer_ptr_from_R_obj(oind_R_ptr);
     size_t old_ntrees;
 
     if (is_extended) {
         ext_model_ptr = static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
         ext_other_ptr = static_cast<ExtIsoForest*>(R_ExternalPtrAddr(other_R_ptr));
         old_ntrees = ext_model_ptr->hplanes.size();
+        if (ext_model_ptr == ext_other_ptr) {
+            throw Rcpp::exception("Error: attempting to append trees from one model to itself.");
+        }
     } else {
         model_ptr = static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
         other_ptr = static_cast<IsoForest*>(R_ExternalPtrAddr(other_R_ptr));
         old_ntrees = model_ptr->trees.size();
+        if (model_ptr == other_ptr) {
+            throw Rcpp::exception("Error: attempting to append trees from one model to itself.");
+        }
     }
 
-    if (!Rf_isNull(imp_R_ptr) && !Rf_isNull(oimp_R_ptr) &&
-        R_ExternalPtrAddr(imp_R_ptr) != NULL &&
-        R_ExternalPtrAddr(oimp_R_ptr) != NULL)
-    {
-        imputer_ptr  = static_cast<Imputer*>(R_ExternalPtrAddr(imp_R_ptr));
-        oimputer_ptr = static_cast<Imputer*>(R_ExternalPtrAddr(oimp_R_ptr));
+    if (imputer_ptr && !oimputer_ptr) {
+        throw Rcpp::exception("Model to append trees to has imputer, but model to append from doesn't. Try dropping the imputer.\n");
     }
 
-    if (!Rf_isNull(ind_R_ptr) && !Rf_isNull(oind_R_ptr) &&
-        R_ExternalPtrAddr(ind_R_ptr) != NULL &&
-        R_ExternalPtrAddr(oind_R_ptr) != NULL)
-    {
-        indexer_ptr  = static_cast<TreesIndexer*>(R_ExternalPtrAddr(ind_R_ptr));
-        oindexer_ptr = static_cast<TreesIndexer*>(R_ExternalPtrAddr(oind_R_ptr));
+    if (indexer_ptr && !oindexer_ptr) {
+        throw Rcpp::exception("Model to append trees to has indexer, but model to append from doesn't. Try dropping the indexer.\n");
     }
+
 
     merge_models(model_ptr, other_ptr,
                  ext_model_ptr, ext_other_ptr,
@@ -1347,6 +1726,9 @@ void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
 
     Rcpp::RawVector new_serialized, new_imp_serialized, new_ind_serialized;
     size_t new_size;
+
+    if (is_altrepped) goto dont_serialize;
+
     try
     {
         if (!is_extended)
@@ -1360,7 +1742,7 @@ void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
                     new_serialized = resize_vec(serialized_obj, new_size);
                     char *temp = (char*)RAW(new_serialized);
                     incremental_serialize_isotree(*model_ptr, temp);
-                    out["serialized"] = new_serialized;
+                    out["model_ser"] = new_serialized;
                 }
 
                 catch (std::runtime_error &e) {
@@ -1370,7 +1752,7 @@ void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
 
             else {
                 serialize_anew_singlevar:
-                out["serialized"] = serialize_cpp_obj(model_ptr);
+                out["model_ser"] = serialize_cpp_obj(model_ptr);
             }
         }
 
@@ -1385,7 +1767,7 @@ void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
                     new_serialized = resize_vec(serialized_obj, new_size);
                     char *temp = (char*)RAW(new_serialized);
                     incremental_serialize_isotree(*ext_model_ptr, temp);
-                    out["serialized"] = new_serialized;
+                    out["model_ser"] = new_serialized;
                 }
 
                 catch (std::runtime_error &e) {
@@ -1395,11 +1777,11 @@ void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
 
             else {
                 serialize_anew_ext:
-                out["serialized"] = serialize_cpp_obj(ext_model_ptr);
+                out["model_ser"] = serialize_cpp_obj(ext_model_ptr);
             }
         }
 
-        if (imputer_ptr != NULL)
+        if (imputer_ptr)
         {
             if (serialized_imputer.size() &&
                 check_can_undergo_incremental_serialization(*imputer_ptr, (char*)RAW(serialized_imputer)))
@@ -1410,7 +1792,7 @@ void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
                     new_imp_serialized = resize_vec(serialized_imputer, new_size);
                     char *temp = (char*)RAW(new_imp_serialized);
                     incremental_serialize_isotree(*imputer_ptr, temp);
-                    out["imp_ser"] = new_imp_serialized;
+                    out["imputer_ser"] = new_imp_serialized;
                 }
 
                 catch (std::runtime_error &e) {
@@ -1420,11 +1802,11 @@ void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
 
             else {
                 serialize_anew_imp:
-                out["imp_ser"] = serialize_cpp_obj(imputer_ptr);
+                out["imputer_ser"] = serialize_cpp_obj(imputer_ptr);
             }
         }
 
-        if (indexer_ptr != NULL)
+        if (indexer_ptr)
         {
             if (serialized_indexer.size() &&
                 check_can_undergo_incremental_serialization(*indexer_ptr, (char*)RAW(serialized_indexer)))
@@ -1435,7 +1817,7 @@ void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
                     new_ind_serialized = resize_vec(serialized_indexer, new_size);
                     char *temp = (char*)RAW(new_ind_serialized);
                     incremental_serialize_isotree(*indexer_ptr, temp);
-                    out["ind_ser"] = new_ind_serialized;
+                    out["indexer_ser"] = new_ind_serialized;
                 }
 
                 catch (std::runtime_error &e) {
@@ -1445,7 +1827,7 @@ void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
 
             else {
                 serialize_anew_ind:
-                out["ind_ser"] = serialize_cpp_obj(indexer_ptr);
+                out["indexer_ser"] = serialize_cpp_obj(indexer_ptr);
             }
         }
     }
@@ -1457,18 +1839,34 @@ void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr,
         else
             ext_model_ptr->hplanes.resize(old_ntrees);
 
-        if (imputer_ptr != NULL)
+        if (imputer_ptr)
             imputer_ptr->imputer_tree.resize(old_ntrees);
-        if (indexer_ptr != NULL)
+        if (indexer_ptr)
             indexer_ptr->indices.resize(old_ntrees);
         throw;
     }
 
-    model_cpp_obj_update["serialized"] = out["serialized"];
-    if (imputer_ptr)
-        model_cpp_obj_update["imp_ser"] = out["imp_ser"];
-    if (indexer_ptr)
-        model_cpp_obj_update["ind_ser"] = out["ind_ser"];
+    {
+        Rcpp::List model_lst = model_cpp_obj_update["model"];
+        model_lst["ser"] = out["model_ser"];
+        model_cpp_obj_update["model"] = model_lst;
+
+        if (imputer_ptr)
+        {
+            Rcpp::List imputer_lst = model_cpp_obj_update["imputer"];
+            imputer_lst["ser"] = out["imputer_ser"];
+            model_cpp_obj_update["imputer"] = imputer_lst;
+        }
+
+        if (indexer_ptr)
+        {
+            Rcpp::List indexer_lst = model_cpp_obj_update["indexer"];
+            indexer_lst["ser"] = out["indexer_ser"];
+            model_cpp_obj_update["indexer"] = indexer_lst;
+        }
+    }
+
+    dont_serialize:
     *(INTEGER(ntrees_new)) = is_extended? ext_model_ptr->hplanes.size() : model_ptr->trees.size();
     model_params_update["ntrees"] = ntrees_new;
 }
@@ -1550,14 +1948,12 @@ Rcpp::CharacterVector model_to_sql_with_select_from(SEXP model_R_ptr, bool is_ex
 }
 
 // [[Rcpp::export(rng = false)]]
-Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, bool has_imputer, SEXP ind_R_ptr)
+Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, SEXP ind_R_ptr, bool lazy_serialization)
 {
-    bool has_indexer = !Rf_isNull(ind_R_ptr) && R_ExternalPtrAddr(ind_R_ptr) != NULL;
-
     Rcpp::List out = Rcpp::List::create(
-        Rcpp::_["ptr"]    =  R_NilValue,
-        Rcpp::_["imp_ptr"]  =  R_NilValue,
-        Rcpp::_["indexer"]  =  R_NilValue
+        Rcpp::_["model"]    =  Rcpp::XPtr<void*>(nullptr, false),
+        Rcpp::_["imputer"]  =  Rcpp::XPtr<void*>(nullptr, false),
+        Rcpp::_["indexer"]  =  Rcpp::XPtr<void*>(nullptr, false)
     );
 
     IsoForest*     model_ptr      =  NULL;
@@ -1568,9 +1964,9 @@ Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, 
         ext_model_ptr  =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
     else
         model_ptr      =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
-    if (has_imputer)
+    if (R_ExternalPtrAddr(imp_R_ptr))
         imputer_ptr    =  static_cast<Imputer*>(R_ExternalPtrAddr(imp_R_ptr));
-    if (has_indexer)
+    if (R_ExternalPtrAddr(ind_R_ptr))
         indexer_ptr    =  static_cast<TreesIndexer*>(R_ExternalPtrAddr(ind_R_ptr));
 
     std::unique_ptr<IsoForest> copy_model(new IsoForest());
@@ -1578,84 +1974,115 @@ Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, 
     std::unique_ptr<Imputer> copy_imputer(new Imputer());
     std::unique_ptr<TreesIndexer> copy_indexer(new TreesIndexer());
 
-    if (model_ptr != NULL) 
+    if (model_ptr) 
         *copy_model = *model_ptr;
-    if (ext_model_ptr != NULL)
+    if (ext_model_ptr)
         *copy_ext_model = *ext_model_ptr;
-    if (imputer_ptr != NULL)
+    if (imputer_ptr)
         *copy_imputer = *imputer_ptr;
-    if (indexer_ptr != NULL)
+    if (indexer_ptr)
         *copy_indexer = *indexer_ptr;
 
-    if (is_extended) {
-        out["ptr"]    =  Rcpp::unwindProtect(safe_XPtr<ExtIsoForest>, copy_ext_model.get());
-        copy_ext_model.release();
+    if (lazy_serialization)
+    {
+        if (is_extended) {
+            out["model"]    =  Rcpp::unwindProtect(get_altrepped_pointer<ExtIsoForest>, (void*)&copy_ext_model);
+        }
+        else {
+            out["model"]    =  Rcpp::unwindProtect(get_altrepped_pointer<IsoForest>, (void*)&copy_model);
+        }
+
+        if (imputer_ptr) {
+            out["imputer"]  =  Rcpp::unwindProtect(get_altrepped_pointer<Imputer>, (void*)&copy_imputer);
+        }
+        else {
+            out["imputer"]  =  Rcpp::unwindProtect(safe_get_altrepped_null_pointer, nullptr);
+        }
+        
+        if (indexer_ptr) {
+            out["indexer"]  =  Rcpp::unwindProtect(get_altrepped_pointer<TreesIndexer>, (void*)&copy_indexer);
+        }
+        else {
+            out["indexer"]  =  Rcpp::unwindProtect(safe_get_altrepped_null_pointer, nullptr);
+        }
     }
-    else {
-        out["ptr"]    =  Rcpp::unwindProtect(safe_XPtr<IsoForest>, copy_model.get());
-        copy_model.release();
+
+    else
+    {
+        if (is_extended) {
+            out["model"]    =  Rcpp::unwindProtect(safe_XPtr<ExtIsoForest>, copy_ext_model.get());
+            copy_ext_model.release();
+        }
+        else {
+            out["model"]    =  Rcpp::unwindProtect(safe_XPtr<IsoForest>, copy_model.get());
+            copy_model.release();
+        }
+        if (imputer_ptr) {
+            out["imputer"]  =  Rcpp::unwindProtect(safe_XPtr<Imputer>, copy_imputer.get());
+            copy_imputer.release();
+        }
+        if (indexer_ptr) {
+            out["indexer"]  =  Rcpp::unwindProtect(safe_XPtr<TreesIndexer>, copy_indexer.get());
+            copy_indexer.release();
+        }
     }
-    if (has_imputer) {
-        out["imp_ptr"]  =  Rcpp::unwindProtect(safe_XPtr<Imputer>, copy_imputer.get());
-        copy_imputer.release();
-    }
-    if (has_indexer) {
-        out["indexer"]  =  Rcpp::unwindProtect(safe_XPtr<TreesIndexer>, copy_indexer.get());
-        copy_indexer.release();
-    }
+    
     return out;
 }
 
 // [[Rcpp::export(rng = false)]]
-void build_tree_indices(Rcpp::List lst_modify, bool is_extended, bool with_distances, int nthreads)
+void build_tree_indices(Rcpp::List lst_cpp_objects, SEXP ptr_model, bool is_altrepped, bool is_extended, bool with_distances, int nthreads)
 {
-    Rcpp::RawVector ind_ser = Rcpp::RawVector();
-    Rcpp::List empty_lst = Rcpp::List::create(Rcpp::_["indexer"] = R_NilValue);
+    Rcpp::List lst_out = Rcpp::List::create(
+        Rcpp::_["ptr"] = R_NilValue,
+        Rcpp::_["ser"] = R_NilValue
+    );
     std::unique_ptr<TreesIndexer> indexer(new TreesIndexer());
 
     if (!is_extended) {
         build_tree_indices(*indexer,
-                           *static_cast<IsoForest*>(R_ExternalPtrAddr(lst_modify["ptr"])),
+                           *static_cast<IsoForest*>(R_ExternalPtrAddr(ptr_model)),
                            nthreads,
                            with_distances);
     }
     else {
         build_tree_indices(*indexer,
-                           *static_cast<ExtIsoForest*>(R_ExternalPtrAddr(lst_modify["ptr"])),
+                           *static_cast<ExtIsoForest*>(R_ExternalPtrAddr(ptr_model)),
                            nthreads,
                            with_distances);
     }
 
-    ind_ser  =  serialize_cpp_obj(indexer.get());
-    empty_lst["indexer"]     =  Rcpp::unwindProtect(safe_XPtr<TreesIndexer>, indexer.get());
-    if (!Rf_isNull(lst_modify["indexer"])) {
-        Rcpp::XPtr<TreesIndexer> indexer_R_ptr = lst_modify["indexer"];
-        indexer_R_ptr.release();
+    if (is_altrepped) {
+        lst_cpp_objects["indexer"] = Rcpp::unwindProtect(get_altrepped_pointer<TreesIndexer>, (void*)&indexer);
     }
-    
-    lst_modify["ind_ser"] = ind_ser;
-    lst_modify["indexer"] = empty_lst["indexer"];
-    indexer.release();
+
+    else {
+        lst_out["ser"] = serialize_cpp_obj(indexer.get());
+        lst_out["ptr"] =  Rcpp::unwindProtect(safe_XPtr<TreesIndexer>, indexer.get());
+        indexer.release();
+        lst_cpp_objects["indexer"] = lst_out;
+    }
 }
 
 // [[Rcpp::export(rng = false)]]
 bool check_node_indexer_has_distances(SEXP indexer_R_ptr)
 {
-    if (Rf_isNull(indexer_R_ptr) || R_ExternalPtrAddr(indexer_R_ptr) == NULL)
-        return false;
-    TreesIndexer *indexer = static_cast<TreesIndexer*>(R_ExternalPtrAddr(indexer_R_ptr));
-    if (indexer->indices.empty()) return false;
+    const TreesIndexer *indexer = (const TreesIndexer*)R_ExternalPtrAddr(indexer_R_ptr);
+    if (!indexer) return false;
     return !indexer->indices.front().node_distances.empty();
 }
 
 // [[Rcpp::export(rng = false)]]
-void set_reference_points(Rcpp::List lst_modify, Rcpp::List lst_modify2, SEXP rnames, bool is_extended,
+void set_reference_points(Rcpp::List lst_cpp_objects, SEXP ptr_model, SEXP ind_R_ptr, bool is_altrepped,
+                          Rcpp::List lst_metadata, SEXP rnames, bool is_extended,
                           Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat,
                           Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr,
                           size_t nrows, int nthreads, bool with_distances)
 {
-    Rcpp::RawVector ind_ser = Rcpp::RawVector();
-    Rcpp::XPtr<TreesIndexer> indexer_R_ptr = lst_modify["indexer"];
+    Rcpp::List lst_out = Rcpp::List::create(
+        Rcpp::_["ptr"] = R_NilValue,
+        Rcpp::_["ser"] = R_NilValue
+    );
 
     double*     numeric_data_ptr    =  NULL;
     int*        categ_data_ptr      =  NULL;
@@ -1681,14 +2108,13 @@ void set_reference_points(Rcpp::List lst_modify, Rcpp::List lst_modify2, SEXP rn
         Xc_indptr_ptr  =  INTEGER(Xc_indptr);
     }
 
-    IsoForest*     model_ptr      =  NULL;
-    ExtIsoForest*  ext_model_ptr  =  NULL;
-    TreesIndexer*  indexer        =  NULL;
+    IsoForest*     model_ptr      =  nullptr;
+    ExtIsoForest*  ext_model_ptr  =  nullptr;
+    TreesIndexer*  indexer        =  static_cast<TreesIndexer*>(R_ExternalPtrAddr(ind_R_ptr));
     if (is_extended)
-        ext_model_ptr  =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(lst_modify["ptr"]));
+        ext_model_ptr  =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(ptr_model));
     else
-        model_ptr      =  static_cast<IsoForest*>(R_ExternalPtrAddr(lst_modify["ptr"]));
-    indexer            =  indexer_R_ptr.get();
+        model_ptr      =  static_cast<IsoForest*>(R_ExternalPtrAddr(ptr_model));
 
     MissingAction missing_action = is_extended?
                                    ext_model_ptr->missing_action
@@ -1700,9 +2126,18 @@ void set_reference_points(Rcpp::List lst_modify, Rcpp::List lst_modify2, SEXP rn
         if (Xc.size())    Xc_ptr           = set_R_nan_as_C_nan(Xc_ptr, Xc.size(), Xcpp, nthreads);
     }
 
-    std::unique_ptr<TreesIndexer> new_indexer(new TreesIndexer(*indexer));
+    std::unique_ptr<TreesIndexer> new_indexer(is_altrepped? nullptr : (new TreesIndexer(*indexer)));
+    TreesIndexer *indexer_use = is_altrepped? indexer : new_indexer.get();
 
-    set_reference_points(model_ptr, ext_model_ptr, new_indexer.get(),
+    /* Note: if using an altrepped pointer, the indexer is modified in-place. If that fails,
+    it will end up overwitten, with the previous references taken away. OTOH, if using
+    a pointer + serialized, and it fails, it should not overwrite anything, and thus
+    should not re-assign here immediately. */
+    if (is_altrepped) {
+        lst_metadata["reference_names"] = rnames;
+    }
+
+    set_reference_points(model_ptr, ext_model_ptr, indexer_use,
                          with_distances,
                          numeric_data_ptr, categ_data_ptr,
                          true, (size_t)0, (size_t)0,
@@ -1710,39 +2145,41 @@ void set_reference_points(Rcpp::List lst_modify, Rcpp::List lst_modify2, SEXP rn
                          (double*)NULL, (int*)NULL, (int*)NULL,
                          nrows, nthreads);
 
-    ind_ser = serialize_cpp_obj(new_indexer.get());
-    *indexer = std::move(*new_indexer);
-    new_indexer.release();
-    lst_modify["ind_ser"] = ind_ser;
-    lst_modify2["reference_names"] = rnames;
+    if (!is_altrepped) {
+        lst_out["ser"] = serialize_cpp_obj(new_indexer.get());
+        *indexer = std::move(*new_indexer);
+        lst_metadata["reference_names"] = rnames;
+    }
 }
 
 // [[Rcpp::export(rng = false)]]
 bool check_node_indexer_has_references(SEXP indexer_R_ptr)
 {
-    if (Rf_isNull(indexer_R_ptr) || R_ExternalPtrAddr(indexer_R_ptr) == NULL)
-        return false;
-    TreesIndexer *indexer = static_cast<TreesIndexer*>(R_ExternalPtrAddr(indexer_R_ptr));
-    if (indexer->indices.empty())
-        return false;
-    if (indexer->indices.front().reference_points.empty())
-        return false;
-    else
-        return true;
+    const TreesIndexer *indexer = (const TreesIndexer*)R_ExternalPtrAddr(indexer_R_ptr);
+    if (!indexer) return false;
+    return !(indexer->indices.front().reference_points.empty());
 }
 
 // [[Rcpp::export(rng = false)]]
 int get_num_references(SEXP indexer_R_ptr)
 {
-    TreesIndexer *indexer = static_cast<TreesIndexer*>(R_ExternalPtrAddr(indexer_R_ptr));
-    if (indexer == NULL || indexer->indices.empty()) return 0;
+    const TreesIndexer *indexer = static_cast<const TreesIndexer*>(R_ExternalPtrAddr(indexer_R_ptr));
+    if (!indexer || indexer->indices.empty()) return 0;
     return indexer->indices.front().reference_points.size();
 }
 
 // [[Rcpp::export(rng = false)]]
-SEXP get_null_R_pointer()
+SEXP get_null_R_pointer_internal(bool altrepped)
 {
-    return R_MakeExternalPtr(nullptr, R_NilValue, R_NilValue);
+    if (!altrepped) {
+        return R_MakeExternalPtr(nullptr, R_NilValue, R_NilValue);
+    }
+    else {
+        SEXP R_ptr = PROTECT(R_MakeExternalPtr(nullptr, R_NilValue, R_NilValue));
+        SEXP out = PROTECT(R_new_altrep(altrepped_pointer_NullPointer, R_ptr, R_NilValue));
+        UNPROTECT(2);
+        return out;
+    }
 }
 
 /* This library will use different code paths for opening a file path
@@ -1851,17 +2288,29 @@ void serialize_to_file
 }
 
 // [[Rcpp::export]]
-Rcpp::List deserialize_from_file(Rcpp::CharacterVector fname)
+Rcpp::List deserialize_from_file(Rcpp::CharacterVector fname, bool lazy_serialization)
 {
     Rcpp::List out = Rcpp::List::create(
-        Rcpp::_["ptr"] = R_NilValue,
-        Rcpp::_["serialized"] = R_NilValue,
-        Rcpp::_["imp_ptr"] = R_NilValue,
-        Rcpp::_["imp_ser"] = R_NilValue,
+        Rcpp::_["model"] = R_NilValue,
+        Rcpp::_["imputer"] = R_NilValue,
         Rcpp::_["indexer"] = R_NilValue,
-        Rcpp::_["ind_ser"] = R_NilValue,
         Rcpp::_["metadata"] = R_NilValue
     );
+
+    if (!lazy_serialization) {
+        out["model"] = Rcpp::List::create(
+            Rcpp::_["ptr"] = Rcpp::XPtr<void*>(nullptr, false),
+            Rcpp::_["ser"] = R_NilValue
+        );
+        out["imputer"] = Rcpp::List::create(
+            Rcpp::_["ptr"] = Rcpp::XPtr<void*>(nullptr, false),
+            Rcpp::_["ser"] = R_NilValue
+        );
+        out["indexer"] = Rcpp::List::create(
+            Rcpp::_["ptr"] = Rcpp::XPtr<void*>(nullptr, false),
+            Rcpp::_["ser"] = R_NilValue
+        );
+    }
 
     FileOpener file_(fname[0], "rb");
     FILE *input_file = file_.get_handle();
@@ -1927,30 +2376,61 @@ Rcpp::List deserialize_from_file(Rcpp::CharacterVector fname)
         ptr_metadata
     );
 
-    if (has_IsoForest)
-        out["serialized"] = serialize_cpp_obj(model.get());
-    else
-        out["serialized"] = serialize_cpp_obj(model_ext.get());
-    if (has_Imputer)
-        out["imp_ser"] = serialize_cpp_obj(imputer.get());
-    if (has_Indexer)
-        out["ind_ser"] = serialize_cpp_obj(indexer.get());
+    if (lazy_serialization)
+    {
+        if (has_IsoForest)
+            out["model"] = Rcpp::unwindProtect(get_altrepped_pointer<IsoForest>, &model);
+        else
+            out["model"] = Rcpp::unwindProtect(get_altrepped_pointer<ExtIsoForest>, &model_ext);
+        
+        if (has_Imputer)
+            out["imputer"] = Rcpp::unwindProtect(get_altrepped_pointer<Imputer>, &imputer);
+        else
+            out["imputer"] = Rcpp::unwindProtect(safe_get_altrepped_null_pointer, nullptr);
 
-    if (has_IsoForest) {
-        out["ptr"] = Rcpp::unwindProtect(safe_XPtr<IsoForest>, model.get());
-        model.release();
+        if (has_Imputer)
+            out["indexer"] = Rcpp::unwindProtect(get_altrepped_pointer<TreesIndexer>, &indexer);
+        else
+            out["indexer"] = Rcpp::unwindProtect(safe_get_altrepped_null_pointer, nullptr);
     }
-    else {
-        out["ptr"] = Rcpp::unwindProtect(safe_XPtr<ExtIsoForest>, model_ext.get());
-        model_ext.release();
-    }
-    if (has_Imputer) {
-        out["imp_ptr"] = Rcpp::unwindProtect(safe_XPtr<Imputer>, imputer.get());
-        imputer.release();
-    }
-    if (has_Indexer) {
-        out["indexer"] = Rcpp::unwindProtect(safe_XPtr<TreesIndexer>, indexer.get());
-        indexer.release();
+
+    else
+    {
+        Rcpp::List tmp_model = out["model"];
+        Rcpp::List tmp_imputer = out["imputer"];
+        Rcpp::List tmp_indexer = out["indexer"];
+        
+        if (has_IsoForest)
+            tmp_model["ser"] = serialize_cpp_obj(model.get());
+        else
+            tmp_model["ser"] = serialize_cpp_obj(model_ext.get());
+        
+        if (has_Imputer)
+            tmp_imputer["ser"] = serialize_cpp_obj(imputer.get());
+        
+        if (has_Indexer)
+            tmp_indexer["ser"] = serialize_cpp_obj(indexer.get());
+
+        if (has_IsoForest) {
+            tmp_model["ptr"] = Rcpp::unwindProtect(safe_XPtr<IsoForest>, model.get());
+            model.release();
+        }
+        else {
+            tmp_model["ptr"] = Rcpp::unwindProtect(safe_XPtr<ExtIsoForest>, model_ext.get());
+            model_ext.release();
+        }
+        if (has_Imputer) {
+            tmp_imputer["ptr"] = Rcpp::unwindProtect(safe_XPtr<Imputer>, imputer.get());
+            imputer.release();
+        }
+        if (has_Indexer) {
+            tmp_indexer["ptr"] = Rcpp::unwindProtect(safe_XPtr<TreesIndexer>, indexer.get());
+            indexer.release();
+        }
+
+        out["model"] = tmp_model;
+        out["imputer"] = tmp_imputer;
+        out["indexer"] = tmp_indexer;
     }
 
     return out;
@@ -2472,12 +2952,12 @@ Rcpp::IntegerMatrix get_null_int_mat()
 int get_ntrees(SEXP model_R_ptr, bool is_extended)
 {
     if (is_extended) {
-        ExtIsoForest* ext_model_ptr = static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        const ExtIsoForest* ext_model_ptr = static_cast<const ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
         return ext_model_ptr->hplanes.size();
     }
     
     else {
-        IsoForest* model_ptr = static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        const IsoForest* model_ptr = static_cast<const IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
         return model_ptr->trees.size();
     }
 }

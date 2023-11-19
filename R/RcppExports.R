@@ -17,16 +17,32 @@ deserialize_Indexer <- function(src) {
     .Call(`_isotree_deserialize_Indexer`, src)
 }
 
-check_null_ptr_model <- function(ptr_model) {
-    .Call(`_isotree_check_null_ptr_model`, ptr_model)
+serialize_IsoForest_from_ptr <- function(R_ptr) {
+    .Call(`_isotree_serialize_IsoForest_from_ptr`, R_ptr)
 }
 
-fit_model <- function(X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, with_replacement, weight_as_sample, sample_size, ntrees, max_depth, ncols_per_tree, limit_depth, penalize_range, standardize_data, scoring_metric, fast_bratio, calc_dist, standardize_dist, sq_dist, calc_depth, standardize_depth, weigh_by_kurt, prob_pick_by_gain_pl, prob_pick_by_gain_avg, prob_pick_by_full_gain, prob_pick_by_dens, prob_pick_col_by_range, prob_pick_col_by_var, prob_pick_col_by_kurt, min_gain, cat_split_type, new_cat_action, missing_action, all_perm, build_imputer, output_imputations, min_imp_obs, depth_imp, weigh_imp_rows, random_seed, use_long_double, nthreads) {
-    .Call(`_isotree_fit_model`, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, with_replacement, weight_as_sample, sample_size, ntrees, max_depth, ncols_per_tree, limit_depth, penalize_range, standardize_data, scoring_metric, fast_bratio, calc_dist, standardize_dist, sq_dist, calc_depth, standardize_depth, weigh_by_kurt, prob_pick_by_gain_pl, prob_pick_by_gain_avg, prob_pick_by_full_gain, prob_pick_by_dens, prob_pick_col_by_range, prob_pick_col_by_var, prob_pick_col_by_kurt, min_gain, cat_split_type, new_cat_action, missing_action, all_perm, build_imputer, output_imputations, min_imp_obs, depth_imp, weigh_imp_rows, random_seed, use_long_double, nthreads)
+serialize_ExtIsoForest_from_ptr <- function(R_ptr) {
+    .Call(`_isotree_serialize_ExtIsoForest_from_ptr`, R_ptr)
 }
 
-fit_tree <- function(model_R_ptr, serialized_obj, serialized_imputer, indexer_R_ptr, serialized_indexer, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, max_depth, ncols_per_tree, limit_depth, penalize_range, standardize_data, fast_bratio, weigh_by_kurt, prob_pick_by_gain_pl, prob_pick_by_gain_avg, prob_pick_by_full_gain, prob_pick_by_dens, prob_pick_col_by_range, prob_pick_col_by_var, prob_pick_col_by_kurt, min_gain, cat_split_type, new_cat_action, missing_action, build_imputer, min_imp_obs, imp_R_ptr, depth_imp, weigh_imp_rows, all_perm, ref_X_num, ref_X_cat, ref_Xc, ref_Xc_ind, ref_Xc_indptr, random_seed, use_long_double, model_cpp_obj_update, model_params_update) {
-    invisible(.Call(`_isotree_fit_tree`, model_R_ptr, serialized_obj, serialized_imputer, indexer_R_ptr, serialized_indexer, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, max_depth, ncols_per_tree, limit_depth, penalize_range, standardize_data, fast_bratio, weigh_by_kurt, prob_pick_by_gain_pl, prob_pick_by_gain_avg, prob_pick_by_full_gain, prob_pick_by_dens, prob_pick_col_by_range, prob_pick_col_by_var, prob_pick_col_by_kurt, min_gain, cat_split_type, new_cat_action, missing_action, build_imputer, min_imp_obs, imp_R_ptr, depth_imp, weigh_imp_rows, all_perm, ref_X_num, ref_X_cat, ref_Xc, ref_Xc_ind, ref_Xc_indptr, random_seed, use_long_double, model_cpp_obj_update, model_params_update))
+serialize_Imputer_from_ptr <- function(R_ptr) {
+    .Call(`_isotree_serialize_Imputer_from_ptr`, R_ptr)
+}
+
+serialize_Indexer_from_ptr <- function(R_ptr) {
+    .Call(`_isotree_serialize_Indexer_from_ptr`, R_ptr)
+}
+
+check_null_ptr_model_internal <- function(ptr_model) {
+    .Call(`_isotree_check_null_ptr_model_internal`, ptr_model)
+}
+
+fit_model <- function(X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, with_replacement, weight_as_sample, sample_size, ntrees, max_depth, ncols_per_tree, limit_depth, penalize_range, standardize_data, scoring_metric, fast_bratio, calc_dist, standardize_dist, sq_dist, calc_depth, standardize_depth, weigh_by_kurt, prob_pick_by_gain_pl, prob_pick_by_gain_avg, prob_pick_by_full_gain, prob_pick_by_dens, prob_pick_col_by_range, prob_pick_col_by_var, prob_pick_col_by_kurt, min_gain, cat_split_type, new_cat_action, missing_action, all_perm, build_imputer, output_imputations, min_imp_obs, depth_imp, weigh_imp_rows, random_seed, use_long_double, nthreads, lazy_serialization) {
+    .Call(`_isotree_fit_model`, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, with_replacement, weight_as_sample, sample_size, ntrees, max_depth, ncols_per_tree, limit_depth, penalize_range, standardize_data, scoring_metric, fast_bratio, calc_dist, standardize_dist, sq_dist, calc_depth, standardize_depth, weigh_by_kurt, prob_pick_by_gain_pl, prob_pick_by_gain_avg, prob_pick_by_full_gain, prob_pick_by_dens, prob_pick_col_by_range, prob_pick_col_by_var, prob_pick_col_by_kurt, min_gain, cat_split_type, new_cat_action, missing_action, all_perm, build_imputer, output_imputations, min_imp_obs, depth_imp, weigh_imp_rows, random_seed, use_long_double, nthreads, lazy_serialization)
+}
+
+fit_tree <- function(model_R_ptr, serialized_obj, serialized_imputer, indexer_R_ptr, serialized_indexer, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, max_depth, ncols_per_tree, limit_depth, penalize_range, standardize_data, fast_bratio, weigh_by_kurt, prob_pick_by_gain_pl, prob_pick_by_gain_avg, prob_pick_by_full_gain, prob_pick_by_dens, prob_pick_col_by_range, prob_pick_col_by_var, prob_pick_col_by_kurt, min_gain, cat_split_type, new_cat_action, missing_action, build_imputer, min_imp_obs, imp_R_ptr, depth_imp, weigh_imp_rows, all_perm, ref_X_num, ref_X_cat, ref_Xc, ref_Xc_ind, ref_Xc_indptr, random_seed, use_long_double, model_cpp_obj_update, model_params_update, is_altrepped) {
+    invisible(.Call(`_isotree_fit_tree`, model_R_ptr, serialized_obj, serialized_imputer, indexer_R_ptr, serialized_indexer, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, max_depth, ncols_per_tree, limit_depth, penalize_range, standardize_data, fast_bratio, weigh_by_kurt, prob_pick_by_gain_pl, prob_pick_by_gain_avg, prob_pick_by_full_gain, prob_pick_by_dens, prob_pick_col_by_range, prob_pick_col_by_var, prob_pick_col_by_kurt, min_gain, cat_split_type, new_cat_action, missing_action, build_imputer, min_imp_obs, imp_R_ptr, depth_imp, weigh_imp_rows, all_perm, ref_X_num, ref_X_cat, ref_Xc, ref_Xc_ind, ref_Xc_indptr, random_seed, use_long_double, model_cpp_obj_update, model_params_update, is_altrepped))
 }
 
 predict_iso <- function(model_R_ptr, is_extended, indexer_R_ptr, outp, tree_num, tree_depths, X_num, X_cat, Xc, Xc_ind, Xc_indptr, Xr, Xr_ind, Xr_indptr, nrows, nthreads, standardize) {
@@ -41,20 +57,20 @@ impute_iso <- function(model_R_ptr, imputer_R_ptr, is_extended, X_num, X_cat, Xr
     .Call(`_isotree_impute_iso`, model_R_ptr, imputer_R_ptr, is_extended, X_num, X_cat, Xr, Xr_ind, Xr_indptr, nrows, use_long_double, nthreads)
 }
 
-drop_imputer <- function(lst_modify, lst_modify2) {
-    invisible(.Call(`_isotree_drop_imputer`, lst_modify, lst_modify2))
+drop_imputer <- function(is_altrepped, free_cpp, lst_imputer, lst_cpp_objects, lst_params) {
+    invisible(.Call(`_isotree_drop_imputer`, is_altrepped, free_cpp, lst_imputer, lst_cpp_objects, lst_params))
 }
 
-drop_indexer <- function(lst_modify, lst_modify2) {
-    invisible(.Call(`_isotree_drop_indexer`, lst_modify, lst_modify2))
+drop_indexer <- function(is_altrepped, free_cpp, lst_indexer, lst_cpp_objects, lst_metadata) {
+    invisible(.Call(`_isotree_drop_indexer`, is_altrepped, free_cpp, lst_indexer, lst_cpp_objects, lst_metadata))
 }
 
-drop_reference_points <- function(lst_modify, lst_modify2) {
-    invisible(.Call(`_isotree_drop_reference_points`, lst_modify, lst_modify2))
+drop_reference_points <- function(is_altrepped, lst_indexer, lst_cpp_objects, lst_metadata) {
+    invisible(.Call(`_isotree_drop_reference_points`, is_altrepped, lst_indexer, lst_cpp_objects, lst_metadata))
 }
 
-subset_trees <- function(model_R_ptr, imputer_R_ptr, indexer_R_ptr, is_extended, has_imputer, trees_take) {
-    .Call(`_isotree_subset_trees`, model_R_ptr, imputer_R_ptr, indexer_R_ptr, is_extended, has_imputer, trees_take)
+subset_trees <- function(model_R_ptr, imputer_R_ptr, indexer_R_ptr, is_extended, is_altrepped, trees_take) {
+    .Call(`_isotree_subset_trees`, model_R_ptr, imputer_R_ptr, indexer_R_ptr, is_extended, is_altrepped, trees_take)
 }
 
 inplace_set_to_zero <- function(obj) {
@@ -65,8 +81,8 @@ get_n_nodes <- function(model_R_ptr, is_extended, nthreads) {
     .Call(`_isotree_get_n_nodes`, model_R_ptr, is_extended, nthreads)
 }
 
-append_trees_from_other <- function(model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, ind_R_ptr, oind_R_ptr, is_extended, serialized_obj, serialized_imputer, serialized_indexer, model_cpp_obj_update, model_params_update) {
-    invisible(.Call(`_isotree_append_trees_from_other`, model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, ind_R_ptr, oind_R_ptr, is_extended, serialized_obj, serialized_imputer, serialized_indexer, model_cpp_obj_update, model_params_update))
+append_trees_from_other <- function(model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, ind_R_ptr, oind_R_ptr, is_extended, serialized_obj, serialized_imputer, serialized_indexer, model_cpp_obj_update, model_params_update, is_altrepped) {
+    invisible(.Call(`_isotree_append_trees_from_other`, model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, ind_R_ptr, oind_R_ptr, is_extended, serialized_obj, serialized_imputer, serialized_indexer, model_cpp_obj_update, model_params_update, is_altrepped))
 }
 
 model_to_sql <- function(model_R_ptr, is_extended, numeric_colanmes, categ_colnames, categ_levels, output_tree_num, single_tree, tree_num, nthreads) {
@@ -77,20 +93,20 @@ model_to_sql_with_select_from <- function(model_R_ptr, is_extended, numeric_cola
     .Call(`_isotree_model_to_sql_with_select_from`, model_R_ptr, is_extended, numeric_colanmes, categ_colnames, categ_levels, table_from, select_as, nthreads)
 }
 
-copy_cpp_objects <- function(model_R_ptr, is_extended, imp_R_ptr, has_imputer, ind_R_ptr) {
-    .Call(`_isotree_copy_cpp_objects`, model_R_ptr, is_extended, imp_R_ptr, has_imputer, ind_R_ptr)
+copy_cpp_objects <- function(model_R_ptr, is_extended, imp_R_ptr, ind_R_ptr, lazy_serialization) {
+    .Call(`_isotree_copy_cpp_objects`, model_R_ptr, is_extended, imp_R_ptr, ind_R_ptr, lazy_serialization)
 }
 
-build_tree_indices <- function(lst_modify, is_extended, with_distances, nthreads) {
-    invisible(.Call(`_isotree_build_tree_indices`, lst_modify, is_extended, with_distances, nthreads))
+build_tree_indices <- function(lst_cpp_objects, ptr_model, is_altrepped, is_extended, with_distances, nthreads) {
+    invisible(.Call(`_isotree_build_tree_indices`, lst_cpp_objects, ptr_model, is_altrepped, is_extended, with_distances, nthreads))
 }
 
 check_node_indexer_has_distances <- function(indexer_R_ptr) {
     .Call(`_isotree_check_node_indexer_has_distances`, indexer_R_ptr)
 }
 
-set_reference_points <- function(lst_modify, lst_modify2, rnames, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, with_distances) {
-    invisible(.Call(`_isotree_set_reference_points`, lst_modify, lst_modify2, rnames, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, with_distances))
+set_reference_points <- function(lst_cpp_objects, ptr_model, ind_R_ptr, is_altrepped, lst_metadata, rnames, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, with_distances) {
+    invisible(.Call(`_isotree_set_reference_points`, lst_cpp_objects, ptr_model, ind_R_ptr, is_altrepped, lst_metadata, rnames, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, with_distances))
 }
 
 check_node_indexer_has_references <- function(indexer_R_ptr) {
@@ -101,16 +117,16 @@ get_num_references <- function(indexer_R_ptr) {
     .Call(`_isotree_get_num_references`, indexer_R_ptr)
 }
 
-get_null_R_pointer <- function() {
-    .Call(`_isotree_get_null_R_pointer`)
+get_null_R_pointer_internal <- function(altrepped) {
+    .Call(`_isotree_get_null_R_pointer_internal`, altrepped)
 }
 
 serialize_to_file <- function(serialized_obj, serialized_imputer, serialized_indexer, is_extended, metadata, fname) {
     invisible(.Call(`_isotree_serialize_to_file`, serialized_obj, serialized_imputer, serialized_indexer, is_extended, metadata, fname))
 }
 
-deserialize_from_file <- function(fname) {
-    .Call(`_isotree_deserialize_from_file`, fname)
+deserialize_from_file <- function(fname, lazy_serialization) {
+    .Call(`_isotree_deserialize_from_file`, fname, lazy_serialization)
 }
 
 call_sort_csc_indices <- function(Xc, Xc_ind, Xc_indptr) {

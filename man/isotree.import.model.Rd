@@ -4,12 +4,16 @@
 \alias{isotree.import.model}
 \title{Load an Isolation Forest model exported from Python}
 \usage{
-isotree.import.model(file)
+isotree.import.model(file, lazy_serialization = TRUE)
 }
 \arguments{
 \item{file}{Path to the saved isolation forest model.
 Must be a file path, not a file connection,
 and the character encoding should correspond to the system's native encoding.}
+
+\item{lazy_serialization}{Whether to use lazy serialization through the ALTREP
+system for the resulting objects. See the documentation for this same parameter
+in \link{isolation.forest} for details.}
 }
 \value{
 An isolation forest model, as if it had been constructed through
@@ -36,11 +40,6 @@ take a look at the metadata to check if these columns will be taken as booleans
 
 See the documentation for \link{isotree.export.model} for details about compatibility
 of the generated files across different machines and versions.
-
-If using this function to de-serialize a model in a production system, one might
-want to delete the serialized bytes inside the object afterwards in order to free up memory.
-These are under `model$cpp_obj$serialized` (plus `model$cpp_obj$imp_ser` if building with imputer)
-- e.g.: `model$cpp_obj$serialized = NULL; model$cpp_obj$imp_ser = NULL; gc()`.
 }
 \seealso{
 \link{isotree.export.model} \link{isotree.restore.handle}

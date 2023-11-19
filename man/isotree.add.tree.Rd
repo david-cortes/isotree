@@ -55,6 +55,9 @@ Be aware that, if an out-of-memory error occurs, the resulting object might be r
 
 For safety purposes, the model object can be deep copied (including the underlying C++ object)
 through function \link{isotree.deep.copy} before undergoing an in-place modification like this.
+
+If this function is going to be called frequently, it's highly recommended to use `lazy_serialization=TRUE`
+as then it will not need to copy over serialized bytes.
 }
 \seealso{
 \link{isolation.forest} \link{isotree.restore.handle}

@@ -19,5 +19,6 @@ from this `model` that was specified under `trees_take`.
 }
 \description{
 Creates a new isolation forest model containing only selected trees of a
-given isolation forest model object.
+given isolation forest model object. Note that, if using `lazy_serialization=FALSE`,
+this will re-trigger serialization.
 }

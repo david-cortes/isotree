@@ -15,7 +15,8 @@ isotree.set.reference.points(
 \item{model}{An Isolation Forest model (as returned by function \link{isolation.forest})
 for which reference points for distance and/or kernel calculations will be set.
 
-\bold{The object will be modified in-place}.}
+\bold{The object will be modified in-place}. If there were any previous references, they will
+be overwritten with the new ones passed here.}
 
 \item{data}{Observations to set as reference points for future distance and/or isolation kernel calculations.
 Same format as for \link{predict.isolation_forest}.}
@@ -44,6 +45,9 @@ Be aware that adding reference points requires building a tree indexer.
 Note that points are added in terms of their terminal node indices, but the raw data about
 them is not kept - thus, calling \link{isotree.add.tree} later on a model with reference points
 requires passing those reference points again to add their node indices to the new tree.
+
+If using `lazy_serialization=TRUE`, and the process fails while setting references (e.g.
+due to out-of-memory errors), previous references that the model might have had will be lost.
 }
 \seealso{
 \link{isotree.build.indexer}

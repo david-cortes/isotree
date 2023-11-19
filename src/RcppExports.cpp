@@ -50,19 +50,59 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// check_null_ptr_model
-Rcpp::LogicalVector check_null_ptr_model(SEXP ptr_model);
-RcppExport SEXP _isotree_check_null_ptr_model(SEXP ptr_modelSEXP) {
+// serialize_IsoForest_from_ptr
+SEXP serialize_IsoForest_from_ptr(SEXP R_ptr);
+RcppExport SEXP _isotree_serialize_IsoForest_from_ptr(SEXP R_ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type R_ptr(R_ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(serialize_IsoForest_from_ptr(R_ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
+// serialize_ExtIsoForest_from_ptr
+SEXP serialize_ExtIsoForest_from_ptr(SEXP R_ptr);
+RcppExport SEXP _isotree_serialize_ExtIsoForest_from_ptr(SEXP R_ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type R_ptr(R_ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(serialize_ExtIsoForest_from_ptr(R_ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
+// serialize_Imputer_from_ptr
+SEXP serialize_Imputer_from_ptr(SEXP R_ptr);
+RcppExport SEXP _isotree_serialize_Imputer_from_ptr(SEXP R_ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type R_ptr(R_ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(serialize_Imputer_from_ptr(R_ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
+// serialize_Indexer_from_ptr
+SEXP serialize_Indexer_from_ptr(SEXP R_ptr);
+RcppExport SEXP _isotree_serialize_Indexer_from_ptr(SEXP R_ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type R_ptr(R_ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(serialize_Indexer_from_ptr(R_ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
+// check_null_ptr_model_internal
+Rcpp::LogicalVector check_null_ptr_model_internal(SEXP ptr_model);
+RcppExport SEXP _isotree_check_null_ptr_model_internal(SEXP ptr_modelSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::traits::input_parameter< SEXP >::type ptr_model(ptr_modelSEXP);
-    rcpp_result_gen = Rcpp::wrap(check_null_ptr_model(ptr_model));
+    rcpp_result_gen = Rcpp::wrap(check_null_ptr_model_internal(ptr_model));
     return rcpp_result_gen;
 END_RCPP
 }
 // fit_model
-Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights, size_t nrows, size_t ncols_numeric, size_t ncols_categ, size_t ndim, size_t ntry, Rcpp::CharacterVector coef_type, bool coef_by_prop, bool with_replacement, bool weight_as_sample, size_t sample_size, size_t ntrees, size_t max_depth, size_t ncols_per_tree, bool limit_depth, bool penalize_range, bool standardize_data, Rcpp::CharacterVector scoring_metric, bool fast_bratio, bool calc_dist, bool standardize_dist, bool sq_dist, bool calc_depth, bool standardize_depth, bool weigh_by_kurt, double prob_pick_by_gain_pl, double prob_pick_by_gain_avg, double prob_pick_by_full_gain, double prob_pick_by_dens, double prob_pick_col_by_range, double prob_pick_col_by_var, double prob_pick_col_by_kurt, double min_gain, Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action, Rcpp::CharacterVector missing_action, bool all_perm, bool build_imputer, bool output_imputations, size_t min_imp_obs, Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows, int random_seed, bool use_long_double, int nthreads);
-RcppExport SEXP _isotree_fit_model(SEXP X_numSEXP, SEXP X_catSEXP, SEXP ncatSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP sample_weightsSEXP, SEXP col_weightsSEXP, SEXP nrowsSEXP, SEXP ncols_numericSEXP, SEXP ncols_categSEXP, SEXP ndimSEXP, SEXP ntrySEXP, SEXP coef_typeSEXP, SEXP coef_by_propSEXP, SEXP with_replacementSEXP, SEXP weight_as_sampleSEXP, SEXP sample_sizeSEXP, SEXP ntreesSEXP, SEXP max_depthSEXP, SEXP ncols_per_treeSEXP, SEXP limit_depthSEXP, SEXP penalize_rangeSEXP, SEXP standardize_dataSEXP, SEXP scoring_metricSEXP, SEXP fast_bratioSEXP, SEXP calc_distSEXP, SEXP standardize_distSEXP, SEXP sq_distSEXP, SEXP calc_depthSEXP, SEXP standardize_depthSEXP, SEXP weigh_by_kurtSEXP, SEXP prob_pick_by_gain_plSEXP, SEXP prob_pick_by_gain_avgSEXP, SEXP prob_pick_by_full_gainSEXP, SEXP prob_pick_by_densSEXP, SEXP prob_pick_col_by_rangeSEXP, SEXP prob_pick_col_by_varSEXP, SEXP prob_pick_col_by_kurtSEXP, SEXP min_gainSEXP, SEXP cat_split_typeSEXP, SEXP new_cat_actionSEXP, SEXP missing_actionSEXP, SEXP all_permSEXP, SEXP build_imputerSEXP, SEXP output_imputationsSEXP, SEXP min_imp_obsSEXP, SEXP depth_impSEXP, SEXP weigh_imp_rowsSEXP, SEXP random_seedSEXP, SEXP use_long_doubleSEXP, SEXP nthreadsSEXP) {
+Rcpp::List fit_model(Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights, size_t nrows, size_t ncols_numeric, size_t ncols_categ, size_t ndim, size_t ntry, Rcpp::CharacterVector coef_type, bool coef_by_prop, bool with_replacement, bool weight_as_sample, size_t sample_size, size_t ntrees, size_t max_depth, size_t ncols_per_tree, bool limit_depth, bool penalize_range, bool standardize_data, Rcpp::CharacterVector scoring_metric, bool fast_bratio, bool calc_dist, bool standardize_dist, bool sq_dist, bool calc_depth, bool standardize_depth, bool weigh_by_kurt, double prob_pick_by_gain_pl, double prob_pick_by_gain_avg, double prob_pick_by_full_gain, double prob_pick_by_dens, double prob_pick_col_by_range, double prob_pick_col_by_var, double prob_pick_col_by_kurt, double min_gain, Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action, Rcpp::CharacterVector missing_action, bool all_perm, bool build_imputer, bool output_imputations, size_t min_imp_obs, Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows, int random_seed, bool use_long_double, int nthreads, bool lazy_serialization);
+RcppExport SEXP _isotree_fit_model(SEXP X_numSEXP, SEXP X_catSEXP, SEXP ncatSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP sample_weightsSEXP, SEXP col_weightsSEXP, SEXP nrowsSEXP, SEXP ncols_numericSEXP, SEXP ncols_categSEXP, SEXP ndimSEXP, SEXP ntrySEXP, SEXP coef_typeSEXP, SEXP coef_by_propSEXP, SEXP with_replacementSEXP, SEXP weight_as_sampleSEXP, SEXP sample_sizeSEXP, SEXP ntreesSEXP, SEXP max_depthSEXP, SEXP ncols_per_treeSEXP, SEXP limit_depthSEXP, SEXP penalize_rangeSEXP, SEXP standardize_dataSEXP, SEXP scoring_metricSEXP, SEXP fast_bratioSEXP, SEXP calc_distSEXP, SEXP standardize_distSEXP, SEXP sq_distSEXP, SEXP calc_depthSEXP, SEXP standardize_depthSEXP, SEXP weigh_by_kurtSEXP, SEXP prob_pick_by_gain_plSEXP, SEXP prob_pick_by_gain_avgSEXP, SEXP prob_pick_by_full_gainSEXP, SEXP prob_pick_by_densSEXP, SEXP prob_pick_col_by_rangeSEXP, SEXP prob_pick_col_by_varSEXP, SEXP prob_pick_col_by_kurtSEXP, SEXP min_gainSEXP, SEXP cat_split_typeSEXP, SEXP new_cat_actionSEXP, SEXP missing_actionSEXP, SEXP all_permSEXP, SEXP build_imputerSEXP, SEXP output_imputationsSEXP, SEXP min_imp_obsSEXP, SEXP depth_impSEXP, SEXP weigh_imp_rowsSEXP, SEXP random_seedSEXP, SEXP use_long_doubleSEXP, SEXP nthreadsSEXP, SEXP lazy_serializationSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type X_num(X_numSEXP);
@@ -117,13 +157,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type random_seed(random_seedSEXP);
     Rcpp::traits::input_parameter< bool >::type use_long_double(use_long_doubleSEXP);
     Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(fit_model(X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, with_replacement, weight_as_sample, sample_size, ntrees, max_depth, ncols_per_tree, limit_depth, penalize_range, standardize_data, scoring_metric, fast_bratio, calc_dist, standardize_dist, sq_dist, calc_depth, standardize_depth, weigh_by_kurt, prob_pick_by_gain_pl, prob_pick_by_gain_avg, prob_pick_by_full_gain, prob_pick_by_dens, prob_pick_col_by_range, prob_pick_col_by_var, prob_pick_col_by_kurt, min_gain, cat_split_type, new_cat_action, missing_action, all_perm, build_imputer, output_imputations, min_imp_obs, depth_imp, weigh_imp_rows, random_seed, use_long_double, nthreads));
+    Rcpp::traits::input_parameter< bool >::type lazy_serialization(lazy_serializationSEXP);
+    rcpp_result_gen = Rcpp::wrap(fit_model(X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, with_replacement, weight_as_sample, sample_size, ntrees, max_depth, ncols_per_tree, limit_depth, penalize_range, standardize_data, scoring_metric, fast_bratio, calc_dist, standardize_dist, sq_dist, calc_depth, standardize_depth, weigh_by_kurt, prob_pick_by_gain_pl, prob_pick_by_gain_avg, prob_pick_by_full_gain, prob_pick_by_dens, prob_pick_col_by_range, prob_pick_col_by_var, prob_pick_col_by_kurt, min_gain, cat_split_type, new_cat_action, missing_action, all_perm, build_imputer, output_imputations, min_imp_obs, depth_imp, weigh_imp_rows, random_seed, use_long_double, nthreads, lazy_serialization));
     return rcpp_result_gen;
 END_RCPP
 }
 // fit_tree
-void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector serialized_imputer, SEXP indexer_R_ptr, Rcpp::RawVector serialized_indexer, Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights, size_t nrows, size_t ncols_numeric, size_t ncols_categ, size_t ndim, size_t ntry, Rcpp::CharacterVector coef_type, bool coef_by_prop, size_t max_depth, size_t ncols_per_tree, bool limit_depth, bool penalize_range, bool standardize_data, bool fast_bratio, bool weigh_by_kurt, double prob_pick_by_gain_pl, double prob_pick_by_gain_avg, double prob_pick_by_full_gain, double prob_pick_by_dens, double prob_pick_col_by_range, double prob_pick_col_by_var, double prob_pick_col_by_kurt, double min_gain, Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action, Rcpp::CharacterVector missing_action, bool build_imputer, size_t min_imp_obs, SEXP imp_R_ptr, Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows, bool all_perm, Rcpp::NumericVector ref_X_num, Rcpp::IntegerVector ref_X_cat, Rcpp::NumericVector ref_Xc, Rcpp::IntegerVector ref_Xc_ind, Rcpp::IntegerVector ref_Xc_indptr, uint64_t random_seed, bool use_long_double, Rcpp::List& model_cpp_obj_update, Rcpp::List& model_params_update);
-RcppExport SEXP _isotree_fit_tree(SEXP model_R_ptrSEXP, SEXP serialized_objSEXP, SEXP serialized_imputerSEXP, SEXP indexer_R_ptrSEXP, SEXP serialized_indexerSEXP, SEXP X_numSEXP, SEXP X_catSEXP, SEXP ncatSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP sample_weightsSEXP, SEXP col_weightsSEXP, SEXP nrowsSEXP, SEXP ncols_numericSEXP, SEXP ncols_categSEXP, SEXP ndimSEXP, SEXP ntrySEXP, SEXP coef_typeSEXP, SEXP coef_by_propSEXP, SEXP max_depthSEXP, SEXP ncols_per_treeSEXP, SEXP limit_depthSEXP, SEXP penalize_rangeSEXP, SEXP standardize_dataSEXP, SEXP fast_bratioSEXP, SEXP weigh_by_kurtSEXP, SEXP prob_pick_by_gain_plSEXP, SEXP prob_pick_by_gain_avgSEXP, SEXP prob_pick_by_full_gainSEXP, SEXP prob_pick_by_densSEXP, SEXP prob_pick_col_by_rangeSEXP, SEXP prob_pick_col_by_varSEXP, SEXP prob_pick_col_by_kurtSEXP, SEXP min_gainSEXP, SEXP cat_split_typeSEXP, SEXP new_cat_actionSEXP, SEXP missing_actionSEXP, SEXP build_imputerSEXP, SEXP min_imp_obsSEXP, SEXP imp_R_ptrSEXP, SEXP depth_impSEXP, SEXP weigh_imp_rowsSEXP, SEXP all_permSEXP, SEXP ref_X_numSEXP, SEXP ref_X_catSEXP, SEXP ref_XcSEXP, SEXP ref_Xc_indSEXP, SEXP ref_Xc_indptrSEXP, SEXP random_seedSEXP, SEXP use_long_doubleSEXP, SEXP model_cpp_obj_updateSEXP, SEXP model_params_updateSEXP) {
+void fit_tree(SEXP model_R_ptr, Rcpp::RawVector serialized_obj, Rcpp::RawVector serialized_imputer, SEXP indexer_R_ptr, Rcpp::RawVector serialized_indexer, Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::IntegerVector ncat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, Rcpp::NumericVector sample_weights, Rcpp::NumericVector col_weights, size_t nrows, size_t ncols_numeric, size_t ncols_categ, size_t ndim, size_t ntry, Rcpp::CharacterVector coef_type, bool coef_by_prop, size_t max_depth, size_t ncols_per_tree, bool limit_depth, bool penalize_range, bool standardize_data, bool fast_bratio, bool weigh_by_kurt, double prob_pick_by_gain_pl, double prob_pick_by_gain_avg, double prob_pick_by_full_gain, double prob_pick_by_dens, double prob_pick_col_by_range, double prob_pick_col_by_var, double prob_pick_col_by_kurt, double min_gain, Rcpp::CharacterVector cat_split_type, Rcpp::CharacterVector new_cat_action, Rcpp::CharacterVector missing_action, bool build_imputer, size_t min_imp_obs, SEXP imp_R_ptr, Rcpp::CharacterVector depth_imp, Rcpp::CharacterVector weigh_imp_rows, bool all_perm, Rcpp::NumericVector ref_X_num, Rcpp::IntegerVector ref_X_cat, Rcpp::NumericVector ref_Xc, Rcpp::IntegerVector ref_Xc_ind, Rcpp::IntegerVector ref_Xc_indptr, uint64_t random_seed, bool use_long_double, Rcpp::List& model_cpp_obj_update, Rcpp::List& model_params_update, bool is_altrepped);
+RcppExport SEXP _isotree_fit_tree(SEXP model_R_ptrSEXP, SEXP serialized_objSEXP, SEXP serialized_imputerSEXP, SEXP indexer_R_ptrSEXP, SEXP serialized_indexerSEXP, SEXP X_numSEXP, SEXP X_catSEXP, SEXP ncatSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP sample_weightsSEXP, SEXP col_weightsSEXP, SEXP nrowsSEXP, SEXP ncols_numericSEXP, SEXP ncols_categSEXP, SEXP ndimSEXP, SEXP ntrySEXP, SEXP coef_typeSEXP, SEXP coef_by_propSEXP, SEXP max_depthSEXP, SEXP ncols_per_treeSEXP, SEXP limit_depthSEXP, SEXP penalize_rangeSEXP, SEXP standardize_dataSEXP, SEXP fast_bratioSEXP, SEXP weigh_by_kurtSEXP, SEXP prob_pick_by_gain_plSEXP, SEXP prob_pick_by_gain_avgSEXP, SEXP prob_pick_by_full_gainSEXP, SEXP prob_pick_by_densSEXP, SEXP prob_pick_col_by_rangeSEXP, SEXP prob_pick_col_by_varSEXP, SEXP prob_pick_col_by_kurtSEXP, SEXP min_gainSEXP, SEXP cat_split_typeSEXP, SEXP new_cat_actionSEXP, SEXP missing_actionSEXP, SEXP build_imputerSEXP, SEXP min_imp_obsSEXP, SEXP imp_R_ptrSEXP, SEXP depth_impSEXP, SEXP weigh_imp_rowsSEXP, SEXP all_permSEXP, SEXP ref_X_numSEXP, SEXP ref_X_catSEXP, SEXP ref_XcSEXP, SEXP ref_Xc_indSEXP, SEXP ref_Xc_indptrSEXP, SEXP random_seedSEXP, SEXP use_long_doubleSEXP, SEXP model_cpp_obj_updateSEXP, SEXP model_params_updateSEXP, SEXP is_altreppedSEXP) {
 BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
     Rcpp::traits::input_parameter< Rcpp::RawVector >::type serialized_obj(serialized_objSEXP);
@@ -178,7 +219,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type use_long_double(use_long_doubleSEXP);
     Rcpp::traits::input_parameter< Rcpp::List& >::type model_cpp_obj_update(model_cpp_obj_updateSEXP);
     Rcpp::traits::input_parameter< Rcpp::List& >::type model_params_update(model_params_updateSEXP);
-    fit_tree(model_R_ptr, serialized_obj, serialized_imputer, indexer_R_ptr, serialized_indexer, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, max_depth, ncols_per_tree, limit_depth, penalize_range, standardize_data, fast_bratio, weigh_by_kurt, prob_pick_by_gain_pl, prob_pick_by_gain_avg, prob_pick_by_full_gain, prob_pick_by_dens, prob_pick_col_by_range, prob_pick_col_by_var, prob_pick_col_by_kurt, min_gain, cat_split_type, new_cat_action, missing_action, build_imputer, min_imp_obs, imp_R_ptr, depth_imp, weigh_imp_rows, all_perm, ref_X_num, ref_X_cat, ref_Xc, ref_Xc_ind, ref_Xc_indptr, random_seed, use_long_double, model_cpp_obj_update, model_params_update);
+    Rcpp::traits::input_parameter< bool >::type is_altrepped(is_altreppedSEXP);
+    fit_tree(model_R_ptr, serialized_obj, serialized_imputer, indexer_R_ptr, serialized_indexer, X_num, X_cat, ncat, Xc, Xc_ind, Xc_indptr, sample_weights, col_weights, nrows, ncols_numeric, ncols_categ, ndim, ntry, coef_type, coef_by_prop, max_depth, ncols_per_tree, limit_depth, penalize_range, standardize_data, fast_bratio, weigh_by_kurt, prob_pick_by_gain_pl, prob_pick_by_gain_avg, prob_pick_by_full_gain, prob_pick_by_dens, prob_pick_col_by_range, prob_pick_col_by_var, prob_pick_col_by_kurt, min_gain, cat_split_type, new_cat_action, missing_action, build_imputer, min_imp_obs, imp_R_ptr, depth_imp, weigh_imp_rows, all_perm, ref_X_num, ref_X_cat, ref_Xc, ref_Xc_ind, ref_Xc_indptr, random_seed, use_long_double, model_cpp_obj_update, model_params_update, is_altrepped);
     return R_NilValue;
 END_RCPP
 }
@@ -256,47 +298,55 @@ BEGIN_RCPP
 END_RCPP
 }
 // drop_imputer
-void drop_imputer(Rcpp::List lst_modify, Rcpp::List lst_modify2);
-RcppExport SEXP _isotree_drop_imputer(SEXP lst_modifySEXP, SEXP lst_modify2SEXP) {
+void drop_imputer(bool is_altrepped, bool free_cpp, SEXP lst_imputer, Rcpp::List lst_cpp_objects, Rcpp::List lst_params);
+RcppExport SEXP _isotree_drop_imputer(SEXP is_altreppedSEXP, SEXP free_cppSEXP, SEXP lst_imputerSEXP, SEXP lst_cpp_objectsSEXP, SEXP lst_paramsSEXP) {
 BEGIN_RCPP
-    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify(lst_modifySEXP);
-    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify2(lst_modify2SEXP);
-    drop_imputer(lst_modify, lst_modify2);
+    Rcpp::traits::input_parameter< bool >::type is_altrepped(is_altreppedSEXP);
+    Rcpp::traits::input_parameter< bool >::type free_cpp(free_cppSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type lst_imputer(lst_imputerSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_cpp_objects(lst_cpp_objectsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_params(lst_paramsSEXP);
+    drop_imputer(is_altrepped, free_cpp, lst_imputer, lst_cpp_objects, lst_params);
     return R_NilValue;
 END_RCPP
 }
 // drop_indexer
-void drop_indexer(Rcpp::List lst_modify, Rcpp::List lst_modify2);
-RcppExport SEXP _isotree_drop_indexer(SEXP lst_modifySEXP, SEXP lst_modify2SEXP) {
+void drop_indexer(bool is_altrepped, bool free_cpp, SEXP lst_indexer, Rcpp::List lst_cpp_objects, Rcpp::List lst_metadata);
+RcppExport SEXP _isotree_drop_indexer(SEXP is_altreppedSEXP, SEXP free_cppSEXP, SEXP lst_indexerSEXP, SEXP lst_cpp_objectsSEXP, SEXP lst_metadataSEXP) {
 BEGIN_RCPP
-    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify(lst_modifySEXP);
-    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify2(lst_modify2SEXP);
-    drop_indexer(lst_modify, lst_modify2);
+    Rcpp::traits::input_parameter< bool >::type is_altrepped(is_altreppedSEXP);
+    Rcpp::traits::input_parameter< bool >::type free_cpp(free_cppSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type lst_indexer(lst_indexerSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_cpp_objects(lst_cpp_objectsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_metadata(lst_metadataSEXP);
+    drop_indexer(is_altrepped, free_cpp, lst_indexer, lst_cpp_objects, lst_metadata);
     return R_NilValue;
 END_RCPP
 }
 // drop_reference_points
-void drop_reference_points(Rcpp::List lst_modify, Rcpp::List lst_modify2);
-RcppExport SEXP _isotree_drop_reference_points(SEXP lst_modifySEXP, SEXP lst_modify2SEXP) {
+void drop_reference_points(bool is_altrepped, SEXP lst_indexer, Rcpp::List lst_cpp_objects, Rcpp::List lst_metadata);
+RcppExport SEXP _isotree_drop_reference_points(SEXP is_altreppedSEXP, SEXP lst_indexerSEXP, SEXP lst_cpp_objectsSEXP, SEXP lst_metadataSEXP) {
 BEGIN_RCPP
-    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify(lst_modifySEXP);
-    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify2(lst_modify2SEXP);
-    drop_reference_points(lst_modify, lst_modify2);
+    Rcpp::traits::input_parameter< bool >::type is_altrepped(is_altreppedSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type lst_indexer(lst_indexerSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_cpp_objects(lst_cpp_objectsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_metadata(lst_metadataSEXP);
+    drop_reference_points(is_altrepped, lst_indexer, lst_cpp_objects, lst_metadata);
     return R_NilValue;
 END_RCPP
 }
 // subset_trees
-Rcpp::List subset_trees(SEXP model_R_ptr, SEXP imputer_R_ptr, SEXP indexer_R_ptr, bool is_extended, bool has_imputer, Rcpp::IntegerVector trees_take);
-RcppExport SEXP _isotree_subset_trees(SEXP model_R_ptrSEXP, SEXP imputer_R_ptrSEXP, SEXP indexer_R_ptrSEXP, SEXP is_extendedSEXP, SEXP has_imputerSEXP, SEXP trees_takeSEXP) {
+Rcpp::List subset_trees(SEXP model_R_ptr, SEXP imputer_R_ptr, SEXP indexer_R_ptr, bool is_extended, bool is_altrepped, Rcpp::IntegerVector trees_take);
+RcppExport SEXP _isotree_subset_trees(SEXP model_R_ptrSEXP, SEXP imputer_R_ptrSEXP, SEXP indexer_R_ptrSEXP, SEXP is_extendedSEXP, SEXP is_altreppedSEXP, SEXP trees_takeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
     Rcpp::traits::input_parameter< SEXP >::type imputer_R_ptr(imputer_R_ptrSEXP);
     Rcpp::traits::input_parameter< SEXP >::type indexer_R_ptr(indexer_R_ptrSEXP);
     Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
-    Rcpp::traits::input_parameter< bool >::type has_imputer(has_imputerSEXP);
+    Rcpp::traits::input_parameter< bool >::type is_altrepped(is_altreppedSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type trees_take(trees_takeSEXP);
-    rcpp_result_gen = Rcpp::wrap(subset_trees(model_R_ptr, imputer_R_ptr, indexer_R_ptr, is_extended, has_imputer, trees_take));
+    rcpp_result_gen = Rcpp::wrap(subset_trees(model_R_ptr, imputer_R_ptr, indexer_R_ptr, is_extended, is_altrepped, trees_take));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -322,8 +372,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // append_trees_from_other
-void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr, SEXP imp_R_ptr, SEXP oimp_R_ptr, SEXP ind_R_ptr, SEXP oind_R_ptr, bool is_extended, Rcpp::RawVector serialized_obj, Rcpp::RawVector serialized_imputer, Rcpp::RawVector serialized_indexer, Rcpp::List& model_cpp_obj_update, Rcpp::List& model_params_update);
-RcppExport SEXP _isotree_append_trees_from_other(SEXP model_R_ptrSEXP, SEXP other_R_ptrSEXP, SEXP imp_R_ptrSEXP, SEXP oimp_R_ptrSEXP, SEXP ind_R_ptrSEXP, SEXP oind_R_ptrSEXP, SEXP is_extendedSEXP, SEXP serialized_objSEXP, SEXP serialized_imputerSEXP, SEXP serialized_indexerSEXP, SEXP model_cpp_obj_updateSEXP, SEXP model_params_updateSEXP) {
+void append_trees_from_other(SEXP model_R_ptr, SEXP other_R_ptr, SEXP imp_R_ptr, SEXP oimp_R_ptr, SEXP ind_R_ptr, SEXP oind_R_ptr, bool is_extended, Rcpp::RawVector serialized_obj, Rcpp::RawVector serialized_imputer, Rcpp::RawVector serialized_indexer, Rcpp::List& model_cpp_obj_update, Rcpp::List& model_params_update, bool is_altrepped);
+RcppExport SEXP _isotree_append_trees_from_other(SEXP model_R_ptrSEXP, SEXP other_R_ptrSEXP, SEXP imp_R_ptrSEXP, SEXP oimp_R_ptrSEXP, SEXP ind_R_ptrSEXP, SEXP oind_R_ptrSEXP, SEXP is_extendedSEXP, SEXP serialized_objSEXP, SEXP serialized_imputerSEXP, SEXP serialized_indexerSEXP, SEXP model_cpp_obj_updateSEXP, SEXP model_params_updateSEXP, SEXP is_altreppedSEXP) {
 BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
     Rcpp::traits::input_parameter< SEXP >::type other_R_ptr(other_R_ptrSEXP);
@@ -337,7 +387,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::RawVector >::type serialized_indexer(serialized_indexerSEXP);
     Rcpp::traits::input_parameter< Rcpp::List& >::type model_cpp_obj_update(model_cpp_obj_updateSEXP);
     Rcpp::traits::input_parameter< Rcpp::List& >::type model_params_update(model_params_updateSEXP);
-    append_trees_from_other(model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, ind_R_ptr, oind_R_ptr, is_extended, serialized_obj, serialized_imputer, serialized_indexer, model_cpp_obj_update, model_params_update);
+    Rcpp::traits::input_parameter< bool >::type is_altrepped(is_altreppedSEXP);
+    append_trees_from_other(model_R_ptr, other_R_ptr, imp_R_ptr, oimp_R_ptr, ind_R_ptr, oind_R_ptr, is_extended, serialized_obj, serialized_imputer, serialized_indexer, model_cpp_obj_update, model_params_update, is_altrepped);
     return R_NilValue;
 END_RCPP
 }
@@ -377,28 +428,30 @@ BEGIN_RCPP
 END_RCPP
 }
 // copy_cpp_objects
-Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, bool has_imputer, SEXP ind_R_ptr);
-RcppExport SEXP _isotree_copy_cpp_objects(SEXP model_R_ptrSEXP, SEXP is_extendedSEXP, SEXP imp_R_ptrSEXP, SEXP has_imputerSEXP, SEXP ind_R_ptrSEXP) {
+Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, SEXP ind_R_ptr, bool lazy_serialization);
+RcppExport SEXP _isotree_copy_cpp_objects(SEXP model_R_ptrSEXP, SEXP is_extendedSEXP, SEXP imp_R_ptrSEXP, SEXP ind_R_ptrSEXP, SEXP lazy_serializationSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
     Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
     Rcpp::traits::input_parameter< SEXP >::type imp_R_ptr(imp_R_ptrSEXP);
-    Rcpp::traits::input_parameter< bool >::type has_imputer(has_imputerSEXP);
     Rcpp::traits::input_parameter< SEXP >::type ind_R_ptr(ind_R_ptrSEXP);
-    rcpp_result_gen = Rcpp::wrap(copy_cpp_objects(model_R_ptr, is_extended, imp_R_ptr, has_imputer, ind_R_ptr));
+    Rcpp::traits::input_parameter< bool >::type lazy_serialization(lazy_serializationSEXP);
+    rcpp_result_gen = Rcpp::wrap(copy_cpp_objects(model_R_ptr, is_extended, imp_R_ptr, ind_R_ptr, lazy_serialization));
     return rcpp_result_gen;
 END_RCPP
 }
 // build_tree_indices
-void build_tree_indices(Rcpp::List lst_modify, bool is_extended, bool with_distances, int nthreads);
-RcppExport SEXP _isotree_build_tree_indices(SEXP lst_modifySEXP, SEXP is_extendedSEXP, SEXP with_distancesSEXP, SEXP nthreadsSEXP) {
+void build_tree_indices(Rcpp::List lst_cpp_objects, SEXP ptr_model, bool is_altrepped, bool is_extended, bool with_distances, int nthreads);
+RcppExport SEXP _isotree_build_tree_indices(SEXP lst_cpp_objectsSEXP, SEXP ptr_modelSEXP, SEXP is_altreppedSEXP, SEXP is_extendedSEXP, SEXP with_distancesSEXP, SEXP nthreadsSEXP) {
 BEGIN_RCPP
-    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify(lst_modifySEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_cpp_objects(lst_cpp_objectsSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type ptr_model(ptr_modelSEXP);
+    Rcpp::traits::input_parameter< bool >::type is_altrepped(is_altreppedSEXP);
     Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
     Rcpp::traits::input_parameter< bool >::type with_distances(with_distancesSEXP);
     Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
-    build_tree_indices(lst_modify, is_extended, with_distances, nthreads);
+    build_tree_indices(lst_cpp_objects, ptr_model, is_altrepped, is_extended, with_distances, nthreads);
     return R_NilValue;
 END_RCPP
 }
@@ -413,11 +466,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // set_reference_points
-void set_reference_points(Rcpp::List lst_modify, Rcpp::List lst_modify2, SEXP rnames, bool is_extended, Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, size_t nrows, int nthreads, bool with_distances);
-RcppExport SEXP _isotree_set_reference_points(SEXP lst_modifySEXP, SEXP lst_modify2SEXP, SEXP rnamesSEXP, SEXP is_extendedSEXP, SEXP X_numSEXP, SEXP X_catSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP nrowsSEXP, SEXP nthreadsSEXP, SEXP with_distancesSEXP) {
+void set_reference_points(Rcpp::List lst_cpp_objects, SEXP ptr_model, SEXP ind_R_ptr, bool is_altrepped, Rcpp::List lst_metadata, SEXP rnames, bool is_extended, Rcpp::NumericVector X_num, Rcpp::IntegerVector X_cat, Rcpp::NumericVector Xc, Rcpp::IntegerVector Xc_ind, Rcpp::IntegerVector Xc_indptr, size_t nrows, int nthreads, bool with_distances);
+RcppExport SEXP _isotree_set_reference_points(SEXP lst_cpp_objectsSEXP, SEXP ptr_modelSEXP, SEXP ind_R_ptrSEXP, SEXP is_altreppedSEXP, SEXP lst_metadataSEXP, SEXP rnamesSEXP, SEXP is_extendedSEXP, SEXP X_numSEXP, SEXP X_catSEXP, SEXP XcSEXP, SEXP Xc_indSEXP, SEXP Xc_indptrSEXP, SEXP nrowsSEXP, SEXP nthreadsSEXP, SEXP with_distancesSEXP) {
 BEGIN_RCPP
-    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify(lst_modifySEXP);
-    Rcpp::traits::input_parameter< Rcpp::List >::type lst_modify2(lst_modify2SEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_cpp_objects(lst_cpp_objectsSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type ptr_model(ptr_modelSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type ind_R_ptr(ind_R_ptrSEXP);
+    Rcpp::traits::input_parameter< bool >::type is_altrepped(is_altreppedSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type lst_metadata(lst_metadataSEXP);
     Rcpp::traits::input_parameter< SEXP >::type rnames(rnamesSEXP);
     Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type X_num(X_numSEXP);
@@ -428,7 +484,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< size_t >::type nrows(nrowsSEXP);
     Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
     Rcpp::traits::input_parameter< bool >::type with_distances(with_distancesSEXP);
-    set_reference_points(lst_modify, lst_modify2, rnames, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, with_distances);
+    set_reference_points(lst_cpp_objects, ptr_model, ind_R_ptr, is_altrepped, lst_metadata, rnames, is_extended, X_num, X_cat, Xc, Xc_ind, Xc_indptr, nrows, nthreads, with_distances);
     return R_NilValue;
 END_RCPP
 }
@@ -452,12 +508,13 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// get_null_R_pointer
-SEXP get_null_R_pointer();
-RcppExport SEXP _isotree_get_null_R_pointer() {
+// get_null_R_pointer_internal
+SEXP get_null_R_pointer_internal(bool altrepped);
+RcppExport SEXP _isotree_get_null_R_pointer_internal(SEXP altreppedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
-    rcpp_result_gen = Rcpp::wrap(get_null_R_pointer());
+    Rcpp::traits::input_parameter< bool >::type altrepped(altreppedSEXP);
+    rcpp_result_gen = Rcpp::wrap(get_null_R_pointer_internal(altrepped));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -477,13 +534,14 @@ BEGIN_RCPP
 END_RCPP
 }
 // deserialize_from_file
-Rcpp::List deserialize_from_file(Rcpp::CharacterVector fname);
-RcppExport SEXP _isotree_deserialize_from_file(SEXP fnameSEXP) {
+Rcpp::List deserialize_from_file(Rcpp::CharacterVector fname, bool lazy_serialization);
+RcppExport SEXP _isotree_deserialize_from_file(SEXP fnameSEXP, SEXP lazy_serializationSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type fname(fnameSEXP);
-    rcpp_result_gen = Rcpp::wrap(deserialize_from_file(fname));
+    Rcpp::traits::input_parameter< bool >::type lazy_serialization(lazy_serializationSEXP);
+    rcpp_result_gen = Rcpp::wrap(deserialize_from_file(fname, lazy_serialization));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -728,30 +786,34 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_deserialize_ExtIsoForest", (DL_FUNC) &_isotree_deserialize_ExtIsoForest, 1},
     {"_isotree_deserialize_Imputer", (DL_FUNC) &_isotree_deserialize_Imputer, 1},
     {"_isotree_deserialize_Indexer", (DL_FUNC) &_isotree_deserialize_Indexer, 1},
-    {"_isotree_check_null_ptr_model", (DL_FUNC) &_isotree_check_null_ptr_model, 1},
-    {"_isotree_fit_model", (DL_FUNC) &_isotree_fit_model, 52},
-    {"_isotree_fit_tree", (DL_FUNC) &_isotree_fit_tree, 53},
+    {"_isotree_serialize_IsoForest_from_ptr", (DL_FUNC) &_isotree_serialize_IsoForest_from_ptr, 1},
+    {"_isotree_serialize_ExtIsoForest_from_ptr", (DL_FUNC) &_isotree_serialize_ExtIsoForest_from_ptr, 1},
+    {"_isotree_serialize_Imputer_from_ptr", (DL_FUNC) &_isotree_serialize_Imputer_from_ptr, 1},
+    {"_isotree_serialize_Indexer_from_ptr", (DL_FUNC) &_isotree_serialize_Indexer_from_ptr, 1},
+    {"_isotree_check_null_ptr_model_internal", (DL_FUNC) &_isotree_check_null_ptr_model_internal, 1},
+    {"_isotree_fit_model", (DL_FUNC) &_isotree_fit_model, 53},
+    {"_isotree_fit_tree", (DL_FUNC) &_isotree_fit_tree, 54},
     {"_isotree_predict_iso", (DL_FUNC) &_isotree_predict_iso, 17},
     {"_isotree_dist_iso", (DL_FUNC) &_isotree_dist_iso, 20},
     {"_isotree_impute_iso", (DL_FUNC) &_isotree_impute_iso, 11},
-    {"_isotree_drop_imputer", (DL_FUNC) &_isotree_drop_imputer, 2},
-    {"_isotree_drop_indexer", (DL_FUNC) &_isotree_drop_indexer, 2},
-    {"_isotree_drop_reference_points", (DL_FUNC) &_isotree_drop_reference_points, 2},
+    {"_isotree_drop_imputer", (DL_FUNC) &_isotree_drop_imputer, 5},
+    {"_isotree_drop_indexer", (DL_FUNC) &_isotree_drop_indexer, 5},
+    {"_isotree_drop_reference_points", (DL_FUNC) &_isotree_drop_reference_points, 4},
     {"_isotree_subset_trees", (DL_FUNC) &_isotree_subset_trees, 6},
     {"_isotree_inplace_set_to_zero", (DL_FUNC) &_isotree_inplace_set_to_zero, 1},
     {"_isotree_get_n_nodes", (DL_FUNC) &_isotree_get_n_nodes, 3},
-    {"_isotree_append_trees_from_other", (DL_FUNC) &_isotree_append_trees_from_other, 12},
+    {"_isotree_append_trees_from_other", (DL_FUNC) &_isotree_append_trees_from_other, 13},
     {"_isotree_model_to_sql", (DL_FUNC) &_isotree_model_to_sql, 9},
     {"_isotree_model_to_sql_with_select_from", (DL_FUNC) &_isotree_model_to_sql_with_select_from, 8},
     {"_isotree_copy_cpp_objects", (DL_FUNC) &_isotree_copy_cpp_objects, 5},
-    {"_isotree_build_tree_indices", (DL_FUNC) &_isotree_build_tree_indices, 4},
+    {"_isotree_build_tree_indices", (DL_FUNC) &_isotree_build_tree_indices, 6},
     {"_isotree_check_node_indexer_has_distances", (DL_FUNC) &_isotree_check_node_indexer_has_distances, 1},
-    {"_isotree_set_reference_points", (DL_FUNC) &_isotree_set_reference_points, 12},
+    {"_isotree_set_reference_points", (DL_FUNC) &_isotree_set_reference_points, 15},
     {"_isotree_check_node_indexer_has_references", (DL_FUNC) &_isotree_check_node_indexer_has_references, 1},
     {"_isotree_get_num_references", (DL_FUNC) &_isotree_get_num_references, 1},
-    {"_isotree_get_null_R_pointer", (DL_FUNC) &_isotree_get_null_R_pointer, 0},
+    {"_isotree_get_null_R_pointer_internal", (DL_FUNC) &_isotree_get_null_R_pointer_internal, 1},
     {"_isotree_serialize_to_file", (DL_FUNC) &_isotree_serialize_to_file, 6},
-    {"_isotree_deserialize_from_file", (DL_FUNC) &_isotree_deserialize_from_file, 1},
+    {"_isotree_deserialize_from_file", (DL_FUNC) &_isotree_deserialize_from_file, 2},
     {"_isotree_call_sort_csc_indices", (DL_FUNC) &_isotree_call_sort_csc_indices, 3},
     {"_isotree_call_reconstruct_csr_sliced", (DL_FUNC) &_isotree_call_reconstruct_csr_sliced, 5},
     {"_isotree_call_reconstruct_csr_with_categ", (DL_FUNC) &_isotree_call_reconstruct_csr_with_categ, 11},
@@ -774,7 +836,9 @@ static const R_CallMethodDef CallEntries[] = {
     {NULL, NULL, 0}
 };
 
+void init_altrepped_vectors(DllInfo* dll);
 RcppExport void R_init_isotree(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
+    init_altrepped_vectors(dll);
 }
