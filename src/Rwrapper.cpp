@@ -261,6 +261,8 @@ void delete_model_from_R_ptr(SEXP R_ptr)
 {
     Model *cpp_ptr = (Model*)R_ExternalPtrAddr(R_ptr);
     delete cpp_ptr;
+    R_SetExternalPtrAddr(R_ptr, nullptr);
+    R_ClearExternalPtr(R_ptr);
 }
 
 template <class Model>
@@ -1387,6 +1389,7 @@ void drop_imputer(bool is_altrepped, bool free_cpp,
             Imputer* imputer_ptr = (Imputer*)R_ExternalPtrAddr(imp_R_ptr);
             delete imputer_ptr;
             R_SetExternalPtrAddr(imp_R_ptr, nullptr);
+            R_ClearExternalPtr(imp_R_ptr);
         }
         
         lst_cpp_objects["imputer"] = altrepped_null;
@@ -1400,6 +1403,7 @@ void drop_imputer(bool is_altrepped, bool free_cpp,
             Imputer* imputer_ptr = get_pointer_from_xptr<Imputer>(imp_R_ptr);
             delete imputer_ptr;
             R_SetExternalPtrAddr(imp_R_ptr, nullptr);
+            R_ClearExternalPtr(imp_R_ptr);
             SET_VECTOR_ELT(lst_imputer, 0, imp_R_ptr);
         }
 
@@ -1426,6 +1430,7 @@ void drop_indexer(bool is_altrepped, bool free_cpp,
             TreesIndexer* indexer_ptr = (TreesIndexer*)R_ExternalPtrAddr(ind_R_ptr);
             delete indexer_ptr;
             R_SetExternalPtrAddr(ind_R_ptr, nullptr);
+            R_ClearExternalPtr(ind_R_ptr);
         }
         
         lst_cpp_objects["indexer"] = altrepped_null;
@@ -1438,6 +1443,7 @@ void drop_indexer(bool is_altrepped, bool free_cpp,
             TreesIndexer* indexer_ptr = get_pointer_from_xptr<TreesIndexer>(ind_R_ptr);
             delete indexer_ptr;
             R_SetExternalPtrAddr(ind_R_ptr, nullptr);
+            R_ClearExternalPtr(ind_R_ptr);
             SET_VECTOR_ELT(lst_indexer, 0, ind_R_ptr);
         }
 
