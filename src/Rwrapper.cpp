@@ -406,7 +406,7 @@ SEXP duplicate_altrepped_pointer(SEXP altrepped_obj, Rboolean deep)
 
 Rboolean inspect_altrepped_pointer(SEXP x, int pre, int deep, int pvec, void (*inspect_subtree)(SEXP, int, int, int))
 {
-    Rprintf("Altrepped pointer [address:%p]\n", R_ExternalPtrAddr(R_altrep_data1(x)));
+    Rcpp::Rcout << "Altrepped pointer [address:" << R_ExternalPtrAddr(R_altrep_data1(x)) << "]\n";
     return TRUE;
 }
 

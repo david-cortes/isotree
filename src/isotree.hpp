@@ -109,14 +109,12 @@
     extern "C" {
         #include <R_ext/Print.h>
     }
-    #define printf Rprintf
     #define fprintf(f, message) REprintf(message)
 #elif defined(_FOR_PYTHON)
-    extern "C" void cy_warning(const char *msg);
+    extern "C" int cy_warning(const char *msg);
     #define fprintf(f, message) cy_warning(message)
 #else
     #include <cstdio>
-    using std::printf;
     using std::fprintf;
 #endif
 #ifdef _OPENMP

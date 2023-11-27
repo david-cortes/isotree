@@ -77,7 +77,7 @@ import ctypes
 import os
 import warnings
 
-cdef public void cy_warning(const char *msg) nogil:
+cdef public int cy_warning(const char *msg) nogil:
     with gil:
         warnings.warn((<bytes>msg).decode())
 
