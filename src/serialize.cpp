@@ -1847,7 +1847,7 @@ void check_setup_info
     }
 
     if (setup_info[4] == (uint8_t)IsAbnormalDouble)
-        fprintf(stderr, "Warning: input model uses non-standard numeric type, might read correctly.\n");
+        print_errmsg("Warning: input model uses non-standard numeric type, might read correctly.\n");
     
     switch(setup_info[6])
     {
@@ -3844,7 +3844,7 @@ void serialize_combined
     {
         if (memcmp(curr_setup.get(), serialized_model, get_size_setup_info()))
         {
-            fprintf(stderr, "Warning: 'model' was serialized in a different setup, will need to convert.\n");
+            print_errmsg("Warning: 'model' was serialized in a different setup, will need to convert.\n");
             IsoForest model;
             deserialization_pipeline(model, serialized_model);
             new_model = std::unique_ptr<char[]>(new char[get_size_model(model)]);
@@ -3862,7 +3862,7 @@ void serialize_combined
     {
         if (memcmp(curr_setup.get(), serialized_model_ext, get_size_setup_info()))
         {
-            fprintf(stderr, "Warning: 'model_ext' was serialized in a different setup, will need to convert.\n");
+            print_errmsg("Warning: 'model_ext' was serialized in a different setup, will need to convert.\n");
             ExtIsoForest model;
             deserialization_pipeline(model, serialized_model_ext);
             new_model = std::unique_ptr<char[]>(new char[get_size_model(model)]);
@@ -3884,7 +3884,7 @@ void serialize_combined
     {
         if (memcmp(curr_setup.get(), serialized_imputer, get_size_setup_info()))
         {
-            fprintf(stderr, "Warning: 'imputer' was serialized in a different setup, will need to convert.\n");
+            print_errmsg("Warning: 'imputer' was serialized in a different setup, will need to convert.\n");
             Imputer model;
             deserialization_pipeline(model, serialized_imputer);
             new_model = std::unique_ptr<char[]>(new char[get_size_model(model)]);
@@ -3907,7 +3907,7 @@ void serialize_combined
     {
         if (memcmp(curr_setup.get(), serialized_indexer, get_size_setup_info()))
         {
-            fprintf(stderr, "Warning: 'indexer' was serialized in a different setup, will need to convert.\n");
+            print_errmsg("Warning: 'indexer' was serialized in a different setup, will need to convert.\n");
             TreesIndexer model;
             deserialization_pipeline(model, serialized_indexer);
             new_model = std::unique_ptr<char[]>(new char[get_size_model(model)]);

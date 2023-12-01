@@ -598,7 +598,7 @@ int fit_iforest(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 {
     if (use_long_double && !has_long_double()) {
         use_long_double = false;
-        fprintf(stderr, "Passed 'use_long_double=true', but library was compiled without long double support.\n");
+        print_errmsg("Passed 'use_long_double=true', but library was compiled without long double support.\n");
     }
     #ifndef NO_LONG_DOUBLE
     if (likely(!use_long_double))
@@ -1400,7 +1400,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 {
     if (use_long_double && !has_long_double()) {
         use_long_double = false;
-        fprintf(stderr, "Passed 'use_long_double=true', but library was compiled without long double support.\n");
+        print_errmsg("Passed 'use_long_double=true', but library was compiled without long double support.\n");
     }
     #ifndef NO_LONG_DOUBLE
     if (likely(!use_long_double))

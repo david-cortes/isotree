@@ -145,7 +145,7 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
 {
     if (use_long_double && !has_long_double()) {
         use_long_double = false;
-        fprintf(stderr, "Passed 'use_long_double=true', but library was compiled without long double support.\n");
+        print_errmsg("Passed 'use_long_double=true', but library was compiled without long double support.\n");
     }
     #ifndef NO_LONG_DOUBLE
     if (likely(!use_long_double))

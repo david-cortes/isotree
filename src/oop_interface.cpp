@@ -628,14 +628,12 @@ void IsolationForest::check_nthreads()
         #endif
     }
     if (nthreads <= 0) {
-        fprintf(stderr, "'isotree' got invalid 'nthreads', will set to 1.\n");
+        print_errmsg("'isotree' got invalid 'nthreads', will set to 1.\n");
         this->nthreads = 1;
     }
     #ifndef _OPENMP
     else if (nthreads > 1) {
-        fprintf(stderr,
-                "Passed nthreads:%d to 'isotree', but library was compiled without multithreading.\n",
-                this->nthreads);
+        print_errmsg("Passed nthreads>1 to 'isotree', but library was compiled without multithreading.\n");
         this->nthreads = 1;
     }
     #endif

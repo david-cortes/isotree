@@ -109,13 +109,13 @@
     extern "C" {
         #include <R_ext/Print.h>
     }
-    #define fprintf(f, message) REprintf(message)
+    #define print_errmsg(msg) REprintf("%s", msg)
 #elif defined(_FOR_PYTHON)
     extern "C" int cy_warning(const char *msg);
-    #define fprintf(f, message) cy_warning(message)
+    #define print_errmsg cy_warning
 #else
     #include <cstdio>
-    using std::fprintf;
+    #define print_errmsg(msg) std::fprintf(stderr, "%s", msg)
 #endif
 #ifdef _OPENMP
     #include <omp.h>
@@ -1947,8 +1947,7 @@ public:
     {
         if (this->handle) {
             int err = std::fclose(this->handle);
-            if (err)
-                fprintf(stderr, "Error: could not close file.\n");
+            if (err) print_errmsg("Error: could not close file.\n");
         }
         this->handle = NULL;
     }
@@ -1971,8 +1970,7 @@ public:
         {
             if (this->handle) {
                 int err = std::fclose(this->handle);
-                if (err)
-                    fprintf(stderr, "Error: could not close file.\n");
+                if (err) print_errmsg("Error: could not close file.\n");
             }
             this->handle = NULL;
         }

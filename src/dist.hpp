@@ -234,7 +234,7 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
 {
     if (use_long_double && !has_long_double()) {
         use_long_double = false;
-        fprintf(stderr, "Passed 'use_long_double=true', but library was compiled without long double support.\n");
+        print_errmsg("Passed 'use_long_double=true', but library was compiled without long double support.\n");
     }
     #ifndef NO_LONG_DOUBLE
     if (likely(!use_long_double))
@@ -297,7 +297,7 @@ void calc_similarity_internal(
             throw std::runtime_error("Indexer was built without distances. Cannot use references from it.\n");
         else {
             indexer = NULL;
-            fprintf(stderr, "Indexer has no pre-computed distances, will not be used for distance calculations.\n");
+            print_errmsg("Indexer has no pre-computed distances, will not be used for distance calculations.\n");
         }
     }
     if (

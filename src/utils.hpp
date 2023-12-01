@@ -407,7 +407,7 @@ void build_btree_sampler(std::vector<double> &btree_weights, real_t *restrict sa
     
     if (std::isnan(btree_weights[0]) || btree_weights[0] <= 0)
     {
-        fprintf(stderr, "Numeric precision error with sample weights, will not use them.\n");
+        print_errmsg("Numeric precision error with sample weights, will not use them.\n");
         log2_n = 0;
         btree_weights.clear();
         btree_weights.shrink_to_fit();
@@ -3699,7 +3699,7 @@ void check_interrupt_switch(SignalSwitcher &ss)
     if (interrupt_switch)
     {
         ss.restore_handle();
-        fprintf(stderr, "Error: procedure was interrupted\n");
+        print_errmsg("Error: procedure was interrupted\n");
         raise(SIGINT);
         #ifdef _FOR_R
         Rcpp::checkUserInterrupt();
