@@ -18,3 +18,6 @@ This function is only meaningful if one intends to call a function that modifies
 internal C++ objects - currently, the only such function are \link{isotree.add.tree}
 and \link{isotree.append.trees} - as otherwise R's objects follow a copy-on-write logic.
 }
+\seealso{
+\link{isotree.is.same}
+}

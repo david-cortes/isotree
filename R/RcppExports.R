@@ -121,6 +121,10 @@ get_null_R_pointer_internal <- function(altrepped) {
     .Call(`_isotree_get_null_R_pointer_internal`, altrepped)
 }
 
+compare_pointers <- function(obj1, obj2) {
+    .Call(`_isotree_compare_pointers`, obj1, obj2)
+}
+
 serialize_to_file <- function(serialized_obj, serialized_imputer, serialized_indexer, is_extended, metadata, fname) {
     invisible(.Call(`_isotree_serialize_to_file`, serialized_obj, serialized_imputer, serialized_indexer, is_extended, metadata, fname))
 }

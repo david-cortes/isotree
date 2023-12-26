@@ -518,6 +518,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// compare_pointers
+bool compare_pointers(SEXP obj1, SEXP obj2);
+RcppExport SEXP _isotree_compare_pointers(SEXP obj1SEXP, SEXP obj2SEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type obj1(obj1SEXP);
+    Rcpp::traits::input_parameter< SEXP >::type obj2(obj2SEXP);
+    rcpp_result_gen = Rcpp::wrap(compare_pointers(obj1, obj2));
+    return rcpp_result_gen;
+END_RCPP
+}
 // serialize_to_file
 void serialize_to_file(Rcpp::RawVector serialized_obj, Rcpp::RawVector serialized_imputer, Rcpp::RawVector serialized_indexer, bool is_extended, Rcpp::RawVector metadata, Rcpp::CharacterVector fname);
 RcppExport SEXP _isotree_serialize_to_file(SEXP serialized_objSEXP, SEXP serialized_imputerSEXP, SEXP serialized_indexerSEXP, SEXP is_extendedSEXP, SEXP metadataSEXP, SEXP fnameSEXP) {
@@ -812,6 +823,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_check_node_indexer_has_references", (DL_FUNC) &_isotree_check_node_indexer_has_references, 1},
     {"_isotree_get_num_references", (DL_FUNC) &_isotree_get_num_references, 1},
     {"_isotree_get_null_R_pointer_internal", (DL_FUNC) &_isotree_get_null_R_pointer_internal, 1},
+    {"_isotree_compare_pointers", (DL_FUNC) &_isotree_compare_pointers, 2},
     {"_isotree_serialize_to_file", (DL_FUNC) &_isotree_serialize_to_file, 6},
     {"_isotree_deserialize_from_file", (DL_FUNC) &_isotree_deserialize_from_file, 2},
     {"_isotree_call_sort_csc_indices", (DL_FUNC) &_isotree_call_sort_csc_indices, 3},

@@ -2188,6 +2188,12 @@ SEXP get_null_R_pointer_internal(bool altrepped)
     }
 }
 
+// [[Rcpp::export(rng = false)]]
+bool compare_pointers(SEXP obj1, SEXP obj2)
+{
+    return R_ExternalPtrAddr(obj1) == R_ExternalPtrAddr(obj2);
+}
+
 /* This library will use different code paths for opening a file path
    in order to support non-ASCII characters, depending on compiler and
    platform support. */

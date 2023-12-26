@@ -2681,6 +2681,7 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
 #' and \link{isotree.append.trees} - as otherwise R's objects follow a copy-on-write logic.
 #' @param model An `isolation_forest` model object.
 #' @return A new `isolation_forest` object, with deep-copied C++ objects.
+#' @seealso \link{isotree.is.same}
 #' @export
 isotree.deep.copy <- function(model) {
     isotree.restore.handle(model)
@@ -2727,6 +2728,44 @@ isotree.deep.copy <- function(model) {
         categ_max  =  model$metadata$categ_max
     )
     return(new_model)
+}
+
+#' @title Check if two Isolation Forest Models Share the Same C++ Object
+#' @description Checks if two isolation forest models, as produced by functions
+#' like \link{isolation.forest}, have a reference to the same underlying C++ object.
+#' 
+#' When this is the case, functions that produce in-place modifications, such as
+#' \link{isotree.build.indexer}, will produce changes in all of the R variables that
+#' share the same C++ object.
+#' 
+#' Two R variables will have the same C++ object when assigning one variable to another,
+#' but will have different C++ objects when these R objects are serialized and
+#' deserialized or when calling \link{isotree.deep.copy}.
+#' @param obj1 First model to compare (against `obj2`).
+#' @param obj2 Second model to compare (against `obj1`).
+#' @return A logical (boolean) value which will be `TRUE` when both models
+#' have a reference to the same C++ object, or `FALSE` otherwise.
+#' @examples
+#' library(isotree)
+#' data(mtcars)
+#' model <- isolation.forest(mtcars, ntrees = 10, nthreads = 1, ndim = 1)
+#' 
+#' model_shallow_copy <- model
+#' isotree.is.same(model, model_shallow_copy)
+#' 
+#' model_deep_copy <- isotree.deep.copy(model)
+#' isotree.is.same(model, model_deep_copy)
+#' 
+#' isotree.add.tree(model_shallow_copy, mtcars)
+#' length(isotree.get.num.nodes(model_shallow_copy)$total)
+#' length(isotree.get.num.nodes(model)$total)
+#' length(isotree.get.num.nodes(model_deep_copy)$total)
+#' @seealso \link{isotree.deep.copy}
+#' @export
+isotree.is.same <- function(obj1, obj2) {
+    isotree.restore.handle(obj1)
+    isotree.restore.handle(obj2)
+    return(compare_pointers(obj1$cpp_objects$model$ptr, obj2$cpp_objects$model$ptr))
 }
 
 #' @title Drop Imputer Sub-Object from Isolation Forest Model Object
