@@ -1137,8 +1137,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
 * - nthreads
 *       Number of parallel threads to use.
 */
-ISOTREE_EXPORTED void get_num_nodes(IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads) noexcept;
-ISOTREE_EXPORTED void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads) noexcept;
+ISOTREE_EXPORTED void get_num_nodes(const IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads) noexceptt;
+ISOTREE_EXPORTED void get_num_nodes(const ExtIsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads) noexcept;
 
 
 
@@ -1454,10 +1454,10 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
 *       Pass NULL if this is not to be used.
 */
 ISOTREE_EXPORTED
-void merge_models(IsoForest*     model,      IsoForest*     other,
-                  ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
-                  Imputer*       imputer,    Imputer*       iother,
-                  TreesIndexer*  indexer,    TreesIndexer*  ind_other);
+void merge_models(IsoForest*     model,      const IsoForest*     other,
+                  ExtIsoForest*  ext_model,  const ExtIsoForest*  ext_other,
+                  Imputer*       imputer,    const Imputer*       iother,
+                  TreesIndexer*  indexer,    const TreesIndexer*  ind_other);
 
 /* Create a model containing a sub-set of the trees from another model
 * 
@@ -1499,11 +1499,11 @@ void merge_models(IsoForest*     model,      IsoForest*     other,
 *       Pass NULL if the model was built without an indexer.
 */
 ISOTREE_EXPORTED
-void subset_model(IsoForest*     model,      IsoForest*     model_new,
-                  ExtIsoForest*  ext_model,  ExtIsoForest*  ext_model_new,
-                  Imputer*       imputer,    Imputer*       imputer_new,
-                  TreesIndexer*  indexer,    TreesIndexer*  indexer_new,
-                  size_t *trees_take, size_t ntrees_take);
+void subset_model(const IsoForest*     model,      IsoForest*     model_new,
+                  const ExtIsoForest*  ext_model,  ExtIsoForest*  ext_model_new,
+                  const Imputer*       imputer,    Imputer*       imputer_new,
+                  const TreesIndexer*  indexer,    TreesIndexer*  indexer_new,
+                  const size_t *trees_take, size_t ntrees_take);
 
 /* Build indexer for faster terminal node predictions and/or distance calculations
 * 
@@ -2048,10 +2048,11 @@ void incremental_serialize_Indexer(const TreesIndexer &model, std::string &old_b
 * from the model.
 */
 ISOTREE_EXPORTED
-std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                                          std::string &table_from, std::string &select_as,
-                                          std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
-                                          std::vector<std::vector<std::string>> &categ_levels,
+std::string generate_sql_with_select_from(const IsoForest *model_outputs, const ExtIsoForest *model_outputs_ext,
+                                          const std::string &table_from, const std::string &select_as,
+                                          const std::vector<std::string> &numeric_colnames,
+                                          const std::vector<std::string> &categ_colnames,
+                                          const std::vector<std::vector<std::string>> &categ_levels,
                                           bool index1, int nthreads);
 
 
@@ -2099,9 +2100,10 @@ std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest
 * as delimiters and including the node number as part of the comment.
 */
 ISOTREE_EXPORTED
-std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                                      std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
-                                      std::vector<std::vector<std::string>> &categ_levels,
+std::vector<std::string> generate_sql(const IsoForest *model_outputs, const ExtIsoForest *model_outputs_ext,
+                                      const std::vector<std::string> &numeric_colnames,
+                                      const std::vector<std::string> &categ_colnames,
+                                      const std::vector<std::vector<std::string>> &categ_levels,
                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
                                       int nthreads);
 

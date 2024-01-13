@@ -40,7 +40,7 @@
 *          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2019-2022, David Cortes
+*     Copyright (c) 2019-2024, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -100,10 +100,11 @@
 * A string with the corresponding SQL statement that will calculate the outlier score
 * from the model.
 */
-std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                                          std::string &table_from, std::string &select_as,
-                                          std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
-                                          std::vector<std::vector<std::string>> &categ_levels,
+std::string generate_sql_with_select_from(const IsoForest *model_outputs, const ExtIsoForest *model_outputs_ext,
+                                          const std::string &table_from, const std::string &select_as,
+                                          const std::vector<std::string> &numeric_colnames,
+                                          const std::vector<std::string> &categ_colnames,
+                                          const std::vector<std::vector<std::string>> &categ_levels,
                                           bool index1, int nthreads)
 {
     std::vector<std::string> tree_conds = generate_sql(model_outputs, model_outputs_ext,
@@ -195,9 +196,10 @@ std::string generate_sql_with_select_from(IsoForest *model_outputs, ExtIsoForest
 * in 'tree_num'. The statements will be node-by-node, with commented-out separators using '---'
 * as delimiters and including the node number as part of the comment.
 */
-std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
-                                      std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
-                                      std::vector<std::vector<std::string>> &categ_levels,
+std::vector<std::string> generate_sql(const IsoForest *model_outputs, const ExtIsoForest *model_outputs_ext,
+                                      const std::vector<std::string> &numeric_colnames,
+                                      const std::vector<std::string> &categ_colnames,
+                                      const std::vector<std::vector<std::string>> &categ_levels,
                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
                                       int nthreads)
 {
@@ -315,8 +317,9 @@ std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *mo
 } 
 
 
-void generate_tree_rules(std::vector<IsoTree> *trees, std::vector<IsoHPlane> *hplanes, bool output_score,
-                         size_t curr_ix, bool index1, std::string &prev_cond, std::vector<std::string> &node_rules,
+void generate_tree_rules(const std::vector<IsoTree> *trees, const std::vector<IsoHPlane> *hplanes, const bool output_score,
+                         const size_t curr_ix, const bool index1, const std::string &prev_cond,
+                         std::vector<std::string> &node_rules,
                          std::vector<std::string> &conditions_left, std::vector<std::string> &conditions_right,
                          const IsoForest *model_outputs, const ExtIsoForest *model_outputs_ext)
 {
@@ -365,10 +368,11 @@ void generate_tree_rules(std::vector<IsoTree> *trees, std::vector<IsoHPlane> *hp
 }
 
 
-void extract_cond_isotree(IsoForest &model, IsoTree &tree,
+void extract_cond_isotree(const IsoForest &model, const IsoTree &tree,
                           std::string &cond_left, std::string &cond_right,
-                          std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
-                          std::vector<std::vector<std::string>> &categ_levels)
+                          const std::vector<std::string> &numeric_colnames,
+                          const std::vector<std::string> &categ_colnames,
+                          const std::vector<std::vector<std::string>> &categ_levels)
 {
     cond_left = std::string("");
     cond_right = std::string("");
@@ -535,10 +539,11 @@ void extract_cond_isotree(IsoForest &model, IsoTree &tree,
     }
 }
 
-void extract_cond_ext_isotree(ExtIsoForest &model, IsoHPlane &hplane,
+void extract_cond_ext_isotree(const ExtIsoForest &model, const IsoHPlane &hplane,
                               std::string &cond_left, std::string &cond_right,
-                              std::vector<std::string> &numeric_colnames, std::vector<std::string> &categ_colnames,
-                              std::vector<std::vector<std::string>> &categ_levels)
+                              const std::vector<std::string> &numeric_colnames,
+                              const std::vector<std::string> &categ_colnames,
+                              const std::vector<std::vector<std::string>> &categ_levels)
 {
     cond_left = std::string("");
     cond_right = std::string("");

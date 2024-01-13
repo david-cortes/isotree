@@ -1758,12 +1758,12 @@ void traverse_hplane_csc(WorkerForPredictCSC      &workspace,
 }
 
 template <class PredictionData>
-void add_csc_range_penalty(WorkerForPredictCSC  &workspace,
-                           PredictionData       &prediction_data,
-                           double *restrict     weights_arr,
-                           size_t               col_num,
-                           double               range_low,
-                           double               range_high)
+void add_csc_range_penalty(WorkerForPredictCSC     &workspace,
+                           const PredictionData    &prediction_data,
+                           const double *restrict  weights_arr,
+                           size_t                  col_num,
+                           double                  range_low,
+                           double                  range_high)
 {
     std::sort(workspace.ix_arr.begin() + workspace.st, workspace.ix_arr.begin() + workspace.end + 1);
 
@@ -1861,9 +1861,9 @@ void add_csc_range_penalty(WorkerForPredictCSC  &workspace,
 }
 
 template <class PredictionData>
-double extract_spC(PredictionData &prediction_data, size_t row, size_t col_num) noexcept
+double extract_spC(const PredictionData &prediction_data, size_t row, size_t col_num) noexcept
 {
-    decltype(prediction_data.Xc_indptr)
+    const decltype(prediction_data.Xc_indptr)
                search_res = std::lower_bound(prediction_data.Xc_ind + prediction_data.Xc_indptr[col_num],
                                              prediction_data.Xc_ind + prediction_data.Xc_indptr[col_num + 1],
                                              row);
@@ -1878,11 +1878,13 @@ double extract_spC(PredictionData &prediction_data, size_t row, size_t col_num) 
 }
 
 template <class PredictionData, class sparse_ix>
-static inline double extract_spR(PredictionData &prediction_data, sparse_ix *row_st, sparse_ix *row_end, size_t col_num, size_t lb, size_t ub) noexcept
+static inline double extract_spR(const PredictionData &prediction_data,
+                                 const sparse_ix *row_st, const sparse_ix *row_end,
+                                 size_t col_num, size_t lb, size_t ub) noexcept
 {
     if (row_end == row_st || col_num < lb || col_num > ub)
         return 0.;
-    sparse_ix *search_res = std::lower_bound(row_st, row_end, (sparse_ix) col_num);
+    const sparse_ix *search_res = std::lower_bound(row_st, row_end, (sparse_ix) col_num);
     if (search_res == row_end || *search_res != (sparse_ix)col_num)
         return 0.;
     else
@@ -1890,11 +1892,11 @@ static inline double extract_spR(PredictionData &prediction_data, sparse_ix *row
 }
 
 template <class PredictionData, class sparse_ix>
-double extract_spR(PredictionData &prediction_data, sparse_ix *row_st, sparse_ix *row_end, size_t col_num) noexcept
+double extract_spR(const PredictionData &prediction_data, const sparse_ix *row_st, const sparse_ix *row_end, size_t col_num) noexcept
 {
     if (row_end == row_st)
         return 0.;
-    sparse_ix *search_res = std::lower_bound(row_st, row_end, (sparse_ix) col_num);
+    const sparse_ix *search_res = std::lower_bound(row_st, row_end, (sparse_ix) col_num);
     if (search_res == row_end || *search_res != (sparse_ix)col_num)
         return 0.;
     else
@@ -1902,14 +1904,14 @@ double extract_spR(PredictionData &prediction_data, sparse_ix *row_st, sparse_ix
 }
 
 template <class sparse_ix>
-void get_num_nodes(IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads) noexcept
+void get_num_nodes(const IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads) noexcept
 {
     std::fill(n_terminal, n_terminal + model_outputs.trees.size(), 0);
     #pragma omp parallel for schedule(static) num_threads(nthreads) shared(model_outputs, n_nodes, n_terminal)
     for (size_t_for tree = 0; tree < (decltype(tree))model_outputs.trees.size(); tree++)
     {
         n_nodes[tree] = model_outputs.trees[tree].size();
-        for (IsoTree &node : model_outputs.trees[tree])
+        for (const IsoTree &node : model_outputs.trees[tree])
         {
             n_terminal[tree] += (node.tree_left == 0);
         }
@@ -1917,14 +1919,14 @@ void get_num_nodes(IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse
 }
 
 template <class sparse_ix>
-void get_num_nodes(ExtIsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads) noexcept
+void get_num_nodes(const ExtIsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads) noexcept
 {
     std::fill(n_terminal, n_terminal + model_outputs.hplanes.size(), 0);
     #pragma omp parallel for schedule(static) num_threads(nthreads) shared(model_outputs, n_nodes, n_terminal)
     for (size_t_for hplane = 0; hplane <(decltype(hplane)) model_outputs.hplanes.size(); hplane++)
     {
         n_nodes[hplane] = model_outputs.hplanes[hplane].size();
-        for (IsoHPlane &node : model_outputs.hplanes[hplane])
+        for (const IsoHPlane &node : model_outputs.hplanes[hplane])
         {
             n_terminal[hplane] += (node.hplane_left == 0);
         }

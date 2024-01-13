@@ -489,8 +489,8 @@ double calc_mean_only_weighted(size_t *restrict ix_arr, size_t st, size_t end, s
 
 /* for regular numerical */
 template <class real_t_>
-void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict res,
-                     real_t_ *restrict x, double &coef, double x_sd, double x_mean, double &restrict fill_val,
+void add_linear_comb(const size_t ix_arr[], size_t st, size_t end, double *restrict res,
+                     const real_t_ *restrict x, double &coef, double x_sd, double x_mean, double &restrict fill_val,
                      MissingAction missing_action, double *restrict buffer_arr,
                      size_t *restrict buffer_NAs, bool first_run)
 {
@@ -558,8 +558,8 @@ void add_linear_comb(size_t ix_arr[], size_t st, size_t end, double *restrict re
 
 /* for regular numerical */
 template <class real_t_, class mapping, class ldouble_safe>
-void add_linear_comb_weighted(size_t ix_arr[], size_t st, size_t end, double *restrict res,
-                              real_t_ *restrict x, double &coef, double x_sd, double x_mean, double &restrict fill_val,
+void add_linear_comb_weighted(const size_t ix_arr[], size_t st, size_t end, double *restrict res,
+                              const real_t_ *restrict x, double &coef, double x_sd, double x_mean, double &restrict fill_val,
                               MissingAction missing_action, double *restrict buffer_arr,
                               size_t *restrict buffer_NAs, bool first_run, mapping &restrict w)
 {
@@ -653,8 +653,8 @@ void add_linear_comb_weighted(size_t ix_arr[], size_t st, size_t end, double *re
 
 /* for sparse numerical */
 template <class real_t_, class sparse_ix>
-void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num, double *restrict res,
-                     real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+void add_linear_comb(const size_t *restrict ix_arr, size_t st, size_t end, size_t col_num, double *restrict res,
+                     const real_t_ *restrict Xc, const sparse_ix *restrict Xc_ind, const sparse_ix *restrict Xc_indptr,
                      double &restrict coef, double x_sd, double x_mean, double &restrict fill_val, MissingAction missing_action,
                      double *restrict buffer_arr, size_t *restrict buffer_NAs, bool first_run)
 {
@@ -689,12 +689,12 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
     size_t st_col  = Xc_indptr[col_num];
     size_t end_col = Xc_indptr[col_num + 1] - 1;
     size_t curr_pos = st_col;
-    size_t *ptr_st = std::lower_bound(ix_arr + st, ix_arr + end + 1, (size_t)Xc_ind[st_col]);
+    const size_t *ptr_st = std::lower_bound(ix_arr + st, ix_arr + end + 1, (size_t)Xc_ind[st_col]);
 
     size_t cnt_non_NA = 0; /* when NAs need to be imputed */
     size_t cnt_NA = 0; /* when NAs need to be imputed */
     size_t n_sample = end - st + 1;
-    size_t *ix_arr_plus_st = ix_arr + st;
+    const size_t *ix_arr_plus_st = ix_arr + st;
 
     if (first_run)
         coef /= x_sd;
@@ -714,7 +714,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
     {
         if (first_run)
         {
-            for (size_t *row = ptr_st;
+            for (const size_t *row = ptr_st;
                  row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
                 )
             {
@@ -749,7 +749,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
         else
         {
             /* when impute value for missing has already been determined */
-            for (size_t *row = ptr_st;
+            for (const size_t *row = ptr_st;
                  row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
                 )
             {
@@ -848,7 +848,7 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
 
     else /* no NAs */
     {
-        for (size_t *row = ptr_st;
+        for (const size_t *row = ptr_st;
              row != ix_arr + end + 1 && curr_pos != end_col + 1 && ind_end_col >= *row;
             )
         {
@@ -871,8 +871,8 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, size_t col_
 }
 
 template <class real_t_, class sparse_ix, class mapping, class ldouble_safe>
-void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, size_t col_num, double *restrict res,
-                              real_t_ *restrict Xc, sparse_ix *restrict Xc_ind, sparse_ix *restrict Xc_indptr,
+void add_linear_comb_weighted(const size_t *restrict ix_arr, size_t st, size_t end, size_t col_num, double *restrict res,
+                              const real_t_ *restrict Xc, const sparse_ix *restrict Xc_ind, const sparse_ix *restrict Xc_indptr,
                               double &restrict coef, double x_sd, double x_mean, double &restrict fill_val, MissingAction missing_action,
                               double *restrict buffer_arr, size_t *restrict buffer_NAs, bool first_run, mapping &restrict w)
 {
@@ -942,8 +942,8 @@ void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, si
 
 /* for categoricals */
 template <class ldouble_safe>
-void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, double *restrict res,
-                     int x[], int ncat, double *restrict cat_coef, double single_cat_coef, int chosen_cat,
+void add_linear_comb(const size_t *restrict ix_arr, size_t st, size_t end, double *restrict res,
+                     const int x[], int ncat, double *restrict cat_coef, double single_cat_coef, int chosen_cat,
                      double &restrict fill_val, double &restrict fill_new, size_t *restrict buffer_cnt, size_t *restrict buffer_pos,
                      NewCategAction new_cat_action, MissingAction missing_action, CategSplit cat_split_type, bool first_run)
 {
@@ -1127,8 +1127,8 @@ void add_linear_comb(size_t *restrict ix_arr, size_t st, size_t end, double *res
 } 
 
 template <class mapping, class ldouble_safe>
-void add_linear_comb_weighted(size_t *restrict ix_arr, size_t st, size_t end, double *restrict res,
-                              int x[], int ncat, double *restrict cat_coef, double single_cat_coef, int chosen_cat,
+void add_linear_comb_weighted(const size_t *restrict ix_arr, size_t st, size_t end, double *restrict res,
+                              const int x[], int ncat, double *restrict cat_coef, double single_cat_coef, int chosen_cat,
                               double &restrict fill_val, double &restrict fill_new, size_t *restrict buffer_pos,
                               NewCategAction new_cat_action, MissingAction missing_action, CategSplit cat_split_type,
                               bool first_run, mapping &restrict w)

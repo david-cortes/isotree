@@ -40,7 +40,7 @@
 *          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2019-2022, David Cortes
+*     Copyright (c) 2019-2024, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -125,10 +125,10 @@
 *       Reference points should not differ between 'indexer' and 'ind_other'.
 *       Pass NULL if this is not to be used.
 */
-void merge_models(IsoForest*     model,      IsoForest*     other,
-                  ExtIsoForest*  ext_model,  ExtIsoForest*  ext_other,
-                  Imputer*       imputer,    Imputer*       iother,
-                  TreesIndexer*  indexer,    TreesIndexer*  ind_other)
+void merge_models(IsoForest*     model,      const IsoForest*     other,
+                  ExtIsoForest*  ext_model,  const ExtIsoForest*  ext_other,
+                  Imputer*       imputer,    const Imputer*       iother,
+                  TreesIndexer*  indexer,    const TreesIndexer*  ind_other)
 {
     size_t curr_size_model = (model != NULL)? (model->trees.size()) : 0;
     size_t curr_size_model_ext = (ext_model != NULL)? (ext_model->hplanes.size()) : 0;

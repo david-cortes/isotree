@@ -101,11 +101,11 @@
 *       or 'ext_model') will be copied.
 *       Pass NULL if the model was built without an indexer.
 */
-void subset_model(IsoForest*     model,      IsoForest*     model_new,
-                  ExtIsoForest*  ext_model,  ExtIsoForest*  ext_model_new,
-                  Imputer*       imputer,    Imputer*       imputer_new,
-                  TreesIndexer*  indexer,    TreesIndexer*  indexer_new,
-                  size_t *trees_take, size_t ntrees_take)
+void subset_model(const IsoForest*     model,      IsoForest*     model_new,
+                  const ExtIsoForest*  ext_model,  ExtIsoForest*  ext_model_new,
+                  const Imputer*       imputer,    Imputer*       imputer_new,
+                  const TreesIndexer*  indexer,    TreesIndexer*  indexer_new,
+                  const size_t *trees_take, size_t ntrees_take)
 {
     if (model != NULL)
     {
