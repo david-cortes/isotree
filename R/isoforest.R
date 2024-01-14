@@ -2618,6 +2618,9 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
         } else {
             if (NROW(model$metadata$cols_num)) {
                 cols_num <- model$metadata$cols_num
+                if (is.integer(model$metadata$cols_num)) {
+                    cols_num <- paste0("column_", cols_num)
+                }
             } else {
                 cols_num <- paste0("column_", seq(1L, model$metadata$ncols_num))
             }
@@ -2634,10 +2637,16 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
                 stop("'column_names_categ' must be a character vector.")
             cols_cat <- column_names_categ
         } else {
-            cols_cat <- model$metadata$cols_cat
+            if (NROW(model$metadata$cols_cat))
+                cols_cat <- model$metadata$cols_cat
+            else
+                cols_cat <- paste0("column_", model$metadata$categ_cols)
         }
         
-        cat_levels <- model$metadata$cat_levs
+        if (NROW(model$metadata$cat_levs))
+            cat_levels <- model$metadata$cat_levs
+        else
+            cat_levels <- lapply(model$metadata$categ_max, function(x) as.character(seq(1, x + 1)))
     } else {
         cols_cat <- character()
         cat_levels <- list()

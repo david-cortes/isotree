@@ -1154,6 +1154,10 @@ class IsolationForest(BaseEstimator):
         self._ntrees        =  0
         self._cpp_obj       =  isoforest_cpp_obj()
         self._is_extended_  =  self.ndim > 1
+        if hasattr(self, "n_features_in_"):
+            del self.n_features_in_
+        if hasattr(self, "feature_names_in_"):
+            del self.feature_names_in_
 
     def copy(self):
         """
@@ -3301,10 +3305,16 @@ class IsolationForest(BaseEstimator):
             SQL statement. Note that the names will be taken verbatim - this function will
             not do any checks for whether they constitute valid SQL or not, and will not
             escape characters such as double quotation marks.
+
+            If this is ``None`` and the model has no column names, then ``column_names_categ``
+            should also be ``None``.
         column_names_categ : None or list[str]
             Column names to use for the **categorical** columns.
             If not passed, will use the column names from the ``DataFrame`` to which the
             model was fit. These can be found under ``self.cols_categ_``.
+
+            If this is ``None`` and the model has no column names, then ``column_names``
+            should also be ``None``.
 
         Returns
         -------
@@ -3327,25 +3337,40 @@ class IsolationForest(BaseEstimator):
             tree = 0
         output_tree_num = bool(output_tree_num)
 
+        if not hasattr(self, "feature_names_in_"):
+            if (self._ncols_categ) and ((column_names is None) != (column_names_categ is None)):
+                raise ValueError("Cannot pass only one of 'column_names' and 'column_names_categ'.")
+            if column_names is None:
+                column_names = ["column_" + str(cl) for cl in range(self.n_features_in_)]
+                if (self.categ_cols_ is not None) and len(self.categ_cols_):
+                    column_names = np.array(column_names)
+                    column_names_categ = column_names[self.categ_cols_]
+                    column_names = column_names[self.cols_numeric_]
+
+                    column_names = list(column_names)
+                    column_names_categ = list(column_names_categ)
+                else:
+                    column_names_categ = list()
+
         if self._ncols_numeric:
             if column_names is not None:
                 if len(column_names) != self._ncols_numeric:
                     raise ValueError("'column_names' must have %d entries." % self._ncols_numeric)
             else:
-                if self.cols_numeric_.shape[0]:
-                    column_names = self.cols_numeric_
-                else:
-                    column_names = ["column_" + str(cl) for cl in range(self._ncols_numeric)]
+                column_names = self.cols_numeric_
         else:
             column_names = []
 
-        if self.cols_categ_.shape[0]:
+        if self._ncols_categ:
             if column_names_categ is not None:
-                if len(column_names_categ) != self.cols_categ_.shape[0]:
-                    raise ValueError("'column_names_categ' must have %d entries." % self.cols_categ_.shape[0])
+                if len(column_names_categ) != self._ncols_categ:
+                    raise ValueError("'column_names_categ' must have %d entries." % self._ncols_categ)
             else:
                 column_names_categ = self.cols_categ_
-            categ_levels = [[str(lev).encode() for lev in mp] for mp in self._cat_mapping]
+            if len(self._cat_mapping):
+                categ_levels = [[str(lev).encode() for lev in mp] for mp in self._cat_mapping]
+            else:
+                categ_levels = [[str(cat) for cat in range(self._cat_max_lev[cl] + 1)] for cl in range(self._ncols_categ)]
         else:
             column_names_categ = []
             categ_levels = []
@@ -3354,8 +3379,12 @@ class IsolationForest(BaseEstimator):
         if enclose != "none":
             enclose_left  = '"' if (enclose == "doublequotes") else '['
             enclose_right = '"' if (enclose == "doublequotes") else ']'
-            column_names = [(enclose_left + cl + enclose_right).encode() for cl in column_names]
-            column_names_categ = [(enclose_left + cl + enclose_right).encode() for cl in column_names_categ]
+            column_names = [(enclose_left + str(cl) + enclose_right) for cl in column_names]
+            column_names_categ = [(enclose_left + str(cl) + enclose_right) for cl in column_names_categ]
+
+        column_names = [str(s).encode() for s in column_names]
+        column_names_categ = [str(s).encode() for s in column_names_categ]
+        categ_levels = [[str(s).encode() for s in categs] for categs in categ_levels]
 
         nthreads_use = _process_nthreads(self.nthreads)
 
