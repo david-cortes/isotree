@@ -315,7 +315,7 @@ class build_ext_subclass( build_ext ):
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.5.25',
+    version = '0.6.0',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     url = 'https://github.com/david-cortes/isotree',
@@ -326,7 +326,8 @@ setup(
                                 sources=["isotree/cpp_interface.pyx",
                                          "src/indexer.cpp",
                                          "src/merge_models.cpp", "src/subset_models.cpp",
-                                         "src/serialize.cpp", "src/sql.cpp"],
+                                         "src/serialize.cpp", "src/sql.cpp",
+                                         "src/formatted_exporters.cpp"],
                                 include_dirs=[np.get_include(), ".", "./src"],
                                 language="c++",
                                 install_requires = ["numpy", "pandas>=0.24.0", "cython", "scipy"],

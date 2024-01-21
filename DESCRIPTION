@@ -1,7 +1,7 @@
 Package: isotree
 Type: Package
 Title: Isolation-Based Outlier Detection
-Version: 0.5.25
+Version: 0.6.0
 Authors@R: c(
   person(given="David", family="Cortes", role=c("aut", "cre", "cph"),
          email="david.cortes.rivera@gmail.com"),
@@ -40,9 +40,9 @@ Description: Fast and multi-threaded implementation of
 License: BSD_2_clause + file LICENSE
 Depends: R (>= 4.3.0)
 Imports: Rcpp (>= 1.0.1), methods
-Suggests: MASS, outliertree, jsonlite (>= 1.7.3),
+Suggests: MASS, outliertree, jsonlite (>= 1.7.3), DiagrammeR,
     mlbench, MLmetrics, kernlab, knitr, rmarkdown, kableExtra
 Enhances: Matrix, SparseM
 LinkingTo: Rcpp
 VignetteBuilder: knitr
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.0

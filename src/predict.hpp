@@ -74,6 +74,7 @@
    run faster. After that, could also do a manual tree leaves unroll within each
    batch with stack-assigned variables for an even faster prediction function. */
 
+/* TODO: add 'const' qualifiers to all data inputs here. */
 
 /* Predict outlier score, average depth, or terminal node numbers
 * 
