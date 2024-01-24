@@ -104,7 +104,7 @@ public:
     uint64_t random_seed = 1;
 
     /*  General tree construction parameters  */
-    size_t ndim = 3;
+    size_t ndim = 1;
     size_t ntry = 1;
     CoefType coef_type = Uniform; /* only for ndim>1 */
     bool   with_replacement = false;

@@ -178,7 +178,8 @@ class IsolationForest(BaseEstimator):
     
     If the data has categorical variables and these are more important important for determining
     outlierness compared to numerical columns, one might want to experiment with ``ndim=1``,
-    ``categ_split_type="single_categ"``, and ``scoring_metric="density"``.
+    ``categ_split_type="single_categ"``, and ``scoring_metric="density"``; while for all-numeric
+    datasets - especially if there are missing values - one might want to experiment with ``ndim=2`` or ``ndim=3``.
 
     For small datasets, one might also want to experiment with ``ndim=1``, ``scoring_metric="adj_depth"``
     and ``penalize_range=True``.
@@ -869,7 +870,7 @@ class IsolationForest(BaseEstimator):
     .. [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou. "Isolation kernel and its effect on SVM."
             Proceedings of the 24th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining. 2018.
     """
-    def __init__(self, sample_size = "auto", ntrees = 500, ndim = 3, ntry = 1,
+    def __init__(self, sample_size = "auto", ntrees = 500, ndim = 1, ntry = 1,
                  categ_cols = None, max_depth = "auto", ncols_per_tree = None,
                  prob_pick_pooled_gain = 0.0, prob_pick_avg_gain = 0.0,
                  prob_pick_full_gain = 0.0, prob_pick_dens = 0.0,
