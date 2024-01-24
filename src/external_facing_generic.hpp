@@ -153,6 +153,24 @@ std::vector<std::string> generate_sql(IsoForest *model_outputs, ExtIsoForest *mo
                                       std::vector<std::vector<std::string>> &categ_levels,
                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
                                       int nthreads);
+ISOTREE_EXPORTED
+std::vector<std::string> generate_dot(const IsoForest *model_outputs,
+                                      const ExtIsoForest *model_outputs_ext,
+                                      const TreesIndexer *indexer,
+                                      const std::vector<std::string> &numeric_colnames,
+                                      const std::vector<std::string> &categ_colnames,
+                                      const std::vector<std::vector<std::string>> &categ_levels,
+                                      bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
+                                      int nthreads);
+ISOTREE_EXPORTED
+std::vector<std::string> generate_json(const IsoForest *model_outputs,
+                                       const ExtIsoForest *model_outputs_ext,
+                                       const TreesIndexer *indexer,
+                                       const std::vector<std::string> &numeric_colnames,
+                                       const std::vector<std::string> &categ_colnames,
+                                       const std::vector<std::vector<std::string>> &categ_levels,
+                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
+                                       int nthreads);
 
 ISOTREE_EXPORTED
 size_t determine_serialized_size(const IsoForest &model) noexcept;

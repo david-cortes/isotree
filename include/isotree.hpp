@@ -40,7 +40,7 @@
 *          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2019-2021, David Cortes
+*     Copyright (c) 2019-2024, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -67,6 +67,7 @@
 #include <cstdint>
 #include <vector>
 #include <cstdio>
+#include <string>
 #include <iostream>
 using std::size_t;
 
@@ -1137,8 +1138,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
 * - nthreads
 *       Number of parallel threads to use.
 */
-ISOTREE_EXPORTED void get_num_nodes(const IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads) noexceptt;
-ISOTREE_EXPORTED void get_num_nodes(const ExtIsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads) noexcept;
+ISOTREE_EXPORTED void get_num_nodes(const IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads) noexcept;
+ISOTREE_EXPORTED void get_num_nodes(const ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads) noexcept;
 
 
 
@@ -1538,6 +1539,16 @@ void build_tree_indices
 /* Gets the number of reference points stored in an indexer object */
 ISOTREE_EXPORTED
 size_t get_number_of_reference_points(const TreesIndexer &indexer) noexcept;
+
+/* Sets reference points in an indexer. Data is in the same format as for prediction. */
+ISOTREE_EXPORTED
+void set_reference_points(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext, TreesIndexer *indexer,
+                          const bool with_distances,
+                          real_t *numeric_data, int *categ_data,
+                          bool is_col_major, size_t ld_numeric, size_t ld_categ,
+                          real_t *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr,
+                          real_t *Xr, sparse_ix *Xr_ind, sparse_ix *Xr_indptr,
+                          size_t nrows, int nthreads);
 
 
 /* Functions to inspect serialized objects
@@ -2076,7 +2087,7 @@ std::string generate_sql_with_select_from(const IsoForest *model_outputs, const 
 *       Names to use for the levels/categories of each categorical column. These will be enclosed
 *       in single quotes.
 * - output_tree_num
-*       Whether to output the terminal node number instead of the separation depth at each node.
+*       Whether to output the terminal node number instead of the isolation depth at each node.
 * - index1
 *       Whether to make the node numbers start their numeration at 1 instead of 0 in the
 *       resulting statement. If passing 'output_tree_num=false', this will only affect the
@@ -2108,11 +2119,98 @@ std::vector<std::string> generate_sql(const IsoForest *model_outputs, const ExtI
                                       int nthreads);
 
 
+/* Generate a GraphViz 'dot' representation of model trees, as a 'digraph' structure
+* 
+* Parameters
+* ==========
+* - model_outputs
+*       Pointer to fitted single-variable model object from function 'fit_iforest'. Pass NULL
+*       if using an extended model. Can only pass one of 'model_outputs' and 'model_outputs_ext'.
+* - model_outputs_ext
+*       Pointer to fitted extended model object from function 'fit_iforest'. Pass NULL
+*       if using a single-variable model. Can only pass one of 'model_outputs' and 'model_outputs_ext'.
+* - numeric_colnames
+*       Names to use for the numerical columns.
+* - categ_colnames
+*       Names to use for the categorical columns.
+* - categ_levels
+*       Names to use for the levels/categories of each categorical column.
+* - output_tree_num
+*       Whether to output the terminal node number instead of the isolation depth at each node.
+* - index1
+*       Whether to make the node numbers start their numeration at 1 instead of 0 in the
+*       resulting strings. Ignored when passing 'output_tree_num=false'.
+* - single_tree
+*       Whether to generate the graph representation for a single tree of the model instead of for
+*       all. The tree number to generate is to be passed under 'tree_num'.
+* - tree_num
+*       Tree number for which to generate a graph, if passing 'single_tree=true'.
+* - nthreads
+*       Number of parallel threads to use. Note that, the more threads, the more memory will be
+*       allocated, even if the thread does not end up being used. Ignored when not building with
+*       OpenMP support.
+* 
+* Returns
+* =======
+* A vector containing at each element the tree nodes as a 'dot' GraphViz text representation
+* for the corresponding tree in the model.
+* If passing 'single_tree=true', will contain only one element, corresponding to the tree given
+* in 'tree_num'.
+*/
 ISOTREE_EXPORTED
-void set_reference_points(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext, TreesIndexer *indexer,
-                          const bool with_distances,
-                          real_t *numeric_data, int *categ_data,
-                          bool is_col_major, size_t ld_numeric, size_t ld_categ,
-                          real_t *Xc, sparse_ix *Xc_ind, sparse_ix *Xc_indptr,
-                          real_t *Xr, sparse_ix *Xr_ind, sparse_ix *Xr_indptr,
-                          size_t nrows, int nthreads);
+std::vector<std::string> generate_dot(const IsoForest *model_outputs,
+                                      const ExtIsoForest *model_outputs_ext,
+                                      const TreesIndexer *indexer,
+                                      const std::vector<std::string> &numeric_colnames,
+                                      const std::vector<std::string> &categ_colnames,
+                                      const std::vector<std::vector<std::string>> &categ_levels,
+                                      bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
+                                      int nthreads);
+
+/* Generate a JSON string representation of model trees
+* 
+* Parameters
+* ==========
+* - model_outputs
+*       Pointer to fitted single-variable model object from function 'fit_iforest'. Pass NULL
+*       if using an extended model. Can only pass one of 'model_outputs' and 'model_outputs_ext'.
+* - model_outputs_ext
+*       Pointer to fitted extended model object from function 'fit_iforest'. Pass NULL
+*       if using a single-variable model. Can only pass one of 'model_outputs' and 'model_outputs_ext'.
+* - numeric_colnames
+*       Names to use for the numerical columns.
+* - categ_colnames
+*       Names to use for the categorical columns.
+* - categ_levels
+*       Names to use for the levels/categories of each categorical column.
+* - output_tree_num
+*       Whether to output the terminal node number instead of the isolation depth at each node.
+* - index1
+*       Whether to make the node numbers start their numeration at 1 instead of 0 in the
+*       resulting strings. Ignored when passing 'output_tree_num=false'.
+* - single_tree
+*       Whether to generate the representation for a single tree of the model instead of for
+*       all. The tree number to generate is to be passed under 'tree_num'.
+* - tree_num
+*       Tree number for which to generate a JSON string, if passing 'single_tree=true'.
+* - nthreads
+*       Number of parallel threads to use. Note that, the more threads, the more memory will be
+*       allocated, even if the thread does not end up being used. Ignored when not building with
+*       OpenMP support.
+* 
+* Returns
+* =======
+* A vector containing at each element the tree nodes as a JSON string representation
+* of the corresponding tree in the model.
+* If passing 'single_tree=true', will contain only one element, corresponding to the tree given
+* in 'tree_num'.
+*/
+ISOTREE_EXPORTED
+std::vector<std::string> generate_json(const IsoForest *model_outputs,
+                                       const ExtIsoForest *model_outputs_ext,
+                                       const TreesIndexer *indexer,
+                                       const std::vector<std::string> &numeric_colnames,
+                                       const std::vector<std::string> &categ_colnames,
+                                       const std::vector<std::vector<std::string>> &categ_levels,
+                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
+                                       int nthreads);

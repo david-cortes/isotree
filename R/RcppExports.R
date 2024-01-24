@@ -93,6 +93,14 @@ model_to_sql_with_select_from <- function(model_R_ptr, is_extended, numeric_cola
     .Call(`_isotree_model_to_sql_with_select_from`, model_R_ptr, is_extended, numeric_colanmes, categ_colnames, categ_levels, table_from, select_as, nthreads)
 }
 
+model_to_graphviz <- function(model_R_ptr, is_extended, indexer_R_ptr, numeric_colanmes, categ_colnames, categ_levels, output_tree_num, single_tree, tree_num, nthreads) {
+    .Call(`_isotree_model_to_graphviz`, model_R_ptr, is_extended, indexer_R_ptr, numeric_colanmes, categ_colnames, categ_levels, output_tree_num, single_tree, tree_num, nthreads)
+}
+
+model_to_json <- function(model_R_ptr, is_extended, indexer_R_ptr, numeric_colanmes, categ_colnames, categ_levels, output_tree_num, single_tree, tree_num, nthreads) {
+    .Call(`_isotree_model_to_json`, model_R_ptr, is_extended, indexer_R_ptr, numeric_colanmes, categ_colnames, categ_levels, output_tree_num, single_tree, tree_num, nthreads)
+}
+
 copy_cpp_objects <- function(model_R_ptr, is_extended, imp_R_ptr, ind_R_ptr, lazy_serialization) {
     .Call(`_isotree_copy_cpp_objects`, model_R_ptr, is_extended, imp_R_ptr, ind_R_ptr, lazy_serialization)
 }

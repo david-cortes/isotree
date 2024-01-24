@@ -29,10 +29,10 @@ work for e.g. SQL Server.
 \item `"none"`, which will output the column names as-is (e.g. `column_name`)
 }}
 
-\item{output_tree_num}{Whether to make the statements return the terminal node number
+\item{output_tree_num}{Whether to make the statements / outputs return the terminal node number
 instead of the isolation depth. The numeration will start at one.}
 
-\item{tree}{Tree for which to generate SQL statements. If passed, will generate
+\item{tree}{Tree for which to generate SQL statements or other outputs. If passed, will generate
 the statements only for that single tree. If passing `NULL`, will
 generate statements for all trees in the model.}
 
@@ -50,8 +50,8 @@ names from that `data.frame`, which can be found under `model$metadata$cols_num`
 If not passing it and the model was fit to data in a format other than
 `data.frame`, the columns will be named `column_N` in the resulting
 SQL statement. Note that the names will be taken verbatim - this function will
-not do any checks for whether they constitute valid SQL or not, and will not
-escape characters such as double quotation marks.}
+not do any checks for e.g. whether they constitute valid SQL or not when exporting to SQL, and will not
+escape characters such as double quotation marks when exporting to SQL.}
 
 \item{column_names_categ}{Column names to use for the \bold{categorical} columns.
 If not passed, will use the column names from the `data.frame` to which the

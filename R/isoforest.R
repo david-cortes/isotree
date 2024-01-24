@@ -2,6 +2,7 @@
 #' @importFrom stats predict
 #' @importFrom utils head
 #' @importFrom methods new
+#' @importFrom jsonlite fromJSON toJSON write_json
 #' @importFrom Rcpp evalCpp
 #' @useDynLib isotree, .registration=TRUE
 
@@ -51,7 +52,8 @@
 #' 
 #' If the data has categorical variables and these are more important important for determining
 #' outlierness compared to numerical columns, one might want to experiment with `ndim=1`,
-#' `categ_split_type="single_categ"`, and `scoring_metric="density"`.
+#' `categ_split_type="single_categ"`, and `scoring_metric="density"`; while for all-numeric
+#' datasets - especially if there are missing values - one might want to experiment with `ndim=2` or `ndim=3`.
 #' 
 #' For small datasets, one might also want to experiment with `ndim=1`, `scoring_metric="adj_depth"`
 #' and `penalize_range=TRUE`.
@@ -943,11 +945,14 @@
 #'   X_na[values_NA] = NA
 #'   
 #'   ### Impute missing values with model
-#'   iso <- isolation.forest(X_na,
+#'   iso <- isolation.forest(
+#'       X_na,
 #'       build_imputer = TRUE,
 #'       prob_pick_pooled_gain = 1,
+#'       ndim = 2,
 #'       ntry = 10,
-#'       nthreads = 1)
+#'       nthreads = 1
+#'   )
 #'   X_imputed <- predict(iso, X_na, type = "impute")
 #'   cat(sprintf("MSE for imputed values w/model: %f\n",
 #'       mean((X[values_NA] - X_imputed[values_NA])^2)))
@@ -988,7 +993,7 @@
 #' }
 #' @export
 isolation.forest <- function(data,
-                             sample_size = min(nrow(data), 10000L), ntrees = 500, ndim = min(3, ncol(data)),
+                             sample_size = min(nrow(data), 10000L), ntrees = 500, ndim = 1,
                              ntry = 1, categ_cols = NULL,
                              max_depth = ceiling(log2(sample_size)),
                              ncols_per_tree = ncol(data),
@@ -2215,8 +2220,8 @@ isotree.get.num.nodes <- function(model)  {
 #' X2 <- matrix(rnorm(m*n), nrow=m)
 #' 
 #' ### Fit a model to each dataset
-#' iso1 <- isolation.forest(X1, ntrees=3, nthreads=1)
-#' iso2 <- isolation.forest(X2, ntrees=2, nthreads=1)
+#' iso1 <- isolation.forest(X1, ntrees=3, ndim=2, nthreads=1)
+#' iso2 <- isolation.forest(X2, ntrees=2, ndim=2, nthreads=1)
 #' 
 #' ### Check the terminal nodes for some observations
 #' nodes1 <- predict(iso1, head(X1, 3), type="tree_num")
@@ -2522,9 +2527,9 @@ isotree.import.model <- function(file, lazy_serialization = TRUE) {
 #' work for e.g. SQL Server.
 #' \item `"none"`, which will output the column names as-is (e.g. `column_name`)
 #' }
-#' @param output_tree_num Whether to make the statements return the terminal node number
+#' @param output_tree_num Whether to make the statements / outputs return the terminal node number
 #' instead of the isolation depth. The numeration will start at one.
-#' @param tree Tree for which to generate SQL statements. If passed, will generate
+#' @param tree Tree for which to generate SQL statements or other outputs. If passed, will generate
 #' the statements only for that single tree. If passing `NULL`, will
 #' generate statements for all trees in the model.
 #' @param table_from If passing this, will generate a single select statement for the
@@ -2539,8 +2544,8 @@ isotree.import.model <- function(file, lazy_serialization = TRUE) {
 #' If not passing it and the model was fit to data in a format other than
 #' `data.frame`, the columns will be named `column_N` in the resulting
 #' SQL statement. Note that the names will be taken verbatim - this function will
-#' not do any checks for whether they constitute valid SQL or not, and will not
-#' escape characters such as double quotation marks.
+#' not do any checks for e.g. whether they constitute valid SQL or not when exporting to SQL, and will not
+#' escape characters such as double quotation marks when exporting to SQL.
 #' @param column_names_categ Column names to use for the \bold{categorical} columns.
 #' If not passed, will use the column names from the `data.frame` to which the
 #' model was fit. These can be found under `model$metadata$cols_cat`.
@@ -2565,7 +2570,9 @@ isotree.import.model <- function(file, lazy_serialization = TRUE) {
 #' @export
 isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALSE, tree = NULL,
                            table_from = NULL, select_as = "outlier_score",
-                           column_names = NULL, column_names_categ = NULL, nthreads = model$nthreads) {
+                           column_names = NULL, column_names_categ = NULL,
+                           nthreads = model$nthreads) {
+    # TODO refactor common parts for sql, graphviz, and json converters
     isotree.restore.handle(model)
     
     allowed_enclose <- c("doublequotes", "squarebraces", "none")
@@ -2608,49 +2615,11 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
         output_tree_num <- FALSE
     }
     
-    if (model$metadata$ncols_num) {
-        if (!is.null(column_names)) {
-            if (NROW(column_names) != model$metadata$ncols_num)
-                stop(sprintf("'column_names' must have length %d", model$metadata$ncols_num))
-            if (!is.character(column_names))
-                stop("'column_names' must be a character vector.")
-            cols_num <- column_names
-        } else {
-            if (NROW(model$metadata$cols_num)) {
-                cols_num <- model$metadata$cols_num
-                if (is.integer(model$metadata$cols_num)) {
-                    cols_num <- paste0("column_", cols_num)
-                }
-            } else {
-                cols_num <- paste0("column_", seq(1L, model$metadata$ncols_num))
-            }
-        }
-    } else {
-        cols_num <- character()
-    }
-    
-    if (model$metadata$ncols_cat) {
-        if (!is.null(column_names_categ)) {
-            if (NROW(column_names_categ) != model$metadata$ncols_cat)
-                stop(sprintf("'column_names_categ' must have length %d", model$metadata$ncols_cat))
-            if (!is.character(column_names_categ))
-                stop("'column_names_categ' must be a character vector.")
-            cols_cat <- column_names_categ
-        } else {
-            if (NROW(model$metadata$cols_cat))
-                cols_cat <- model$metadata$cols_cat
-            else
-                cols_cat <- paste0("column_", model$metadata$categ_cols)
-        }
-        
-        if (NROW(model$metadata$cat_levs))
-            cat_levels <- model$metadata$cat_levs
-        else
-            cat_levels <- lapply(model$metadata$categ_max, function(x) as.character(seq(1, x + 1)))
-    } else {
-        cols_cat <- character()
-        cat_levels <- list()
-    }
+    tmp <- check.formatted.export.colnames(model, column_names, column_names_categ)
+    cols_num    <-  tmp$cols_num
+    cols_cat    <-  tmp$cols_cat
+    cat_levels  <-  tmp$cat_levels
+    rm(tmp)
     
     if (enclose != "none") {
         enclose_left <- ifelse(enclose == "doublequotes", '"', '[')
@@ -2681,6 +2650,223 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
                                              select_as,
                                              nthreads))
     }
+}
+
+#' @title Generate GraphViz Dot Representation of Tree
+#' @description Generate GraphViz representations of model trees in 'dot' format - either
+#' separately per tree (the default), or for a single tree if needed (if passing `tree`)
+#' Can also be made to output terminal node numbers (numeration starting at one).
+#' 
+#' These can be loaded as graphs through e.g. `DiagrammeR::grViz(x)`, where `x` would
+#' be the output of this function for a given tree.
+#' 
+#' Graph format is based on XGBoost's.
+#' @details
+#' \itemize{
+#' \item The generated graphs will not include range penalizations, thus
+#' predictions might differ from calls to `predict` when using
+#' `penalize_range=TRUE`.
+#' \item The generated graphs will only include handling of missing values
+#' when using `missing_action="impute"`. When using the single-variable
+#' model with categorical variables + subset splits, the rule buckets might be
+#' incomplete due to not including categories that were not present in a given
+#' node - this last point can be avoided by using `new_categ_action="smallest"`,
+#' `new_categ_action="random"`, or `missing_action="impute"` (in the latter
+#' case will treat them as missing, but the `predict` function might treat
+#' them differently).
+#' \item If using `scoring_metric="density"` or `scoring_metric="boxed_ratio"` plus
+#' `output_tree_num=FALSE`, the
+#' outputs will correspond to the logarithm of the density rather than the density.
+#' }
+#' @inheritParams isotree.to.sql
+#' @returns If passing `tree=NULL`, will return a list with one element per tree in the model,
+#' where each element consists of an R character / string with the 'dot' format representation
+#' of the tree. If passing `tree`, the output will be instead a single character / string element
+#' with the 'dot' representation for that tree.
+#' @examples
+#' library(isotree)
+#' set.seed(123)
+#' X <- matrix(rnorm(100 * 3), nrow = 100)
+#' model <- isolation.forest(X, ndim=1, max_depth=3, ntrees=2, nthreads=1)
+#' model_as_graphviz <- isotree.to.graphviz(model)
+#' 
+#' # These can be parsed and plotted with library 'DiagrammeR'
+#' if (require("DiagrammeR")) {
+#'     # first tree
+#'     DiagrammeR::grViz(model_as_graphviz[[1]])
+#' 
+#      second tree
+#'     DiagrammeR::grViz(model_as_graphviz[[1]])
+#' }
+#' @export
+isotree.to.graphviz <- function(model, output_tree_num = FALSE, tree = NULL,
+                                column_names = NULL, column_names_categ = NULL,
+                                nthreads = model$nthreads) {
+    # TODO refactor common parts for sql, graphviz, and json converters
+    isotree.restore.handle(model)
+    
+    if (NROW(output_tree_num) != 1L)
+        stop("'output_tree_num' must be a single logical/boolean.")
+    output_tree_num <- as.logical(output_tree_num)
+    if (is.na(output_tree_num))
+        stop("Invalid 'output_tree_num'.")
+    
+    single_tree <- !is.null(tree)
+    if (single_tree) {
+        if (NROW(tree) != 1L)
+            stop("'tree' must be a single integer.")
+        tree <- as.integer(tree)
+        if (is.na(tree) || (tree < 1L) || (tree > get_ntrees(model$cpp_objects$model$ptr, model$params$ndim > 1L)))
+            stop("Invalid tree number.")
+    } else {
+        tree <- 0L
+    }
+
+    tmp <- check.formatted.export.colnames(model, column_names, column_names_categ)
+    cols_num    <-  tmp$cols_num
+    cols_cat    <-  tmp$cols_cat
+    cat_levels  <-  tmp$cat_levels
+    rm(tmp)
+        
+    is_extended <- model$params$ndim > 1L
+    nthreads    <- check.nthreads(nthreads)
+
+    out <- model_to_graphviz(model$cpp_objects$model$ptr, is_extended,
+                             model$cpp_objects$indexer$ptr,
+                             cols_num, cols_cat, cat_levels,
+                             output_tree_num, single_tree, tree,
+                             nthreads)
+    
+    if (single_tree) {
+        return(out[[1L]])
+    } else {
+        return(out)
+    }
+}
+
+#' @title Generate JSON representations of model trees
+#' @description Generates a JSON representation of either a single tree in the model, or of all
+#' the trees in the model.
+#' 
+#' The JSON for a given tree will consist of a sub-json/list for each node, where nodes
+#' are indexed by their number (base-1 indexing) as keys in these JSONs (note that they
+#' are strings, not numbers, in order to conform to JSON format).
+#' 
+#' Nodes will in turn consist of another map/list indicating whether they are terminal nodes
+#' or not, their score and terminal node index if terminal, or otherwise the split conditions,
+#' nodes to follow when the condition is or isn't met, and other aspects such as imputation
+#' values if applicable, acceptable ranges when using range penalizations, fraction of the data
+#' that went into the left node if recorded, among others.
+#' 
+#' Note that the JSON structure will be very different for models that have `ndim=1`
+#' than for models that have `ndim>1`. In the case of `ndim=1`, the conditions are
+#' based on the value of only one variable, but for `ndim=2`, they will consist of
+#' a linear combination of different columns (which is expressed as a list of JSONs
+#' with one entry per column that goes into the calculation) - for numeric columns for example,
+#' these will be expressed in the json by a coefficient for the given column, and a centering
+#' that needs to be applied, with the score from that column being added as
+#' 
+#' \eqn{\text{coef} \times (x - \text{centering})}
+#' 
+#' and the imputation value being applied in replacement of this formula in the case of
+#' missing values for that column (depending on the model parameters); while in the case of
+#' categorical columns, might either have a different coefficient for each possible category
+#' (`categ_split_type="subset"`), or a single category that gets a non-zero coefficient
+#' while the others get zeros (`categ_split_type="single_categ"`).
+#' 
+#' The JSONs might contain redundant information in order to ease understanding of the model
+#' logic - for example, when using `ndim>1` and `categ_split_type="single_categ"`,
+#' the coefficient for the non-chosen categories will always be zero, but is nevertheless
+#' added to every node's JSON, even if not needed.
+#' @details
+#' \itemize{
+#' \item If using `scoring_metric="density"` or `scoring_metric="boxed_ratio"` plus
+#' `output_tree_num=FALSE`, the
+#' outputs will correspond to the logarithm of the density rather than the density.
+#' }
+#' @inheritParams isotree.to.graphviz
+#' @param as_str Whether to return the result as raw JSON strings (returned as R's character type)
+#' instead of being parsed into R lists (internally, it uses `jsonlite::fromJSON`).
+#' @returns Either a list of lists (when passing `as_str=FALSE`) or a vector of characters (when passing
+#' `as_str=TRUE`), or a single such list or character element if passing `tree`.
+#' @export
+isotree.to.json <- function(model, output_tree_num = FALSE, tree = NULL,
+                            column_names = NULL, column_names_categ = NULL,
+                            as_str = FALSE, nthreads = model$nthreads) {
+    # TODO refactor common parts for sql, graphviz, and json converters
+    isotree.restore.handle(model)
+    
+    if (NROW(output_tree_num) != 1L)
+        stop("'output_tree_num' must be a single logical/boolean.")
+    output_tree_num <- as.logical(output_tree_num)
+    if (is.na(output_tree_num))
+        stop("Invalid 'output_tree_num'.")
+    
+    single_tree <- !is.null(tree)
+    if (single_tree) {
+        if (NROW(tree) != 1L)
+            stop("'tree' must be a single integer.")
+        tree <- as.integer(tree)
+        if (is.na(tree) || (tree < 1L) || (tree > get_ntrees(model$cpp_objects$model$ptr, model$params$ndim > 1L)))
+            stop("Invalid tree number.")
+    } else {
+        tree <- 0L
+    }
+
+    tmp <- check.formatted.export.colnames(model, column_names, column_names_categ)
+    cols_num    <-  tmp$cols_num
+    cols_cat    <-  tmp$cols_cat
+    cat_levels  <-  tmp$cat_levels
+    rm(tmp)
+        
+    is_extended <- model$params$ndim > 1L
+    nthreads    <- check.nthreads(nthreads)
+
+    out <- model_to_json(model$cpp_objects$model$ptr, is_extended,
+                         model$cpp_objects$indexer$ptr,
+                         cols_num, cols_cat, cat_levels,
+                         output_tree_num, single_tree, tree,
+                         nthreads)
+    if (!as_str)
+        out <- lapply(out, jsonlite::fromJSON)
+    else
+        out <- unlist(out)
+    
+    if (single_tree) {
+        return(out[[1L]])
+    } else {
+        return(out)
+    }
+}
+
+#' @title Plot Tree from Isolation Forest Model
+#' @description Plots a given tree from an isolation forest model.
+#' 
+#' Requires the `DiagrammeR` library to be installed.
+#' 
+#' Note that this is just a wrapper over \link{isotree.to.graphviz} + `DiagrammeR::grViz`.
+#' @details In general, isolation forest trees tend to be rather large, and the contents on the
+#' nodes can be very long when using `ndim>1` - if the idea is to get easily visualizable
+#' trees, one might want to use parameters like `ndim=1`, `sample_size=256`, `max_depth=8`.
+#' @inheritParams isotree.to.graphviz
+#' @param width Width for the plot, to pass to `DiagrammeR::grViz`.
+#' @param height Height for the plot, to pass to `DiagrammeR::grViz`.
+#' @returns An `htmlwidget` object that contains the plot.
+#' @export
+isotree.plot.tree <- function(model, output_tree_num = FALSE, tree = 1L,
+                              column_names = NULL, column_names_categ = NULL,
+                              nthreads = model$nthreads, width = NULL, height = NULL) {
+    txt <- isotree.to.graphviz(model=model, output_tree_num=output_tree_num, tree=tree,
+                               column_names=column_names, column_names_categ=column_names_categ,
+                               nthreads=model$nthreads)
+    return(
+        DiagrammeR::grViz(
+            txt,
+            engine = "dot",
+            width = width,
+            height = height
+        )
+    )
 }
 
 #' @title Deep-Copy an Isolation Forest Model Object

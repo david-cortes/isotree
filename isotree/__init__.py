@@ -5,6 +5,7 @@ import multiprocessing
 import ctypes
 import json
 import os
+from io import BytesIO
 from copy import deepcopy
 from ._cpp_interface import (
     isoforest_cpp_obj, _sort_csc_indices, _reconstruct_csr_sliced,
@@ -177,7 +178,8 @@ class IsolationForest(BaseEstimator):
     
     If the data has categorical variables and these are more important important for determining
     outlierness compared to numerical columns, one might want to experiment with ``ndim=1``,
-    ``categ_split_type="single_categ"``, and ``scoring_metric="density"``.
+    ``categ_split_type="single_categ"``, and ``scoring_metric="density"``; while for all-numeric
+    datasets - especially if there are missing values - one might want to experiment with ``ndim=2`` or ``ndim=3``.
 
     For small datasets, one might also want to experiment with ``ndim=1``, ``scoring_metric="adj_depth"``
     and ``penalize_range=True``.
@@ -868,7 +870,7 @@ class IsolationForest(BaseEstimator):
     .. [14] Ting, Kai Ming, Yue Zhu, and Zhi-Hua Zhou. "Isolation kernel and its effect on SVM."
             Proceedings of the 24th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining. 2018.
     """
-    def __init__(self, sample_size = "auto", ntrees = 500, ndim = 3, ntry = 1,
+    def __init__(self, sample_size = "auto", ntrees = 500, ndim = 1, ntry = 1,
                  categ_cols = None, max_depth = "auto", ncols_per_tree = None,
                  prob_pick_pooled_gain = 0.0, prob_pick_avg_gain = 0.0,
                  prob_pick_full_gain = 0.0, prob_pick_dens = 0.0,
@@ -3212,9 +3214,9 @@ class IsolationForest(BaseEstimator):
         obj._take_metadata(metadata)
         return obj
 
-    def generate_sql(self, enclose="doublequotes", output_tree_num = False, tree = None,
-                     table_from = None, select_as = "outlier_score",
-                     column_names = None, column_names_categ = None):
+    def to_sql(self, enclose="doublequotes", output_tree_num = False, tree = None,
+               table_from = None, select_as = "outlier_score",
+               column_names = None, column_names_categ = None):
         """
         Generate SQL statements representing the model prediction function
 
@@ -3324,6 +3326,7 @@ class IsolationForest(BaseEstimator):
             with all the trees concatenated if passing ``table_from``.
         """
         assert self.is_fitted_
+        # TODO refactor common parts for sql, graphviz, and json converters
         
         single_tree = False
         if tree is not None:
@@ -3392,6 +3395,353 @@ class IsolationForest(BaseEstimator):
                for s in self._cpp_obj.generate_sql(self.ndim_ > 1,
                                                    column_names, column_names_categ, categ_levels,
                                                    output_tree_num, single_tree, tree, nthreads_use)]
+        if single_tree:
+            return out[0]
+        return out
+
+    def to_graphviz(self, output_tree_num = False, tree = None,
+                    column_names = None, column_names_categ = None):
+        """
+        Generate GraphViz 'Dot' graph representations of model trees
+
+        Generate GraphViz representations of model trees in 'dot' format - either
+        separately per tree (the default), or for a single tree if needed (if passing ``tree``).
+        Can also be made to output terminal node numbers (numeration starting at zero).
+
+        These can be loaded as graphs through e.g. ``graphviz.Source(x)``, where ``x`` would
+        be the output of this function for a given tree.
+
+        Graph format is based on XGBoost's.
+
+        Note
+        ----
+        The generated graphs will not include range penalizations, thus
+        predictions might differ from calls to ``predict`` when using
+        ``penalize_range=True``.
+
+        Note
+        ----
+        The generated graphs will only include handling of missing values
+        when using ``missing_action="impute"``. When using the single-variable
+        model with categorical variables + subset splits, the rule buckets might be
+        incomplete due to not including categories that were not present in a given
+        node - this last point can be avoided by using ``new_categ_action="smallest"``,
+        ``new_categ_action="random"``, or ``missing_action="impute"`` (in the latter
+        case will treat them as missing, but the ``predict`` function might treat
+        them differently).
+
+        Note
+        ----
+        If using ``scoring_metric="density"`` or ``scoring_metric="boxed_ratio"`` plus
+        ``output_tree_num=False``, the outputs will correspond to the logarithm of the
+        density rather than the density.
+
+        Parameters
+        ----------
+        output_tree_num : bool
+            Whether to make the graphs return the terminal node number
+            instead of the isolation depth. The numeration will start at zero.
+        tree : int or None
+            Tree for which to generate a graph statements. If passed, will generate
+            the graph only for that single tree. If passing 'None', will
+            generate graphs for all trees in the model.
+        column_names : None or list[str]
+            Column names to use for the **numeric** columns.
+            If not passed and the model was fit to a ``DataFrame``, will use the column
+            names from that ``DataFrame``, which can be found under ``self.cols_numeric_``.
+            If not passing it and the model was fit to data in a format other than
+            ``DataFrame``, the columns will be named "column_N" .
+        column_names_categ : None or list[str]
+            Column names to use for the **categorical** columns.
+            If not passed, will use the column names from the ``DataFrame`` to which the
+            model was fit. These can be found under ``self.cols_categ_``.
+
+        Returns
+        -------
+        lst : list[str] or str
+            A list of GraphViz 'dot' format representation for each tree as strings, or
+            for a single tree if passing ``tree``.
+        """
+        assert self.is_fitted_
+        # TODO refactor common parts for sql, graphviz, and json converters
+        
+        single_tree = False
+        if tree is not None:
+            if isinstance(tree, float):
+                tree = int(tree)
+            assert isinstance(tree, int)
+            assert tree >= 0
+            assert tree < self._ntrees
+            single_tree = True
+        else:
+            tree = 0
+        output_tree_num = bool(output_tree_num)
+
+        if not hasattr(self, "feature_names_in_"):
+            if (self._ncols_categ) and ((column_names is None) != (column_names_categ is None)):
+                raise ValueError("Cannot pass only one of 'column_names' and 'column_names_categ'.")
+            if column_names is None:
+                column_names = ["column_" + str(cl) for cl in range(self.n_features_in_)]
+                if (self.categ_cols_ is not None) and len(self.categ_cols_):
+                    column_names = np.array(column_names)
+                    column_names_categ = column_names[self.categ_cols_]
+                    column_names = column_names[self.cols_numeric_]
+
+                    column_names = list(column_names)
+                    column_names_categ = list(column_names_categ)
+                else:
+                    column_names_categ = list()
+
+        if self._ncols_numeric:
+            if column_names is not None:
+                if len(column_names) != self._ncols_numeric:
+                    raise ValueError("'column_names' must have %d entries." % self._ncols_numeric)
+            else:
+                column_names = self.cols_numeric_
+        else:
+            column_names = []
+
+        if self._ncols_categ:
+            if column_names_categ is not None:
+                if len(column_names_categ) != self._ncols_categ:
+                    raise ValueError("'column_names_categ' must have %d entries." % self._ncols_categ)
+            else:
+                column_names_categ = self.cols_categ_
+            if len(self._cat_mapping):
+                categ_levels = [[str(lev).encode() for lev in mp] for mp in self._cat_mapping]
+            else:
+                categ_levels = [[str(cat) for cat in range(self._cat_max_lev[cl] + 1)] for cl in range(self._ncols_categ)]
+        else:
+            column_names_categ = []
+            categ_levels = []
+
+        column_names = [s.encode() for s in column_names]
+        column_names_categ = [s.encode() for s in column_names_categ]
+        categ_levels = [[s.encode() for s in categs] for categs in categ_levels]
+
+        nthreads_use = _process_nthreads(self.nthreads)
+
+        out = [s.decode()
+               for s in self._cpp_obj.generate_graphviz(self.ndim_ > 1,
+                                                        column_names, column_names_categ, categ_levels,
+                                                        output_tree_num, single_tree, tree, nthreads_use)]
+        if single_tree:
+            return out[0]
+        return out
+
+    def plot_tree(self, tree_num = 0, output_tree_num = False,
+                  column_names = None, column_names_categ = None,
+                  ax = None):
+        """
+        Plot a single tree from the model
+
+        Plots a single tree from the model, as a matplotlib plot.
+
+        Note
+        ----
+        One might get higher-resolution images from using ``graphviz`` directly
+        (without ``matplotlib``) through ``graphviz.Source(txt)`` - where ``txt``
+        is the string 'dot' representation of a single tree as produced by ``to_graphviz()``.
+
+        Note
+        ----
+        Calling this method requires installing libraries ``graphviz`` and ``matplotlib``.
+
+        Note
+        ----
+        In general, isolation forest trees tend to be rather large, and the contents on the
+        nodes can be very long when using ``ndim>1`` - if the idea is to get easily visualizable
+        trees, one might want to use parameters like ``ndim=1``, ``sample_size=256``, ``max_depth=8``.
+
+        Parameters
+        ----------
+        output_tree_num : bool
+            Whether to make the graphs return the terminal node number
+            instead of the isolation depth. The numeration will start at zero.
+        tree : int or None
+            Tree for which to generate a graph statements. If passed, will generate
+            the graph only for that single tree. If passing 'None', will
+            generate graphs for all trees in the model.
+        column_names : None or list[str]
+            Column names to use for the **numeric** columns.
+            If not passed and the model was fit to a ``DataFrame``, will use the column
+            names from that ``DataFrame``, which can be found under ``self.cols_numeric_``.
+            If not passing it and the model was fit to data in a format other than
+            ``DataFrame``, the columns will be named "column_N" in the resulting
+            SQL statement.
+        column_names_categ : None or list[str]
+            Column names to use for the **categorical** columns.
+            If not passed, will use the column names from the ``DataFrame`` to which the
+            model was fit. These can be found under ``self.cols_categ_``.
+        ax : None or matplotlib Axes
+            Matplotlib Axes ('ax') object on which to draw the plot.
+
+            If not passed, will create one with default settings.
+
+        Returns
+        -------
+        ax : matplotlib.Axes
+            A matplotlib ``Axes`` object with the plot of the selected tree drawn on it.
+        """
+        from graphviz import Source
+        from matplotlib import pyplot as plt
+        from matplotlib import image
+        txt = self.to_graphviz(
+            output_tree_num = output_tree_num, tree = tree_num,
+            column_names = column_names, column_names_categ = column_names_categ
+        )
+        # Based on xgboost's:
+        # https://github.com/dmlc/xgboost/blob/2c8fa8b8b96c4c8b62a715f1334577b10512df71/python-package/xgboost/plotting.py#L288
+        graph = Source(txt)
+        if ax is None:
+            _, ax = plt.subplots(1, 1)
+        buffer = BytesIO()
+        buffer.write(graph.pipe(format="png"))
+        buffer.seek(0)
+        plot_img = image.imread(buffer)
+        ax.imshow(plot_img)
+        ax.axis("off")
+        return ax
+
+    def to_json(self, output_tree_num = False, tree = None,
+                column_names = None, column_names_categ = None,
+                as_str = False):
+        """
+        Generate JSON representations of model trees
+
+        Generates a JSON representation of either a single tree in the model, or of all
+        the trees in the model.
+
+        The JSON for a given tree will consist of a sub-json/dict for each node, where nodes
+        are indexed by their number (base-0 indexing) as keys in these JSONs (note that they
+        are strings, not numbers, in order to conform to JSON format).
+
+        Nodes will in turn consist of another map/dict indicating whether they are terminal nodes
+        or not, their score and terminal node index if terminal, or otherwise the split conditions,
+        nodes to follow when the condition is or isn't met, and other aspects such as imputation
+        values if applicable, acceptable ranges when using range penalizations, fraction of the data
+        that went into the left node if recorded, among others.
+
+        Note that the JSON structure will be very different for models that have ``ndim=1``
+        than for models that have ``ndim>1``. In the case of ``ndim=1``, the conditions are
+        based on the value of only one variable, but for ``ndim=2``, they will consist of
+        a linear combination of different columns (which is expressed as a list of JSONs
+        with one entry per column that goes into the calculation) - for numeric columns for example,
+        these will be expressed in the json by a coefficient for the given column, and a centering
+        that needs to be applied, with the score from that column being added as
+            
+            :math:`\\text{coef} \\times (x - \\text{centering})`
+
+        and the imputation value being applied in replacement of this formula in the case of
+        missing values for that column (depending on the model parameters); while in the case of
+        categorical columns, might either have a different coefficient for each possible category
+        (``categ_split_type="subset"``), or a single category that gets a non-zero coefficient
+        while the others get zeros (``categ_split_type="single_categ"``).
+
+        The JSONs might contain redundant information in order to ease understanding of the model
+        logic - for example, when using ``ndim>1`` and ``categ_split_type="single_categ"``,
+        the coefficient for the non-chosen categories will always be zero, but is nevertheless
+        added to every node's JSON, even if not needed.
+
+        Note
+        ----
+        If using ``scoring_metric="density"`` or ``scoring_metric="boxed_ratio"``,
+        the outputs will correspond to the logarithm of the density rather than the density.
+
+        Parameters
+        ----------
+        output_tree_num : bool
+            Whether to make the graphs return the terminal node number
+            instead of the isolation depth. The numeration will start at zero.
+        tree : int or None
+            Tree for which to generate a graph statements. If passed, will generate
+            the graph only for that single tree. If passing 'None', will
+            generate graphs for all trees in the model.
+        column_names : None or list[str]
+            Column names to use for the **numeric** columns.
+            If not passed and the model was fit to a ``DataFrame``, will use the column
+            names from that ``DataFrame``, which can be found under ``self.cols_numeric_``.
+            If not passing it and the model was fit to data in a format other than
+            ``DataFrame``, the columns will be named "column_N".
+        column_names_categ : None or list[str]
+            Column names to use for the **categorical** columns.
+            If not passed, will use the column names from the ``DataFrame`` to which the
+            model was fit. These can be found under ``self.cols_categ_``.
+        as_str : bool
+            Whether to return the result as raw JSON strings instead of being parsed into
+            python dicts (internally, it uses ``json.loads``).
+
+        Returns
+        -------
+        lst : list[str] or str
+            A list of either dicts (when passing ``as_str=False``) or strings (when passing
+            ``as_str=True``), or a single such dict or string if passing ``tree``.
+        """
+        assert self.is_fitted_
+        # TODO refactor common parts for sql, graphviz, and json converters
+        
+        single_tree = False
+        if tree is not None:
+            if isinstance(tree, float):
+                tree = int(tree)
+            assert isinstance(tree, int)
+            assert tree >= 0
+            assert tree < self._ntrees
+            single_tree = True
+        else:
+            tree = 0
+        output_tree_num = bool(output_tree_num)
+
+        if not hasattr(self, "feature_names_in_"):
+            if (self._ncols_categ) and ((column_names is None) != (column_names_categ is None)):
+                raise ValueError("Cannot pass only one of 'column_names' and 'column_names_categ'.")
+            if column_names is None:
+                column_names = ["column_" + str(cl) for cl in range(self.n_features_in_)]
+                if (self.categ_cols_ is not None) and len(self.categ_cols_):
+                    column_names = np.array(column_names)
+                    column_names_categ = column_names[self.categ_cols_]
+                    column_names = column_names[self.cols_numeric_]
+
+                    column_names = list(column_names)
+                    column_names_categ = list(column_names_categ)
+                else:
+                    column_names_categ = list()
+
+        if self._ncols_numeric:
+            if column_names is not None:
+                if len(column_names) != self._ncols_numeric:
+                    raise ValueError("'column_names' must have %d entries." % self._ncols_numeric)
+            else:
+                column_names = self.cols_numeric_
+        else:
+            column_names = []
+
+        if self._ncols_categ:
+            if column_names_categ is not None:
+                if len(column_names_categ) != self._ncols_categ:
+                    raise ValueError("'column_names_categ' must have %d entries." % self._ncols_categ)
+            else:
+                column_names_categ = self.cols_categ_
+            if len(self._cat_mapping):
+                categ_levels = [[str(lev).encode() for lev in mp] for mp in self._cat_mapping]
+            else:
+                categ_levels = [[str(cat) for cat in range(self._cat_max_lev[cl] + 1)] for cl in range(self._ncols_categ)]
+        else:
+            column_names_categ = []
+            categ_levels = []
+
+        column_names = [s.encode() for s in column_names]
+        column_names_categ = [s.encode() for s in column_names_categ]
+        categ_levels = [[s.encode() for s in categs] for categs in categ_levels]
+
+        nthreads_use = _process_nthreads(self.nthreads)
+
+        out = [s.decode()
+               for s in self._cpp_obj.generate_json(self.ndim_ > 1,
+                                                    column_names, column_names_categ, categ_levels,
+                                                    output_tree_num, single_tree, tree, nthreads_use)]
+        if not self.as_str:
+            out = [json.loads(s) for s in out]
         if single_tree:
             return out[0]
         return out

@@ -240,10 +240,10 @@ cat("Point with highest outlier score: ",
 
 * C++:
 
-The package comes with two different C++ interfaces: (a) a struct-based interface which exposes the full library's functionalities but makes little checks on the inputs it receives and is perhaps a bit difficult to use due to the large number of arguments that functions require; and (b) a scikit-learn-like interface in which the model exposes a single class with methods like 'fit' and 'predict', which is less flexible than the struct-based interface but easier to use and the function signatures disallow some potential errors due to invalid parameter combinations.
+The package comes with two different C++ interfaces: (a) a struct-based interface which exposes the full library's functionalities but makes little checks on the inputs it receives and is difficult to use due to the large number of arguments that functions require; and (b) a scikit-learn-like interface in which the model exposes a single class with methods like 'fit' and 'predict', which is less flexible than the struct-based interface but easier to use and the function signatures disallow some potential errors due to invalid parameter combinations. The latter ((b)) is recommended to use unless some specific functionality from (a) is required.
 
 
-See files: [isotree_cpp_ex.cpp](https://github.com/david-cortes/isotree/blob/master/example/isotree_cpp_ex.cpp) for an example with the struct-based interface; and [isotree_cpp_oop_ex.cpp](https://github.com/david-cortes/isotree/blob/master/example/isotree_cpp_oop_ex.cpp) for an example with the scikit-learn-like interface.
+See files: [isotree_cpp_oop_ex.cpp](https://github.com/david-cortes/isotree/blob/master/example/isotree_cpp_oop_ex.cpp) for an example with the scikit-learn-like interface (recommended); and [isotree_cpp_ex.cpp](https://github.com/david-cortes/isotree/blob/master/example/isotree_cpp_ex.cpp) for an example with the struct-based interface.
 
 Note that the second interface does not expose all the functionalities - for example, it only supports inputs of classes 'double' and 'int', while the struct-based interface also supports 'float'/'size_t'.
 
@@ -251,7 +251,7 @@ Note that the second interface does not expose all the functionalities - for exa
 
 See file [isotree_c_ex.c](https://github.com/david-cortes/isotree/blob/master/example/isotree_c_ex.c).
 
-Note that the C interface is a simple wrapper over the scikit-learn-like C++ interface, but using only ISO C bindings for better compatibility and easier wrapping in other languages.
+Note that the C interface is a simple wrapper over a subset of the scikit-learn-like C++ interface, but using only ISO C bindings for better compatibility and easier wrapping in other languages.
 
 * Ruby
 

@@ -8,7 +8,7 @@ isolation.forest(
   data,
   sample_size = min(nrow(data), 10000L),
   ntrees = 500,
-  ndim = min(3, ncol(data)),
+  ndim = 1,
   ntry = 1,
   categ_cols = NULL,
   max_depth = ceiling(log2(sample_size)),
@@ -805,7 +805,8 @@ trade-off than changing `max_depth`.
 
 If the data has categorical variables and these are more important important for determining
 outlierness compared to numerical columns, one might want to experiment with `ndim=1`,
-`categ_split_type="single_categ"`, and `scoring_metric="density"`.
+`categ_split_type="single_categ"`, and `scoring_metric="density"`; while for all-numeric
+datasets - especially if there are missing values - one might want to experiment with `ndim=2` or `ndim=3`.
 
 For small datasets, one might also want to experiment with `ndim=1`, `scoring_metric="adj_depth"`
 and `penalize_range=TRUE`.
@@ -1029,11 +1030,14 @@ if (require("MASS")) {
   X_na[values_NA] = NA
   
   ### Impute missing values with model
-  iso <- isolation.forest(X_na,
+  iso <- isolation.forest(
+      X_na,
       build_imputer = TRUE,
       prob_pick_pooled_gain = 1,
+      ndim = 2,
       ntry = 10,
-      nthreads = 1)
+      nthreads = 1
+  )
   X_imputed <- predict(iso, X_na, type = "impute")
   cat(sprintf("MSE for imputed values w/model: \%f\n",
       mean((X[values_NA] - X_imputed[values_NA])^2)))

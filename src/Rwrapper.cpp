@@ -491,6 +491,7 @@ double* set_R_nan_as_C_nan(double *x, size_t n, int nthreads)
 
 TreesIndexer* get_indexer_ptr_from_R_obj(SEXP indexer_R_ptr)
 {
+    if (Rf_isNull(indexer_R_ptr)) return nullptr;
     TreesIndexer *out = get_pointer_from_xptr<TreesIndexer>(indexer_R_ptr);
     if (out && out->indices.empty()) out = nullptr;
     return out;
@@ -1930,12 +1931,12 @@ Rcpp::CharacterVector model_to_sql_with_select_from(SEXP model_R_ptr, bool is_ex
                                                     Rcpp::CharacterVector select_as,
                                                     int nthreads)
 {
-    IsoForest*     model_ptr      =  NULL;
-    ExtIsoForest*  ext_model_ptr  =  NULL;
+    const IsoForest*     model_ptr      =  nullptr;
+    const ExtIsoForest*  ext_model_ptr  =  nullptr;
     if (is_extended)
-        ext_model_ptr  =  static_cast<ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        ext_model_ptr  =  static_cast<const ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
     else
-        model_ptr      =  static_cast<IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+        model_ptr      =  static_cast<const IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
 
     std::vector<std::string> numeric_colanmes_cpp = Rcpp::as<std::vector<std::string>>(numeric_colanmes);
     std::vector<std::string> categ_colanmes_cpp = Rcpp::as<std::vector<std::string>>(categ_colnames);
@@ -1951,6 +1952,80 @@ Rcpp::CharacterVector model_to_sql_with_select_from(SEXP model_R_ptr, bool is_ex
     /* TODO: this function could create objects through the ALTREP system instead.
        That way, it would avoid an extra copy of the data */
     return Rcpp::unwindProtect(safe_CastString, &out);
+}
+
+// [[Rcpp::export(rng = false)]]
+Rcpp::ListOf<Rcpp::CharacterVector> model_to_graphviz(SEXP model_R_ptr, bool is_extended,
+                                                      SEXP indexer_R_ptr,
+                                                      Rcpp::CharacterVector numeric_colanmes,
+                                                      Rcpp::CharacterVector categ_colnames,
+                                                      Rcpp::ListOf<Rcpp::CharacterVector> categ_levels,
+                                                      bool output_tree_num, bool single_tree, size_t tree_num,
+                                                      int nthreads)
+{
+    const IsoForest*     model_ptr      =  nullptr;
+    const ExtIsoForest*  ext_model_ptr  =  nullptr;
+    const TreesIndexer*  indexer        =  nullptr;
+    if (is_extended)
+        ext_model_ptr  =  static_cast<const ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+    else
+        model_ptr      =  static_cast<const IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+    indexer = get_indexer_ptr_from_R_obj(indexer_R_ptr);
+
+    std::vector<std::string> numeric_colanmes_cpp = Rcpp::as<std::vector<std::string>>(numeric_colanmes);
+    std::vector<std::string> categ_colanmes_cpp = Rcpp::as<std::vector<std::string>>(categ_colnames);
+    std::vector<std::vector<std::string>> categ_levels_cpp = Rcpp::as<std::vector<std::vector<std::string>>>(categ_levels);
+
+    std::vector<std::string> res = generate_dot(model_ptr, ext_model_ptr, indexer,
+                                                numeric_colanmes_cpp,
+                                                categ_colanmes_cpp,
+                                                categ_levels_cpp,
+                                                output_tree_num, true, single_tree, tree_num,
+                                                nthreads);
+    /* TODO: this function could create objects through the ALTREP system instead.
+       That way, it would avoid an extra copy of the data */
+    size_t sz = res.size();
+    Rcpp::List out = Rcpp::unwindProtect(alloc_List, (void*)&sz);
+    for (size_t ix = 0; ix < res.size(); ix++)
+        out[ix] = Rcpp::unwindProtect(safe_CastString, &(res[ix]));
+    return out;
+}
+
+// [[Rcpp::export(rng = false)]]
+Rcpp::ListOf<Rcpp::CharacterVector> model_to_json(SEXP model_R_ptr, bool is_extended,
+                                                  SEXP indexer_R_ptr,
+                                                  Rcpp::CharacterVector numeric_colanmes,
+                                                  Rcpp::CharacterVector categ_colnames,
+                                                  Rcpp::ListOf<Rcpp::CharacterVector> categ_levels,
+                                                  bool output_tree_num, bool single_tree, size_t tree_num,
+                                                  int nthreads)
+{
+    const IsoForest*     model_ptr      =  nullptr;
+    const ExtIsoForest*  ext_model_ptr  =  nullptr;
+    const TreesIndexer*  indexer        =  nullptr;
+    if (is_extended)
+        ext_model_ptr  =  static_cast<const ExtIsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+    else
+        model_ptr      =  static_cast<const IsoForest*>(R_ExternalPtrAddr(model_R_ptr));
+    indexer = get_indexer_ptr_from_R_obj(indexer_R_ptr);
+
+    std::vector<std::string> numeric_colanmes_cpp = Rcpp::as<std::vector<std::string>>(numeric_colanmes);
+    std::vector<std::string> categ_colanmes_cpp = Rcpp::as<std::vector<std::string>>(categ_colnames);
+    std::vector<std::vector<std::string>> categ_levels_cpp = Rcpp::as<std::vector<std::vector<std::string>>>(categ_levels);
+
+    std::vector<std::string> res = generate_json(model_ptr, ext_model_ptr, indexer,
+                                                 numeric_colanmes_cpp,
+                                                 categ_colanmes_cpp,
+                                                 categ_levels_cpp,
+                                                 output_tree_num, true, single_tree, tree_num,
+                                                 nthreads);
+    /* TODO: this function could create objects through the ALTREP system instead.
+       That way, it would avoid an extra copy of the data */
+    size_t sz = res.size();
+    Rcpp::List out = Rcpp::unwindProtect(alloc_List, (void*)&sz);
+    for (size_t ix = 0; ix < res.size(); ix++)
+        out[ix] = Rcpp::unwindProtect(safe_CastString, &(res[ix]));
+    return out;
 }
 
 // [[Rcpp::export(rng = false)]]

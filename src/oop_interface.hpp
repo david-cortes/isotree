@@ -101,7 +101,7 @@ public:
 
     uint64_t random_seed = 1;
 
-    size_t ndim = 3;
+    size_t ndim = 1;
     size_t ntry = 1;
     CoefType coef_type = Uniform;
     bool   with_replacement = false;
@@ -227,6 +227,36 @@ public:
                                         size_t nrows, bool is_col_major, size_t ld_numeric, size_t ld_categ,
                                         bool as_kernel, bool standardize,
                                         double dist_matrix[]);
+
+    std::vector<std::string> to_json(bool output_tree_num, bool index1,
+                                     const std::vector<std::string> &numeric_colnames,
+                                     const std::vector<std::string> &categ_colnames,
+                                     const std::vector<std::vector<std::string>> &categ_levels) const;
+
+    std::string to_json(bool output_tree_num, bool index1, size_t tree_num,
+                        const std::vector<std::string> &numeric_colnames,
+                        const std::vector<std::string> &categ_colnames,
+                        const std::vector<std::vector<std::string>> &categ_levels) const;
+
+    std::vector<std::string> to_graphviz(bool output_tree_num, bool index1,
+                                         const std::vector<std::string> &numeric_colnames,
+                                         const std::vector<std::string> &categ_colnames,
+                                         const std::vector<std::vector<std::string>> &categ_levels) const;
+
+    std::string to_graphviz(bool output_tree_num, bool index1, size_t tree_num,
+                            const std::vector<std::string> &numeric_colnames,
+                            const std::vector<std::string> &categ_colnames,
+                            const std::vector<std::vector<std::string>> &categ_levels) const;
+
+    std::vector<std::string> to_sql(bool output_tree_num, bool index1,
+                                    const std::vector<std::string> &numeric_colnames,
+                                    const std::vector<std::string> &categ_colnames,
+                                    const std::vector<std::vector<std::string>> &categ_levels) const;
+
+    std::string to_sql(bool output_tree_num, bool index1, size_t tree_num,
+                       const std::vector<std::string> &numeric_colnames,
+                       const std::vector<std::string> &categ_colnames,
+                       const std::vector<std::vector<std::string>> &categ_levels) const;
 
     void serialize(FILE *out) const;
 

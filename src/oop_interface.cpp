@@ -841,4 +841,107 @@ IsolationForest IsolationForest::deserialize_template(itype &inp, int nthreads)
     return out;
 }
 
+std::vector<std::string> IsolationForest::to_json(bool output_tree_num, bool index1,
+                                                  const std::vector<std::string> &numeric_colnames,
+                                                  const std::vector<std::string> &categ_colnames,
+                                                  const std::vector<std::vector<std::string>> &categ_levels) const
+{
+    return generate_json(
+        (!this->model.trees.empty())? &this->model : nullptr,
+        (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
+        (!this->indexer.indices.empty())? &this->indexer : nullptr,
+        numeric_colnames,
+        categ_colnames,
+        categ_levels,
+        output_tree_num, index1, false, 0,
+        this->nthreads
+    );
+}
+
+std::string IsolationForest::to_json(bool output_tree_num, bool index1, size_t tree_num,
+                                     const std::vector<std::string> &numeric_colnames,
+                                     const std::vector<std::string> &categ_colnames,
+                                     const std::vector<std::vector<std::string>> &categ_levels) const
+{
+    std::vector<std::string> out = generate_json(
+        (!this->model.trees.empty())? &this->model : nullptr,
+        (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
+        (!this->indexer.indices.empty())? &this->indexer : nullptr,
+        numeric_colnames,
+        categ_colnames,
+        categ_levels,
+        output_tree_num, index1, true, tree_num,
+        this->nthreads
+    );
+    return out[0];
+}
+
+std::vector<std::string> IsolationForest::to_graphviz(bool output_tree_num, bool index1,
+                                                      const std::vector<std::string> &numeric_colnames,
+                                                      const std::vector<std::string> &categ_colnames,
+                                                      const std::vector<std::vector<std::string>> &categ_levels) const
+{
+    return generate_dot(
+        (!this->model.trees.empty())? &this->model : nullptr,
+        (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
+        (!this->indexer.indices.empty())? &this->indexer : nullptr,
+        numeric_colnames,
+        categ_colnames,
+        categ_levels,
+        output_tree_num, index1, false, 0,
+        this->nthreads
+    );
+}
+
+std::string IsolationForest::to_graphviz(bool output_tree_num, bool index1, size_t tree_num,
+                                         const std::vector<std::string> &numeric_colnames,
+                                         const std::vector<std::string> &categ_colnames,
+                                         const std::vector<std::vector<std::string>> &categ_levels) const
+{
+    std::vector<std::string> out = generate_dot(
+        (!this->model.trees.empty())? &this->model : nullptr,
+        (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
+        (!this->indexer.indices.empty())? &this->indexer : nullptr,
+        numeric_colnames,
+        categ_colnames,
+        categ_levels,
+        output_tree_num, index1, true, tree_num,
+        this->nthreads
+    );
+    return out[0];
+}
+
+std::vector<std::string> IsolationForest::to_sql(bool output_tree_num, bool index1,
+                                                 const std::vector<std::string> &numeric_colnames,
+                                                 const std::vector<std::string> &categ_colnames,
+                                                 const std::vector<std::vector<std::string>> &categ_levels) const
+{
+    return generate_sql(
+        (!this->model.trees.empty())? &this->model : nullptr,
+        (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
+        numeric_colnames,
+        categ_colnames,
+        categ_levels,
+        output_tree_num, index1, false, 0,
+        this->nthreads
+    );
+}
+
+std::string IsolationForest::to_sql(bool output_tree_num, bool index1, size_t tree_num,
+                                    const std::vector<std::string> &numeric_colnames,
+                                    const std::vector<std::string> &categ_colnames,
+                                    const std::vector<std::vector<std::string>> &categ_levels) const
+{
+    std::vector<std::string> out = generate_sql(
+        (!this->model.trees.empty())? &this->model : nullptr,
+        (!this->model_ext.hplanes.empty())? &this->model_ext : nullptr,
+        numeric_colnames,
+        categ_colnames,
+        categ_levels,
+        output_tree_num, index1, true, tree_num,
+        this->nthreads
+    );
+    return out[0];
+}
+
 #endif

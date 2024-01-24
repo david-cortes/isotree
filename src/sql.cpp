@@ -134,22 +134,22 @@ std::string generate_sql_with_select_from(const IsoForest *model_outputs, const 
                                                     std::string("SELECT\nPOWER(2.0, -(0.0"))),
                                       [&tree_conds, &index1](std::string &a, std::string &b)
                                       {return a
-                                                + std::string(" + \n---BEGIN TREE ")
+                                                + " + \n---BEGIN TREE "
                                                 + std::to_string((size_t)std::distance(tree_conds.data(), &b) + (size_t)index1)
-                                                + std::string("---\n")
+                                                + "---\n"
                                                 + b
-                                                + std::string("\n---END OF TREE ")
+                                                + "\n---END OF TREE "
                                                 + std::to_string((size_t)std::distance(tree_conds.data(), &b) + (size_t)index1)
-                                                + std::string("---\n");});
+                                                + "---\n";});
     size_t ntrees = (model_outputs != NULL)? (model_outputs->trees.size()) : (model_outputs_ext->hplanes.size());
     return
        out
-        + std::string(") / ")
+        + ") / "
         + std::to_string((double)ntrees * ((model_outputs != NULL)?
                                            (model_outputs->exp_avg_depth) : (model_outputs_ext->exp_avg_depth)))
-        + std::string(") AS ")
+        + ") AS "
         + select_as
-        + std::string("\nFROM ")
+        + "\nFROM "
         + table_from;
 }
 
@@ -173,7 +173,7 @@ std::string generate_sql_with_select_from(const IsoForest *model_outputs, const 
 *       Names to use for the levels/categories of each categorical column. These will be enclosed
 *       in single quotes.
 * - output_tree_num
-*       Whether to output the terminal node number instead of the separation depth at each node.
+*       Whether to output the terminal node number instead of the isolation depth at each node.
 * - index1
 *       Whether to make the node numbers start their numeration at 1 instead of 0 in the
 *       resulting statement. If passing 'output_tree_num=false', this will only affect the
@@ -207,7 +207,7 @@ std::vector<std::string> generate_sql(const IsoForest *model_outputs, const ExtI
     size_t ntrees_use = single_tree?
                             1 : ((model_outputs != NULL)?
                                     model_outputs->trees.size() : model_outputs_ext->hplanes.size());
-    std::string initial_str = std::string("\tWHEN\n");
+    std::string initial_str("\tWHEN\n");
 
     size_t_for loop_st = 0;
     size_t_for loop_end = ntrees_use;
@@ -279,21 +279,21 @@ std::vector<std::string> generate_sql(const IsoForest *model_outputs, const ExtI
             if (all_node_rules[tree_use].size() <= 1)
             {
                 for (std::string &rule : all_node_rules[tree_use])
-                    rule = std::string("WHEN TRUE THEN ")
+                    rule = "WHEN TRUE THEN "
                             + std::to_string((model_outputs != NULL)?
                                                 (model_outputs->exp_avg_depth) : (model_outputs_ext->exp_avg_depth))
-                            + std::string(" ");
+                            + " ";
             }
 
             out[tree_use] = std::accumulate(all_node_rules[tree_use].begin(), all_node_rules[tree_use].end(),
                                             std::string("CASE\n"),
                                             [&all_node_rules, &tree_use, &index1](std::string &a, std::string &b)
                                             {return a
-                                                        + std::string("---begin terminal node ")
+                                                        + "---begin terminal node "
                                                         + std::to_string((size_t)std::distance(&(all_node_rules[tree_use][0]), &b) + (size_t)index1)
-                                                        + std::string("---\n")
+                                                        + "---\n"
                                                     + b;})
-                            + std::string("END\n");
+                            + "END\n";
             all_node_rules[tree_use].clear();
         }
 
@@ -329,7 +329,7 @@ void generate_tree_rules(const std::vector<IsoTree> *trees, const std::vector<Is
         (hplanes != NULL && (*hplanes)[curr_ix].hplane_left == 0))
     {
         node_rules.push_back(prev_cond
-                                + std::string("\tTHEN ")
+                                + "\tTHEN "
                                 + (output_score?
                                     (std::to_string((trees != NULL)?
                                         ((model_outputs->scoring_metric != Density && model_outputs->scoring_metric != BoxedRatio)?
@@ -339,17 +339,17 @@ void generate_tree_rules(const std::vector<IsoTree> *trees, const std::vector<Is
                                             (*hplanes)[curr_ix].score : (-(*hplanes)[curr_ix].score))))
                                         :
                                     (std::to_string(node_rules.size() + (size_t)index1)))
-                                + std::string("\n---end of terminal node ")
+                                + "\n---end of terminal node "
                                 + std::to_string(node_rules.size() + (size_t)index1)
-                                + std::string("---\n"));
+                                + "---\n");
         return;
     }
 
     
     std::string cond_left = prev_cond
-                                + ((curr_ix > 0)? std::string("\t\tAND (") : std::string("\t\t    ("))
+                                + ((curr_ix > 0)? "\t\tAND (" : "\t\t    (")
                                 + conditions_left[curr_ix]
-                                + std::string(")\n");
+                                + ")\n";
     generate_tree_rules(trees, hplanes, output_score,
                         (trees != NULL)?
                             ((*trees)[curr_ix].tree_left) : ((*hplanes)[curr_ix].hplane_left),
@@ -357,9 +357,9 @@ void generate_tree_rules(const std::vector<IsoTree> *trees, const std::vector<Is
                         conditions_left, conditions_right, model_outputs, model_outputs_ext);
     cond_left.clear();
     std::string cond_right = prev_cond
-                                + ((curr_ix > 0)? std::string("\t\tAND (") : std::string("\t\t    ("))
+                                + ((curr_ix > 0)? "\t\tAND (" : "\t\t    (")
                                 + conditions_right[curr_ix]
-                                + std::string(")\n");
+                                + ")\n";
     generate_tree_rules(trees, hplanes, output_score,
                         (trees != NULL)?
                             ((*trees)[curr_ix].tree_right) : ((*hplanes)[curr_ix].hplane_right),
@@ -384,25 +384,25 @@ void extract_cond_isotree(const IsoForest &model, const IsoTree &tree,
     {
         case Numeric:
         {
-            cond_left = ((model.missing_action != Impute)? (std::string("")) :
+            cond_left = ((model.missing_action != Impute)? "" :
                             ((tree.pct_tree_left >= .5)?
                                 (numeric_colnames[tree.col_num]
-                                    + std::string(" IS NULL OR "))
+                                    + " IS NULL OR ")
                                 :
                                 (numeric_colnames[tree.col_num]
-                                    + std::string(" IS NOT NULL AND "))))
+                                    + " IS NOT NULL AND ")))
                             + numeric_colnames[tree.col_num]
-                            + std::string(" <= ")
+                            + " <= "
                             + std::to_string(tree.num_split);
-            cond_right = ((model.missing_action != Impute)? (std::string("")) :
+            cond_right = ((model.missing_action != Impute)? "" :
                             ((tree.pct_tree_left >= .5)?
                                 (numeric_colnames[tree.col_num]
-                                    + std::string(" IS NOT NULL AND "))
+                                    + " IS NOT NULL AND ")
                                 :
                                 (numeric_colnames[tree.col_num]
-                                    + std::string(" IS NULL OR "))))
+                                    + " IS NULL OR ")))
                             + numeric_colnames[tree.col_num]
-                            + std::string(" > ")
+                            + " > "
                             + std::to_string(tree.num_split);
             break;
         }
@@ -413,47 +413,47 @@ void extract_cond_isotree(const IsoForest &model, const IsoTree &tree,
             {
                 case SingleCateg:
                 {
-                    cond_left = ((model.missing_action != Impute)? (std::string("")) :
+                    cond_left = ((model.missing_action != Impute)? "" :
                                     ((model.missing_action == Impute && tree.pct_tree_left >= .5)?
                                         (categ_colnames[tree.col_num]
-                                            + std::string(" IS NULL OR "))
+                                            + " IS NULL OR ")
                                         :
                                         (categ_colnames[tree.col_num]
-                                            + std::string(" IS NOT NULL AND "))))
+                                            + " IS NOT NULL AND ")))
                                     + categ_colnames[tree.col_num]
-                                    + std::string(" = '")
+                                    + " = '"
                                     + categ_levels[tree.col_num][tree.chosen_cat]
-                                    + std::string("'");
-                    cond_right = ((model.missing_action != Impute)? (std::string("")) :
+                                    + "'";
+                    cond_right = ((model.missing_action != Impute)? "" :
                                     ((model.missing_action == Impute && tree.pct_tree_left >= .5)?
                                         (categ_colnames[tree.col_num]
-                                            + std::string(" IS NOT NULL AND "))
+                                            + " IS NOT NULL AND ")
                                         :
                                         (categ_colnames[tree.col_num]
-                                            + std::string(" IS NULL OR "))))
+                                            + " IS NULL OR ")))
                                     + categ_colnames[tree.col_num]
-                                    + std::string(" != '")
+                                    + " != '"
                                     + categ_levels[tree.col_num][tree.chosen_cat]
-                                    + std::string("'");
+                                    + "'";
                     break;
                 }
 
                 case SubSet:
                 {
-                    cond_left = categ_colnames[tree.col_num] + std::string(" IN (");
+                    cond_left = categ_colnames[tree.col_num] + " IN (";
                     cond_right = cond_left;
                     if (model.missing_action == Impute)
                     {
                         if (tree.pct_tree_left >= .5)
                         {
-                            cond_left = categ_colnames[tree.col_num] + std::string(" IS NULL OR ") + cond_left;
-                            cond_right = categ_colnames[tree.col_num] + std::string(" IS NOT NULL AND ") + cond_right;
+                            cond_left = categ_colnames[tree.col_num] + " IS NULL OR " + cond_left;
+                            cond_right = categ_colnames[tree.col_num] + " IS NOT NULL AND " + cond_right;
                         }
 
                         else
                         {
-                            cond_left = categ_colnames[tree.col_num] + std::string(" IS NOT NULL AND ") + cond_left;
-                            cond_right = categ_colnames[tree.col_num] + std::string(" IS NULL OR ") + cond_right;
+                            cond_left = categ_colnames[tree.col_num] + " IS NOT NULL AND " + cond_left;
+                            cond_right = categ_colnames[tree.col_num] + " IS NULL OR " + cond_right;
                         }
                     }
                     bool added_left = false;
@@ -464,24 +464,24 @@ void extract_cond_isotree(const IsoForest &model, const IsoTree &tree,
                         {
                             case 1:
                             {
-                                cond_left
-                                    +=
-                                ((added_left)? (std::string(", ")) : (std::string("")))
-                                + std::string("'")
-                                + categ_levels[tree.col_num][categ]
-                                + std::string("'");
+                                cond_left.append(
+                                    std::string((added_left)? ", " : "")
+                                    + "'"
+                                    + categ_levels[tree.col_num][categ]
+                                    + "'"
+                                );
                                 added_left = true;
                                 break;
                             }
 
                             case 0:
                             {
-                                cond_right
-                                    +=
-                                ((added_right)? (std::string(", ")) : (std::string("")))
-                                + std::string("'")
-                                + categ_levels[tree.col_num][categ]
-                                + std::string("'");
+                                cond_right.append(
+                                    std::string((added_right)? ", " : "")
+                                    + "'"
+                                    + categ_levels[tree.col_num][categ]
+                                    + "'"
+                                );
                                 added_right = true;
                                 break;
                             }
@@ -493,22 +493,22 @@ void extract_cond_isotree(const IsoForest &model, const IsoTree &tree,
                                     if ((model.new_cat_action == Smallest && tree.pct_tree_left < .5) ||
                                         (model.missing_action == Impute && tree.pct_tree_left >= .5))
                                     {
-                                        cond_left
-                                            +=
-                                        ((added_left)? (std::string(", ")) : (std::string("")))
-                                        + std::string("'")
-                                        + categ_levels[tree.col_num][categ]
-                                        + std::string("'");
+                                        cond_left.append(
+                                            std::string((added_left)? ", " : "")
+                                            + "'"
+                                            + categ_levels[tree.col_num][categ]
+                                            + "'"
+                                        );
                                         added_left = true;
                                     }
                                     else
                                     {
-                                        cond_right
-                                            +=
-                                        ((added_right)? (std::string(", ")) : (std::string("")))
-                                        + std::string("'")
-                                        + categ_levels[tree.col_num][categ]
-                                        + std::string("'");
+                                        cond_right.append(
+                                            std::string((added_right)? ", " : "")
+                                            + "'"
+                                            + categ_levels[tree.col_num][categ]
+                                            + "'"
+                                        );
                                         added_right = true;
                                     }
                                 }
@@ -517,13 +517,13 @@ void extract_cond_isotree(const IsoForest &model, const IsoTree &tree,
                         }
                     }
                     if (added_left)
-                        cond_left += std::string(")");
+                        cond_left += ")";
                     else
-                        cond_left = std::string("");
+                        cond_left = "";
                     if (added_right)
-                        cond_right += std::string(")");
+                        cond_right += ")";
                     else
-                        cond_right = std::string("");
+                        cond_right = "";
 
                     break;
                 }
@@ -551,28 +551,28 @@ void extract_cond_ext_isotree(const ExtIsoForest &model, const IsoHPlane &hplane
     if (hplane.hplane_left == 0)
         return;
 
-    std::string hplane_conds = std::string("");
+    std::string hplane_conds("");
 
     size_t n_visited_numeric = 0;
     size_t n_visited_categ = 0;
     for (size_t ix = 0; ix < hplane.col_num.size(); ix++)
     {
-        hplane_conds
-            += 
-        ((hplane_conds.length())? (std::string(" + ")) : (std::string("")))
-            + ((model.missing_action == Impute)? (std::string("COALESCE(")) : (std::string("")));
+        hplane_conds.append(
+            std::string((hplane_conds.length())? " + " : "")
+                + ((model.missing_action == Impute)? "COALESCE(" : "")
+        );
         switch(hplane.col_type[ix])
         {
             case Numeric:
             {
-                hplane_conds
-                    +=
+                hplane_conds.append(
                       std::to_string(hplane.coef[n_visited_numeric])
-                    + std::string(" * (")
+                    + " * ("
                     + numeric_colnames[hplane.col_num[ix]]
-                    + ((hplane.mean[n_visited_numeric] >= 0.)? (std::string(" - ")) : (std::string(" - ("))) 
+                    + ((hplane.mean[n_visited_numeric] >= 0.)? " - " : " - (")
                     + std::to_string(hplane.mean[n_visited_numeric])
-                    + ((hplane.mean[n_visited_numeric] >= 0.)? (std::string(")")) : (std::string("))")));
+                    + ((hplane.mean[n_visited_numeric] >= 0.)? ")" : "))")
+                );
                 n_visited_numeric++;
                 break;
             }
@@ -583,33 +583,33 @@ void extract_cond_ext_isotree(const ExtIsoForest &model, const IsoHPlane &hplane
                 {
                     case SingleCateg:
                     {
-                        hplane_conds
-                            +=
-                          std::string("CASE WHEN ")
-                        + categ_colnames[hplane.col_num[ix]] 
-                        + std::string(" = '")
-                        + categ_levels[hplane.col_num[ix]][hplane.chosen_cat[n_visited_categ]]
-                        + std::string("' THEN ")
-                        + std::to_string(hplane.fill_new[n_visited_categ])
-                        + std::string(" ELSE 0.0 END");
+                        hplane_conds.append(
+                              "CASE WHEN "
+                            + categ_colnames[hplane.col_num[ix]]
+                            + " = '"
+                            + categ_levels[hplane.col_num[ix]][hplane.chosen_cat[n_visited_categ]]
+                            + "' THEN "
+                            + std::to_string(hplane.fill_new[n_visited_categ])
+                            + " ELSE 0.0 END"
+                        );
                         break;
                     }
 
                     case SubSet:
                     {
-                        hplane_conds += std::string("CASE ") + categ_colnames[hplane.col_num[ix]];
+                        hplane_conds.append("CASE " + categ_colnames[hplane.col_num[ix]]);
                         for (size_t categ = 0; categ < hplane.cat_coef[n_visited_categ].size(); categ++)
                         {
-                            hplane_conds
-                                +=
-                              std::string(" WHEN '")
-                            + categ_levels[hplane.col_num[ix]][categ]
-                            + std::string("' THEN ")
-                            + std::to_string( hplane.cat_coef[n_visited_categ][categ]);
+                            hplane_conds.append(
+                                  " WHEN '"
+                                + categ_levels[hplane.col_num[ix]][categ]
+                                + "' THEN "
+                                + std::to_string(hplane.cat_coef[n_visited_categ][categ])
+                            );
                         }
                         if (model.new_cat_action == Smallest)
-                            hplane_conds += std::string(" ELSE ") + std::to_string(hplane.fill_new[n_visited_categ]);
-                        hplane_conds += std::string(" END");
+                            hplane_conds.append(" ELSE " + std::to_string(hplane.fill_new[n_visited_categ]));
+                        hplane_conds.append(" END");
                         break;
                     }
                 }
@@ -623,10 +623,12 @@ void extract_cond_ext_isotree(const ExtIsoForest &model, const IsoHPlane &hplane
                 break;
             }
         }
-        hplane_conds += ((model.missing_action == Impute)?
-                            (std::string(", ") + std::to_string(hplane.fill_val[ix]) + std::string(")")) : (std::string("")));
+        hplane_conds.append(
+            (model.missing_action == Impute)?
+            (", " + std::to_string(hplane.fill_val[ix]) + ")") : ""
+        );
     }
 
-    cond_left = hplane_conds + std::string(" <= ") + std::to_string(hplane.split_point);
-    cond_right = hplane_conds + std::string(" > ") + std::to_string(hplane.split_point);
+    cond_left = hplane_conds + " <= " + std::to_string(hplane.split_point);
+    cond_right = hplane_conds + " > " + std::to_string(hplane.split_point);
 }

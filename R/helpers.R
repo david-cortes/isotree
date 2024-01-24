@@ -918,3 +918,51 @@ take.metadata <- function(metadata) {
     class(this) <- "isolation_forest"
     return(this)
 }
+
+check.formatted.export.colnames <- function(model, column_names, column_names_categ) {
+    if (model$metadata$ncols_num) {
+        if (!is.null(column_names)) {
+            if (NROW(column_names) != model$metadata$ncols_num)
+                stop(sprintf("'column_names' must have length %d", model$metadata$ncols_num))
+            if (!is.character(column_names))
+                stop("'column_names' must be a character vector.")
+            cols_num <- column_names
+        } else {
+            if (NROW(model$metadata$cols_num)) {
+                cols_num <- model$metadata$cols_num
+                if (is.integer(model$metadata$cols_num)) {
+                    cols_num <- paste0("column_", cols_num)
+                }
+            } else {
+                cols_num <- paste0("column_", seq(1L, model$metadata$ncols_num))
+            }
+        }
+    } else {
+        cols_num <- character()
+    }
+    
+    if (model$metadata$ncols_cat) {
+        if (!is.null(column_names_categ)) {
+            if (NROW(column_names_categ) != model$metadata$ncols_cat)
+                stop(sprintf("'column_names_categ' must have length %d", model$metadata$ncols_cat))
+            if (!is.character(column_names_categ))
+                stop("'column_names_categ' must be a character vector.")
+            cols_cat <- column_names_categ
+        } else {
+            if (NROW(model$metadata$cols_cat))
+                cols_cat <- model$metadata$cols_cat
+            else
+                cols_cat <- paste0("column_", model$metadata$categ_cols)
+        }
+        
+        if (NROW(model$metadata$cat_levs))
+            cat_levels <- model$metadata$cat_levs
+        else
+            cat_levels <- lapply(model$metadata$categ_max, function(x) as.character(seq(1, x + 1)))
+    } else {
+        cols_cat <- character()
+        cat_levels <- list()
+    }
+
+    return(list(cols_num=cols_num, cols_cat=cols_cat, cat_levels=cat_levels))
+}

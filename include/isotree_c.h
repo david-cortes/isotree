@@ -147,7 +147,7 @@ typedef struct isotree_parameters {
     uint64_t random_seed; /* default=1 */
 
     /*  General tree construction parameters  */
-    size_t ndim; /* default=3 */
+    size_t ndim; /* default=1 */
     size_t ntry; /* default=1 */
     CoefType coef_type; /* only for ndim>1, default=Uniform */
     bool   with_replacement; /* default=false */
@@ -246,7 +246,7 @@ typedef void* isotree_model_t; /* <- it's a pointer to a C++ 'IsolationForest' o
 static inline isotree_parameters get_default_isotree_parameters()
 {
     return (isotree_parameters) {
-        -1, 1, 3, 1, Uniform, false, true, 0, 500, 0, 0, true, false,
+        -1, 1, 1, 1, Uniform, false, true, 0, 500, 0, 0, true, false,
         true, Depth, true, false, 0., 0., 0., 0., 0., 0., 0., 0., Impute, SubSet, Weighted,
         false, false, false, 3, Higher, Inverse
     };

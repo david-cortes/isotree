@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.12.4)
-project (isotree VERSION 0.5.25)
+project (isotree VERSION 0.6.0)
 set(CMAKE_BUILD_TYPE Release)
 
 if ("${CMAKE_CXX_COMPILE_FEATURES}" MATCHES "cxx_std_17")
@@ -20,7 +20,8 @@ set(SRC_FILES ${PROJECT_SOURCE_DIR}/src/instantiate_template_headers.cpp
               ${PROJECT_SOURCE_DIR}/src/merge_models.cpp
               ${PROJECT_SOURCE_DIR}/src/subset_models.cpp
               ${PROJECT_SOURCE_DIR}/src/serialize.cpp
-              ${PROJECT_SOURCE_DIR}/src/sql.cpp)
+              ${PROJECT_SOURCE_DIR}/src/sql.cpp
+              ${PROJECT_SOURCE_DIR}/src/formatted_exporters.cpp)
 set(BUILD_SHARED_LIBS True)
 add_library(isotree SHARED ${SRC_FILES})
 target_include_directories(isotree PRIVATE ${PROJECT_SOURCE_DIR}/src)

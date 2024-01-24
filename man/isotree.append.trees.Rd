@@ -59,8 +59,8 @@ X1 <- matrix(rnorm(m*n), nrow=m)
 X2 <- matrix(rnorm(m*n), nrow=m)
 
 ### Fit a model to each dataset
-iso1 <- isolation.forest(X1, ntrees=3, nthreads=1)
-iso2 <- isolation.forest(X2, ntrees=2, nthreads=1)
+iso1 <- isolation.forest(X1, ntrees=3, ndim=2, nthreads=1)
+iso2 <- isolation.forest(X2, ntrees=2, ndim=2, nthreads=1)
 
 ### Check the terminal nodes for some observations
 nodes1 <- predict(iso1, head(X1, 3), type="tree_num")
