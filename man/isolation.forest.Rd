@@ -1030,11 +1030,14 @@ if (require("MASS")) {
   X_na[values_NA] = NA
   
   ### Impute missing values with model
-  iso <- isolation.forest(X_na,
+  iso <- isolation.forest(
+      X_na,
       build_imputer = TRUE,
       prob_pick_pooled_gain = 1,
+      ndim = 2,
       ntry = 10,
-      nthreads = 1)
+      nthreads = 1
+  )
   X_imputed <- predict(iso, X_na, type = "impute")
   cat(sprintf("MSE for imputed values w/model: \%f\n",
       mean((X[values_NA] - X_imputed[values_NA])^2)))

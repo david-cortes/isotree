@@ -945,11 +945,14 @@
 #'   X_na[values_NA] = NA
 #'   
 #'   ### Impute missing values with model
-#'   iso <- isolation.forest(X_na,
+#'   iso <- isolation.forest(
+#'       X_na,
 #'       build_imputer = TRUE,
 #'       prob_pick_pooled_gain = 1,
+#'       ndim = 2,
 #'       ntry = 10,
-#'       nthreads = 1)
+#'       nthreads = 1
+#'   )
 #'   X_imputed <- predict(iso, X_na, type = "impute")
 #'   cat(sprintf("MSE for imputed values w/model: %f\n",
 #'       mean((X[values_NA] - X_imputed[values_NA])^2)))
@@ -2217,8 +2220,8 @@ isotree.get.num.nodes <- function(model)  {
 #' X2 <- matrix(rnorm(m*n), nrow=m)
 #' 
 #' ### Fit a model to each dataset
-#' iso1 <- isolation.forest(X1, ntrees=3, nthreads=1)
-#' iso2 <- isolation.forest(X2, ntrees=2, nthreads=1)
+#' iso1 <- isolation.forest(X1, ntrees=3, ndim=2, nthreads=1)
+#' iso2 <- isolation.forest(X2, ntrees=2, ndim=2, nthreads=1)
 #' 
 #' ### Check the terminal nodes for some observations
 #' nodes1 <- predict(iso1, head(X1, 3), type="tree_num")
