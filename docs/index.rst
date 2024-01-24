@@ -56,6 +56,7 @@ Methods
 * `get_params <#isotree.IsolationForest.get_params>`_
 * `import_model <#isotree.IsolationForest.import_model>`_
 * `partial_fit <#isotree.IsolationForest.partial_fit>`_
+* `plot_tree <#isotree.IsolationForest.plot_tree>`_
 * `predict <#isotree.IsolationForest.predict>`_
 * `predict_distance <#isotree.IsolationForest.predict_distance>`_
 * `predict_kernel <#isotree.IsolationForest.predict_kernel>`_
