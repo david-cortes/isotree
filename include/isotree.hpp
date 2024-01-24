@@ -67,6 +67,7 @@
 #include <cstdint>
 #include <vector>
 #include <cstdio>
+#include <string>
 #include <iostream>
 using std::size_t;
 
@@ -1137,8 +1138,8 @@ void predict_iforest(real_t numeric_data[], int categ_data[],
 * - nthreads
 *       Number of parallel threads to use.
 */
-ISOTREE_EXPORTED void get_num_nodes(const IsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads) noexceptt;
-ISOTREE_EXPORTED void get_num_nodes(const ExtIsoForest &model_outputs, sparse_ix *restrict n_nodes, sparse_ix *restrict n_terminal, int nthreads) noexcept;
+ISOTREE_EXPORTED void get_num_nodes(const IsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads) noexcept;
+ISOTREE_EXPORTED void get_num_nodes(const ExtIsoForest &model_outputs, sparse_ix *n_nodes, sparse_ix *n_terminal, int nthreads) noexcept;
 
 
 
@@ -2124,12 +2125,10 @@ std::vector<std::string> generate_sql(const IsoForest *model_outputs, const ExtI
 * ==========
 * - model_outputs
 *       Pointer to fitted single-variable model object from function 'fit_iforest'. Pass NULL
-*       if the predictions are to be made from an extended model. Can only pass one of
-*       'model_outputs' and 'model_outputs_ext'.
+*       if using an extended model. Can only pass one of 'model_outputs' and 'model_outputs_ext'.
 * - model_outputs_ext
 *       Pointer to fitted extended model object from function 'fit_iforest'. Pass NULL
-*       if the predictions are to be made from a single-variable model. Can only pass one of
-*       'model_outputs' and 'model_outputs_ext'.
+*       if using a single-variable model. Can only pass one of 'model_outputs' and 'model_outputs_ext'.
 * - numeric_colnames
 *       Names to use for the numerical columns.
 * - categ_colnames
@@ -2140,7 +2139,7 @@ std::vector<std::string> generate_sql(const IsoForest *model_outputs, const ExtI
 *       Whether to output the terminal node number instead of the isolation depth at each node.
 * - index1
 *       Whether to make the node numbers start their numeration at 1 instead of 0 in the
-*       resulting statement. Ignored when passing 'output_tree_num=false'.
+*       resulting strings. Ignored when passing 'output_tree_num=false'.
 * - single_tree
 *       Whether to generate the graph representation for a single tree of the model instead of for
 *       all. The tree number to generate is to be passed under 'tree_num'.
@@ -2161,8 +2160,57 @@ std::vector<std::string> generate_sql(const IsoForest *model_outputs, const ExtI
 ISOTREE_EXPORTED
 std::vector<std::string> generate_dot(const IsoForest *model_outputs,
                                       const ExtIsoForest *model_outputs_ext,
+                                      const TreesIndexer *indexer,
                                       const std::vector<std::string> &numeric_colnames,
                                       const std::vector<std::string> &categ_colnames,
                                       const std::vector<std::vector<std::string>> &categ_levels,
                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
                                       int nthreads);
+
+/* Generate a JSON string representation of model trees
+* 
+* Parameters
+* ==========
+* - model_outputs
+*       Pointer to fitted single-variable model object from function 'fit_iforest'. Pass NULL
+*       if using an extended model. Can only pass one of 'model_outputs' and 'model_outputs_ext'.
+* - model_outputs_ext
+*       Pointer to fitted extended model object from function 'fit_iforest'. Pass NULL
+*       if using a single-variable model. Can only pass one of 'model_outputs' and 'model_outputs_ext'.
+* - numeric_colnames
+*       Names to use for the numerical columns.
+* - categ_colnames
+*       Names to use for the categorical columns.
+* - categ_levels
+*       Names to use for the levels/categories of each categorical column.
+* - output_tree_num
+*       Whether to output the terminal node number instead of the isolation depth at each node.
+* - index1
+*       Whether to make the node numbers start their numeration at 1 instead of 0 in the
+*       resulting strings. Ignored when passing 'output_tree_num=false'.
+* - single_tree
+*       Whether to generate the representation for a single tree of the model instead of for
+*       all. The tree number to generate is to be passed under 'tree_num'.
+* - tree_num
+*       Tree number for which to generate a JSON string, if passing 'single_tree=true'.
+* - nthreads
+*       Number of parallel threads to use. Note that, the more threads, the more memory will be
+*       allocated, even if the thread does not end up being used. Ignored when not building with
+*       OpenMP support.
+* 
+* Returns
+* =======
+* A vector containing at each element the tree nodes as a JSON string representation
+* of the corresponding tree in the model.
+* If passing 'single_tree=true', will contain only one element, corresponding to the tree given
+* in 'tree_num'.
+*/
+ISOTREE_EXPORTED
+std::vector<std::string> generate_json(const IsoForest *model_outputs,
+                                       const ExtIsoForest *model_outputs_ext,
+                                       const TreesIndexer *indexer,
+                                       const std::vector<std::string> &numeric_colnames,
+                                       const std::vector<std::string> &categ_colnames,
+                                       const std::vector<std::vector<std::string>> &categ_levels,
+                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
+                                       int nthreads);

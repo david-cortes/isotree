@@ -54,3 +54,8 @@ Requires the `DiagrammeR` library to be installed.
 
 Note that this is just a wrapper over \link{isotree.to.graphviz} + `DiagrammeR::grViz`.
 }
+\details{
+In general, isolation forest trees tend to be rather large, and the contents on the
+nodes can be very long when using `ndim>1` - if the idea is to get easily visualizable
+trees, one might want to use parameters like `ndim=1`, `sample_size=256`, `max_depth=8`.
+}

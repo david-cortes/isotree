@@ -446,6 +446,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// model_to_json
+Rcpp::ListOf<Rcpp::CharacterVector> model_to_json(SEXP model_R_ptr, bool is_extended, SEXP indexer_R_ptr, Rcpp::CharacterVector numeric_colanmes, Rcpp::CharacterVector categ_colnames, Rcpp::ListOf<Rcpp::CharacterVector> categ_levels, bool output_tree_num, bool single_tree, size_t tree_num, int nthreads);
+RcppExport SEXP _isotree_model_to_json(SEXP model_R_ptrSEXP, SEXP is_extendedSEXP, SEXP indexer_R_ptrSEXP, SEXP numeric_colanmesSEXP, SEXP categ_colnamesSEXP, SEXP categ_levelsSEXP, SEXP output_tree_numSEXP, SEXP single_treeSEXP, SEXP tree_numSEXP, SEXP nthreadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< SEXP >::type model_R_ptr(model_R_ptrSEXP);
+    Rcpp::traits::input_parameter< bool >::type is_extended(is_extendedSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type indexer_R_ptr(indexer_R_ptrSEXP);
+    Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type numeric_colanmes(numeric_colanmesSEXP);
+    Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type categ_colnames(categ_colnamesSEXP);
+    Rcpp::traits::input_parameter< Rcpp::ListOf<Rcpp::CharacterVector> >::type categ_levels(categ_levelsSEXP);
+    Rcpp::traits::input_parameter< bool >::type output_tree_num(output_tree_numSEXP);
+    Rcpp::traits::input_parameter< bool >::type single_tree(single_treeSEXP);
+    Rcpp::traits::input_parameter< size_t >::type tree_num(tree_numSEXP);
+    Rcpp::traits::input_parameter< int >::type nthreads(nthreadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(model_to_json(model_R_ptr, is_extended, indexer_R_ptr, numeric_colanmes, categ_colnames, categ_levels, output_tree_num, single_tree, tree_num, nthreads));
+    return rcpp_result_gen;
+END_RCPP
+}
 // copy_cpp_objects
 Rcpp::List copy_cpp_objects(SEXP model_R_ptr, bool is_extended, SEXP imp_R_ptr, SEXP ind_R_ptr, bool lazy_serialization);
 RcppExport SEXP _isotree_copy_cpp_objects(SEXP model_R_ptrSEXP, SEXP is_extendedSEXP, SEXP imp_R_ptrSEXP, SEXP ind_R_ptrSEXP, SEXP lazy_serializationSEXP) {
@@ -836,6 +855,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_isotree_model_to_sql", (DL_FUNC) &_isotree_model_to_sql, 9},
     {"_isotree_model_to_sql_with_select_from", (DL_FUNC) &_isotree_model_to_sql_with_select_from, 8},
     {"_isotree_model_to_graphviz", (DL_FUNC) &_isotree_model_to_graphviz, 10},
+    {"_isotree_model_to_json", (DL_FUNC) &_isotree_model_to_json, 10},
     {"_isotree_copy_cpp_objects", (DL_FUNC) &_isotree_copy_cpp_objects, 5},
     {"_isotree_build_tree_indices", (DL_FUNC) &_isotree_build_tree_indices, 6},
     {"_isotree_check_node_indexer_has_distances", (DL_FUNC) &_isotree_check_node_indexer_has_distances, 1},

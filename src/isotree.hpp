@@ -2424,6 +2424,42 @@ void traverse_ext_graphviz
     const std::vector<std::vector<std::string>> &categ_levels,
     bool output_tree_num, bool index1, size_t tree_num
 );
+ISOTREE_EXPORTED
+std::vector<std::string> generate_json(const IsoForest *model_outputs,
+                                       const ExtIsoForest *model_outputs_ext,
+                                       const TreesIndexer *indexer,
+                                       const std::vector<std::string> &numeric_colnames,
+                                       const std::vector<std::string> &categ_colnames,
+                                       const std::vector<std::vector<std::string>> &categ_levels,
+                                       bool output_tree_num, bool index1, bool single_tree, size_t tree_num,
+                                       int nthreads);
+std::string generate_json_single_tree(const IsoForest *model_outputs,
+                                      const ExtIsoForest *model_outputs_ext,
+                                      const TreesIndexer *indexer,
+                                      const std::vector<std::string> &numeric_colnames,
+                                      const std::vector<std::string> &categ_colnames,
+                                      const std::vector<std::vector<std::string>> &categ_levels,
+                                      bool output_tree_num, bool index1, size_t tree_num);
+void traverse_isoforest_json
+(
+    std::string &curr_json, size_t curr_node,
+    const IsoForest &model, const std::vector<IsoTree> &nodes,
+    const size_t *restrict terminal_node_mappings,
+    const std::vector<std::string> &numeric_colnames,
+    const std::vector<std::string> &categ_colnames,
+    const std::vector<std::vector<std::string>> &categ_levels,
+    bool output_tree_num, bool index1, size_t tree_num
+);
+void traverse_ext_json
+(
+    std::string &curr_json, size_t curr_node,
+    const ExtIsoForest &model, const std::vector<IsoHPlane> &nodes,
+    const size_t *restrict terminal_node_mappings,
+    const std::vector<std::string> &numeric_colnames,
+    const std::vector<std::string> &categ_colnames,
+    const std::vector<std::vector<std::string>> &categ_levels,
+    bool output_tree_num, bool index1, size_t tree_num
+);
 
 #ifndef _FOR_R
     #if defined(__clang__)

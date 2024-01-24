@@ -249,6 +249,14 @@ cdef extern from "headers_joined.hpp":
                                     bool_t output_tree_num, bool_t index1, bool_t single_tree, size_t tree_num,
                                     int nthreads) except + nogil
 
+    vector[cpp_string] generate_json(const IsoForest *model_outputs, const ExtIsoForest *model_outputs_ext,
+                                    const TreesIndexer *indexer,
+                                    const vector[cpp_string] &numeric_colnames,
+                                    const vector[cpp_string] &categ_colnames,
+                                    const vector[vector[cpp_string]] &categ_levels,
+                                    bool_t output_tree_num, bool_t index1, bool_t single_tree, size_t tree_num,
+                                    int nthreads) except + nogil
+
     bool_t has_wchar_t_file_serializers()
 
     void inspect_serialized_object(
@@ -1580,6 +1588,30 @@ cdef class isoforest_cpp_obj:
             res = generate_dot(model_ptr, ext_model_ptr, indexer,
                                numeric_colnames, categ_colnames, categ_levels,
                                output_tree_num, 0, single_tree, tree_num, nthreads)
+        return res
+
+    def generate_json(self, is_extended,
+                      vector[cpp_string] numeric_colnames,
+                      vector[cpp_string] categ_colnames,
+                      vector[vector[cpp_string]] categ_levels,
+                      bool_t output_tree_num=False,
+                      bool_t single_tree=False, size_t tree_num=0,
+                      int nthreads=1):
+        cdef IsoForest*     model_ptr      =  NULL
+        cdef ExtIsoForest*  ext_model_ptr  =  NULL
+        cdef TreesIndexer* indexer = NULL
+        if not is_extended:
+            model_ptr      =  &self.isoforest
+        else:
+            ext_model_ptr  =  &self.ext_isoforest
+        if not self.indexer.indices.empty():
+            indexer = &self.indexer
+
+        cdef vector[cpp_string] res
+        with nogil, boundscheck(False), nonecheck(False), wraparound(False):
+            res = generate_json(model_ptr, ext_model_ptr, indexer,
+                                numeric_colnames, categ_colnames, categ_levels,
+                                output_tree_num, 0, single_tree, tree_num, nthreads)
         return res
 
     def subset_model(self, np.ndarray[size_t, ndim=1] trees_take, bool_t is_extended, bool_t has_imputer):

@@ -305,6 +305,38 @@ public:
                                         bool as_kernel, bool standardize,
                                         double dist_matrix[]);
 
+    /* Helpers to generate model representations in other formats */
+    std::vector<std::string> to_json(bool output_tree_num, bool index1,
+                                     const std::vector<std::string> &numeric_colnames,
+                                     const std::vector<std::string> &categ_colnames,
+                                     const std::vector<std::vector<std::string>> &categ_levels) const;
+
+    std::string to_json(bool output_tree_num, bool index1, size_t tree_num,
+                        const std::vector<std::string> &numeric_colnames,
+                        const std::vector<std::string> &categ_colnames,
+                        const std::vector<std::vector<std::string>> &categ_levels) const;
+
+    std::vector<std::string> to_graphviz(bool output_tree_num, bool index1,
+                                         const std::vector<std::string> &numeric_colnames,
+                                         const std::vector<std::string> &categ_colnames,
+                                         const std::vector<std::vector<std::string>> &categ_levels) const;
+
+    std::string to_graphviz(bool output_tree_num, bool index1, size_t tree_num,
+                            const std::vector<std::string> &numeric_colnames,
+                            const std::vector<std::string> &categ_colnames,
+                            const std::vector<std::vector<std::string>> &categ_levels) const;
+
+    std::vector<std::string> to_sql(bool output_tree_num, bool index1,
+                                    const std::vector<std::string> &numeric_colnames,
+                                    const std::vector<std::string> &categ_colnames,
+                                    const std::vector<std::vector<std::string>> &categ_levels) const;
+
+    std::string to_sql(bool output_tree_num, bool index1, size_t tree_num,
+                       const std::vector<std::string> &numeric_colnames,
+                       const std::vector<std::string> &categ_colnames,
+                       const std::vector<std::vector<std::string>> &categ_levels) const;
+
+
     /*  Serialize (save) the model to a file. See 'isotree.hpp' for compatibility
         details. Note that this does not save all the details of the object, but
         rather only those that are necessary for prediction.
