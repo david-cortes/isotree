@@ -1,5 +1,5 @@
 #' @importFrom parallel detectCores
-#' @importFrom stats predict
+#' @importFrom stats predict variable.names
 #' @importFrom utils head
 #' @importFrom methods new
 #' @importFrom jsonlite fromJSON toJSON write_json
@@ -3179,13 +3179,14 @@ isotree.set.reference.points <- function(model, data, with_distances=FALSE, nthr
 #' @description Creates a new isolation forest model containing only selected trees of a
 #' given isolation forest model object. Note that, if using `lazy_serialization=FALSE`,
 #' this will re-trigger serialization.
-#' @param model An `isolation_forest` model object.
-#' @param trees_take Indices of the trees of `model` to copy over to a new model,
+#' @param model,x An `isolation_forest` model object.
+#' @param trees_take,i Indices of the trees of `model` to copy over to a new model,
 #' as an integer vector.
 #' Must be integers with numeration starting at one
 #' @return A new isolation forest model object, containing only the subset of trees
 #' from this `model` that was specified under `trees_take`.
 #' @export
+#' @rdname isotree.subset.trees
 isotree.subset.trees <- function(model, trees_take) {
     isotree.restore.handle(model)
     trees_take <- as.integer(trees_take)
@@ -3247,4 +3248,43 @@ isotree.set.nthreads <- function(model, nthreads = 1L) {
     }
     set.list.elt(model, "nthreads", nthreads)
     return(invisible(model))
+}
+
+### Other S3 methods
+
+#' @title Get Number of Trees in Model
+#' @description Returns the number of trees in an isolation forest model.
+#' @param x An isolation forest model, as returned by function \link{isolation.forest}.
+#' @return The number of trees in the model, as an integer.
+#' @export
+length.isolation_forest <- function(x) {
+    return(x$params$ntrees)
+}
+
+#' @export
+#' @rdname isotree.subset.trees
+`[.isolation_forest` <- function(x, i) {
+    return(
+        isotree.subset.trees(
+            x,
+            seq(1, length.isolation_forest(x))[i]
+        )
+    )
+}
+
+#' @title Get Variable Names for Isolation Forest Model
+#' @description Returns the names of the input data columns / variables to which an
+#' isolation forest model was fitted.
+#' 
+#' If the data did not have column names, it will make them up as "column_1..N".
+#' 
+#' Note that columns will always be reordered so that numeric columns come first, followed by
+#' categorical columns.
+#' @param object An isolation forest model, as returned by function \link{isolation.forest}.
+#' @param ... Not used.
+#' @return A character vector containing the column / variable names.
+#' @export
+variable.names.isolation_forest <- function(object, ...) {
+    out <- check.formatted.export.colnames(object, NULL, NULL)
+    return(c(out$cols_num, out$cols_cat))
 }

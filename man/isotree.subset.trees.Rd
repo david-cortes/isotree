@@ -2,14 +2,17 @@
 % Please edit documentation in R/isoforest.R
 \name{isotree.subset.trees}
 \alias{isotree.subset.trees}
+\alias{[.isolation_forest}
 \title{Subset trees of a given model}
 \usage{
 isotree.subset.trees(model, trees_take)
+
+\method{[}{isolation_forest}(x, i)
 }
 \arguments{
-\item{model}{An `isolation_forest` model object.}
+\item{model, x}{An `isolation_forest` model object.}
 
-\item{trees_take}{Indices of the trees of `model` to copy over to a new model,
+\item{trees_take, i}{Indices of the trees of `model` to copy over to a new model,
 as an integer vector.
 Must be integers with numeration starting at one}
 }
