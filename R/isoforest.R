@@ -914,7 +914,7 @@
 #' X <- matrix(rnorm(m * n), nrow=m, ncol=n)
 #' 
 #' ### Fit isolation forest model
-#' iso <- isolation.forest(X, ntrees=100, nthreads=1)
+#' iso <- isolation.forest(X, ndim=2, ntrees=100, nthreads=1)
 #' 
 #' ### Calculate distances with the model
 #' ### (this can be accelerated with 'isotree.build.indexer')
