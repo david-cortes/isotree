@@ -52,17 +52,20 @@ Methods
 * `fit <#isotree.IsolationForest.fit>`_
 * `fit_predict <#isotree.IsolationForest.fit_predict>`_
 * `fit_transform <#isotree.IsolationForest.fit_transform>`_
-* `generate_sql <#isotree.IsolationForest.generate_sql>`_
 * `get_num_nodes <#isotree.IsolationForest.get_num_nodes>`_
 * `get_params <#isotree.IsolationForest.get_params>`_
 * `import_model <#isotree.IsolationForest.import_model>`_
 * `partial_fit <#isotree.IsolationForest.partial_fit>`_
+* `plot_tree <#isotree.IsolationForest.plot_tree>`_
 * `predict <#isotree.IsolationForest.predict>`_
 * `predict_distance <#isotree.IsolationForest.predict_distance>`_
 * `predict_kernel <#isotree.IsolationForest.predict_kernel>`_
 * `set_params <#isotree.IsolationForest.set_params>`_
 * `set_reference_points <#isotree.IsolationForest.set_reference_points>`_
 * `subset_trees <#isotree.IsolationForest.subset_trees>`_
+* `to_json <#isotree.IsolationForest.to_json>`_
+* `to_graphviz <#isotree.IsolationForest.to_graphviz>`_
+* `to_sql <#isotree.IsolationForest.to_sql>`_
 * `to_treelite <#isotree.IsolationForest.to_treelite>`_
 * `transform <#isotree.IsolationForest.transform>`_
 
