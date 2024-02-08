@@ -1641,16 +1641,6 @@ predict.isolation_forest <- function(
     if ((object$metadata$ncols_cat > 0 && is.null(object$metadata$categ_cols)) && NROW(intersect(class(newdata), get.types.spmat(TRUE, TRUE, TRUE)))) {
         stop("Cannot pass sparse inputs if the model was fit to categorical variables in a data.frame.")
     }
-    if ((type %in% c("tree_num", "tree_depths")) && (object$params$ndim == 1L)) {
-        if ((object$metadata$ncols_cat > 0) &&
-            (object$params$categ_split_type != "single_categ") &&
-            (object$params$new_categ_action == "weighted")
-        ) {
-            stop("Cannot output tree numbers/depths when using 'new_categ_action' = 'weighted'.")
-        }
-        if (object$params$missing_action == "divide")
-            stop("Cannot output tree numbers/depths when using 'missing_action' = 'divide'.")
-    }
     if (inherits(newdata, "numeric") && is.null(dim(newdata))) {
         newdata <- matrix(newdata, nrow=1)
     }

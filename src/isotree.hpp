@@ -1088,7 +1088,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                       size_t                   row,
                       sparse_ix *restrict      tree_num,
                       double *restrict         tree_depth,
-                      size_t                   curr_lev) noexcept;
+                      size_t                   curr_lev);
 template <class PredictionData, class sparse_ix>
 [[gnu::hot]]
 void traverse_hplane_fast_colmajor(std::vector<IsoHPlane>  &hplane,
@@ -1148,6 +1148,7 @@ void add_csc_range_penalty(WorkerForPredictCSC     &workspace,
                            size_t                  col_num,
                            double                  range_low,
                            double                  range_high);
+void throw_unsupported_pred_error();
 template <class PredictionData>
 double extract_spC(const PredictionData &prediction_data, size_t row, size_t col_num) noexcept;
 template <class PredictionData, class sparse_ix>

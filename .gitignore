@@ -45,3 +45,4 @@ autom4te.cache/*
 isotree/cpp_interface.h
 example/*.json
 
+crash.py

@@ -1630,7 +1630,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
             add_remainder_separation_steps<InputData, WorkerMemory, ldouble_safe>(workspace, input_data, sum_weight);
 
         /* add this depth right away if requested */
-        if (workspace.row_depths.size())
+        if (!workspace.row_depths.empty())
         {
             if (!workspace.changed_weights)
             {

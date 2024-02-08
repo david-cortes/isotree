@@ -1068,7 +1068,6 @@ cdef class isoforest_cpp_obj:
                 X_num, X_cat, is_extended,
                 size_t nrows, int nthreads, bool_t standardize,
                 bool_t output_tree_num, bool_t output_per_tree_depths):
-
         cdef real_t*     numeric_data_ptr  =  NULL
         cdef int*        categ_data_ptr    =  NULL
         cdef real_t*     Xc_ptr            =  NULL

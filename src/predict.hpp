@@ -40,7 +40,7 @@
 *          International Conference on Knowledge Discovery & Data Mining. 2018.
 * 
 *     BSD 2-Clause License
-*     Copyright (c) 2019-2022, David Cortes
+*     Copyright (c) 2019-2024, David Cortes
 *     All rights reserved.
 *     Redistribution and use in source and binary forms, with or without
 *     modification, are permitted provided that the following conditions are met:
@@ -279,27 +279,48 @@ void predict_iforest(real_t *restrict numeric_data, int *restrict categ_data,
 
         else
         {
+            bool threw_exception = false;
+            std::exception_ptr ex = NULL;
+
             #pragma omp parallel for if(nrows > 1) schedule(static) num_threads(nthreads) \
-                    shared(nrows, model_outputs, prediction_data, output_depths, tree_num, per_tree_depths)
+                    shared(nrows, model_outputs, prediction_data, output_depths, tree_num, per_tree_depths, threw_exception, ex)
             for (size_t_for row = 0; row < (decltype(row))nrows; row++)
             {
+                if (threw_exception) continue;
                 double score = 0;
-                for (size_t tree = 0; tree < model_outputs->trees.size(); tree++)
+                try
                 {
-                    score += traverse_itree(model_outputs->trees[tree],
-                                            *model_outputs,
-                                            prediction_data,
-                                            (std::vector<ImputeNode>*)NULL,
-                                            (ImputedData<sparse_ix, double>*)NULL,
-                                            (double)0,
-                                            (size_t) row,
-                                            (tree_num == NULL)? NULL : (tree_num + nrows * tree),
-                                            (per_tree_depths == NULL)?
-                                                NULL : (per_tree_depths + tree + row*model_outputs->trees.size()),
-                                            (size_t) 0);
+                    for (size_t tree = 0; tree < model_outputs->trees.size(); tree++)
+                    {
+                        score += traverse_itree(model_outputs->trees[tree],
+                                                *model_outputs,
+                                                prediction_data,
+                                                (std::vector<ImputeNode>*)NULL,
+                                                (ImputedData<sparse_ix, double>*)NULL,
+                                                (double)0,
+                                                (size_t) row,
+                                                (tree_num == NULL)? NULL : (tree_num + nrows * tree),
+                                                (per_tree_depths == NULL)?
+                                                    NULL : (per_tree_depths + tree + row*model_outputs->trees.size()),
+                                                (size_t) 0);
+                    }
+                    output_depths[row] = score;
                 }
-                output_depths[row] = score;
+                catch (...)
+                {
+                    #pragma omp critical
+                    {
+                        if (!threw_exception)
+                        {
+                            threw_exception = true;
+                            ex = std::current_exception();
+                        }
+                    }
+                }
             }
+
+            if (threw_exception)
+                std::rethrow_exception(ex);
         }
     }
     
@@ -687,7 +708,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                       size_t                   row,
                       sparse_ix *restrict      tree_num,
                       double *restrict         tree_depth,
-                      size_t                   curr_lev) noexcept
+                      size_t                   curr_lev)
 {
     double xval;
     int    cval;
@@ -764,6 +785,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                         {
                             case Divide:
                             {
+                                if (tree_num || tree_depth) throw_unsupported_pred_error();
                                 return
                                     tree[curr_lev].pct_tree_left
                                         * traverse_itree(tree, model_outputs, prediction_data,
@@ -813,6 +835,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                         {
                             case Divide:
                             {
+                                if (tree_num || tree_depth) throw_unsupported_pred_error();
                                 return
                                     tree[curr_lev].pct_tree_left
                                         * traverse_itree(tree, model_outputs, prediction_data,
@@ -873,6 +896,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
 
                                             case Weighted:
                                             {
+                                                if (tree_num || tree_depth) throw_unsupported_pred_error();
                                                 return
                                                     tree[curr_lev].pct_tree_left
                                                         * traverse_itree(tree, model_outputs, prediction_data,
@@ -928,6 +952,7 @@ double traverse_itree(std::vector<IsoTree>     &tree,
                                                     ||
                                                 tree[curr_lev].cat_split[cval] == (-1))
                                             {
+                                                if (tree_num || tree_depth) throw_unsupported_pred_error();
                                                 return
                                                     tree[curr_lev].pct_tree_left
                                                         * traverse_itree(tree, model_outputs, prediction_data,
@@ -1360,10 +1385,10 @@ void batched_csc_predict(PredictionData<real_t, sparse_ix> &prediction_data, int
                 }
             }
         }
-
-        if (threw_exception)
-            std::rethrow_exception(ex);
     }
+
+    if (threw_exception)
+        std::rethrow_exception(ex);
 
     #ifdef _OPENMP
     if (nthreads <= 1)
@@ -1585,6 +1610,7 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
 
             if (end_NA > workspace.st)
             {
+                if (st_NA < end_NA && (tree_num || per_tree_depths)) throw_unsupported_pred_error();
                 workspace.end = end_NA - 1;
                 for (size_t row = st_NA; row < end_NA; row++)
                     workspace.weights_arr[workspace.ix_arr[row]] *= trees[curr_tree].pct_tree_left;
@@ -1600,6 +1626,7 @@ void traverse_itree_csc(WorkerForPredictCSC   &workspace,
 
             if (st_NA <= orig_end)
             {
+                if (st_NA < end_NA && (tree_num || per_tree_depths)) throw_unsupported_pred_error();
                 workspace.st = st_NA;
                 workspace.end = orig_end;
                 if (weights_arr.size())
@@ -1859,6 +1886,13 @@ void add_csc_range_penalty(WorkerForPredictCSC     &workspace,
             }
         }
     }
+}
+
+void throw_unsupported_pred_error()
+{
+    throw std::runtime_error(
+        "Cannot predict per-tree depths or indices for missing data with 'missing_action=divide' or new categories with 'new_categ_action=weighted'."
+    );
 }
 
 template <class PredictionData>

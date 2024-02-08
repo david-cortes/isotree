@@ -28,6 +28,18 @@ try:
 except AttributeError:
     EXIT_SUCCESS = 0
 
+## For debugging
+if "--asan" in sys.argv:
+    ADD_ASAN = True
+    sys.argv.remove("--asan")
+else:
+    ADD_ASAN = False
+if "--ggdb" in sys.argv:
+    ADD_GGDB = True
+    sys.argv.remove("--ggdb")
+else:
+    ADD_GGDB = False
+
 ## https://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
 class build_ext_subclass( build_ext ):
     def build_extensions(self):
@@ -67,39 +79,24 @@ class build_ext_subclass( build_ext ):
                     if np.iinfo(ctypes.c_size_t).max >= (2**64 - 1):
                         e.define_macros += [("_FILE_OFFSET_BITS", 64)]
                 
-                # ## for testing
-                # e.extra_compile_args += ['-ggdb']
-                
                 if has_robinmap:
                     e.define_macros += [("_USE_ROBIN_MAP", None)]
 
                 if is_windows or no_ld:
                     e.define_macros += [("NO_LONG_DOUBLE", None)]
-                
-                # ## for testing
-                # e.extra_compile_args = ["-std=c++11", "-ggdb"]
 
-                # e.extra_compile_args = ['-fopenmp', '-O3', '-march=native', '-std=c++11']
-                # e.extra_link_args    = ['-fopenmp']
 
-                # ## when testing with clang:
-                # e.extra_compile_args = ['-fopenmp=libiomp5', '-O3', '-march=native', '-std=c++17']
-                # e.extra_link_args    = ['-fopenmp']
+            if ADD_ASAN:
+                # run this with `LD_PRELOAD=libasan.so python script.py`
+                for e in self.extensions:
+                    if not is_clang:
+                        e.extra_compile_args += ["-fsanitize=address", "-static-libasan", "-ggdb"]
+                    elif not is_msvc:
+                        e.extra_compile_args += ["-fsanitize=address", "-static-libsan", "-ggdb"]
 
-                # e.extra_compile_args = ['-O2', '-march=native', '-std=c++11']
-                # e.extra_compile_args = ['-O0', '-march=native', '-std=c++11']
-
-                # ## for testing (run with `LD_PRELOAD=libasan.so python script.py`)
-                # e.extra_compile_args = ["-std=c++11", "-fsanitize=address", "-static-libasan", "-ggdb"]
-                # e.extra_link_args    = ["-fsanitize=address", "-static-libasan"]
-
-                # ## for testing with clang (run with `LD_PRELOAD=libasan.so python script.py`)
-                # e.extra_compile_args = ["-std=c++11", "-fsanitize=address", "-static-libsan"]
-                # e.extra_link_args    = ["-fsanitize=address", "-static-libsan"]
-
-                # if is_clang:
-                #     e.extra_compile_args += ['-fopenmp=libomp']
-                #     e.extra_link_args += ['-fopenmp']
+            elif ADD_GGDB and not is_msvc:
+                for e in self.extensions:
+                    e.extra_compile_args += ["-ggdb"]
 
         build_ext.build_extensions(self)
 
@@ -315,7 +312,7 @@ class build_ext_subclass( build_ext ):
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.6.0',
+    version = '0.6.1',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     url = 'https://github.com/david-cortes/isotree',

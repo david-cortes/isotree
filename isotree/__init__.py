@@ -2151,7 +2151,7 @@ class IsolationForest(BaseEstimator):
                     if not avoid_sort:
                         _sort_csc_indices(X)
                     X_num = X
-                
+
                 else:
                     if not isinstance(X, np.ndarray):
                         if prefer_row_major:
@@ -2190,11 +2190,13 @@ class IsolationForest(BaseEstimator):
         if (nrows > 1) and (X_cat is not None) and (X_num is not None) and (not _is_csc(X_num)):
             if prefer_row_major:
                 if _is_row_major(X_num) != _is_row_major(X_cat):
-                    X_num = np.ascontiguousarray(X_num)
+                    if not issparse(X_num):
+                        X_num = np.ascontiguousarray(X_num)
                     X_cat = np.ascontiguousarray(X_cat)
             else:
                 if _is_col_major(X_num) != _is_col_major(X_cat):
-                    X_num = np.asfortranarray(X_num)
+                    if not issparse(X_num):
+                        X_num = np.asfortranarray(X_num)
                     X_cat = np.asfortranarray(X_cat)
 
         return X_num, X_cat, nrows
@@ -2423,10 +2425,6 @@ class IsolationForest(BaseEstimator):
         nthreads_use = _process_nthreads(self.nthreads)
         X_num, X_cat, nrows = self._process_data_new(X, prefer_row_major = True, keep_new_cat_levels = False)
         if (output in ["tree_num", "tree_depths"]) and (self.ndim_ == 1):
-            if self.missing_action_ == "divide":
-                raise ValueError("Cannot output tree numbers/depths when using 'missing_action' = 'divide'.")
-            if (self._ncols_categ > 0) and (self.new_categ_action_ == "weighted") and (self.categ_split_type_ != "single_categ"):
-                raise ValueError("Cannot output tree numbers/depths when using 'new_categ_action' = 'weighted'.")
             if (nrows == 1) and (output == "tree_num") and (not self.has_indexer_):
                 warnings.warn("Predicting tree number is slow, not recommended to do for 1 row at a time without indexer.")
 
