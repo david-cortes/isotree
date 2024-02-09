@@ -86,12 +86,12 @@ class build_ext_subclass( build_ext ):
                     e.define_macros += [("NO_LONG_DOUBLE", None)]
 
 
-            if ADD_ASAN:
+            if ADD_ASAN and not is_msvc:
                 # run this with `LD_PRELOAD=libasan.so python script.py`
                 for e in self.extensions:
                     if not is_clang:
                         e.extra_compile_args += ["-fsanitize=address", "-static-libasan", "-ggdb"]
-                    elif not is_msvc:
+                    else:
                         e.extra_compile_args += ["-fsanitize=address", "-static-libsan", "-ggdb"]
 
             elif ADD_GGDB and not is_msvc:
