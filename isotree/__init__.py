@@ -1699,6 +1699,9 @@ class IsolationForest(BaseEstimator):
 
     def _process_data(self, X, sample_weights, column_weights):
         ### TODO: this needs a refactoring after introducing 'categ_cols'
+        ### TODO: this could use the new standard array interface (__array__)
+        ### plus the standard data frame one, and then could drop the hard
+        ### dependency on pandas, relying on polars for categorical encoding.
         self.ndim_ = self.ndim
 
         if isinstance(X, pd.DataFrame):
@@ -1712,7 +1715,7 @@ class IsolationForest(BaseEstimator):
                 self.categ_cols_ = None
 
             ### https://stackoverflow.com/questions/25039626/how-do-i-find-numeric-columns-in-pandas
-            X_num = X.select_dtypes(include = [np.number, np.datetime64]).to_numpy()
+            X_num = X.select_dtypes(include = [np.number, np.datetime64]).to_numpy(copy=False)
             if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
                 X_num = X_num.astype(ctypes.c_double)
             if not _is_col_major(X_num):
@@ -1793,8 +1796,8 @@ class IsolationForest(BaseEstimator):
                             raise ValueError(msg)
                     # https://github.com/pandas-dev/pandas/issues/30618
                     if self._cat_mapping[cl].__class__.__name__ == "CategoricalIndex":
-                        self._cat_mapping[cl] = self._cat_mapping[cl].to_numpy()
-                X_cat = X_cat.to_numpy()
+                        self._cat_mapping[cl] = self._cat_mapping[cl].to_numpy(copy=False, dtype=ctypes.c_int)
+                X_cat = X_cat.to_numpy(copy=False, dtype=ctypes.c_int)
                 if X_cat.dtype != ctypes.c_int:
                     X_cat = X_cat.astype(ctypes.c_int)
                 if not _is_col_major(X_cat):
@@ -1969,9 +1972,9 @@ class IsolationForest(BaseEstimator):
 
                 if self._ncols_numeric > 0:
                     if self.categ_cols_ is None:
-                        X_num = X[self.cols_numeric_].to_numpy()
+                        X_num = X[self.cols_numeric_].to_numpy(copy=False)
                     else:
-                        X_num = X.iloc[:, self.cols_numeric_].to_numpy()
+                        X_num = X.iloc[:, self.cols_numeric_].to_numpy(copy=False)
                     
                     if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
                         X_num = X_num.astype(ctypes.c_double)
@@ -2037,7 +2040,7 @@ class IsolationForest(BaseEstimator):
                     else:
                         X_cat = X.iloc[:, self.categ_cols_]
                     
-                    X_cat = X_cat.to_numpy()
+                    X_cat = X_cat.to_numpy(copy=False, dtype=ctypes.c_int)
                     if X_cat.dtype != ctypes.c_int:
                         X_cat = X_cat.astype(ctypes.c_int)
                     if (not prefer_row_major) and (not _is_col_major(X_cat)):
@@ -2049,7 +2052,7 @@ class IsolationForest(BaseEstimator):
             elif self._ncols_categ == 0:
                 if X.shape[1] < self._ncols_numeric:
                     raise ValueError("Input has different number of columns than data to which model was fit.")
-                X_num = X.to_numpy()
+                X_num = X.to_numpy(copy=False)
                 if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
                     X_num = X_num.astype(ctypes.c_double)
                 if (not prefer_row_major) and (not _is_col_major(X_num)):
@@ -2059,7 +2062,7 @@ class IsolationForest(BaseEstimator):
             elif self._ncols_numeric == 0:
                 if X.shape[1] < self._ncols_categ:
                     raise ValueError("Input has different number of columns than data to which model was fit.")
-                X_cat = X.to_numpy()[:, :self._ncols_categ]
+                X_cat = X.to_numpy(copy=False, dtype=ctypes.c_int)[:, :self._ncols_categ]
                 if X_cat.dtype  != ctypes.c_int:
                     X_cat = X_cat.astype(ctypes.c_int)
                 if (not prefer_row_major) and (not _is_col_major(X_cat)):
@@ -2068,8 +2071,8 @@ class IsolationForest(BaseEstimator):
                 nrows = X_cat.shape[0]
             else:
                 nrows = X.shape[0]
-                X_num = X.iloc[:, self.cols_numeric_].to_numpy()
-                X_cat = X.iloc[:, self.categ_cols_].to_numpy()
+                X_num = X.iloc[:, self.cols_numeric_].to_numpy(copy=False)
+                X_cat = X.iloc[:, self.categ_cols_].to_numpy(copy=False, dtype=ctypes.c_int)
                 if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
                     X_num = X_num.astype(ctypes.c_double)
                 if (not prefer_row_major) and (not _is_col_major(X_num)):
@@ -2206,17 +2209,21 @@ class IsolationForest(BaseEstimator):
             ncols_imputed = 0
             if X_num is not None:
                 if (self.cols_numeric_ is not None) and (self.cols_numeric_.shape[0]):
-                    df_num = pd.DataFrame(X_num, columns = self.cols_numeric_ if (self.categ_cols_ is None) else orig.columns.values[self.cols_numeric_])
+                    df_num = pd.DataFrame(
+                        X_num,
+                        columns = self.cols_numeric_ if (self.categ_cols_ is None) else orig.columns.values[self.cols_numeric_],
+                        copy = False
+                    )
                 else:
-                    df_num = pd.DataFrame(X_num)
+                    df_num = pd.DataFrame(X_num, copy=False)
                 ncols_imputed += df_num.shape[1]
             if X_cat is not None:
                 if self.categ_cols_ is None:
-                    df_cat = pd.DataFrame(X_cat, columns = self.cols_categ_)
+                    df_cat = pd.DataFrame(X_cat, columns = self.cols_categ_, copy=False)
                     for cl in range(self.cols_categ_.shape[0]):
                         df_cat[self.cols_categ_[cl]] = pd.Categorical.from_codes(df_cat[self.cols_categ_[cl]], self._cat_mapping[cl])
                 else:
-                    df_cat = pd.DataFrame(X_cat, columns = orig.columns.values[self.categ_cols_])
+                    df_cat = pd.DataFrame(X_cat, columns = orig.columns.values[self.categ_cols_], copy=False)
                 ncols_imputed += df_cat.shape[1]
             
             if orig.columns.values.shape[0] != ncols_imputed:
