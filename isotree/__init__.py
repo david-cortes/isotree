@@ -61,9 +61,9 @@ def _copy_if_subview(X_num, prefer_row_major=False):
             X_num = X_num.copy()
         if _is_col_major(X_num) != col_major:
             if prefer_row_major:
-                X_num = np.ascontiguousarray(X_num)
+                X_num = np.require(X_num, requirements=["ENSUREARRAY", "C_CONTIGUOUS"])
             else:
-                X_num = np.asfortranarray(X_num)
+                X_num = np.require(X_num, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
     return X_num
 
 def _all_equal(x, y):
@@ -1706,7 +1706,7 @@ class IsolationForest(BaseEstimator):
 
         if isinstance(X, pd.DataFrame):
 
-            if np.unique(X.columns).shape[0] != X.shape[1]:
+            if not X.columns.is_unique:
                 raise ValueError("DataFrame inputs cannot contain duplicated column names.")
 
             ### TODO: this should also have a version with underscores
@@ -1716,31 +1716,30 @@ class IsolationForest(BaseEstimator):
 
             ### https://stackoverflow.com/questions/25039626/how-do-i-find-numeric-columns-in-pandas
             X_num = X.select_dtypes(include = [np.number, np.datetime64]).to_numpy(copy=False)
+            X_num = np.require(X_num, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
             if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
-                X_num = X_num.astype(ctypes.c_double)
-            if not _is_col_major(X_num):
-                X_num = np.asfortranarray(X_num)
+                X_num = np.require(X_num, dtype=ctypes.c_double, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
             X_cat = X.select_dtypes(include = [pd.CategoricalDtype, "object", "bool"])
             if (X_num.shape[1] + X_cat.shape[1]) == 0:
                 raise ValueError("Input data has no columns of numeric or categorical type.")
             elif (X_num.shape[1] + X_cat.shape[1]) < X.shape[1]:
-                cols_num = np.array(X.select_dtypes(include = [np.number, np.datetime64]).columns.values)
-                cols_cat = np.array(X_cat.columns.values)
+                cols_num = X.select_dtypes(include = [np.number, np.datetime64]).columns.to_numpy(copy=False)
+                cols_cat = X_cat.columns.to_numpy(copy=False)
                 msg  = "Only numeric and categorical columns are supported."
                 msg += " Got passed the following types: ["
-                msg += ", ".join([str(X[cl].dtype) for cl in X.columns.values if cl not in cols_num and cl not in cols_cat][:3])
+                msg += ", ".join([str(X[cl].dtype) for cl in X.columns.to_numpy(copy=False) if cl not in cols_num and cl not in cols_cat][:3])
                 msg += "]\n(Sample problem columns: ["
-                msg += ", ".join([str(cl) for cl in X.columns.values if cl not in cols_num and cl not in cols_cat][:3])
+                msg += ", ".join([str(cl) for cl in X.columns.to_numpy(copy=False) if cl not in cols_num and cl not in cols_cat][:3])
                 msg += "])"
                 raise ValueError(msg)
 
             self.n_features_in_ = X.shape[1]
-            self.feature_names_in_ = np.array(X.columns.values)
+            self.feature_names_in_ = X.columns.to_numpy(copy=True)
 
             self._ncols_numeric = X_num.shape[1]
             self._ncols_categ   = X_cat.shape[1]
-            self.cols_numeric_  = np.array(X.select_dtypes(include = [np.number, np.datetime64]).columns.values)
-            self.cols_categ_    = np.array(X.select_dtypes(include = [pd.CategoricalDtype, "object", "bool"]).columns.values)
+            self.cols_numeric_  = X.select_dtypes(include = [np.number, np.datetime64]).columns.to_numpy(copy=True)
+            self.cols_categ_    = X.select_dtypes(include = [pd.CategoricalDtype, "object", "bool"]).columns.to_numpy(copy=True)
             if not self._ncols_numeric:
                 X_num = None
             else:
@@ -1771,7 +1770,7 @@ class IsolationForest(BaseEstimator):
                     if (X_cat[X_cat.columns[cl]].dtype.name == "category") and (X_cat[X_cat.columns[cl]].dtype.ordered):
                         has_ordered = True
                     if (not self.recode_categ) and (X_cat[X_cat.columns[cl]].dtype.name == "category"):
-                        self._cat_mapping[cl] = np.array(X_cat[X_cat.columns[cl]].cat.categories)
+                        self._cat_mapping[cl] = X_cat[X_cat.columns[cl]].cat.categories.to_numpy(copy=True)
                         X_cat[X_cat.columns[cl]] = X_cat[X_cat.columns[cl]].cat.codes
                         # X_cat = \
                         #     X_cat\
@@ -1797,11 +1796,7 @@ class IsolationForest(BaseEstimator):
                     # https://github.com/pandas-dev/pandas/issues/30618
                     if self._cat_mapping[cl].__class__.__name__ == "CategoricalIndex":
                         self._cat_mapping[cl] = self._cat_mapping[cl].to_numpy(copy=False, dtype=ctypes.c_int)
-                X_cat = X_cat.to_numpy(copy=False, dtype=ctypes.c_int)
-                if X_cat.dtype != ctypes.c_int:
-                    X_cat = X_cat.astype(ctypes.c_int)
-                if not _is_col_major(X_cat):
-                    X_cat = np.asfortranarray(X_cat)
+                X_cat = np.require(X_cat, dtype=ctypes.c_int, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
                 if has_ordered:
                     warnings.warn("Data contains ordered categoricals. These are treated as unordered.")
 
@@ -1847,12 +1842,9 @@ class IsolationForest(BaseEstimator):
                         _sort_csc_indices(X)
                 
                 else:
-                    if isinstance(X, np.ndarray) and (X.dtype not in [ctypes.c_double, ctypes.c_float]):
-                        X = X.astype(ctypes.c_double)
-                    if isinstance(X, np.ndarray) or (not _is_col_major(X)):
-                        X = np.asfortranarray(X)
+                    X = np.require(X, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
                     if X.dtype not in [ctypes.c_double, ctypes.c_float]:
-                        X = X.astype(ctypes.c_double)
+                        X = np.require(X, dtype=ctypes.c_double, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
 
             self._ncols_numeric = X.shape[1]
             self._ncols_categ   = 0 if (X_cat is None) else X_cat.shape[1]
@@ -1876,10 +1868,7 @@ class IsolationForest(BaseEstimator):
                 if np.any(np.isnan(X_cat)):
                     X_cat = X_cat.copy()
                     X_cat[np.isnan(X_cat)] = -1
-                if X_cat.dtype != ctypes.c_int:
-                    X_cat = X_cat.astype(ctypes.c_int)
-                if not _is_col_major(X_cat):
-                    X_cat = np.asfortranarray(X_cat)
+                X_cat = np.require(X_cat, dtype=ctypes.c_int, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
                 self._cat_max_lev = np.max(X_cat, axis=0)
                 if np.any(self._cat_max_lev < 0):
                     warnings.warn("Some categorical columns contain only missing values.")
@@ -1931,8 +1920,8 @@ class IsolationForest(BaseEstimator):
             if ncols != column_weights.shape[0]:
                 raise ValueError("'column_weights' has %d entries, but data has %d columns." % (column_weights.shape[0], ncols))
             if (X_num is not None) and (X_cat is not None):
-                column_weights = np.r_[column_weights[X.columns.values == self.cols_numeric_],
-                                       column_weights[X.columns.values == self.cols_categ_]]
+                column_weights = np.r_[column_weights[X.columns.to_numpy(copy=False) == self.cols_numeric_],
+                                       column_weights[X.columns.to_numpy(copy=False) == self.cols_categ_]]
 
         if (sample_weights is not None) and (column_weights is not None) and (sample_weights.dtype != column_weights.dtype):
             sample_weights = sample_weights.astype(ctypes.c_double)
@@ -1962,7 +1951,7 @@ class IsolationForest(BaseEstimator):
         if isinstance(X, pd.DataFrame):
             if ((self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]) > 0) and (self.categ_cols_ is None):
                 if self.categ_cols_ is None:
-                    missing_cols = np.setdiff1d(np.r_[self.cols_numeric_, self.cols_categ_], np.array(X.columns.values))
+                    missing_cols = np.setdiff1d(np.r_[self.cols_numeric_, self.cols_categ_], X.columns.to_numpy(copy=False))
                     if missing_cols.shape[0] > 0:
                         raise ValueError("Input data is missing %d columns - example: [%s]" % (missing_cols.shape[0], ", ".join(missing_cols[:3])))
                 else:
@@ -1979,7 +1968,9 @@ class IsolationForest(BaseEstimator):
                     if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
                         X_num = X_num.astype(ctypes.c_double)
                     if (not prefer_row_major) and (not _is_col_major(X_num)):
-                        X_num = np.asfortranarray(X_num)
+                        X_num = np.require(X_num, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
+                        if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
+                            X_num = np.require(X_num, dtype=ctypes.c_double, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
                     nrows = X_num.shape[0]
                 else:
                     X_num = None
@@ -2024,7 +2015,7 @@ class IsolationForest(BaseEstimator):
                                 #         random_name : pd.Categorical(X_cat[self.cols_categ_[cl]])
                                 #     })\
                                 #     .rename(columns = {random_name : self.cols_categ_[cl]})
-                                new_levs = np.setdiff1d(X_cat[self.cols_categ_[cl]].cat.categories, self._cat_mapping[cl])
+                                new_levs = np.setdiff1d(X_cat[self.cols_categ_[cl]].cat.categories.to_numpy(copy=False), self._cat_mapping[cl])
                                 if new_levs.shape[0]:
                                     self._cat_mapping[cl] = np.r_[self._cat_mapping[cl], new_levs]
                                 X_cat[self.cols_categ_[cl]] = _encode_categorical(X_cat[self.cols_categ_[cl]], self._cat_mapping[cl])
@@ -2041,10 +2032,8 @@ class IsolationForest(BaseEstimator):
                         X_cat = X.iloc[:, self.categ_cols_]
                     
                     X_cat = X_cat.to_numpy(copy=False, dtype=ctypes.c_int)
-                    if X_cat.dtype != ctypes.c_int:
-                        X_cat = X_cat.astype(ctypes.c_int)
                     if (not prefer_row_major) and (not _is_col_major(X_cat)):
-                        X_cat = np.asfortranarray(X_cat)
+                        X_cat = np.require(X_cat, dtype=ctypes.c_int, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
                     nrows = X_cat.shape[0]
                 else:
                     X_cat = None
@@ -2056,17 +2045,17 @@ class IsolationForest(BaseEstimator):
                 if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
                     X_num = X_num.astype(ctypes.c_double)
                 if (not prefer_row_major) and (not _is_col_major(X_num)):
-                    X_num = np.asfortranarray(X_num)
+                    X_num = np.require(X_num, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
+                    if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
+                        X_num = np.require(X_num, dtype=ctypes.c_double, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
                 X_cat = None
                 nrows = X_num.shape[0]
             elif self._ncols_numeric == 0:
                 if X.shape[1] < self._ncols_categ:
                     raise ValueError("Input has different number of columns than data to which model was fit.")
                 X_cat = X.to_numpy(copy=False, dtype=ctypes.c_int)[:, :self._ncols_categ]
-                if X_cat.dtype  != ctypes.c_int:
-                    X_cat = X_cat.astype(ctypes.c_int)
                 if (not prefer_row_major) and (not _is_col_major(X_cat)):
-                    X_cat = np.asfortranarray(X_cat)
+                    X_cat = np.require(X_cat, dtype=ctypes.c_int, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
                 X_num = None
                 nrows = X_cat.shape[0]
             else:
@@ -2076,19 +2065,25 @@ class IsolationForest(BaseEstimator):
                 if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
                     X_num = X_num.astype(ctypes.c_double)
                 if (not prefer_row_major) and (not _is_col_major(X_num)):
-                    X_num = np.asfortranarray(X_num)
+                    X_num = np.require(X_num, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
+                    if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
+                        X_num = np.require(X_num, dtype=ctypes.c_double, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
                 if X_cat.dtype  != ctypes.c_int:
                     X_cat = X_cat.astype(ctypes.c_int)
                 if (not prefer_row_major) and (not _is_col_major(X_cat)):
-                    X_cat = np.asfortranarray(X_cat)
+                    X_cat = np.require(X_cat, dtype=ctypes.c_int, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
 
             if (X_num is not None) and (X_cat is not None) and (_is_col_major(X_num) != _is_col_major(X_cat)):
                 if prefer_row_major:
-                    X_num = np.ascontiguousarray(X_num)
-                    X_cat = np.ascontiguousarray(X_cat)
+                    X_cat = np.require(X_cat, dtype=ctypes.c_int, requirements=["ENSUREARRAY", "C_CONTIGUOUS"])
+                    X_num = np.require(X_num, requirements=["ENSUREARRAY", "C_CONTIGUOUS"])
+                    if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
+                        X_num = np.require(X_num, dtype=ctypes.c_double, requirements=["ENSUREARRAY", "C_CONTIGUOUS"])
                 else:
-                    X_num = np.asfortranarray(X_num)
-                    X_cat = np.asfortranarray(X_cat)
+                    X_cat = np.require(X_cat, dtype=ctypes.c_int, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
+                    X_num = np.require(X_num, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
+                    if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
+                        X_num = np.require(X_num, dtype=ctypes.c_double, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
 
         else:
             if (self._ncols_categ > 0) and (self.categ_cols_ is None):
@@ -2158,13 +2153,19 @@ class IsolationForest(BaseEstimator):
                 else:
                     if not isinstance(X, np.ndarray):
                         if prefer_row_major:
-                            X = np.array(X)
+                            X = np.require(X, requirements=["ENSUREARRAY", "C_CONTIGUOUS"])
+                            if X.dtype not in [ctypes.c_double, ctypes.c_float]:
+                                X = np.require(X, dtype=ctypes.c_double, requirements=["ENSUREARRAY", "C_CONTIGUOUS"])
                         else:
-                            X = np.asfortranarray(X)
+                            X = np.require(X, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
+                            if X.dtype not in [ctypes.c_double, ctypes.c_float]:
+                                X = np.require(X, dtype=ctypes.c_double, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
                     if X.dtype not in [ctypes.c_double, ctypes.c_float]:
                         X = X.astype(ctypes.c_double)
                     if (not prefer_row_major) and (not _is_col_major(X)):
-                        X = np.asfortranarray(X)
+                        X = np.require(X, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
+                        if X.dtype not in [ctypes.c_double, ctypes.c_float]:
+                            X = np.require(X, dtype=ctypes.c_double, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
                     X_num = X
                 nrows = X_num.shape[0]
 
@@ -2183,24 +2184,28 @@ class IsolationForest(BaseEstimator):
             if X_cat.dtype != ctypes.c_int:
                 X_cat = X_cat.astype(ctypes.c_int)
             if (not prefer_row_major) and (not _is_col_major(X_cat)):
-                X_cat = np.asfortranarray(X_cat)
+                X_cat = np.require(X_cat, dtype=ctypes.c_int, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
 
         X_num = _copy_if_subview(X_num, prefer_row_major)
         X_cat = _copy_if_subview(X_cat, prefer_row_major)
 
         if (X_num is not None) and (_is_csc(X_num)) and (X_cat is not None) and (not _is_col_major(X_cat)):
-            X_cat = np.asfortranarray(X_cat)
+            X_cat = np.require(X_cat, dtype=ctypes.c_int, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
         if (nrows > 1) and (X_cat is not None) and (X_num is not None) and (not _is_csc(X_num)):
             if prefer_row_major:
                 if _is_row_major(X_num) != _is_row_major(X_cat):
                     if not issparse(X_num):
-                        X_num = np.ascontiguousarray(X_num)
-                    X_cat = np.ascontiguousarray(X_cat)
+                        X_num = np.require(X_num, requirements=["ENSUREARRAY", "C_CONTIGUOUS"])
+                        if X_num.dtype not in [ctypes.c_float, ctypes.c_double]:
+                            X_num = np.require(X_num, dtype=ctypes.c_double, requirements=["ENSUREARRAY", "C_CONTIGUOUS"])
+                    X_cat = np.require(X_cat, dtype=ctypes.c_int, requirements=["ENSUREARRAY", "C_CONTIGUOUS"])
             else:
                 if _is_col_major(X_num) != _is_col_major(X_cat):
                     if not issparse(X_num):
-                        X_num = np.asfortranarray(X_num)
-                    X_cat = np.asfortranarray(X_cat)
+                        X_num = np.require(X_num, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
+                        if X_num.dtype not in [ctypes.c_float, ctypes.c_double]:
+                            X_num = np.require(X_num, dtype=ctypes.c_double, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
+                    X_cat = np.require(X_cat, dtype=ctypes.c_int, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
 
         return X_num, X_cat, nrows
 
@@ -2211,7 +2216,7 @@ class IsolationForest(BaseEstimator):
                 if (self.cols_numeric_ is not None) and (self.cols_numeric_.shape[0]):
                     df_num = pd.DataFrame(
                         X_num,
-                        columns = self.cols_numeric_ if (self.categ_cols_ is None) else orig.columns.values[self.cols_numeric_],
+                        columns = self.cols_numeric_ if (self.categ_cols_ is None) else orig.columns.to_numpy(copy=False)[self.cols_numeric_],
                         copy = False
                     )
                 else:
@@ -2223,12 +2228,12 @@ class IsolationForest(BaseEstimator):
                     for cl in range(self.cols_categ_.shape[0]):
                         df_cat[self.cols_categ_[cl]] = pd.Categorical.from_codes(df_cat[self.cols_categ_[cl]], self._cat_mapping[cl])
                 else:
-                    df_cat = pd.DataFrame(X_cat, columns = orig.columns.values[self.categ_cols_], copy=False)
+                    df_cat = pd.DataFrame(X_cat, columns = orig.columns.to_numpy(copy=False)[self.categ_cols_], copy=False)
                 ncols_imputed += df_cat.shape[1]
             
-            if orig.columns.values.shape[0] != ncols_imputed:
+            if orig.columns.to_numpy(copy=False).shape[0] != ncols_imputed:
                 if self.categ_cols_ is None:
-                    cols_new = np.setdiff1d(orig.columns.values, np.r_[self.cols_numeric_, self.cols_categ_])
+                    cols_new = np.setdiff1d(orig.columns.to_numpy(copy=False), np.r_[self.cols_numeric_, self.cols_categ_])
                 else:
                     cols_new = orig.columns[(self._ncols_numeric + self._ncols_categ):]
                 if (X_num is not None) and (X_cat is None):
@@ -2237,16 +2242,16 @@ class IsolationForest(BaseEstimator):
                     out = pd.concat([df_cat, orig[cols_new]], axis = 1)
                 else:
                     out = pd.concat([df_num, df_cat, orig[cols_new]], axis = 1)
-                out = out[orig.columns.values]
+                out = out[orig.columns.to_numpy(copy=False)]
                 return out
 
             if (X_num is not None) and (X_cat is None):
-                return df_num[orig.columns.values]
+                return df_num[orig.columns.to_numpy(copy=False)]
             elif (X_num is None) and (X_cat is not None):
-                return df_cat[orig.columns.values]
+                return df_cat[orig.columns.to_numpy(copy=False)]
             else:
                 df = pd.concat([df_num, df_cat], axis = 1)
-                df = df[orig.columns.values]
+                df = df[orig.columns.to_numpy(copy=False)]
                 return df
 
         else: ### not DataFrame
