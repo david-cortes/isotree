@@ -4266,5 +4266,5 @@ class IsolationForest(BaseEstimator):
         self._is_extended_ = self.ndim_ > 1
         return self
 
-    def __is_fitted__(self):
+    def __sklearn_is_fitted__(self):
         return self.is_fitted_
