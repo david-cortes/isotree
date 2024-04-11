@@ -266,9 +266,9 @@ public:
 
     static IsolationForest deserialize(std::istream &inp, int nthreads);
 
-    friend ISOTREE_EXPORTED std::ostream& operator<<(std::ostream &ost, const IsolationForest &model);
+    friend ISOTREE_EXPORTED_FRIEND std::ostream& operator<<(std::ostream &ost, const IsolationForest &model);
 
-    friend ISOTREE_EXPORTED std::istream& operator>>(std::istream &ist, IsolationForest &model);
+    friend ISOTREE_EXPORTED_FRIEND std::istream& operator>>(std::istream &ist, IsolationForest &model);
 
     IsoForest& get_model();
 
