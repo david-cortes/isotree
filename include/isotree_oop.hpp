@@ -372,9 +372,9 @@ public:
         ('stream << model' and 'stream >> model').
         Note that 'ist >> model' will set 'nthreads=-1', which you might
         want to modify afterwards. */
-    friend std::ostream& operator<<(std::ostream &ost, const IsolationForest &model);
+    friend ISOTREE_EXPORTED_FRIEND std::ostream& operator<<(std::ostream &ost, const IsolationForest &model);
 
-    friend std::istream& operator>>(std::istream &ist, IsolationForest &model);
+    friend ISOTREE_EXPORTED_FRIEND std::istream& operator>>(std::istream &ist, IsolationForest &model);
 
     /*  These functions allow getting the underlying objects to use with the more
         featureful non-OOP interface.

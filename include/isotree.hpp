@@ -95,8 +95,10 @@ using std::size_t;
 
 #ifdef _WIN32
     #define ISOTREE_EXPORTED __declspec(dllimport)
+    #define ISOTREE_EXPORTED_FRIEND __declspec(dllimport)
 #else
     #define ISOTREE_EXPORTED 
+    #define ISOTREE_EXPORTED_FRIEND
 #endif
 
 

@@ -267,7 +267,8 @@ using std::memcpy;
 #endif
 
 #if defined(_FOR_R) || defined(_FOR_PYTHON)
-    #define ISOTREE_EXPORTED 
+    #define ISOTREE_EXPORTED
+    #define ISOTREE_EXPORTED_FRIEND
 #else
     #if defined(_WIN32)
         #ifdef ISOTREE_COMPILE_TIME
@@ -275,12 +276,14 @@ using std::memcpy;
         #else
             #define ISOTREE_EXPORTED __declspec(dllimport)
         #endif
+        #define ISOTREE_EXPORTED_FRIEND ISOTREE_EXPORTED
     #else
         #if defined(EXPLICITLTY_EXPORT_SYMBOLS) && defined(ISOTREE_COMPILE_TIME)
             #define ISOTREE_EXPORTED [[gnu::visibility("default")]]
         #else
             #define ISOTREE_EXPORTED 
         #endif
+        #define ISOTREE_EXPORTED_FRIEND
     #endif
 #endif
 
