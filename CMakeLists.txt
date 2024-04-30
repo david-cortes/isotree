@@ -28,7 +28,7 @@ target_include_directories(isotree PRIVATE ${PROJECT_SOURCE_DIR}/src)
 set(HEADER_FILES "${PROJECT_SOURCE_DIR}/include/isotree.hpp"
                  "${PROJECT_SOURCE_DIR}/include/isotree_oop.hpp"
                  "${PROJECT_SOURCE_DIR}/include/isotree_c.h")
-set_target_properties(isotree PROPERTIES PUBLIC_HEADER "${HEADER_FILES}")
+set_target_properties(isotree PROPERTIES PUBLIC_HEADER "${HEADER_FILES}" SOVERSION 0 VERSION ${PROJECT_VERSION})
 add_compile_definitions(ISOTREE_COMPILE_TIME)
 
 ## set to OFF to use the system's default RNG engine
