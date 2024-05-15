@@ -4268,3 +4268,11 @@ class IsolationForest(BaseEstimator):
 
     def __sklearn_is_fitted__(self):
         return self.is_fitted_
+
+    @property
+    def _doc_link_module(self):
+        return "isotree"
+
+    @property
+    def _doc_link_template(self):
+        return f"https://isotree.readthedocs.io/en/latest/#isotree.{self.__class__.__name__}"
