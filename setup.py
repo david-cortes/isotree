@@ -312,7 +312,7 @@ class build_ext_subclass( build_ext ):
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.6.1-3',
+    version = '0.6.1-4',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     url = 'https://github.com/david-cortes/isotree',
@@ -331,8 +331,7 @@ setup(
                                 define_macros = [("_USE_XOSHIRO", None),
                                                  ("NDEBUG", None),
                                                  ("_FOR_PYTHON", None),
-                                                 ("CYTHON_EXTERN_C", 'extern "C"'),
-                                                 ("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")]
+                                                 ("CYTHON_EXTERN_C", 'extern "C"')]
                             )]
     )
 
