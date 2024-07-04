@@ -391,7 +391,8 @@
 #'   \item `"divide"` (for the single-variable model only, recommended), which will follow both branches and combine
 #'   the result with the weight given by the fraction of the data that went to each branch when fitting the model.
 #'   The weights are determined during fitting by producing a split based on the non-missing values only, and calculating which
-#'   fraction of the non-missing values go to each branch.
+#'   fraction of the non-missing values go to each branch (missing values are then sent to both branches with
+#'   those weights to continue the fitting procedure).
 #'   \item `"impute"`, which will assign observations to the branch with the most observations in the single-variable model,
 #'   or fill in missing values with the median of each column of the sample from which the split was made in the extended
 #'   model (recommended for it) (but note that the calculation of medians does not take
