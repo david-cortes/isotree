@@ -1474,6 +1474,12 @@ class IsolationForest(BaseEstimator):
 
         Note
         ----
+        This method cannot be used when using subsamples of data for fitting the model (parameter
+        ``sample_size``). If using the default value for ``sample_size``, then all trees will use
+        all rows in the data when calling this method.
+
+        Note
+        ----
         The data must NOT contain any duplicate rows.
 
         Note
