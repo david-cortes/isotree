@@ -936,6 +936,8 @@ class IsolationForest(BaseEstimator):
 
         self._reset_obj()
 
+    _estimator_type = "outlier_detector"
+
     def _init(self, categ_cols = None):
         if categ_cols is not None:
             if self.categ_cols is not None:
@@ -1411,6 +1413,9 @@ class IsolationForest(BaseEstimator):
             seed = self.random_state.randint(np.iinfo(np.int32).max)
         else:
             seed = self.random_seed
+
+        if y is not None:
+            self.classes_ = np.unique(y)
 
         self._cpp_obj.fit_model(_get_num_dtype(X_num, sample_weights, column_weights),
                                 _get_int_dtype(X_num),
