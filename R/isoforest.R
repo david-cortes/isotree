@@ -1,4 +1,5 @@
 #' @importFrom parallel detectCores
+#' @importFrom RhpcBLASctl get_num_cores
 #' @importFrom stats predict variable.names
 #' @importFrom utils head
 #' @importFrom methods new
@@ -1629,11 +1630,11 @@ isolation.forest <- function(data,
 predict.isolation_forest <- function(
     object,
     newdata,
-    type="score",
-    square_mat=ifelse(type == "kernel", TRUE, FALSE),
-    refdata=NULL,
-    use_reference_points=TRUE,
-    nthreads=object$nthreads,
+    type = "score",
+    square_mat = ifelse(type == "kernel", TRUE, FALSE),
+    refdata = NULL,
+    use_reference_points = TRUE,
+    nthreads = min(object$nthreads, RhpcBLASctl::get_num_cores()),
     ...
 ) {
     isotree.restore.handle(object)

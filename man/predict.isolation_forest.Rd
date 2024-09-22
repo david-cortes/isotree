@@ -11,7 +11,7 @@
   square_mat = ifelse(type == "kernel", TRUE, FALSE),
   refdata = NULL,
   use_reference_points = TRUE,
-  nthreads = object$nthreads,
+  nthreads = min(object$nthreads, RhpcBLASctl::get_num_cores()),
   ...
 )
 }
