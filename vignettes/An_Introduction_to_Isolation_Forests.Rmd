@@ -378,7 +378,7 @@ One of the most common datasets for benchmarking outlier detection algorithms in
 classification but is typically adapted for anomaly detection by merging the least common
 classes together and labelling them as "anomalies" or "outliers".
 
-From [ODDS](http://odds.cs.stonybrook.edu/satellite-dataset/):
+From [ODDS](https://odds.cs.stonybrook.edu/satellite-dataset/):
 
 > The original Statlog (Landsat Satellite) dataset from UCI machine learning repository is a
 > multi-class classification dataset. Here, the training and test data are combined. The
