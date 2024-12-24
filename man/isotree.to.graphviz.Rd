@@ -73,6 +73,7 @@ outputs will correspond to the logarithm of the density rather than the density.
 }
 }
 \examples{
+\dontrun{
 library(isotree)
 set.seed(123)
 X <- matrix(rnorm(100 * 3), nrow = 100)
@@ -85,5 +86,6 @@ if (require("DiagrammeR")) {
     DiagrammeR::grViz(model_as_graphviz[[1]])
 
     DiagrammeR::grViz(model_as_graphviz[[1]])
+}
 }
 }

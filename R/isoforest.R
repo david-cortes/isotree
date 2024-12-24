@@ -2646,6 +2646,9 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
     }
 }
 
+# TODO: this example gets flagged at CRAN checks due to a bug in GCC:
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=118113
+# Should re-enable these examples once the bug gets solved an CRAN updates their compiler version.
 #' @title Generate GraphViz Dot Representation of Tree
 #' @description Generate GraphViz representations of model trees in 'dot' format - either
 #' separately per tree (the default), or for a single tree if needed (if passing `tree`)
@@ -2678,6 +2681,7 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
 #' of the tree. If passing `tree`, the output will be instead a single character / string element
 #' with the 'dot' representation for that tree.
 #' @examples
+#' \dontrun{
 #' library(isotree)
 #' set.seed(123)
 #' X <- matrix(rnorm(100 * 3), nrow = 100)
@@ -2691,6 +2695,7 @@ isotree.to.sql <- function(model, enclose="doublequotes", output_tree_num = FALS
 #' 
 #      second tree
 #'     DiagrammeR::grViz(model_as_graphviz[[1]])
+#' }
 #' }
 #' @export
 isotree.to.graphviz <- function(model, output_tree_num = FALSE, tree = NULL,
