@@ -39,7 +39,7 @@ Description: Fast and multi-threaded implementation of
 	and offers options for varying between random and guided splits, and for using different splitting criteria.
 License: BSD_2_clause + file LICENSE
 Depends: R (>= 4.3.0)
-Imports: Rcpp (>= 1.0.1), jsonlite (>= 1.7.3), methods
+Imports: Rcpp (>= 1.0.1), jsonlite (>= 1.7.3), RhpcBLASctl, methods
 Suggests: MASS, outliertree, DiagrammeR,
     mlbench, MLmetrics, kernlab, knitr, rmarkdown, kableExtra
 Enhances: Matrix, SparseM
