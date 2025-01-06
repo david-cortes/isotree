@@ -11,6 +11,7 @@ from Cython.Distutils import build_ext
 from sys import platform
 import sys, os, subprocess, warnings, re
 from os import environ
+import tempfile
 
 found_omp = True
 def set_omp_false():
@@ -240,7 +241,7 @@ class build_ext_subclass( build_ext ):
             if not isinstance(comm, list):
                 comm = [comm]
             print("--- Checking compiler support for option '%s'" % " ".join(comm))
-            fname = "isotree_compiler_testing.cpp"
+            fname = os.path.join(tempfile.gettempdir(), "isotree_compiler_testing.cpp")
             with open(fname, "w") as ftest:
                 ftest.write(u"int main(int argc, char**argv) {return 0;}\n")
             try:
@@ -280,7 +281,7 @@ class build_ext_subclass( build_ext ):
             if not hasattr(self.compiler, "compiler_cxx"):
                 return None
             print("--- Checking compiler support for '__restrict' qualifier")
-            fname = "isotree_compiler_testing.cpp"
+            fname = os.path.join(tempfile.gettempdir(), "isotree_compiler_testing.cpp")
             with open(fname, "w") as ftest:
                 ftest.write(u"int main(int argc, char**argv) {return 0;}\n")
             try:
@@ -312,7 +313,7 @@ class build_ext_subclass( build_ext ):
 setup(
     name  = "isotree",
     packages = ["isotree"],
-    version = '0.6.1-5',
+    version = '0.6.1-6',
     description = 'Isolation-Based Outlier Detection, Distance, and NA imputation',
     author = 'David Cortes',
     url = 'https://github.com/david-cortes/isotree',
