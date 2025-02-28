@@ -245,7 +245,7 @@ The package comes with two different C++ interfaces: (a) a struct-based interfac
 
 See files: [isotree_cpp_oop_ex.cpp](https://github.com/david-cortes/isotree/blob/master/example/isotree_cpp_oop_ex.cpp) for an example with the scikit-learn-like interface (recommended); and [isotree_cpp_ex.cpp](https://github.com/david-cortes/isotree/blob/master/example/isotree_cpp_ex.cpp) for an example with the struct-based interface.
 
-Note that the second interface does not expose all the functionalities - for example, it only supports inputs of classes 'double' and 'int', while the struct-based interface also supports 'float'/'size_t'.
+Note that the scikit-learn-like interface does not expose all the functionalities - for example, it only supports inputs of classes 'double' and 'int', while the struct-based interface also supports 'float'/'size_t'.
 
 * C:
 
