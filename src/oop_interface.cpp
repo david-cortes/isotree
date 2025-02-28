@@ -693,7 +693,7 @@ void IsolationForest::check_params()
         > 1. + 2. * std::numeric_limits<double>::epsilon())
         throw std::runtime_error("Probabilities for gain-based splits sum to more than 1.\n");
 
-    if (prob_pick_col_by_var + prob_pick_col_by_var + prob_pick_col_by_kurt
+    if (prob_pick_col_by_range + prob_pick_col_by_var + prob_pick_col_by_kurt
         > 1. + 2. * std::numeric_limits<double>::epsilon())
         throw std::runtime_error("Probabilities for column choices sum to more than 1.\n");
 
