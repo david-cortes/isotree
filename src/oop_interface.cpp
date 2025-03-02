@@ -150,7 +150,7 @@ void IsolationForest::fit(double X[], size_t nrows, size_t ncols)
         this->prob_pick_col_by_kurt,
         this->min_gain, this->missing_action,
         this->cat_split_type, this->new_cat_action,
-        this->all_perm, &this->imputer, this->min_imp_obs,
+        this->all_perm, this->build_imputer? &this->imputer : nullptr, this->min_imp_obs,
         this->depth_imp, this->weigh_imp_rows, false,
         this->random_seed, false, this->nthreads
     );
@@ -189,7 +189,7 @@ void IsolationForest::fit(double numeric_data[],   size_t ncols_numeric,  size_t
         this->prob_pick_col_by_kurt,
         this->min_gain, this->missing_action,
         this->cat_split_type, this->new_cat_action,
-        this->all_perm, &this->imputer, this->min_imp_obs,
+        this->all_perm, this->build_imputer? &this->imputer : nullptr, this->min_imp_obs,
         this->depth_imp, this->weigh_imp_rows, false,
         this->random_seed, false, this->nthreads
     );
@@ -229,7 +229,7 @@ void IsolationForest::fit(double Xc[], int Xc_ind[], int Xc_indptr[],
         this->prob_pick_col_by_kurt,
         this->min_gain, this->missing_action,
         this->cat_split_type, this->new_cat_action,
-        this->all_perm, &this->imputer, this->min_imp_obs,
+        this->all_perm, this->build_imputer? &this->imputer : nullptr, this->min_imp_obs,
         this->depth_imp, this->weigh_imp_rows, false,
         this->random_seed, false, this->nthreads
     );
