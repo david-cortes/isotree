@@ -5,6 +5,7 @@ import multiprocessing
 import ctypes
 import json
 import os
+from numbers import Integral
 from io import BytesIO
 from copy import deepcopy
 from ._cpp_interface import (
@@ -4083,25 +4084,8 @@ class IsolationForest(BaseEstimator):
             self._cpp_obj = old_cpp_obj
         return new_obj
 
-    ### https://github.com/numpy/numpy/issues/19069
-    def _is_np_int(self, el):
-        return (
-            np.issubdtype(el.__class__, int) or
-            np.issubdtype(el.__class__, np.integer) or
-            np.issubdtype(el.__class__, np.int8) or
-            np.issubdtype(el.__class__, np.int16) or
-            np.issubdtype(el.__class__, np.int16) or
-            np.issubdtype(el.__class__, np.int32) or
-            np.issubdtype(el.__class__, np.int64) or
-            np.issubdtype(el.__class__, np.uint8) or
-            np.issubdtype(el.__class__, np.uint16) or
-            np.issubdtype(el.__class__, np.uint16) or
-            np.issubdtype(el.__class__, np.uint32) or
-            np.issubdtype(el.__class__, np.uint64)
-        )
-
     def _denumpify_list(self, lst):
-        return [int(el) if self._is_np_int(el) else el for el in lst]
+        return [int(el) if isinstance(el, Integral) else el for el in lst]
 
     def _export_metadata(self):
         if (self.max_depth is not None) and (self.max_depth != "auto"):
