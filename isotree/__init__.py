@@ -3535,14 +3535,13 @@ class IsolationForest(BaseEstimator):
             if len(self._cat_mapping):
                 categ_levels = [[str(lev).encode() for lev in mp] for mp in self._cat_mapping]
             else:
-                categ_levels = [[str(cat) for cat in range(self._cat_max_lev[cl] + 1)] for cl in range(self._ncols_categ)]
+                categ_levels = [[str(cat).encode() for cat in range(self._cat_max_lev[cl] + 1)] for cl in range(self._ncols_categ)]
         else:
             column_names_categ = []
             categ_levels = []
 
         column_names = [s.encode() for s in column_names]
         column_names_categ = [s.encode() for s in column_names_categ]
-        categ_levels = [[s.encode() for s in categs] for categs in categ_levels]
 
         nthreads_use = _process_nthreads(self.nthreads)
 
@@ -3750,14 +3749,13 @@ class IsolationForest(BaseEstimator):
             if len(self._cat_mapping):
                 categ_levels = [[str(lev).encode() for lev in mp] for mp in self._cat_mapping]
             else:
-                categ_levels = [[str(cat) for cat in range(self._cat_max_lev[cl] + 1)] for cl in range(self._ncols_categ)]
+                categ_levels = [[str(cat).encode() for cat in range(self._cat_max_lev[cl] + 1)] for cl in range(self._ncols_categ)]
         else:
             column_names_categ = []
             categ_levels = []
 
         column_names = [s.encode() for s in column_names]
         column_names_categ = [s.encode() for s in column_names_categ]
-        categ_levels = [[s.encode() for s in categs] for categs in categ_levels]
 
         nthreads_use = _process_nthreads(self.nthreads)
 
@@ -3765,7 +3763,7 @@ class IsolationForest(BaseEstimator):
                for s in self._cpp_obj.generate_json(self.ndim_ > 1,
                                                     column_names, column_names_categ, categ_levels,
                                                     output_tree_num, single_tree, tree, nthreads_use)]
-        if not self.as_str:
+        if not as_str:
             out = [json.loads(s) for s in out]
         if single_tree:
             return out[0]
