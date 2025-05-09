@@ -1,4 +1,4 @@
-#cython: language_level=3
+#cython: freethreading_compatible=True, language_level=3
 
 #     Isolation forests and variations thereof, with adjustments for incorporation
 #     of categorical variables and missing values.
