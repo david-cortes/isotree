@@ -1,6 +1,6 @@
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
-*     Writen for C++11 standard and aimed at being used in R and Python.
+*     Written for C++11 standard and aimed at being used in R and Python.
 *     
 *     This library is based on the following works:
 *     [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
@@ -361,7 +361,7 @@ typedef struct TreesIndexer {
 *       The standardized outlier score from 'Density' for a given observation is calculated as the
 *       negative of the logarithm of the geometric mean from the per-tree densities, which unlike
 *       the standardized score produced from 'Depth', is unbounded, but just like the standardized
-*       score form 'Depth', has a natural threshold for definining outlierness, which in this case
+*       score form 'Depth', has a natural threshold for defining outlierness, which in this case
 *       is zero is instead of 0.5. The non-standardized outlier score for 'Density' is calculated as the
 *       geometric mean, while the per-tree scores are calculated as the density values.
 *       'Density' might lead to better predictions when using 'ndim=1', particularly in the presence
@@ -379,11 +379,11 @@ typedef struct TreesIndexer {
 *       range of the same feature or linear combination among the points that are sent to this
 *       same side of the split/branch. This makes each split add a number between zero and two
 *       to the isolation depth, with this number's probabilistic distribution being centered
-*       around 1 and thus the expected isolation depth remaing the same as in the original
+*       around 1 and thus the expected isolation depth remains the same as in the original
 *       'Depth' metric, but having more variability around the extremes.
 *       Scores (standardized, non-standardized, per-tree) for 'AdjDepth' are aggregated in the same way
 *       as for 'Depth'.
-*       'AdjDepth' might lead to better predictions when using 'ndim=1', particularly in the prescence
+*       'AdjDepth' might lead to better predictions when using 'ndim=1', particularly in the presence
 *       of categorical variables and for smaller datasets, and for smaller datasets, might make
 *       sense to combine it with 'penalize_range=true'.
 *       If passing 'AdjDensity', will use the same metric from 'AdjDepth', but applied multiplicatively instead
@@ -407,7 +407,7 @@ typedef struct TreesIndexer {
 *       values which round to zero.
 *       The standardized outlier score from 'BoxedRatio' for a given observation is calculated
 *       simply as the the average from the per-tree boxed ratios. 'BoxedRatio' metric
-*       has a lower bound of zero and a theorical upper bound of one, but in practice the scores
+*       has a lower bound of zero and a theoretical upper bound of one, but in practice the scores
 *       tend to be very small numbers close to zero, and its distribution across
 *       different datasets is rather unpredictable. In order to keep rankings comparable with
 *       the rest of the metrics, the non-standardized outlier scores for 'BoxedRatio' are calculated as the
@@ -436,7 +436,7 @@ typedef struct TreesIndexer {
 *       end up in a  given terminal node and the ratio between the boxed volume of the feature
 *       space in the sample and the boxed volume of a node given by the split conditions (inverse
 *       as in 'BoxedDensity2'). This metric does not have any theoretical or intuitive
-*       justification behind its existence, and it is perhaps ilogical to use it as a
+*       justification behind its existence, and it is perhaps illogical to use it as a
 *       scoring metric, but tends to produce good results in some datasets.
 *       The standardized outlier scores for 'BoxedDensity' are defined as the negative of the geometric mean,
 *       while the non-standardized scores are the geometric mean, and the per-tree scores are simply the 'density' values.
@@ -659,7 +659,7 @@ typedef struct TreesIndexer {
 *       them the median value for that column that was added to the linear combination of features (but note that
 *       this median calculation does not use sample weights when using 'weights_as_sample_prob=false'),
 *       b) "Smallest", which will assign all observations with unseen categories in the split to the branch that
-*       had fewer observations when fitting the model, c) "Random", which will assing a branch (coefficient in the
+*       had fewer observations when fitting the model, c) "Random", which will assign a branch (coefficient in the
 *       extended model) at random for each category beforehand, even if no observations had that category when
 *       fitting the model. Ignored when passing 'cat_split_type' = 'SingleCateg'.
 * - all_perm
@@ -734,7 +734,7 @@ typedef struct TreesIndexer {
 * If the process receives an interrupt signal, will return instead
 * 'EXIT_FAILURE' (typically =1). If you do not have any way of determining
 * what these values correspond to, you can use the functions
-* 'return_EXIT_SUCESS' and 'return_EXIT_FAILURE', which will return them
+* 'return_EXIT_SUCCESS' and 'return_EXIT_FAILURE', which will return them
 * as integers.
 */
 ISOTREE_EXPORTED
@@ -1101,7 +1101,7 @@ int add_tree(IsoForest *model_outputs, ExtIsoForest *model_outputs_ext,
 *       Pass NULL if this type of output is not needed.
 * - per_tree_depths[nrows * ntrees] (out)
 *       Pointer to array where to output per-tree depths or expected depths for each row.
-*       Note that these will not include range penalities ('penalize_range=true').
+*       Note that these will not include range penalties ('penalize_range=true').
 *       Output will be in row-major order ([nrows, ntrees]).
 *       This will not be calculable when using 'ndim==1' alongside with either
 *       'missing_action==Divide' or 'new_categ_action=Weighted'.
@@ -1210,7 +1210,7 @@ ISOTREE_EXPORTED void get_num_nodes(const ExtIsoForest &model_outputs, sparse_ix
 * - assume_full_distr
 *       Whether to assume that the fitted model represents a full population distribution (will use a
 *       standardizing criterion assuming infinite sample, and the results of the similarity between two points
-*       at prediction time will not depend on the prescence of any third point that is similar to them, but will
+*       at prediction time will not depend on the presence of any third point that is similar to them, but will
 *       differ more compared to the pairwise distances between points from which the model was fit). If passing
 *       'false', will calculate pairwise distances as if the new observations at prediction time were added to
 *       the sample to which each tree was fit, which will make the distances between two points potentially vary
@@ -1382,7 +1382,7 @@ void calc_similarity(real_t numeric_data[], int categ_data[],
 *       if the predictions are to be made from a single-variable model. Can only pass one of
 *       'model_outputs' and 'model_outputs_ext'.
 * - impute_nodes
-*       Pointer to fitted imputation node obects for the same trees as in 'model_outputs' or 'model_outputs_ext',
+*       Pointer to fitted imputation node objects for the same trees as in 'model_outputs' or 'model_outputs_ext',
 *       as produced from function 'fit_iforest',
 */
 ISOTREE_EXPORTED
@@ -1398,7 +1398,7 @@ void impute_missing_values(real_t numeric_data[], int categ_data[], bool is_col_
 * Parameters
 * ==========
 * - model (in, out)
-*       Pointer to isolation forest model wich has already been fit through 'fit_iforest'.
+*       Pointer to isolation forest model which has already been fit through 'fit_iforest'.
 *       The trees from 'other' will be merged into this (will be at the end of vector member 'trees').
 *       Both 'model' and 'other' must have been fit with the same hyperparameters
 *       in order for this merge to work correctly - at the very least, should have
@@ -1467,7 +1467,7 @@ void merge_models(IsoForest*     model,      const IsoForest*     other,
 * Parameters
 * ==========
 * - model (in)
-*       Pointer to isolation forest model wich has already been fit through 'fit_iforest',
+*       Pointer to isolation forest model which has already been fit through 'fit_iforest',
 *       from which the desired trees will be copied into a new model object.
 *       Pass NULL if using the extended model.
 * - ext_model (in)
@@ -1590,7 +1590,7 @@ void set_reference_points(IsoForest *model_outputs, ExtIsoForest *model_outputs_
 *       functions named 'serialized_combined') or in the format of separate objects (as produced
 *       by the functions named 'serialized_<model>').
 *       If if is in the format of combined objects, must be de-serialized through the functions
-*       named 'deserialize_combined'; ohterwise, must be de-serialized through the functions
+*       named 'deserialize_combined'; otherwise, must be de-serialized through the functions
 *       named 'deserialize_<model>'.
 *       Note that the Python and R interfaces of this library use the combined objects format
 *       when serializing to files.

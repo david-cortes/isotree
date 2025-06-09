@@ -58,7 +58,7 @@ check.categ.cols <- function(categ_cols, data) {
     if (any(categ_cols < 1))
         stop("'categ_cols' contains invalid column indices.")
     if (anyDuplicated(categ_cols))
-        stop("'categ_cols' contains duplicted entries.")
+        stop("'categ_cols' contains duplicate entries.")
     categ_cols <- sort.int(categ_cols)
     return(categ_cols)
 }

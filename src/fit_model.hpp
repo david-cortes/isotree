@@ -1,6 +1,6 @@
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
-*     Writen for C++11 standard and aimed at being used in R and Python.
+*     Written for C++11 standard and aimed at being used in R and Python.
 *     
 *     This library is based on the following works:
 *     [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
@@ -196,7 +196,7 @@
 *       The standardized outlier score from 'Density' for a given observation is calculated as the
 *       negative of the logarithm of the geometric mean from the per-tree densities, which unlike
 *       the standardized score produced from 'Depth', is unbounded, but just like the standardized
-*       score form 'Depth', has a natural threshold for definining outlierness, which in this case
+*       score form 'Depth', has a natural threshold for defining outlierness, which in this case
 *       is zero is instead of 0.5. The non-standardized outlier score for 'Density' is calculated as the
 *       geometric mean, while the per-tree scores are calculated as the density values.
 *       'Density' might lead to better predictions when using 'ndim=1', particularly in the presence
@@ -214,11 +214,11 @@
 *       range of the same feature or linear combination among the points that are sent to this
 *       same side of the split/branch. This makes each split add a number between zero and two
 *       to the isolation depth, with this number's probabilistic distribution being centered
-*       around 1 and thus the expected isolation depth remaing the same as in the original
+*       around 1 and thus the expected isolation depth remains the same as in the original
 *       'Depth' metric, but having more variability around the extremes.
 *       Scores (standardized, non-standardized, per-tree) for 'AdjDepth' are aggregated in the same way
 *       as for 'Depth'.
-*       'AdjDepth' might lead to better predictions when using 'ndim=1', particularly in the prescence
+*       'AdjDepth' might lead to better predictions when using 'ndim=1', particularly in the presence
 *       of categorical variables and for smaller datasets, and for smaller datasets, might make
 *       sense to combine it with 'penalize_range=true'.
 *       If passing 'AdjDensity', will use the same metric from 'AdjDepth', but applied multiplicatively instead
@@ -242,7 +242,7 @@
 *       values which round to zero.
 *       The standardized outlier score from 'BoxedRatio' for a given observation is calculated
 *       simply as the the average from the per-tree boxed ratios. 'BoxedRatio' metric
-*       has a lower bound of zero and a theorical upper bound of one, but in practice the scores
+*       has a lower bound of zero and a theoretical upper bound of one, but in practice the scores
 *       tend to be very small numbers close to zero, and its distribution across
 *       different datasets is rather unpredictable. In order to keep rankings comparable with
 *       the rest of the metrics, the non-standardized outlier scores for 'BoxedRatio' are calculated as the
@@ -271,7 +271,7 @@
 *       end up in a  given terminal node and the ratio between the boxed volume of the feature
 *       space in the sample and the boxed volume of a node given by the split conditions (inverse
 *       as in 'BoxedDensity2'). This metric does not have any theoretical or intuitive
-*       justification behind its existence, and it is perhaps ilogical to use it as a
+*       justification behind its existence, and it is perhaps illogical to use it as a
 *       scoring metric, but tends to produce good results in some datasets.
 *       The standardized outlier scores for 'BoxedDensity' are defined as the negative of the geometric mean,
 *       while the non-standardized scores are the geometric mean, and the per-tree scores are simply the 'density' values.
@@ -494,7 +494,7 @@
 *       them the median value for that column that was added to the linear combination of features (but note that
 *       this median calculation does not use sample weights when using 'weights_as_sample_prob=false'),
 *       b) "Smallest", which will assign all observations with unseen categories in the split to the branch that
-*       had fewer observations when fitting the model, c) "Random", which will assing a branch (coefficient in the
+*       had fewer observations when fitting the model, c) "Random", which will assign a branch (coefficient in the
 *       extended model) at random for each category beforehand, even if no observations had that category when
 *       fitting the model. Ignored when passing 'cat_split_type' = 'SingleCateg'.
 * - all_perm
@@ -569,7 +569,7 @@
 * If the process receives an interrupt signal, will return instead
 * 'EXIT_FAILURE' (typically =1). If you do not have any way of determining
 * what these values correspond to, you can use the functions
-* 'return_EXIT_SUCESS' and 'return_EXIT_FAILURE', which will return them
+* 'return_EXIT_SUCCESS' and 'return_EXIT_FAILURE', which will return them
 * as integers.
 */
 template <class real_t, class sparse_ix>

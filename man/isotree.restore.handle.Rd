@@ -31,7 +31,7 @@ handle) without having to call any function that would do extra processing when 
 
 It is an analog to XGBoost's `xgb.Booster.complete` and CatBoost's `catboost.restore_handle` functions.
 
-If the model was buit with `lazy_serialization=TRUE`, this function will not do anything to the object.
+If the model was built with `lazy_serialization=TRUE`, this function will not do anything to the object.
 }
 \details{
 If using this function to de-serialize a model in a production system, one might

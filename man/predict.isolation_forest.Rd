@@ -49,7 +49,7 @@ when the number of trees or rows is large.}
   the same terminal node. This is typically not as good quality as the separation distance, but
   it's much faster to calculate, and has other potential uses - for example, this "kernel" can
   be used as an estimate of the correlations between residuals for a generalized least-squares
-  regression, for which distance might not be as appropirate.
+  regression, for which distance might not be as appropriate.
   Note that building an indexer will not speed up kernel/proximity
   calculations unless it has reference points. This calculation can be sped up significantly
   by setting reference points in the model object through \link{isotree.set.reference.points},
@@ -75,7 +75,7 @@ p(i, j) = ((i - 1) * (n - i/2) + j - i).
 Ignored when not predicting distance/separation/kernels or when passing `refdata` or `use_reference_points=TRUE` plus having reference points.}
 
 \item{refdata}{If passing this and calculating distances or average separation depths or kernels, will calculate distances
-between each point in `newdata` and each point in `refdata`, outputing a matrix in which points in `newdata`
+between each point in `newdata` and each point in `refdata`, outputting a matrix in which points in `newdata`
 correspond to rows and points in `refdata` correspond to columns. Must be of the same type as `newdata` (e.g.
 `data.frame`, `matrix`, `dgCMatrix`, etc.). If this is not passed, and type is `"dist"`
 or `"avg_sep"` or `"kernel"` or `"kernel_raw"`, will calculate pairwise distances/separation between the points in `newdata`.

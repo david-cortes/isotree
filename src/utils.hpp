@@ -1,6 +1,6 @@
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
-*     Writen for C++11 standard and aimed at being used in R and Python.
+*     Written for C++11 standard and aimed at being used in R and Python.
 *     
 *     This library is based on the following works:
 *     [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
@@ -1150,17 +1150,17 @@ bool SingleNodeColumnSampler<ldouble_safe, real_t>::initialize
         this->n_inf = 0;
         if (std::isinf(this->cumw))
         {
-            if (this->inifinite_weights.empty())
-                this->inifinite_weights.resize(col_indices->size());
+            if (this->infinite_weights.empty())
+                this->infinite_weights.resize(col_indices->size());
             else
-                this->inifinite_weights.assign(col_indices->size(), false);
+                this->infinite_weights.assign(col_indices->size(), false);
 
             this->cumw = 0;
             for (size_t col = 0; col < this->curr_pos; col++)
             {
                 if (std::isinf(weights[this->col_indices[col]])) {
                     this->n_inf++;
-                    this->inifinite_weights[this->col_indices[col]] = true;
+                    this->infinite_weights[this->col_indices[col]] = true;
                     weights[this->col_indices[col]] = 0;
                 }
 
@@ -1191,12 +1191,12 @@ bool SingleNodeColumnSampler<ldouble_safe, real_t>::sample_col(size_t &col_chose
             size_t curr = 0;
             for (size_t col = 0; col < this->curr_pos; col++)
             {
-                curr += inifinite_weights[this->col_indices[col]];
+                curr += infinite_weights[this->col_indices[col]];
                 if (curr == chosen)
                 {
                     col_chosen = this->col_indices[col];
                     this->n_inf--;
-                    this->inifinite_weights[col_chosen] = false;
+                    this->infinite_weights[col_chosen] = false;
                     this->n_left--;
                     return true;
                 }
@@ -1318,14 +1318,14 @@ void SingleNodeColumnSampler<ldouble_safe, real_t>::backup(SingleNodeColumnSampl
                 other.weights_own[col] = this->weights_own[this->col_indices[col]];
         }
 
-        if (this->inifinite_weights.size())
+        if (this->infinite_weights.size())
         {
-            if (other.inifinite_weights.empty())
-                other.inifinite_weights.reserve(ncols_tot);
+            if (other.infinite_weights.empty())
+                other.infinite_weights.reserve(ncols_tot);
 
-            other.inifinite_weights.resize(this->n_left);
+            other.infinite_weights.resize(this->n_left);
             for (size_t col = 0; col < this->n_left; col++)
-                other.inifinite_weights[col] = this->inifinite_weights[this->col_indices[col]];
+                other.infinite_weights[col] = this->infinite_weights[this->col_indices[col]];
         }
     }
 }
@@ -1352,10 +1352,10 @@ void SingleNodeColumnSampler<ldouble_safe, real_t>::restore(const SingleNodeColu
                 this->weights_own[this->col_indices[col]] = other.weights_own[col];
         }
 
-        if (this->inifinite_weights.size())
+        if (this->infinite_weights.size())
         {
             for (size_t col = 0; col < this->n_left; col++)
-                this->inifinite_weights[this->col_indices[col]] = other.inifinite_weights[col];
+                this->infinite_weights[this->col_indices[col]] = other.infinite_weights[col];
         }
     }
 }

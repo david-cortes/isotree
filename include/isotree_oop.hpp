@@ -1,6 +1,6 @@
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
-*     Writen for C++11 standard and aimed at being used in R and Python.
+*     Written for C++11 standard and aimed at being used in R and Python.
 *     
 *     This library is based on the following works:
 *     [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
@@ -194,7 +194,7 @@ public:
              double sample_weights[], double col_weights[]);
 
     /*  Numeric data may also be supplied as a sparse matrix, in which case it
-        must be CSC format (colum-major). Categorical data is not supported in
+        must be CSC format (column-major). Categorical data is not supported in
         sparse format.  */
     void fit(double Xc[], int Xc_ind[], int Xc_indptr[],
              size_t ncols_numeric,      size_t nrows,
@@ -275,7 +275,7 @@ public:
     void impute(double numeric_data[], int categ_data[], bool is_col_major, size_t nrows);
 
     /*  Numeric data may be passed in sparse CSR format. Note however that it will
-        impute the values that are NAN, not the values that are ommited from the
+        impute the values that are NAN, not the values that are omitted from the
         sparse format.  */
     void impute(double Xr[], int Xr_ind[], int Xr_indptr[],
                 int categ_data[], bool is_col_major, size_t nrows);

@@ -1,6 +1,6 @@
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
-*     Writen for C++11 standard and aimed at being used in R and Python.
+*     Written for C++11 standard and aimed at being used in R and Python.
 *     
 *     This library is based on the following works:
 *     [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
@@ -128,7 +128,7 @@
 * - assume_full_distr
 *       Whether to assume that the fitted model represents a full population distribution (will use a
 *       standardizing criterion assuming infinite sample, and the results of the similarity between two points
-*       at prediction time will not depend on the prescence of any third point that is similar to them, but will
+*       at prediction time will not depend on the presence of any third point that is similar to them, but will
 *       differ more compared to the pairwise distances between points from which the model was fit). If passing
 *       'false', will calculate pairwise distances as if the new observations at prediction time were added to
 *       the sample to which each tree was fit, which will make the distances between two points potentially vary

@@ -1,6 +1,6 @@
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
-*     Writen for C++11 standard and aimed at being used in R and Python.
+*     Written for C++11 standard and aimed at being used in R and Python.
 *     
 *     This library is based on the following works:
 *     [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
@@ -178,7 +178,7 @@
 *       Pass NULL if this type of output is not needed.
 * - per_tree_depths[nrows * ntrees] (out)
 *       Pointer to array where to output per-tree depths or expected depths for each row.
-*       Note that these will not include range penalities ('penalize_range=true').
+*       Note that these will not include range penalties ('penalize_range=true').
 *       Output will be in row-major order ([nrows, ntrees]).
 *       This will not be calculable when using 'ndim==1' alongside with either
 *       'missing_action==Divide' or 'new_categ_action=Weighted'.
