@@ -1,6 +1,6 @@
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
-*     Writen for C++11 standard and aimed at being used in R and Python.
+*     Written for C++11 standard and aimed at being used in R and Python.
 *     
 *     This library is based on the following works:
 *     [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
@@ -487,7 +487,7 @@ isotree_exit_code isotree_predict_distance
 );
 
 /*  This will replace NAN values in-place. Note that for sparse inputs it
-    will impute NANs, not values that are ommited from the sparse format.  */
+    will impute NANs, not values that are omitted from the sparse format.  */
 ISOTREE_EXPORTED
 isotree_exit_code isotree_impute
 (

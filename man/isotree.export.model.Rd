@@ -75,7 +75,7 @@ and as long as each saved value fits within the range of the machine's int type.
 \item Versions of this package from 0.3.0 onwards, \bold{but only forwards compatible}
 (e.g. a model saved with versions 0.3.0 to 0.3.5 can be loaded under version
 0.3.6, but not the other way around, and attempting to do so will cause crashes
-and memory curruptions without an informative error message). \bold{This last point applies
+and memory corruption without an informative error message). \bold{This last point applies
 also to models saved through save, saveRDS, qsave, and similar}. Note that loading a
 model produced by an earlier version of the library might be slightly slower.
 }

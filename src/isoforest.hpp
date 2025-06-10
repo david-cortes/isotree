@@ -1,6 +1,6 @@
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
-*     Writen for C++11 standard and aimed at being used in R and Python.
+*     Written for C++11 standard and aimed at being used in R and Python.
 *     
 *     This library is based on the following works:
 *     [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
@@ -86,7 +86,7 @@ void split_itree_recursive(std::vector<IsoTree>     &trees,
                           model_params.min_imp_obs);
     }
 
-    /* check for potential isolated leafs or unique splits */
+    /* check for potential isolated leaves or unique splits */
     if (workspace.end == workspace.st || (workspace.end - workspace.st) == 1 || curr_depth >= model_params.max_depth)
         goto terminal_statistics;
 

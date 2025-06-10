@@ -1,6 +1,6 @@
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
-*     Writen for C++11 standard and aimed at being used in R and Python.
+*     Written for C++11 standard and aimed at being used in R and Python.
 *     
 *     This library is based on the following works:
 *     [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
@@ -748,7 +748,7 @@ class SingleNodeColumnSampler
 {
 public:
     double *restrict weights_orig;
-    std::vector<bool> inifinite_weights;
+    std::vector<bool> infinite_weights;
     ldouble_safe cumw;
     size_t n_inf;
     size_t *restrict col_indices;

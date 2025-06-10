@@ -572,7 +572,7 @@ this can be used as a rough estimate of residual correlations in generalized lea
 and some authors report success using it as an SVM kernel (it's recommended to use the
 distance metric instead as it's better quality though).
 * Output the raw terminal node numbers or per-tree depths in order to use them for something
-else - for example, can be used as a cheap clustering with overlapping assigments across trees.
+else - for example, can be used as a cheap clustering with overlapping assignments across trees.
 
 ** *
 # References

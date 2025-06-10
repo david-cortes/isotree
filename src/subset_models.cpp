@@ -1,6 +1,6 @@
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
-*     Writen for C++11 standard and aimed at being used in R and Python.
+*     Written for C++11 standard and aimed at being used in R and Python.
 *     
 *     This library is based on the following works:
 *     [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
@@ -67,7 +67,7 @@
 * Parameters
 * ==========
 * - model (in)
-*       Pointer to isolation forest model wich has already been fit through 'fit_iforest',
+*       Pointer to isolation forest model which has already been fit through 'fit_iforest',
 *       from which the desired trees will be copied into a new model object.
 *       Pass NULL if using the extended model.
 * - ext_model (in)

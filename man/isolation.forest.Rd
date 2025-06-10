@@ -78,7 +78,7 @@ If passing a number between zero and one, will assume it means taking a sample s
 that proportion of the rows in the data.
 
 Note that sub-sampling is incompatible with `output_score`, `output_dist`, and `output_imputations`,
-and if any of those options is requested, `sample_size` will be overriden.
+and if any of those options is requested, `sample_size` will be overridden.
 
 Hint: seeing a distribution of scores which is on average too far below 0.5 could mean that the
 model needs more trees and/or bigger samples to reach convergence (unless using non-random
@@ -372,7 +372,7 @@ the sub-sample from which the split was done did not have. Options are
   \item `"smallest"`, which in the single-variable case will assign all observations with unseen categories in the split
   to the branch that had fewer observations when fitting the model, and in the extended case will assign them the coefficient
   of the least common category.
-  \item `"random"`, which will assing a branch (coefficient in the extended model) at random for
+  \item `"random"`, which will assign a branch (coefficient in the extended model) at random for
   each category beforehand, even if no observations had that category when fitting the model.
   Note that this can produce biased results when deciding splits by a gain criterion.
   
@@ -452,7 +452,7 @@ in [4]. This is ignored when using `ndim=1`.}
   The standardized outlier score from density for a given observation is calculated as the
   negative of the logarithm of the geometric mean from the per-tree densities, which unlike
   the standardized score produced from depth, is unbounded, but just like the standardized
-  score from depth, has a natural threshold for definining outlierness, which in this case
+  score from depth, has a natural threshold for defining outlierness, which in this case
   is zero is instead of 0.5. The non-standardized outlier score is calculated as the
   geometric mean, while the per-tree scores are calculated as the density values.
   
@@ -479,13 +479,13 @@ in [4]. This is ignored when using `ndim=1`.}
   range of the same feature or linear combination among the points that are sent to this
   same side of the split/branch. This makes each split add a number between zero and two
   to the isolation depth, with this number's probabilistic distribution being centered
-  around 1 and thus the expected isolation depth remaing the same as in the original
+  around 1 and thus the expected isolation depth remains the same as in the original
   `"depth"` metric, but having more variability around the extremes.
   
   Scores (standardized, non-standardized, per-tree) are aggregated in the same way
   as for `"depth"`.
   
-  This might lead to better predictions when using `ndim=1`, particularly in the prescence
+  This might lead to better predictions when using `ndim=1`, particularly in the presence
   of categorical variables and for smaller datasets, and for smaller datasets, might make
   sense to combine it with `penalize_range=TRUE`.
   
@@ -514,7 +514,7 @@ in [4]. This is ignored when using `ndim=1`.}
   
   The standardized outlier score from boxed ratio for a given observation is calculated
   simply as the the average from the per-tree boxed ratios. This metric
-  has a lower bound of zero and a theorical upper bound of one, but in practice the scores
+  has a lower bound of zero and a theoretical upper bound of one, but in practice the scores
   tend to be very small numbers close to zero, and its distribution across
   different datasets is rather unpredictable. In order to keep rankings comparable with
   the rest of the metrics, the non-standardized outlier scores are calculated as the
@@ -551,7 +551,7 @@ in [4]. This is ignored when using `ndim=1`.}
   end up in a  given terminal node and the ratio between the boxed volume of the feature
   space in the sample and the boxed volume of a node given by the split conditions (inverse
   as in `"boxed_density2"`). This metric does not have any theoretical or intuitive
-  justification behind its existence, and it is perhaps ilogical to use it as a
+  justification behind its existence, and it is perhaps illogical to use it as a
   scoring metric, but tends to produce good results in some datasets.
   
   The standardized outlier scores are defined as the negative of the geometric mean
@@ -609,7 +609,7 @@ to boost the importance of categorical variables), pass `"uniform"` here.}
 \item{assume_full_distr}{When calculating pairwise distances (see reference [8]), whether to assume that the fitted model represents
 a full population distribution (will use a standardizing criterion assuming infinite sample as in reference [6],
 and the results of the similarity between two points at prediction time will not depend on the
-prescence of any third point that is similar to them, but will differ more compared to the pairwise
+presence of any third point that is similar to them, but will differ more compared to the pairwise
 distances between points from which the model was fit). If passing `FALSE`, will calculate pairwise distances
 as if the new observations at prediction time were added to the sample to which each tree was fit, which
 will make the distances between two points potentially vary according to other newly introduced points.
@@ -651,7 +651,7 @@ and not recommended to change from the default. Ignored when passing `build_impu
 \item{output_score}{Whether to output outlierness scores for the input data, which will be calculated as
 the model is being fit and it's thus faster. Cannot be done when using sub-samples of the data for each tree
 (in such case will later need to call the `predict` function on the same data). If using `penalize_range`, the
-results from this might differet a bit from those of `predict` called after.
+results from this might differ a bit from those of `predict` called after.
 
 This is not supported when using sub-sampling, and if sub-sampling is specified, will override it
 using the full number of rows.}
@@ -771,7 +771,7 @@ is extended to splitting hyperplanes in the extended model (i.e. splitting by mo
 guided (not entirely random) splits in the SCiForest and FCF models that aim at isolating outliers faster and/or
 finding clustered outliers.
 
-This version adds heuristics to handle missing data and categorical variables. Can be used to aproximate pairwise
+This version adds heuristics to handle missing data and categorical variables. Can be used to approximate pairwise
 distances by checking the depth after which two observations become separated, and to approximate densities by fitting
 trees beyond balanced-tree limit. Offers options to vary between randomized and deterministic splits too.
 

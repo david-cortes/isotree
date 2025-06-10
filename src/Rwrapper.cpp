@@ -1,6 +1,6 @@
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
-*     Writen for C++11 standard and aimed at being used in R and Python.
+*     Written for C++11 standard and aimed at being used in R and Python.
 *     
 *     This library is based on the following works:
 *     [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
@@ -2211,7 +2211,7 @@ void set_reference_points(Rcpp::List lst_cpp_objects, SEXP ptr_model, SEXP ind_R
     TreesIndexer *indexer_use = is_altrepped? indexer : new_indexer.get();
 
     /* Note: if using an altrepped pointer, the indexer is modified in-place. If that fails,
-    it will end up overwitten, with the previous references taken away. OTOH, if using
+    it will end up overwritten, with the previous references taken away. OTOH, if using
     a pointer + serialized, and it fails, it should not overwrite anything, and thus
     should not re-assign here immediately. */
     if (is_altrepped) {

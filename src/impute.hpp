@@ -1,6 +1,6 @@
 /*    Isolation forests and variations thereof, with adjustments for incorporation
 *     of categorical variables and missing values.
-*     Writen for C++11 standard and aimed at being used in R and Python.
+*     Written for C++11 standard and aimed at being used in R and Python.
 *     
 *     This library is based on the following works:
 *     [1] Liu, Fei Tony, Kai Ming Ting, and Zhi-Hua Zhou.
@@ -133,7 +133,7 @@
 *       if the predictions are to be made from a single-variable model. Can only pass one of
 *       'model_outputs' and 'model_outputs_ext'.
 * - impute_nodes
-*       Pointer to fitted imputation node obects for the same trees as in 'model_outputs' or 'model_outputs_ext',
+*       Pointer to fitted imputation node objects for the same trees as in 'model_outputs' or 'model_outputs_ext',
 *       as produced from function 'fit_iforest',
 */
 template <class real_t, class sparse_ix>
