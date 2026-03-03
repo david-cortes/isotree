@@ -298,7 +298,7 @@ SEXP serialize_altrepped_pointer(SEXP altrepped_obj)
         return R_state;
     }
     catch (const std::exception &ex) {
-        Rf_error("%s\n", ex.what());
+        Rcpp::stop(ex.what());
     }
 
     return R_NilValue; /* <- won't be reached */
@@ -322,7 +322,7 @@ SEXP deserialize_altrepped_pointer(SEXP cls, SEXP R_state)
         model.release();
     }
     catch (const std::exception &ex) {
-        Rf_error("%s\n", ex.what());
+        Rcpp::stop(ex.what());
     }
 
     R_set_altrep_data1(out, R_ptr);
@@ -359,7 +359,7 @@ SEXP duplicate_altrepped_pointer(SEXP altrepped_obj, Rboolean deep)
         }
 
         catch (const std::exception &ex) {
-            Rf_error("%s\n", ex.what());
+           Rcpp::stop(ex.what());
         }
 
         R_set_altrep_data1(out, R_ptr);
