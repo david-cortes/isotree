@@ -285,8 +285,9 @@ std::vector<std::string> generate_sql(const IsoForest *model_outputs, const ExtI
                             + " ";
             }
 
+            std::string str_case = std::string("CASE\n"); /* <-declared outside of the call to 'std::accumulate' due to an error with GCC14 on windows */
             out[tree_use] = std::accumulate(all_node_rules[tree_use].begin(), all_node_rules[tree_use].end(),
-                                            std::string("CASE\n"),
+                                            str_case,
                                             [&all_node_rules, &tree_use, &index1](std::string &a, std::string &b)
                                             {return a
                                                         + "---begin terminal node "
