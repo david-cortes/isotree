@@ -263,7 +263,7 @@ See [external repository with wrapper](https://github.com/ankane/isotree).
     * [Example about general library usage](https://github.com/david-cortes/isotree/blob/master/example/isotree_example.ipynb).
     * [Example using it as imputer in a scikit-learn pipeline](https://github.com/david-cortes/isotree/blob/master/example/isotree_impute.ipynb).
     * [Example using it as a kernel for SVMs](https://github.com/david-cortes/isotree/blob/master/example/isotree_svm_kernel_example.ipynb).
-    * [Example converting it to TreeLite format for faster predictions](https://github.com/david-cortes/isotree/blob/master/example/treelite_example.ipynb.
+    * [Example converting it to TreeLite format for faster predictions](https://github.com/david-cortes/isotree/blob/master/example/treelite_example.ipynb).
 * R: examples available in the documentation (`help(isotree::isolation.forest)`, [link to CRAN](https://cran.r-project.org/web/packages/isotree/index.html)).
 * C and C++: see short examples in the section above.
 * Ruby: see [external repository with wrapper](https://github.com/ankane/isotree).
