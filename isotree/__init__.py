@@ -844,6 +844,8 @@ class IsolationForest(BaseEstimator):
     cols_categ_ : array(n_categ_features,)
         Array with the names of the columns that were taken as categorical
         (Only when fitting the model to a DataFrame object).
+    sample_size_ : int
+        The effective sample size used for trees.
     is_fitted_ : bool
         Indicator telling whether the model has been fit to data or not.
 
@@ -1388,6 +1390,8 @@ class IsolationForest(BaseEstimator):
             max_depth = 0
             limit_depth = False
 
+        self.sample_size_ = sample_size
+
         if self.ncols_per_tree is None:
             ncols_per_tree = 0
         elif self.ncols_per_tree <= 1:
@@ -1622,6 +1626,8 @@ class IsolationForest(BaseEstimator):
             max_depth = 0
             limit_depth = False
 
+        self.sample_size_ = nrows
+
         if self.ncols_per_tree is None:
             ncols_per_tree = 0
         elif self.ncols_per_tree <= 1:
@@ -1734,7 +1740,7 @@ class IsolationForest(BaseEstimator):
             X_num = np.require(X_num, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
             if X_num.dtype not in [ctypes.c_double, ctypes.c_float]:
                 X_num = np.require(X_num, dtype=ctypes.c_double, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
-            X_cat = X.select_dtypes(include = [pd.CategoricalDtype, "object", "bool"])
+            X_cat = X.select_dtypes(include = ["category", "object", "bool"])
             if (X_num.shape[1] + X_cat.shape[1]) == 0:
                 raise ValueError("Input data has no columns of numeric or categorical type.")
             elif (X_num.shape[1] + X_cat.shape[1]) < X.shape[1]:
@@ -1754,7 +1760,7 @@ class IsolationForest(BaseEstimator):
             self._ncols_numeric = X_num.shape[1]
             self._ncols_categ   = X_cat.shape[1]
             self.cols_numeric_  = X.select_dtypes(include = [np.number, np.datetime64]).columns.to_numpy(copy=True)
-            self.cols_categ_    = X.select_dtypes(include = [pd.CategoricalDtype, "object", "bool"]).columns.to_numpy(copy=True)
+            self.cols_categ_    = X.select_dtypes(include = ["category", "object", "bool"]).columns.to_numpy(copy=True)
             if not self._ncols_numeric:
                 X_num = None
             else:
@@ -3849,51 +3855,82 @@ class IsolationForest(BaseEstimator):
             mapping_cat_cols = np.array(self.categ_cols_).reshape(-1).astype(int)
 
         if self.scoring_metric in ["depth", "adj_depth", "adj_density"]:
-            builder = treelite.ModelBuilder(
-                num_feature = self._ncols_numeric + self._ncols_categ,
-                average_tree_output = True,
+            builder = treelite.model_builder.ModelBuilder(
                 threshold_type = float_dtype,
                 leaf_output_type = float_dtype,
-                pred_transform = "exponential_standard_ratio",
-                ratio_c = self._cpp_obj.get_expected_isolation_depth()
+                postprocessor = treelite.model_builder.PostProcessorFunc(
+                    "exponential_standard_ratio",
+                    ratio_c=float(self._cpp_obj.get_expected_isolation_depth()),
+                ),
+
+                metadata = treelite.model_builder.Metadata(
+                    num_feature = self._ncols_numeric + self._ncols_categ,
+                    average_tree_output = True,
+                    task_type = "kIsolationForest",
+                    num_target = 1,
+                    num_class = [1],
+                    leaf_vector_shape = [1,1],
+                ),
+                base_scores = [0.],
+                tree_annotation = treelite.model_builder.TreeAnnotation(
+                    num_tree=self._ntrees,
+                    target_id=[0] * self._ntrees,
+                    class_id=[0] * self._ntrees,
+                ),
             )
         else:
-            builder = treelite.ModelBuilder(
-                num_feature = self._ncols_numeric + self._ncols_categ,
-                average_tree_output = True,
+            builder = treelite.model_builder.ModelBuilder(
                 threshold_type = float_dtype,
-                leaf_output_type = float_dtype
+                leaf_output_type = float_dtype,
+
+                metadata = treelite.model_builder.Metadata(
+                    num_feature = self._ncols_numeric + self._ncols_categ,
+                    average_tree_output = True,
+                    task_type = "kRegressor",
+                    num_target = 1,
+                    num_class = [1],
+                    leaf_vector_shape = [1,1],
+                ),
+                postprocessor = treelite.model_builder.PostProcessorFunc("identity"),
+                base_scores = [0.],
+                tree_annotation = treelite.model_builder.TreeAnnotation(
+                    num_tree=self._ntrees,
+                    target_id=[0] * self._ntrees,
+                    class_id=[0] * self._ntrees,
+                ),
             )
         for tree_ix in range(self._ntrees):
-            tree = treelite.ModelBuilder.Tree(threshold_type = float_dtype, leaf_output_type = float_dtype)
+            builder.start_tree()
             for node_ix in range(n_nodes[tree_ix]):
+                builder.start_node(node_ix)
                 cat_left = self._cpp_obj.get_node(tree_ix, node_ix, num_node_info)
                 
                 if num_node_info[0] == 1:
-                    tree[node_ix].set_leaf_node(num_node_info[1], leaf_value_type = float_dtype)
+                    builder.leaf(num_node_info[1])
                 
                 elif num_node_info[0] == 0:
-                    tree[node_ix].set_numerical_test_node(
-                        feature_id = mapping_num_cols[int(num_node_info[1])],
+                    builder.numerical_test(
+                        feature_id = int(mapping_num_cols[int(num_node_info[1])]),
                         opname = "<=",
                         threshold = num_node_info[2],
-                        threshold_type = float_dtype,
                         default_left = bool(num_node_info[3]),
                         left_child_key = int(num_node_info[4]),
-                        right_child_key = int(num_node_info[5])
+                        right_child_key = int(num_node_info[5]),
                     )
 
                 else:
-                    tree[node_ix].set_categorical_test_node(
-                        feature_id = mapping_cat_cols[int(num_node_info[1])],
-                        left_categories = cat_left,
+                    builder.categorical_test(
+                        feature_id = int(mapping_cat_cols[int(num_node_info[1])]),
                         default_left = bool(num_node_info[3]),
                         left_child_key = int(num_node_info[4]),
-                        right_child_key = int(num_node_info[5])
-                    )
+                        right_child_key = int(num_node_info[5]),
 
-            tree[0].set_root()
-            builder.append(tree)
+                        category_list=cat_left,
+                        category_list_right_child=False,
+                    )
+                builder.end_node()
+
+            builder.end_tree()
         model = builder.commit()
         return model
 

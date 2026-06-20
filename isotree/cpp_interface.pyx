@@ -1144,7 +1144,16 @@ cdef class isoforest_cpp_obj:
         if X_cat is not None:
             categ_data_ptr    =  get_ptr_int_mat(X_cat)
             ncols_categ       =  X_cat.shape[1]
-            is_col_major      =  np.isfortran(X_cat)
+            if X_num is None:
+                is_col_major  =  np.isfortran(X_cat)
+            elif not issparse(X_num):
+                if is_col_major:
+                    if not np.isfortran(X_cat):
+                        X_cat = np.require(X_cat, dtype=ctypes.c_int, requirements=["ENSUREARRAY", "F_CONTIGUOUS"])
+                else:
+                    if np.isfortran(X_cat):
+                        X_cat = np.require(X_cat, dtype=ctypes.c_int, requirements=["ENSUREARRAY", "C_CONTIGUOUS"])
+
 
         cdef np.ndarray[double, ndim = 1]    depths       =  np.zeros(nrows, dtype = ctypes.c_double)
         cdef np.ndarray[double, ndim = 2]    tree_depths  =  np.empty((0, 0), dtype = ctypes.c_double)
