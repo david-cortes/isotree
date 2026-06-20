@@ -11,14 +11,14 @@ The new concepts in this software are described in:
 *********************
 
 For a quick introduction to the Isolation Forest concept as used in this library, see:
-* [Python introductory notebook](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/an_introduction_to_isolation_forests.ipynb).
+* [Python introductory notebook](https://github.com/david-cortes/isotree/blob/master/example/an_introduction_to_isolation_forests.ipynb).
 * [R Vignette](http://htmlpreview.github.io/?https://github.com/david-cortes/isotree/blob/master/inst/doc/An_Introduction_to_Isolation_Forests.html).
 
 Short Python example notebooks:
-* [General library usage](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb).
-* [Using it as imputer in a scikit-learn pipeline](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb).
-* [Using it as a kernel for SVMs](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_svm_kernel_example.ipynb).
-* [Converting it to TreeLite format for faster predictions](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/treelite_example.ipynb).
+* [General library usage](https://github.com/david-cortes/isotree/blob/master/example/isotree_example.ipynb).
+* [Using it as imputer in a scikit-learn pipeline](https://github.com/david-cortes/isotree/blob/master/example/isotree_impute.ipynb).
+* [Using it as a kernel for SVMs](https://github.com/david-cortes/isotree/blob/master/example/isotree_svm_kernel_example.ipynb).
+* [Converting it to TreeLite format for faster predictions](https://github.com/david-cortes/isotree/blob/master/example/treelite_example.ipynb).
 
 (R examples are available in the internal documentation)
 
@@ -107,7 +107,7 @@ There's already many available implementations of isolation forests for both Pyt
 * Uses exact formula (not approximation as others do) for harmonic numbers at lower sample and remainder sizes, and a higher-order approximation for larger sizes.
 * Can fit trees incrementally to user-provided data samples.
 * Produces serializable model objects with reasonable file sizes.
-* Can convert the models to `treelite` format (Python-only and depending on the parameters that are used) ([example here](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/treelite_example.ipynb)).
+* Can convert the models to `treelite` format (Python-only and depending on the parameters that are used) ([example here](https://github.com/david-cortes/isotree/blob/master/example/treelite_example.ipynb)).
 * Can translate the generated trees into SQL statements.
 * Fast and multi-threaded C++ code with an ISO C interface, which is architecture-agnostic, multi-platform, and with the only external dependency (Robin-Map) being optional. Can be wrapped in languages other than Python/R/Ruby.
 
@@ -260,10 +260,10 @@ See [external repository with wrapper](https://github.com/ankane/isotree).
 # Examples
 
 * Python:
-    * [Example about general library usage](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb).
-    * [Example using it as imputer in a scikit-learn pipeline](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb).
-    * [Example using it as a kernel for SVMs](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_svm_kernel_example.ipynb).
-    * [Example converting it to TreeLite format for faster predictions](https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/treelite_example.ipynb).
+    * [Example about general library usage](https://github.com/david-cortes/isotree/blob/master/example/isotree_example.ipynb).
+    * [Example using it as imputer in a scikit-learn pipeline](https://github.com/david-cortes/isotree/blob/master/example/isotree_impute.ipynb).
+    * [Example using it as a kernel for SVMs](https://github.com/david-cortes/isotree/blob/master/example/isotree_svm_kernel_example.ipynb).
+    * [Example converting it to TreeLite format for faster predictions](https://github.com/david-cortes/isotree/blob/master/example/treelite_example.ipynb.
 * R: examples available in the documentation (`help(isotree::isolation.forest)`, [link to CRAN](https://cran.r-project.org/web/packages/isotree/index.html)).
 * C and C++: see short examples in the section above.
 * Ruby: see [external repository with wrapper](https://github.com/ankane/isotree).
