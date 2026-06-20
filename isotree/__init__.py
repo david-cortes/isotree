@@ -3900,6 +3900,7 @@ class IsolationForest(BaseEstimator):
                 ),
             )
         for tree_ix in range(self._ntrees):
+            expected_node_weights = self._cpp_obj.get_expected_node_weights(self.sample_size_, tree_ix)
             builder.start_tree()
             for node_ix in range(n_nodes[tree_ix]):
                 builder.start_node(node_ix)
@@ -3928,6 +3929,7 @@ class IsolationForest(BaseEstimator):
                         category_list=cat_left,
                         category_list_right_child=False,
                     )
+                builder.sum_hess(expected_node_weights[node_ix])
                 builder.end_node()
 
             builder.end_tree()

@@ -1676,6 +1676,17 @@ cdef class isoforest_cpp_obj:
 
         return None
 
+    def get_expected_node_weights(self, double orig_sample_size, size_t tree):
+        cdef np.ndarray[double, ndim=1] out = np.empty(self.isoforest.trees[tree].size())
+        self.fill_tree_weights_recursive(orig_sample_size, tree, 0, &out[0])
+        return out
+
+    cdef void fill_tree_weights_recursive(self, double curr, size_t tree, size_t node, double *out):
+        out[node] = curr
+        if self.isoforest.trees[tree][node].tree_left != 0:
+            self.fill_tree_weights_recursive(curr * self.isoforest.trees[tree][node].pct_tree_left, tree, self.isoforest.trees[tree][node].tree_left, out)
+            self.fill_tree_weights_recursive(curr * (1. - self.isoforest.trees[tree][node].pct_tree_left), tree, self.isoforest.trees[tree][node].tree_right, out)
+
     def get_expected_isolation_depth(self):
         return self.isoforest.exp_avg_depth
 
