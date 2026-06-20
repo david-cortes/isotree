@@ -35,6 +35,7 @@ Quick example notebooks
 * `As missing value imputer <https://github.com/david-cortes/isotree/blob/master/example/isotree_impute.ipynb>`_.
 * `As kernel for SVMs <https://github.com/david-cortes/isotree/blob/master/example/isotree_svm_kernel_example.ipynb>`_.
 * `Converting to treelite for faster predictions <https://github.com/david-cortes/isotree/blob/master/example/treelite_example.ipynb>`_.
+* `Explaining predictions through SHAP <https://github.com/david-cortes/isotree/blob/master/example/shap_example.ipynb>`_.
 
 
 Methods

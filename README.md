@@ -19,6 +19,7 @@ Short Python example notebooks:
 * [Using it as imputer in a scikit-learn pipeline](https://github.com/david-cortes/isotree/blob/master/example/isotree_impute.ipynb).
 * [Using it as a kernel for SVMs](https://github.com/david-cortes/isotree/blob/master/example/isotree_svm_kernel_example.ipynb).
 * [Converting it to TreeLite format for faster predictions](https://github.com/david-cortes/isotree/blob/master/example/treelite_example.ipynb).
+* [Explaining predictions through SHAP](https://github.com/david-cortes/isotree/blob/master/example/shap_example.ipynb).
 
 (R examples are available in the internal documentation)
 
@@ -264,6 +265,7 @@ See [external repository with wrapper](https://github.com/ankane/isotree).
     * [Example using it as imputer in a scikit-learn pipeline](https://github.com/david-cortes/isotree/blob/master/example/isotree_impute.ipynb).
     * [Example using it as a kernel for SVMs](https://github.com/david-cortes/isotree/blob/master/example/isotree_svm_kernel_example.ipynb).
     * [Example converting it to TreeLite format for faster predictions](https://github.com/david-cortes/isotree/blob/master/example/treelite_example.ipynb).
+    * [Example explaining predictions through SHAP](https://github.com/david-cortes/isotree/blob/master/example/shap_example.ipynb).
 * R: examples available in the documentation (`help(isotree::isolation.forest)`, [link to CRAN](https://cran.r-project.org/web/packages/isotree/index.html)).
 * C and C++: see short examples in the section above.
 * Ruby: see [external repository with wrapper](https://github.com/ankane/isotree).
