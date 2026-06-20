@@ -24,17 +24,17 @@ Note that it is only available in source form (not in binary wheel form), which 
 Introduction to the library and methods
 =======================================
 
-* `An introduction to Isolation Forests <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/an_introduction_to_isolation_forests.ipynb>`_.
+* `An introduction to Isolation Forests <https://github.com/david-cortes/isotree/blob/master/example/an_introduction_to_isolation_forests.ipynb>`_.
 
 
 Quick example notebooks
 =======================
 
-* `An introduction to Isolation Forests <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/an_introduction_to_isolation_forests.ipynb>`_.
-* `General library usage <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_example.ipynb>`_.
-* `As missing value imputer <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_impute.ipynb>`_.
-* `As kernel for SVMs <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/isotree_svm_kernel_example.ipynb>`_.
-* `Converting to treelite for faster predictions <https://nbviewer.jupyter.org/github/david-cortes/isotree/blob/master/example/treelite_example.ipynb>`_.
+* `An introduction to Isolation Forests <https://github.com/david-cortes/isotree/blob/master/example/an_introduction_to_isolation_forests.ipynb>`_.
+* `General library usage <https://github.com/david-cortes/isotree/blob/master/example/isotree_example.ipynb>`_.
+* `As missing value imputer <https://github.com/david-cortes/isotree/blob/master/example/isotree_impute.ipynb>`_.
+* `As kernel for SVMs <https://github.com/david-cortes/isotree/blob/master/example/isotree_svm_kernel_example.ipynb>`_.
+* `Converting to treelite for faster predictions <https://github.com/david-cortes/isotree/blob/master/example/treelite_example.ipynb>`_.
 
 
 Methods
