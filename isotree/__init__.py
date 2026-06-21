@@ -101,12 +101,14 @@ def _process_nthreads(nthreads, warn_if_no_omp=False):
     return nthreads
 
 try:
-    from sklearn.base import BaseEstimator
+    from sklearn.base import BaseEstimator, TransformerMixin
 except ImportError:
     class BaseEstimator:
         _non_sklearn_base = True
+    class TransformerMixin:
+        pass
 
-class IsolationForest(BaseEstimator):
+class IsolationForest(TransformerMixin, BaseEstimator):
     """
     Isolation Forest model
 
@@ -1725,6 +1727,9 @@ class IsolationForest(BaseEstimator):
         ### dependency on pandas, relying on polars for categorical encoding.
         self.ndim_ = self.ndim
 
+        if not isinstance(X, (pd.DataFrame, np.ndarray)) and hasattr(X, "to_pandas"):
+            X = X.to_pandas()
+
         if isinstance(X, pd.DataFrame):
 
             if not X.columns.is_unique:
@@ -1969,6 +1974,9 @@ class IsolationForest(BaseEstimator):
 
     def _process_data_new(self, X, allow_csr = True, allow_csc = True, prefer_row_major = False,
                           keep_new_cat_levels = False):
+        if not isinstance(X, (pd.DataFrame, np.ndarray)) and hasattr(X, "to_pandas"):
+            X = X.to_pandas()
+
         if isinstance(X, pd.DataFrame):
             if ((self.cols_numeric_.shape[0] + self.cols_categ_.shape[0]) > 0) and (self.categ_cols_ is None):
                 if self.categ_cols_ is None:
@@ -2728,6 +2736,13 @@ class IsolationForest(BaseEstimator):
                                             ctypes.c_bool(self.use_long_double).value,
                                             ctypes.c_int(nthreads_use).value)
         return self._rearrange_imputed(X, X_num, X_cat)
+
+    # A workaround to support sklearn's transform output
+    def get_feature_names_out(self):
+        out = np.r_[self.cols_numeric_, self.cols_categ_]
+        if not out.shape[0]:
+            out = [f"x{col}" for col in range(self._ncols_numeric + self._ncols_categ)]
+        return out
 
     def fit_transform(self, X, y = None, column_weights = None, categ_cols = None):
         """
